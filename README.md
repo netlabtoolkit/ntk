@@ -4,8 +4,14 @@ widgets-html5
 NETLab Toolkit JavaScript version
 
 To install:
-Clone this repository
-then run these commands in the directory:
+```
+git clone https://github.com/netlabtoolkit/widgets-html5.git
+cd widgets-html5
+bower install
+npm install
+```
 
-  bower install
-  npm install
+To run the server after installation run grunt in the directory:
+```
+grunt
+```
