@@ -1,0 +1,18 @@
+@media -sass-debug-info{filename{font-family:file\:\/\/\/Users\/scott\/dev\/widgets-html5\/app\/styles\/AnalogIn\.scss}line{font-family:\000032}}
+.analogIn {
+  position: absolute;
+  top: 50px;
+  left: 30px;
+  display: block;
+  width: 100px;
+  height: 200px;
+  margin: 0;
+  padding: 15px;
+  background-color: #0c0;
+  border: 1px solid #666;
+  border-radius: 5px;
+}
+@media -sass-debug-info{filename{font-family:file\:\/\/\/Users\/scott\/dev\/widgets-html5\/app\/styles\/AnalogIn\.scss}line{font-family:\0000318}}
+.analogIn input {
+  width: 80px;
+}
