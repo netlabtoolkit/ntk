@@ -11,7 +11,7 @@ function( Backbone, Communicator, MainRouter, PatcherModule ) {
 
 	var App = new Backbone.Marionette.Application();
 
-	/* Add application regions here */
+	// Regions
 	App.addRegions({
 		patcherRegion: '#patcherRegion',
 		toolBar: '#toolBar',
@@ -105,7 +105,7 @@ function( Backbone, Communicator, MainRouter, PatcherModule ) {
 	//hubConnect(hubInitConnect, hubFinishConnect, "Hub", 80);
 
 
-	/* Add initializers here */
+	// Initializers
 	App.addInitializer( function () {
 		//document.body.innerHTML = welcomeTmpl({ success: "CONGRATS!" });
 		Communicator.mediator.trigger("APP:START");
