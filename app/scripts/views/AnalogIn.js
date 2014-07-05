@@ -15,13 +15,7 @@ function(Backbone, WidgetView, Template){
 
 			var self = this;
 
-			console.log('binding');
-			window.io.on('ping', function() {
-				console.log('PING PING PING');
-			});
-
 			window.io.on(this.config.mappings.in, function(value) {
-				console.log('receiving', self.model, self.config.mappings.in, value);
 				if(self.model) {
 					self.model.set(self.config.mappings.in, value);
 				}
