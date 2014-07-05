@@ -6,45 +6,45 @@ define([
 function( Backbone, Widget, WidgetsTmpl  ) {
     'use strict';
 
-	/* Return a CompositeView class definition */
-	return Backbone.Marionette.CompositeView.extend({
-
-		initialize: function() {
-			console.log("initialize a Widgets CompositeView");
-			this.i = 0;
-		},
-
-    	itemView: Widget,
-    	childView: Widget,
-
+	return Backbone.View.extend({
+		events: {},
+		subViews: [],
     	template: WidgetsTmpl,
 		className: 'widgets',
 
-
-    	/* ui selector cache */
-    	ui: {},
-
-    	/* where are we appending the items views */
-    	itemViewContainer: "",
-
-		/* Ui events hash */
-		events: {},
-
-		// Build a `childView` for a model in the collection.
-		buildChildView: function(child, ChildViewClass, childViewOptions) {
-			var options = _.extend({model: child}, childViewOptions);
-			//console.log(new ChildViewClass({controlParameter: 'left'}).className);
-			//return new ChildViewClass(options);
-			var params = ['left', 'top'];
-			_.extend(options, {controlParameter: params[this.i]});
-			this.i++;
-			return new child.view(options);
+		initialize: function() {
+			this.i = 0;
 		},
+		render: function() {
+			this.el.innerHTML = this.template();
 
-		/* on render callback */
-		onRender: function() {
-			//console.log(this);
-		}
+			this.renderSubViews();
+		},
+        /**
+         * render all sub views in the subViews array
+         *
+         * @return {void}
+         */
+		renderSubViews: function() {
+
+			var subViews = this.subViews;
+
+			for(var i=subViews.length-1; i >=0; i--) {
+				this.el.appendChild(subViews[i].render().el);
+			}
+		},
+        /**
+         * add a sub view to this element and store it in the subViews array
+         *
+         * @param {Backbone.View} view
+         * @return {Backbone.View} this view
+         */
+		addView: function(view) {
+			this.subViews.push(view);
+			this.el.appendChild(view.render().el);
+
+			return this;
+		},
 	});
 
 });

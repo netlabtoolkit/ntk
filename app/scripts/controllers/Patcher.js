@@ -6,18 +6,21 @@ define([
 	'collections/Widgets',
 	'models/ArduinoUno',
 	'models/ModelMap',
+	'views/AnalogIn',
 ],
-function(app, Backbone, socketIO, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models){
+function(app, Backbone, socketIO, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
-		var widgetsCollection = new WidgetsCollection();
-		var arduinoModel = new ArduinoUnoModel();
 
-		widgetsCollection.add(arduinoModel);
-		widgetsCollection.models.push(arduinoModel);
+		//var widgetsCollection = new WidgetsCollection();
+		//var arduinoModel = new ArduinoUnoModel();
 
-		this.views.mainCanvas = new WidgetsView({ collection: widgetsCollection });
+		//widgetsCollection.add(arduinoModel);
+		//widgetsCollection.models.push(arduinoModel);
+
+		//this.views.mainCanvas = new WidgetsView({ collection: widgetsCollection });
+		this.views.mainCanvas = new WidgetsView();
 	};
 
 	PatcherController.prototype = {
@@ -28,6 +31,14 @@ function(app, Backbone, socketIO, WidgetsView, WidgetsCollection, ArduinoUnoMode
 		 */
 		views: {},
 		/**
+		 * All currently active widgets
+		 *
+		 * @return {Array}
+		 */
+		widgets: [],
+		activeModels: {},
+		modelInstances: {},
+		/**
 		 * Add the main view to the parent region
 		 *
 		 * @return
@@ -36,13 +47,15 @@ function(app, Backbone, socketIO, WidgetsView, WidgetsCollection, ArduinoUnoMode
 			window.io = socketIO.connect('http://localhost:9000');
 
 			this.parentRegion.show(this.views.mainCanvas);
+
+			var analogInView = new AnalogInView();
+			this.addWidgetToStage(analogInView);
+			this.mapToModel({
+				view: analogInView,
+				modelType: 'ArduinoUno',
+				server: 'http://localhost:9000',
+			});
 		},
-		/**
-		 * All currently active widgets
-		 *
-		 * @return {Array}
-		 */
-		widgets: [],
 		/**
 		 * Render a view to the appropriate Canvas DOM element
 		 *
@@ -50,7 +63,7 @@ function(app, Backbone, socketIO, WidgetsView, WidgetsCollection, ArduinoUnoMode
 		 * @return
 		 */
 		addWidgetToStage: function(view) {
-			this.views.mainCanvas.el.appendChild(view.render().el);
+			this.views.mainCanvas.addView(view);
 		},
 		/**
 		 * Assign a model to a view, instantiating the model if one is not instantiated yet
@@ -78,6 +91,9 @@ function(app, Backbone, socketIO, WidgetsView, WidgetsCollection, ArduinoUnoMode
 
 				view.model = newModelInstance;
 			}
+
+			// render the view to reassociate bindings and update any changes
+			view.render();
 
 			return view;
 		},

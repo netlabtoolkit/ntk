@@ -8,7 +8,6 @@ function( Backbone, Communicator ) {
 	var RegionManager = Backbone.Marionette.Controller.extend({
 
 		initialize: function( options ) {
-			console.log("Initialize a Region Manager");
 
 			/* internal region manager */
 			this._regionManager = new Backbone.Marionette.RegionManager();

@@ -10,15 +10,24 @@ function(Backbone, WidgetView, Template){
 		className: 'analogIn',
 		template: _.template(Template),
 		initialize: function(options) {
-			this.config = options;
+			// extend and assign with custom options/values
+			_.extend(this.config, options);
 
 			var self = this;
-			window.io.on('A0', function(value) {
-				self.model.set('A0', value);
 
-				self.$el.css(self.config.controlParameter, value * 3);
+			console.log('binding');
+			window.io.on('ping', function() {
+				console.log('PING PING PING');
 			});
 
+			window.io.on(this.config.mappings.in, function(value) {
+				console.log('receiving', self.model, self.config.mappings.in, value);
+				if(self.model) {
+					self.model.set(self.config.mappings.in, value);
+				}
+
+				//self.$el.css(self.config.controlParameter, value * 3);
+			});
 
 		},
 

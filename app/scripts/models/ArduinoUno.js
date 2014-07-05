@@ -1,17 +1,12 @@
 define([
 	'backbone',
 	'models/Widget',
-	'views/AnalogIn',
 ],
-function( Backbone, WidgetModel, WidgetView ) {
+function( Backbone, WidgetModel ) {
     'use strict';
 
 	/* Return a model class definition */
 	var ArduinoUno = WidgetModel.extend({
-		initialize: function() {
-			console.log("initialize a Arduinouno model");
-		},
-		view: WidgetView,
 
 		defaults: {
 			A0: 0,

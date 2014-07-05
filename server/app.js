@@ -64,36 +64,42 @@ var five = require("johnny-five"),
 
 	var socketIO = require('socket.io');
 	var io = socketIO.listen(server);
-	io.on('connection', function(socket){
-		console.log('a user connected');
-
-		socket.emit('ping');
-
-		socket.on('blink', function(value) {
-			console.log('blink!!!!');
-
-			var led = new five.Led({
-				pin: 11,
-			});
-
-			led.pulse(value);
-
+	var sensor;
+	board.on("ready", function() {
+		// Create a new `sensor` hardware instance.
+		sensor = new five.Sensor({
+			pin: "A0",
+			freq: 150
 		});
 
-		var sensor;
-		board.on("ready", function() {
+		board.repl.inject({
+			sensor: sensor
+		});
 
-			// Create a new `sensor` hardware instance.
-			sensor = new five.Sensor({
-				pin: "A0",
-				freq: 150
+		//sensor.scale([0, 100]).on("data", function() {
+			//console.log('A0', this.value );
+			//socket.emit('A0', Math.floor(this.value));
+		//});
+
+		io.on('connection', function(socket){
+			console.log('a user connected');
+
+			socket.emit('ping');
+
+			socket.on('blink', function(value) {
+				console.log('blink!!!!');
+
+				var led = new five.Led({
+					pin: 11,
+				});
+
+				led.pulse(value);
+
 			});
 
-			board.repl.inject({
-				sensor: sensor
-			});
 
 			sensor.scale([0, 100]).on("data", function() {
+				console.log('A0', this.value );
 				socket.emit('A0', Math.floor(this.value));
 			});
 
