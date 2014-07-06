@@ -41,6 +41,8 @@ function( Backbone, rivets, WidgetTmpl  ) {
 				rivets.bind(this.$el, {hw: this.model});
 				//this.listenTo(this.model, 'change', this.sendMessage);
 			}
+
+			this.$el.drags();
 		},
 
 	});

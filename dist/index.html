@@ -19,11 +19,14 @@
         
 
         <script src="scripts/vendor/modernizr.js"></script>
+		<script src="/socket.io/socket.io.js"></script>	
 
     </head>
 
     <body>
 
+		<div id="patcherRegion">
+		</div>
         <script data-main="scripts/main" src="bower_components/requirejs/require.js"></script>
 
         <script>document.write('<script src="http://'

@@ -69,7 +69,7 @@ var five = require("johnny-five"),
 		// Create a new `sensor` hardware instance.
 		sensor = new five.Sensor({
 			pin: "A0",
-			freq: 150
+			freq: 80
 		});
 
 		board.repl.inject({
@@ -84,8 +84,6 @@ var five = require("johnny-five"),
 		io.on('connection', function(socket){
 			console.log('a user connected');
 
-			socket.emit('ping');
-
 			socket.on('blink', function(value) {
 				console.log('blink!!!!');
 
@@ -99,7 +97,6 @@ var five = require("johnny-five"),
 
 
 			sensor.scale([0, 100]).on("data", function() {
-				console.log('A0', this.value );
 				socket.emit('A0', Math.floor(this.value));
 			});
 

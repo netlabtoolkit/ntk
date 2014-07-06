@@ -1,13 +1,13 @@
 define([
 	'backbone',
 	'views/item/Widget',
-	'text!tmpl/AnalogIn_tmpl.js'
+	'text!tmpl/ElementControl_tmpl.js'
 ],
 function(Backbone, WidgetView, Template){
     'use strict';
 
 	return WidgetView.extend({
-		className: 'analogIn',
+		className: 'elementControl',
 		template: _.template(Template),
 		initialize: function(options) {
 			// extend and assign with custom options/values
@@ -21,7 +21,7 @@ function(Backbone, WidgetView, Template){
 				}
 
 				//self.$el.css(self.config.controlParameter, value * 3);
-				//self.$el.css('left', (value/100) * window.innerWidth);
+				self.$('.element').css('left', (value/100) * window.innerWidth);
 			});
 
 		},

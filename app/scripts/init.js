@@ -7,9 +7,9 @@ require.config({
 
 
     shim: {
-        socketIO: {
-			exports: 'io',
-		},
+		//socketIO: {
+			//exports: 'io',
+		//},
         backbone: {
             deps: [
                 'underscore',
@@ -48,7 +48,6 @@ require.config({
         json2: '../bower_components/require-handlebars-plugin/hbs/json2',
         hbs: '../bower_components/require-handlebars-plugin/hbs',
         rivets: '../bower_components/rivets/dist/rivets',
-        socketIO: '/socket.io/socket.io',
     },
 
     hbs: {

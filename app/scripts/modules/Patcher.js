@@ -1,10 +1,9 @@
 define([
 	'application',
 	'backbone',
-	'socketIO',
 	'controllers/Patcher',
 ],
-function(app, Backbone, socketIO, PatcherController){
+function(app, Backbone, PatcherController){
     'use strict';
 
 	var Patcher = function PatcherConstructor(Patcher, Parent) {

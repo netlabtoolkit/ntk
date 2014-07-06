@@ -1,14 +1,15 @@
 define([
 	'application',
 	'backbone',
-	'socketIO',
+	//'socketIO',
 	'views/composite/Widgets',
 	'collections/Widgets',
 	'models/ArduinoUno',
 	'models/ModelMap',
 	'views/AnalogIn',
+	'views/ElementControl',
 ],
-function(app, Backbone, socketIO, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView){
+function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, ElementControlView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -44,26 +45,35 @@ function(app, Backbone, socketIO, WidgetsView, WidgetsCollection, ArduinoUnoMode
 		 * @return
 		 */
 		attachMainViews: function() {
-			window.io = socketIO.connect('http://localhost:9000');
+			var serverAddress = window.location.host;
+			//window.io = socketIO.connect(serverAddress);
+			window.socketIO = window.io.connect(serverAddress);
 
 			this.parentRegion.show(this.views.mainCanvas);
 
 			var analogInView = new AnalogInView();
-			this.addWidgetToStage(analogInView);
-			this.mapToModel({
+			this.addWidgetToStage(analogInView).mapToModel({
 				view: analogInView,
 				modelType: 'ArduinoUno',
-				server: 'http://localhost:9000',
+				server: serverAddress,
+			});
+
+			var elementControlView = new ElementControlView();
+			this.addWidgetToStage(elementControlView).mapToModel({
+				view: elementControlView,
+				modelType: 'ArduinoUno',
+				server: serverAddress,
 			});
 		},
 		/**
 		 * Render a view to the appropriate Canvas DOM element
 		 *
 		 * @param view
-		 * @return
+		 * @return {object} this controller
 		 */
 		addWidgetToStage: function(view) {
 			this.views.mainCanvas.addView(view);
+			return this;
 		},
 		/**
 		 * Assign a model to a view, instantiating the model if one is not instantiated yet
