@@ -9,6 +9,9 @@ function(Backbone, WidgetView, Template){
 	return WidgetView.extend({
 		className: 'elementControl',
 		template: _.template(Template),
+		onSync: function() {
+			window.socketIO.emit('out9', this.model.get('in'));
+		},
 	});
 });
 

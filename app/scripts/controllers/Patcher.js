@@ -13,14 +13,6 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
-
-		//var widgetsCollection = new WidgetsCollection();
-		//var arduinoModel = new ArduinoUnoModel();
-
-		//widgetsCollection.add(arduinoModel);
-		//widgetsCollection.models.push(arduinoModel);
-
-		//this.views.mainCanvas = new WidgetsView({ collection: widgetsCollection });
 		this.views.mainCanvas = new WidgetsView();
 	};
 
@@ -52,6 +44,8 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 			this.parentRegion.show(this.views.mainCanvas);
 
 			var analogInView = new AnalogInView();
+			this.addWidgetToStage(analogInView);
+			// app.Patcher.Controller.mapToModel({view: app.Patcher.Controller.widgets[0], modelType: 'ArduinoUno', server: 'localhost:9000'});
 			this.addWidgetToStage(analogInView).mapToModel({
 				view: analogInView,
 				modelType: 'ArduinoUno',
@@ -65,7 +59,6 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 			this.addWidgetToStage(elementControlView).mapToModel({
 				view: elementControlView,
 				model: analogInView.model,
-				server: serverAddress,
 			});
 		},
 		/**
@@ -76,6 +69,7 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 		 */
 		addWidgetToStage: function(view) {
 			this.views.mainCanvas.addView(view);
+			this.widgets.push(view);
 			return this;
 		},
 		/**

@@ -15,6 +15,7 @@ function( Backbone, DestinationModel ) {
 		defaults: {
 			A0: 0,
 			A1: 0,
+			out9: 0,
 		},
 
     });

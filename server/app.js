@@ -64,12 +64,17 @@ var five = require("johnny-five"),
 
 	var socketIO = require('socket.io');
 	var io = socketIO.listen(server);
-	var sensor;
+	var sensor,
+		servo;
 	board.on("ready", function() {
 		// Create a new `sensor` hardware instance.
 		sensor = new five.Sensor({
 			pin: "A0",
 			freq: 80
+		});
+		servo = five.Servo({
+			pin: 9,
+			range: [0,170],
 		});
 
 		board.repl.inject({
@@ -95,6 +100,9 @@ var five = require("johnny-five"),
 
 			});
 
+			socket.on('out9', function(value) {
+				servo.to(value);
+			});
 
 			sensor.scale([0, 100]).on("data", function() {
 				socket.emit('A0', Math.floor(this.value));

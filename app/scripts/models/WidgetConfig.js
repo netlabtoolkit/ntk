@@ -14,6 +14,9 @@ function( Backbone ) {
 		},
 
 		defaults: {
+			active: true,
+			smoothing: false,
+			easing: false,
 			inputMapping: 'A0',
 			in: 0,
 			out: 0,

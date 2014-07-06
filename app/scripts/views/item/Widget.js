@@ -28,8 +28,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 				this.el.className += " widget";
 			}
 
+			rivets.bind(this.$el, {widget: this.model});
+
 			if(this.destinationModel) {
-				rivets.bind(this.$el, {widget: this.model});
 				this.listenTo(this.destinationModel, 'change', this.syncWithDestinationModel);
 			}
 
@@ -44,6 +45,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 				el.style.top = parseInt( value, 10 ) + "px";
 			};
 		},
+		onSync: function() {},
         /**
          * Takes the attributes from the destinationModel and maps them onto the selected attributes of the Widget's model
          *
@@ -51,22 +53,28 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
          * @return
          */
 		syncWithDestinationModel: function(model) {
-			//console.log('sync', model);
-			// Check if there is a mapping for the attribute given and map it if so
-			for(var property in model.attributes) {
+			// check if the widget is "turned on"
+			if(this.model.get('active')) {
+				// Check if there is a mapping for the attribute given and map it if so
+				for(var property in model.attributes) {
 
-				for(var widgetProperty in this.model.attributes) {
+					for(var widgetProperty in this.model.attributes) {
 
-					if(this.model.attributes[widgetProperty] === property) {
-						if(widgetProperty === 'inputMapping') {
-							this.model.set('in', model.attributes[property]);
-						}
-						else {
-							this.model.set('out', model.attributes[property]);
+						if(this.model.attributes[widgetProperty] === property) {
+							if(widgetProperty === 'inputMapping') {
+								this.model.set('in', model.attributes[property]);
+							}
+							else {
+								this.model.set('out', model.attributes[property]);
+							}
 						}
 					}
 				}
 			}
+
+			this.onSync();
+		},
+		mapToDestinationModel: function(model) {
 		},
 
 	});
