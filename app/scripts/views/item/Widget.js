@@ -2,7 +2,8 @@ define([
 	'backbone',
 	'rivets',
 	'models/WidgetConfig',
-	'text!tmpl/item/Widget_tmpl.js'
+	'text!tmpl/item/Widget_tmpl.js',
+	'jqueryui',
 ],
 function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
     'use strict';
@@ -31,6 +32,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 				rivets.bind(this.$el, {widget: this.model});
 				this.listenTo(this.destinationModel, 'change', this.syncWithDestinationModel);
 			}
+
+			this.$el.draggable();
 
 		},
 		setWidgetBinders: function() {

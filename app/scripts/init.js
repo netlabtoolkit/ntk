@@ -7,9 +7,12 @@ require.config({
 
 
     shim: {
-		//socketIO: {
-			//exports: 'io',
-		//},
+		jqueryui: {
+			exports: 'jqueryui',
+            deps: [
+                'jquery'
+            ],
+		},
         backbone: {
             deps: [
                 'underscore',
@@ -25,6 +28,7 @@ require.config({
 
     paths: {
         jquery: '../bower_components/jquery/jquery',
+        jqueryui: '//code.jquery.com/ui/1.11.0/jquery-ui.min',
         backbone: '../bower_components/backbone-amd/backbone',
         underscore: '../bower_components/underscore-amd/underscore',
 
