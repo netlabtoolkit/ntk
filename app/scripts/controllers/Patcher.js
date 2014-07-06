@@ -7,9 +7,10 @@ define([
 	'models/ArduinoUno',
 	'models/ModelMap',
 	'views/AnalogIn',
+	'views/AnalogOut',
 	'views/ElementControl',
 ],
-function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, ElementControlView){
+function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, AnalogOutView, ElementControlView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -59,6 +60,15 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 			this.addWidgetToStage(elementControlView).mapToModel({
 				view: elementControlView,
 				model: analogInView.model,
+			});
+			var analogOutView = new AnalogOutView({
+				outputMapping: 'out9',
+			});
+			this.addWidgetToStage(analogOutView);
+			this.addWidgetToStage(analogInView).mapToModel({
+				view: analogOutView,
+				modelType: 'ArduinoUno',
+				server: serverAddress,
 			});
 		},
 		/**
