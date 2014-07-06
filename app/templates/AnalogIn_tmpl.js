@@ -1,6 +1,6 @@
 <div class="title">
 	Analog In
 </div>
-<input type="range" rv-value="hw:A0"/>
-<span class="text" rv-text="hw:A0">Helllooo</span>
+<input type="range" rv-value="widget:in"/>
+<span class="text" rv-text="widget:in">Helllooo</span>
 

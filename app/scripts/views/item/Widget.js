@@ -1,48 +1,69 @@
 define([
 	'backbone',
 	'rivets',
+	'models/WidgetConfig',
 	'text!tmpl/item/Widget_tmpl.js'
 ],
-function( Backbone, rivets, WidgetTmpl  ) {
+function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
     'use strict';
 
-	/* Return a ItemView class definition */
+    /**
+     * Widget view base class
+     *
+     * @return {Backbone.Marionette.ItemView}
+     */
 	return Backbone.Marionette.ItemView.extend({
 		events: {},
-		config: {
-			server: 'http://localhost',
-			smoothing: false,
-			ease: false,
-			mappings: {
-				in: 'A0',
-				out: '13',
-			}
-		},
 
 		className: 'widget',
 		template: _.template( WidgetTmpl ),
 
-		initialize: function() {
-			//window.io.on('A0', $.proxy(this.setAnalog,this));
-			var self = this;
-			//window.io.on('A0', function(value) {
-				//console.log('hello', value, self.model);
-				//if(self.model){
-					//self.model.set('A0', value);
-				//}
-			//});
+		initialize: function(options) {
+			this.model = new WidgetConfigModel(options);
+			this.setWidgetBinders();
 		},
 		onRender: function() {
-			rivets.binders.color = function(el, value) {
-				el.style.color = 'rgb(' + (parseInt( value, 10 )*2 + 55)+ ',0,255)';
-			};
-
-			if(this.model) {
-				rivets.bind(this.$el, {hw: this.model});
-				//this.listenTo(this.model, 'change', this.sendMessage);
+			if(!this.el.className.match(/ widget/)) {
+				this.el.className += " widget";
 			}
 
-			this.$el.drags();
+			if(this.destinationModel) {
+				rivets.bind(this.$el, {widget: this.model});
+				this.listenTo(this.destinationModel, 'change', this.syncWithDestinationModel);
+			}
+
+		},
+		setWidgetBinders: function() {
+			rivets.binders.positionx = function(el, value) {
+				el.style.left = parseInt( value, 10 ) + "px";
+			};
+			rivets.binders.positiony = function(el, value) {
+				el.style.top = parseInt( value, 10 ) + "px";
+			};
+		},
+        /**
+         * Takes the attributes from the destinationModel and maps them onto the selected attributes of the Widget's model
+         *
+         * @param model
+         * @return
+         */
+		syncWithDestinationModel: function(model) {
+			//console.log('sync', model);
+			// Check if there is a mapping for the attribute given and map it if so
+			for(var property in model.attributes) {
+
+				for(var widgetProperty in this.model.attributes) {
+
+					if(this.model.attributes[widgetProperty] === property) {
+						if(widgetProperty === 'inputMapping') {
+							this.model.set('in', model.attributes[property]);
+						}
+						else {
+							this.model.set('out', model.attributes[property]);
+						}
+					}
+				}
+			}
 		},
 
 	});

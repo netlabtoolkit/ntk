@@ -4,12 +4,17 @@ define([
 function( Backbone ) {
     'use strict';
 
-	/* Return a model class definition */
+    /**
+     * DestinationModel
+     *
+     * @return {Backbone.Model}
+     */
 	return Backbone.Model.extend({
 		initialize: function() {
 		},
 
-		defaults: {},
+		defaults: {
+		},
 
     });
 });

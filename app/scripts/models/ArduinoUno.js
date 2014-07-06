@@ -1,12 +1,16 @@
 define([
 	'backbone',
-	'models/Widget',
+	'models/Destination',
 ],
-function( Backbone, WidgetModel ) {
+function( Backbone, DestinationModel ) {
     'use strict';
 
-	/* Return a model class definition */
-	var ArduinoUno = WidgetModel.extend({
+    /**
+     * ArduinoUno Model containing Arduino Uno specific properties and defaults
+     *
+     * @return
+     */
+	var ArduinoUno = DestinationModel.extend({
 
 		defaults: {
 			A0: 0,

@@ -1,11 +1,10 @@
 define([
 	'backbone',
-	'models/Widget',
+	'models/WidgetConfig',
 ],
 function( Backbone, WidgetModel ) {
     'use strict';
 
-	/* Return a collection class definition */
 	return Backbone.Collection.extend({
 		initialize: function() {
 			console.log("initialize a Widgets collection");

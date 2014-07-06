@@ -10,16 +10,15 @@ function(Backbone, WidgetView, Template){
 		className: 'elementControl',
 		template: _.template(Template),
 		initialize: function(options) {
-			// extend and assign with custom options/values
-			_.extend(this.config, options);
+			// Call the superclass constructor
+			WidgetView.prototype.initialize.call(this, options);
 
 			var self = this;
 
-			window.socketIO.on(this.config.mappings.in, function(value) {
+			window.socketIO.on(this.model.get('inputMapping'), function(value) {
 				if(self.model) {
-					self.model.set(self.config.mappings.in, value);
+					self.destinationModel.set(self.model.get('inputMapping'), value);
 				}
-
 				//self.$el.css(self.config.controlParameter, value * 3);
 				self.$('.element').css('left', (value/100) * window.innerWidth);
 			});

@@ -38,7 +38,7 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 		 */
 		widgets: [],
 		activeModels: {},
-		modelInstances: {},
+		destinationModelInstances: {},
 		/**
 		 * Add the main view to the parent region
 		 *
@@ -58,10 +58,13 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 				server: serverAddress,
 			});
 
-			var elementControlView = new ElementControlView();
+			var elementControlView = new ElementControlView({
+				inputMapping: 'in',
+			});
+
 			this.addWidgetToStage(elementControlView).mapToModel({
 				view: elementControlView,
-				modelType: 'ArduinoUno',
+				model: analogInView.model,
 				server: serverAddress,
 			});
 		},
@@ -85,23 +88,29 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 		mapToModel: function(options) {
 
 			var modelType = options.modelType,
+				destinationModel = options.model,
 				view = options.view,
 				server = options.server,
 				modelServerQuery = modelType + ":" + server;
 
-			if(this.activeModels[modelServerQuery]) {
-				view.model = this.modelInstances[modelServerQuery].model;
+			if(destinationModel) {
+				view.destinationModel = destinationModel;
 			}
 			else {
-				var newModelInstance = new Models[modelType]();
-				this.modelInstances[modelServerQuery] = {
-					model: newModelInstance,
-					server: server,
-				};
 
-				view.model = newModelInstance;
+				if(this.activeModels[modelServerQuery]) {
+					view.destinationModel = this.destinationModelInstances[modelServerQuery].model;
+				}
+				else {
+					var newModelInstance = new Models[modelType]();
+					this.destinationModelInstances[modelServerQuery] = {
+						model: newModelInstance,
+						server: server,
+					};
+
+					view.destinationModel = newModelInstance;
+				}
 			}
-
 			// render the view to reassociate bindings and update any changes
 			view.render();
 
