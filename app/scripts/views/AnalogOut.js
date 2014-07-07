@@ -18,7 +18,7 @@ function(Backbone, WidgetView, Template){
 			this.listenTo(this.model, 'change', this.sendData);
 		},
 		sendData: function() {
-			window.socketIO.emit(this.model.get('outputMapping'), this.model.get('in') )
+			window.socketIO.emit(this.model.get('outputMapping'), this.model.get('out') )
 		},
 	});
 });

@@ -62,10 +62,12 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 
 						if(this.model.attributes[widgetProperty] === property) {
 							if(widgetProperty === 'inputMapping') {
+								//console.log(model.attributes, model.cid);
 								this.model.set('in', model.attributes[property]);
 							}
 							else {
-								this.model.set('out', model.attributes[property]);
+								model.set('out', this.model.attributes[property]);
+								//this.model.set('out', model.attributes[property]);
 							}
 						}
 					}

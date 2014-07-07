@@ -16,6 +16,7 @@ function(Backbone, WidgetView, Template){
 			var self = this;
 
 			window.socketIO.on(this.model.get('inputMapping'), function(value) {
+				//if(self.destinationModel && self.model.get('active')) {
 				if(self.destinationModel) {
 					self.destinationModel.set(self.model.get('inputMapping'), value);
 				}

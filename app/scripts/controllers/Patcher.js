@@ -1,7 +1,6 @@
 define([
 	'application',
 	'backbone',
-	//'socketIO',
 	'views/composite/Widgets',
 	'collections/Widgets',
 	'models/ArduinoUno',
@@ -30,7 +29,6 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 		 * @return {Array}
 		 */
 		widgets: [],
-		activeModels: {},
 		destinationModelInstances: {},
 		/**
 		 * Add the main view to the parent region
@@ -44,7 +42,9 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 
 			this.parentRegion.show(this.views.mainCanvas);
 
-			var analogInView = new AnalogInView();
+			var analogInView = new AnalogInView({
+				inputMapping: 'A0',
+			});
 			this.addWidgetToStage(analogInView);
 			// app.Patcher.Controller.mapToModel({view: app.Patcher.Controller.widgets[0], modelType: 'ArduinoUno', server: 'localhost:9000'});
 			this.addWidgetToStage(analogInView).mapToModel({
@@ -64,8 +64,7 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 			var analogOutView = new AnalogOutView({
 				outputMapping: 'out9',
 			});
-			this.addWidgetToStage(analogOutView);
-			this.addWidgetToStage(analogInView).mapToModel({
+			this.addWidgetToStage(analogOutView).mapToModel({
 				view: analogOutView,
 				modelType: 'ArduinoUno',
 				server: serverAddress,
@@ -101,8 +100,7 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 				view.destinationModel = destinationModel;
 			}
 			else {
-
-				if(this.activeModels[modelServerQuery]) {
+				if(this.destinationModelInstances[modelServerQuery]) {
 					view.destinationModel = this.destinationModelInstances[modelServerQuery].model;
 				}
 				else {
