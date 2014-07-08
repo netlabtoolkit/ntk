@@ -33,9 +33,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 			if(this.sourceModel) {
 				this.listenTo(this.sourceModel, 'change', this.syncWithSourceModel);
 			}
+			if(this.destinationModel) {
+				this.listenTo(this.destinationModel, 'change', this.syncWithSourceModel);
+			}
 
 			this.$el.draggable();
 
+			window.CC = this;
 		},
 		setWidgetBinders: function() {
 			rivets.binders.positionx = function(el, value) {

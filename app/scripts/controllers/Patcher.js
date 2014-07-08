@@ -50,6 +50,7 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 			this.addWidgetToStage(analogInView).mapToModel({
 				view: analogInView,
 				modelType: 'ArduinoUno',
+				IOMapping: 'in',
 				server: serverAddress,
 			});
 
@@ -60,15 +61,24 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 			this.addWidgetToStage(elementControlView).mapToModel({
 				view: elementControlView,
 				model: analogInView.model,
+				IOMapping: 'in',
 			});
 			var analogOutView = new AnalogOutView({
+				inputMapping: 'in',
 				outputMapping: 'out9',
 			});
-			this.addWidgetToStage(analogOutView).mapToModel({
-				view: analogOutView,
-				modelType: 'ArduinoUno',
-				server: serverAddress,
-			});
+			this.addWidgetToStage(analogOutView)
+				.mapToModel({
+					view: analogOutView,
+					IOMapping: 'out',
+					modelType: 'ArduinoUno',
+					server: serverAddress,
+				})
+				.mapToModel({
+					view: analogOutView,
+					model: analogInView.model,
+					IOMapping: 'in',
+				});
 		},
 		/**
 		 * Render a view to the appropriate Canvas DOM element
@@ -91,17 +101,25 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 		mapToModel: function(options) {
 
 			var modelType = options.modelType,
-				sourceModel = options.model,
+				model = options.model,
+				IOMapping = options.IOMapping,
 				view = options.view,
 				server = options.server,
 				modelServerQuery = modelType + ":" + server;
 
-			if(sourceModel) {
-				view.sourceModel = sourceModel;
+			if(IOMapping === 'in') {
+				var modelPropertyName = 'sourceModel';
+			}
+			else {
+				var modelPropertyName = 'destinationModel';
+			}
+
+			if(model) {
+				view[modelPropertyName] = model;
 			}
 			else {
 				if(this.hardwareModelInstances[modelServerQuery]) {
-					view.sourceModel = this.hardwareModelInstances[modelServerQuery].model;
+					view[modelPropertyName] = this.hardwareModelInstances[modelServerQuery].model;
 				}
 				else {
 					var newModelInstance = new Models[modelType]();
@@ -110,13 +128,13 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 						server: server,
 					};
 
-					view.sourceModel = newModelInstance;
+					view[modelPropertyName] = newModelInstance;
 				}
 			}
 			// render the view to reassociate bindings and update any changes
 			view.render();
 
-			return view;
+			return this;
 		},
 	};
 
