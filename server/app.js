@@ -9,8 +9,14 @@ var hbs = require('express-hbs');
 //var baucis = require('baucis');
 //var mongoose = require('mongoose');
 
-var five = require("johnny-five"),
-	board = five.Board();
+var five = require("johnny-five");
+
+var board = five.Board();
+
+// stop gap to handle when no board is plugged in. Will switch to domain when we setup a proper server
+process.on('uncaughtException', function(err) {
+	  console.log('Caught exception: ' + err);
+});
 
 // start mongoose
 //mongoose.connect('mongodb://localhost/sit');
