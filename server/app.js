@@ -110,7 +110,7 @@ var five = require("johnny-five"),
 
 		});
 	});
-	server.listen(9000, function(){
+	server.listen(9001, function(){
 		console.log('Express App started!');
 	});
 

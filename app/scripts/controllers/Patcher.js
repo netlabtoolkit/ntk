@@ -42,6 +42,8 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 
 			this.parentRegion.show(this.views.mainCanvas);
 
+			// MANUALLY MAPPING VIEWS FOR TESTING ////////////////////////////
+
 			var analogInView = new AnalogInView({
 				inputMapping: 'A0',
 			});
@@ -79,6 +81,9 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 					model: analogInView.model,
 					IOMapping: 'in',
 				});
+
+			//////////////////////////////////////////////////////////////////
+
 		},
 		/**
 		 * Render a view to the appropriate Canvas DOM element
