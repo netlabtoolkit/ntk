@@ -101,7 +101,6 @@ var five = require("johnny-five"),
 			});
 
 			socket.on('out9', function(value) {
-				//console.log('out9 > ', value);
 				servo.to(value);
 			});
 

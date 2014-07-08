@@ -29,7 +29,7 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 		 * @return {Array}
 		 */
 		widgets: [],
-		destinationModelInstances: {},
+		hardwareModelInstances: {},
 		/**
 		 * Add the main view to the parent region
 		 *
@@ -91,26 +91,26 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 		mapToModel: function(options) {
 
 			var modelType = options.modelType,
-				destinationModel = options.model,
+				sourceModel = options.model,
 				view = options.view,
 				server = options.server,
 				modelServerQuery = modelType + ":" + server;
 
-			if(destinationModel) {
-				view.destinationModel = destinationModel;
+			if(sourceModel) {
+				view.sourceModel = sourceModel;
 			}
 			else {
-				if(this.destinationModelInstances[modelServerQuery]) {
-					view.destinationModel = this.destinationModelInstances[modelServerQuery].model;
+				if(this.hardwareModelInstances[modelServerQuery]) {
+					view.sourceModel = this.hardwareModelInstances[modelServerQuery].model;
 				}
 				else {
 					var newModelInstance = new Models[modelType]();
-					this.destinationModelInstances[modelServerQuery] = {
+					this.hardwareModelInstances[modelServerQuery] = {
 						model: newModelInstance,
 						server: server,
 					};
 
-					view.destinationModel = newModelInstance;
+					view.sourceModel = newModelInstance;
 				}
 			}
 			// render the view to reassociate bindings and update any changes

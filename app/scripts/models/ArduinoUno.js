@@ -1,8 +1,8 @@
 define([
 	'backbone',
-	'models/Destination',
+	'models/Hardware',
 ],
-function( Backbone, DestinationModel ) {
+function( Backbone, HardwareModel ) {
     'use strict';
 
     /**
@@ -10,7 +10,7 @@ function( Backbone, DestinationModel ) {
      *
      * @return
      */
-	var ArduinoUno = DestinationModel.extend({
+	var ArduinoUno = HardwareModel.extend({
 
 		defaults: {
 			A0: 0,

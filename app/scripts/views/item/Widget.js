@@ -30,8 +30,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 
 			rivets.bind(this.$el, {widget: this.model});
 
-			if(this.destinationModel) {
-				this.listenTo(this.destinationModel, 'change', this.syncWithDestinationModel);
+			if(this.sourceModel) {
+				this.listenTo(this.sourceModel, 'change', this.syncWithSourceModel);
 			}
 
 			this.$el.draggable();
@@ -47,12 +47,12 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 		},
 		onSync: function() {},
         /**
-         * Takes the attributes from the destinationModel and maps them onto the selected attributes of the Widget's model
+         * Takes the attributes from the sourceModel and maps them onto the selected attributes of the Widget's model
          *
          * @param model
          * @return
          */
-		syncWithDestinationModel: function(model) {
+		syncWithSourceModel: function(model) {
 			// check if the widget is "turned on"
 			if(this.model.get('active')) {
 				// Check if there is a mapping for the attribute given and map it if so
@@ -62,10 +62,12 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 
 						if(this.model.attributes[widgetProperty] === property) {
 							if(widgetProperty === 'inputMapping') {
-								//console.log(model.attributes, model.cid);
+								// Ins always defer to the sourceModel
 								this.model.set('in', model.attributes[property]);
+								this.processSignalChain();
 							}
 							else {
+								// Outs always refer to the widget's model
 								model.set('out', this.model.attributes[property]);
 								//this.model.set('out', model.attributes[property]);
 							}
@@ -76,7 +78,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 
 			this.onSync();
 		},
-		mapToDestinationModel: function(model) {
+		mapToSourceModel: function(model) {
+		},
+		processSignalChain: function() {
+			this.model.set('out', this.model.get('in'));
 		},
 
 	});

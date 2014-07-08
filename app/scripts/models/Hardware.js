@@ -5,7 +5,7 @@ function( Backbone ) {
     'use strict';
 
     /**
-     * DestinationModel
+     * HardwareModel abstract base class for any hardware models that sync with a server
      *
      * @return {Backbone.Model}
      */
