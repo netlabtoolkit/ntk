@@ -54,7 +54,7 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 				});
 
 			var analogOutView = new AnalogOutView({
-				inputMapping: 'in',
+				//inputMapping: 'out',
 				outputMapping: 'out9',
 			});
 
@@ -76,7 +76,7 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 						imageSrc = 'http://payload294.cargocollective.com/1/4/130420/8181648/bDSC_1134.jpg';
 					}
 					var elementControlView = new ElementControlView({
-						inputMapping: 'in',
+						//inputMapping: 'out',
 						src: imageSrc,
 					});
 					self.addWidgetToStage(elementControlView);

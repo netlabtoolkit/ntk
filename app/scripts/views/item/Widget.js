@@ -23,6 +23,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 
 			'click .inlet .unMap': 'unMapInlet',
 		},
+		signalChainFunctions: [],
 
 		className: 'widget',
 		template: _.template( WidgetTmpl ),
@@ -30,6 +31,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 		initialize: function(options) {
 			this.model = new WidgetConfigModel(options);
 			this.setWidgetBinders();
+			this.model.on('change', this.processSignalChain, this);
 		},
 		onRender: function() {
 			if(!this.el.className.match(/ widget/)) {
@@ -47,16 +49,57 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 
 			this.$el.draggable({handle: '.dragHandle'});
 		},
+        /**
+         * attach custom rivets binders for Widget views
+         *
+         * @return
+         */
 		setWidgetBinders: function() {
+			var self = this;
 			rivets.binders.positionx = function(el, value) {
 				el.style.left = parseInt( value, 10 ) + "px";
 			};
 			rivets.binders.positiony = function(el, value) {
 				el.style.top = parseInt( value, 10 ) + "px";
 			};
-			rivets.binders.property = function(el, value) {
-				el.style.opacity = value/100;
+			rivets.binders['style-*'] = function(el, value) {
+				el.style.setProperty(this.args[0], value/100);
 			};
+			rivets.binders['style-activecontrol'] = function(el, value) {
+				var activeControl = this.model.get('activeControlParameter'),
+					constructedValue = value;
+
+				switch(activeControl) {
+					case 'top':
+					case 'left':
+					case 'bottom':
+					case 'right':
+						constructedValue += 'px';
+						break;
+					case 'opacity':
+						constructedValue /= 100;
+					default:
+						break;
+				}
+
+				el.style[activeControl] = constructedValue;
+			};
+			rivets.binders.selected = {
+				bind: function(el) {
+					var callback = function(e) {
+						self.model.set(this.keypath.split(':')[1], $(e.currentTarget).find('option:selected').val());
+					};
+
+					$(el).on('change', _.bind(callback,this));
+				},
+
+				unbind: function(el) {
+					$(el).off('change', this.callback);
+				},
+
+				routine: function(el, value) {
+				}
+			}
 		},
 		onDragStart: function(e) {
 			e.originalEvent.dataTransfer.effectAllowed = 'all';
@@ -109,12 +152,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 							if(widgetProperty === 'inputMapping') {
 								// Ins always defer to the sourceModel
 								this.model.set('in', model.attributes[property]);
-								this.processSignalChain();
 							}
 							else {
 								// Outs always refer to the widget's model
 								model.set('out', this.model.attributes[property]);
-								//this.model.set('out', model.attributes[property]);
 							}
 						}
 					}
@@ -123,10 +164,16 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 
 			this.onSync();
 		},
-		mapToSourceModel: function(model) {
-		},
 		processSignalChain: function() {
-			this.model.set('out', this.model.get('in'));
+			var input = this.model.get('in');
+
+			// Process the input through all signal functions attached to this view's signalChainFunctions array
+			_.each(this.signalChainFunctions, function(func) {
+				func = _.bind(func, this);
+				input = func(input);
+			}, this);
+
+			this.model.set('out', input);
 		},
 
 	});

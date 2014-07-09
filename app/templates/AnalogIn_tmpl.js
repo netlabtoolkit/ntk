@@ -19,21 +19,21 @@
   </tr>
   <tr>
     <th scope="row">i</th>
-    <td><input style="width: 80%;" type="text" name="ceiling" value="0"></td>
-    <td><input style="width: 80%;" type="text" name="floor" value="1023"></td>
+    <td><input style="width: 80%;" type="text" name="floor" rv-value="widget:inputFloor"></td>
+    <td><input style="width: 80%;" type="text" name="ceiling" rv-value="widget:inputCeiling"></td>
     <td>&nbsp;</td>
   </tr>
   <tr>
     <th scope="row">o</th>
-    <td><input style="width: 80%;" type="text" name="min" value="0"></td>
-    <td><input style="width: 80%;" type="text" name="max" value="1023"></td>
+    <td><input style="width: 80%;" type="text" name="min" rv-value="widget:outputFloor"></td>
+    <td><input style="width: 80%;" type="text" name="max" rv-value="widget:outputCeiling"></td>
     <td>&nbsp;</td>
   </tr>
 </table>
 </div>
 <div class="options">
       <ul id="menu">
-        <li><a href="#">inv</a></li>
+        <li class='invert' rv-class-active="widget:invert">inv</li>
         <li><a href="#">smo</a></li>
         <li><a href="#">eas</a></li>
       </ul>

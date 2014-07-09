@@ -1,4 +1,9 @@
 
 .analogIn {
 	background-color: #ddd;
+
+	li.active {
+		color: #fff;
+		background-color: #666;
+	}
 }
