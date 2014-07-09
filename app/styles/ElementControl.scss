@@ -1,12 +1,16 @@
 
 .elementControl {
-	background-color: #ffc93f;
+	background-color: #ddd;
+
+	.title {
+		background-color: #f2aa8b;
+	}
 
 	.element {
 		display: block;
 
 		position: absolute;
-		top: 50px;
+		top: 70px;
 		left: 30px;
 	}
 }
