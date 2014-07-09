@@ -14,7 +14,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 		initialize: function(options) {
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
-			this.model.set('title', 'Analog In');
+			this.model.set('title', 'AnalogIn');
 
 			var self = this;
 

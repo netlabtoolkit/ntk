@@ -12,7 +12,7 @@ function(Backbone, rivets, WidgetView, Template){
 		template: _.template(Template),
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
-			this.model.set('title', 'Element Control');
+			this.model.set('title', 'ElementControl');
 		},
 
 		onRender: function() {
