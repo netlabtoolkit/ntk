@@ -35,7 +35,7 @@ require.config({
     paths: {
         jquery: '../bower_components/jquery/jquery',
         jqueryui: '//code.jquery.com/ui/1.11.0/jquery-ui.min',
-        jqueryknob: '../bower_components/jQuery-Knob-1.2.9/dist/jquery.knob.min',
+        jqueryknob: '../bower_components/jquery-knob/js/jquery.knob',
         backbone: '../bower_components/backbone-amd/backbone',
         underscore: '../bower_components/underscore-amd/underscore',
 
