@@ -1,9 +1,11 @@
 define([
 	'backbone',
+	'rivets',
 	'views/item/Widget',
-	'text!tmpl/AnalogIn_tmpl.js'
+	'text!tmpl/AnalogIn_tmpl.js',
+	'jqueryknob',
 ],
-function(Backbone, WidgetView, Template){
+function(Backbone, rivets, WidgetView, Template, jqueryknob){
     'use strict';
 
 	return WidgetView.extend({
@@ -24,6 +26,23 @@ function(Backbone, WidgetView, Template){
 			});
 
 		},
+
+		onRender: function() {
+			WidgetView.prototype.onRender.call(this);
+			var self = this;
+			this.$(".dial").trigger(
+		        'configure',
+		        {
+		        	'change' : function (v) { self.model.set('in', v); }
+		        }
+    		);
+            
+			rivets.binders.knob = function(el, value) {
+				el.value = value;
+				$(el).val(value);
+				$(el).trigger('change');
+			};
+		}
 
 	});
 });

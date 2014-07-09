@@ -54,6 +54,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 			rivets.binders.positiony = function(el, value) {
 				el.style.top = parseInt( value, 10 ) + "px";
 			};
+			rivets.binders.property = function(el, value) {
+				el.style.opacity = value/100;
+			};
 		},
 		onDragStart: function(e) {
 			e.originalEvent.dataTransfer.effectAllowed = 'all';

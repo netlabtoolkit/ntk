@@ -46,4 +46,60 @@
 	.inlet {
 		top: 0;
 	}
+
+	.dialwrapper {
+		margin-top:5px;
+	}
+
+	.dialwrapper .display {
+		position:absolute;
+		left:30px;
+		right:30px;
+		font-size:20px;
+		text-align:center;
+	}
+	.dialwrapper .invalue {
+		top:28px;
+	}
+
+	.dialwrapper .outvalue {
+		top:48px;
+	}
+
+	.options {
+	    width: 100%;
+	    height: 30px;
+	    margin-top: 10px;
+	}
+
+	.options ul {
+	    list-style-type: none;
+	    margin: 0;
+	    padding: 0;
+	}
+
+	.options li {
+	    font-family: 'Helvetica Neue', sans-serif;
+	    font-size: 1em;
+	    font-weight:bold;
+	    color: #000;
+	    text-align:center;
+	    display: inline-block;
+	    float: left;
+	    width: 30%;
+	    border: 1px solid #fff;
+	    /* border-right: 1px solid #fff; */
+	    background-color: #ccc;
+	}
+
+	.options li a {
+	    color: #000;
+	    text-decoration: none;
+	}
+	.options li a:visited {
+	    /* color: #725d4c; */
+	}
+	.options li a:hover {
+	    color: #FFF;
+	}  
 }

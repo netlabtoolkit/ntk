@@ -1,8 +1,56 @@
 <div class="title dragHandle">
-	{widget:title}
+	{widget:title} <label><input type="checkbox" rv-checked="widget:active" rv-on-change="setActive" > Live</label>
 </div>
-<label><input type="checkbox" rv-checked="widget:active" rv-on-change="setActive" >active</label>
-<input type="range" rv-value="widget:in"/>
-<span class="text" rv-text="widget:in">Helllooo</span>
+
+<!--<input type="range" rv-value="widget:in"/>-->
+
+<div class="dialwrapper" style="position:relative;">
+<input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/>
+<div class="display invalue" rv-text="widget:in">100</div>
+<div class="display outvalue" rv-text="widget:in">1023</div>
+</div>
+<div width-100%>
+<table width="100%" border="0" cellspacing="3" cellpadding="0">
+  <tr>
+    <th width="6%" scope="col">&nbsp;</th>
+    <th width="44%" scope="col">low</th>
+    <th width="44%" scope="col">high</th>
+    <th width="6%" scope="col">&nbsp;</th>
+  </tr>
+  <tr>
+    <th scope="row">i</th>
+    <td><input style="width: 80%;" type="text" name="ceiling" value="0"></td>
+    <td><input style="width: 80%;" type="text" name="floor" value="1023"></td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <th scope="row">o</th>
+    <td><input style="width: 80%;" type="text" name="min" value="0"></td>
+    <td><input style="width: 80%;" type="text" name="max" value="1023"></td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+</div>
+<div class="options">
+      <ul id="menu">
+        <li><a href="#">inv</a></li>
+        <li><a href="#">smo</a></li>
+        <li><a href="#">eas</a></li>
+      </ul>
+</div>
 
 <div class="outlet" draggable="true"></div>
+
+<script>
+$('.dial').knob({
+    'fgColor':'#000000',
+    'bgColor':'#ffffff',
+    'inputColor' : '#000000',
+	'angleOffset':-125,
+	'angleArc':250,
+	'width':100,
+	'height':80,
+	'font':"'Helvetica Neue', sans-serif",
+	'displayInput':false,
+});
+</script>
