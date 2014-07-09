@@ -1,22 +1,4 @@
 
 .analogOut {
-	position: absolute;
-	top: 50px;
-	left: 30px;
-
-	display: block;
-	width: 100px;
-	height: 200px;
-
-	margin: 0;
-	padding: 15px;
-
 	background-color: #f09;
-	border: 1px solid #666;
-	border-radius: 5px;
-
-	input[type=range] {
-		width: 80px;
-	}
-
 }

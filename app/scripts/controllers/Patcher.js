@@ -37,53 +37,51 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 		 */
 		attachMainViews: function() {
 			var serverAddress = window.location.host;
-			//window.io = socketIO.connect(serverAddress);
 			window.socketIO = window.io.connect(serverAddress);
 
 			this.parentRegion.show(this.views.mainCanvas);
 
-			// MANUALLY MAPPING VIEWS FOR TESTING ////////////////////////////
-
+			// MANUALLY CREATING VIEWS FOR TESTING ////////////////////////////
 			var analogInView = new AnalogInView({
 				inputMapping: 'A0',
 			});
-			this.addWidgetToStage(analogInView);
-			// app.Patcher.Controller.mapToModel({view: app.Patcher.Controller.widgets[0], modelType: 'ArduinoUno', server: 'localhost:9000'});
-			this.addWidgetToStage(analogInView).mapToModel({
-				view: analogInView,
-				modelType: 'ArduinoUno',
-				IOMapping: 'in',
-				server: serverAddress,
-			});
+			this.addWidgetToStage(analogInView)
+				.mapToModel({
+					view: analogInView,
+					modelType: 'ArduinoUno',
+					IOMapping: 'in',
+					server: serverAddress,
+				});
 
-			var elementControlView = new ElementControlView({
-				inputMapping: 'in',
-			});
-
-			this.addWidgetToStage(elementControlView).mapToModel({
-				view: elementControlView,
-				model: analogInView.model,
-				IOMapping: 'in',
-			});
 			var analogOutView = new AnalogOutView({
 				inputMapping: 'in',
 				outputMapping: 'out9',
 			});
+
 			this.addWidgetToStage(analogOutView)
 				.mapToModel({
 					view: analogOutView,
 					IOMapping: 'out',
 					modelType: 'ArduinoUno',
 					server: serverAddress,
-				})
-				.mapToModel({
-					view: analogOutView,
-					model: analogInView.model,
-					IOMapping: 'in',
 				});
 
 			//////////////////////////////////////////////////////////////////
-
+				// prototype view adding
+			var self = this;
+			this.views.mainCanvas.$el.on('click', function(e) {
+				if(e.metaKey) {
+					var imageSrc = prompt('enter an image URL');
+					if(!imageSrc) {
+						imageSrc = 'http://payload294.cargocollective.com/1/4/130420/8181648/bDSC_1134.jpg';
+					}
+					var elementControlView = new ElementControlView({
+						inputMapping: 'in',
+						src: imageSrc,
+					});
+					self.addWidgetToStage(elementControlView);
+				}
+			});
 		},
 		/**
 		 * Render a view to the appropriate Canvas DOM element

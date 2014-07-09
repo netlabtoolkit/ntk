@@ -12,6 +12,7 @@ function(Backbone, WidgetView, Template){
 		initialize: function(options) {
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
+			this.model.set('title', 'Analog In');
 
 			var self = this;
 

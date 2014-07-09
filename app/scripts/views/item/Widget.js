@@ -14,7 +14,15 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
      * @return {Backbone.Marionette.ItemView}
      */
 	return Backbone.Marionette.ItemView.extend({
-		events: {},
+		events: {
+			'drop .inlet': 'onDrop',
+			'dragover .inlet': 'onDragOver',
+			'dragenter .inlet': 'onDragEnter',
+			'dragleave .inlet': 'onDragLeave',
+			'dragstart .outlet': 'onDragStart',
+
+			'click .inlet .unMap': 'unMapInlet',
+		},
 
 		className: 'widget',
 		template: _.template( WidgetTmpl ),
@@ -28,7 +36,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 				this.el.className += " widget";
 			}
 
-			rivets.bind(this.$el, {widget: this.model});
+			rivets.bind(this.$el, {widget: this.model, input: this.sourceModel, output: this.destinationModel});
 
 			if(this.sourceModel) {
 				this.listenTo(this.sourceModel, 'change', this.syncWithSourceModel);
@@ -37,9 +45,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 				this.listenTo(this.destinationModel, 'change', this.syncWithSourceModel);
 			}
 
-			this.$el.draggable();
-
-			window.CC = this;
+			this.$el.draggable({handle: '.dragHandle'});
 		},
 		setWidgetBinders: function() {
 			rivets.binders.positionx = function(el, value) {
@@ -48,6 +54,38 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 			rivets.binders.positiony = function(el, value) {
 				el.style.top = parseInt( value, 10 ) + "px";
 			};
+		},
+		onDragStart: function(e) {
+			e.originalEvent.dataTransfer.effectAllowed = 'all';
+			e.originalEvent.dataTransfer.setData('text', 'hello');
+
+			app.currentlyDraggedView = this;
+		},
+		onDragEnter: function(e) {
+			this.$('.inlet').addClass('hover');
+		},
+		onDragLeave: function(e) {
+			this.$('.inlet').removeClass('hover');
+		},
+		onDragOver: function(e) {
+			e.preventDefault();
+			e.originalEvent.dataTransfer.dropEffect = 'move';
+		},
+		onDrop: function(e) {
+			e.stopPropagation();
+			app.Patcher.Controller.mapToModel({
+				view: this,
+				model: app.currentlyDraggedView.model,
+				IOMapping: 'in',
+			});
+
+			this.$('.inlet').addClass('connected');
+		},
+		unMapInlet: function() {
+
+			this.stopListening(this.sourceModel);
+			this.sourceModel = undefined;
+			this.$('.inlet').removeClass('connected');
 		},
 		onSync: function() {},
         /**
