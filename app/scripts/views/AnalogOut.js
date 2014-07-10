@@ -17,6 +17,7 @@ function(Backbone, WidgetView, Template){
 			this.model.set('title', 'AnalogOut');
 
 			this.listenTo(this.model, 'change', this.sendData);
+			window.VV = this;
 		},
 		sendData: function() {
 			window.socketIO.emit(this.model.get('outputMapping'), this.model.get('out') )

@@ -43,9 +43,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 			if(this.sourceModel) {
 				this.listenTo(this.sourceModel, 'change', this.syncWithSourceModel);
 			}
-			if(this.destinationModel) {
-				this.listenTo(this.destinationModel, 'change', this.syncWithSourceModel);
-			}
+			//if(this.destinationModel) {
+				//this.listenTo(this.destinationModel, 'change', this.syncWithSourceModel);
+			//}
 
 			this.$el.draggable({handle: '.dragHandle'});
 		},
@@ -149,7 +149,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 					for(var widgetProperty in this.model.attributes) {
 
 						if(this.model.attributes[widgetProperty] === property) {
+							//console.log(widgetProperty);
 							if(widgetProperty === 'inputMapping') {
+								//console.log(property, model.attributes[property]);
 								// Ins always defer to the sourceModel
 								this.model.set('in', model.attributes[property]);
 							}

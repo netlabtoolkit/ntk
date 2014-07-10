@@ -54,7 +54,7 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 				});
 
 			var analogOutView = new AnalogOutView({
-				//inputMapping: 'out',
+				inputMapping: 'out',
 				outputMapping: 'out9',
 			});
 
