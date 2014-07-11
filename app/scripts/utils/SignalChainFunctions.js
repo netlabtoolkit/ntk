@@ -33,7 +33,6 @@ function () {
 		invert: function(input) {
 			var output = parseInt(input,10);
 
-			window.XX = this.model;
 			if(this.model.get('invert')) {
 				output = (output - (output * 2)) + parseInt(this.model.get('outputCeiling'),10);
 			}

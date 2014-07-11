@@ -17,7 +17,8 @@
     "chai": "~1.7.2",
     "rivets": "~0.6.8",
     "sinon": "~1.7.3",
-    "jquery-knob": "~1.2.9"
+    "jquery-knob": "~1.2.9",
+    "codemirror": "~4.3.0"
   },
   "devDependencies": {},
   "directory": "bower_components"

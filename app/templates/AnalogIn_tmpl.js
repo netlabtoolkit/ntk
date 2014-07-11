@@ -7,7 +7,7 @@
 <div class="dialwrapper" style="position:relative;">
 <input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/>
 <div class="display invalue" rv-text="widget:in">100</div>
-<div class="display outvalue" rv-text="widget:in">1023</div>
+<div class="display outvalue" rv-text="widget:out">1023</div>
 </div>
 <div width-100%>
 <table width="100%" border="0" cellspacing="3" cellpadding="0">
@@ -41,16 +41,3 @@
 
 <div class="outlet" draggable="true"></div>
 
-<script>
-$('.dial').knob({
-    'fgColor':'#000000',
-    'bgColor':'#ffffff',
-    'inputColor' : '#000000',
-	'angleOffset':-125,
-	'angleArc':250,
-	'width':100,
-	'height':80,
-	'font':"'Helvetica Neue', sans-serif",
-	'displayInput':false,
-});
-</script>

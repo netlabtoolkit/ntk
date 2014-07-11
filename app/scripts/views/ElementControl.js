@@ -39,9 +39,6 @@ function(Backbone, rivets, WidgetView, Template){
 				el.style.opacity = value/100;
 			};
 		}
-		//onSync: function() {
-			//window.socketIO.emit('out9', this.model.get('in'));
-		//},
 	});
 });
 

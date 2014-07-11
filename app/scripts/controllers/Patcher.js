@@ -8,8 +8,9 @@ define([
 	'views/AnalogIn',
 	'views/AnalogOut',
 	'views/ElementControl',
+	'views/CustomFilter',
 ],
-function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, AnalogOutView, ElementControlView){
+function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, AnalogOutView, ElementControlView, CustomFilterView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -66,8 +67,11 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 					server: serverAddress,
 				});
 
+			var customFilterView = new CustomFilterView();
+			this.addWidgetToStage(customFilterView);
+
 			//////////////////////////////////////////////////////////////////
-				// prototype view adding
+			// prototype view adding
 			var self = this;
 			this.views.mainCanvas.$el.on('click', function(e) {
 				if(e.metaKey) {
@@ -76,10 +80,14 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 						imageSrc = 'http://payload294.cargocollective.com/1/4/130420/8181648/bDSC_1134.jpg';
 					}
 					var elementControlView = new ElementControlView({
-						//inputMapping: 'out',
 						src: imageSrc,
 					});
 					self.addWidgetToStage(elementControlView);
+
+					//var elementControlView = new ElementControlView({
+						//src: imageSrc,
+					//});
+					//self.addWidgetToStage(elementControlView);
 				}
 			});
 		},

@@ -23,12 +23,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 
 			'click .inlet .unMap': 'unMapInlet',
 		},
-		signalChainFunctions: [],
 
 		className: 'widget',
 		template: _.template( WidgetTmpl ),
 
 		initialize: function(options) {
+			this.signalChainFunctions = [];
+
 			this.model = new WidgetConfigModel(options);
 			this.setWidgetBinders();
 			this.model.on('change', this.processSignalChain, this);
@@ -98,6 +99,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 				},
 
 				routine: function(el, value) {
+					// TODO bi-directional support
 				}
 			}
 		},

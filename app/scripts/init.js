@@ -24,6 +24,10 @@ require.config({
             deps: ['jquery'],
             exports: 'jquery'
         },
+        codemirror: {
+            deps: ['jquery'],
+            exports: 'codemirror'
+        },
         jqueryknob: {
             exports: 'jqueryknob',
             deps: [
@@ -38,6 +42,7 @@ require.config({
         jqueryknob: '../bower_components/jquery-knob/js/jquery.knob',
         backbone: '../bower_components/backbone-amd/backbone',
         underscore: '../bower_components/underscore-amd/underscore',
+        codemirror: '../bower_components/codemirror/lib/codemirror',
 
         /* alias all marionette libs */
         'backbone.marionette': '../bower_components/backbone.marionette/lib/core/backbone.marionette',
