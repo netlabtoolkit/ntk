@@ -47,6 +47,8 @@ function(Backbone, rivets, SignalChainFunctions, WidgetView, Template, jquerykno
 				'height':80,
 				'font':"'Helvetica Neue', sans-serif",
 				'displayInput':false,
+				'min': 0,
+				'max': 1023,
 				'change' : function (v) { self.model.set('in', v); }
 			});
 

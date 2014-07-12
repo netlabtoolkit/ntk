@@ -2,10 +2,12 @@
 @import 'global.scss';
 @import 'patcher.scss';
 
+@import '../bower_components/codemirror/lib/codemirror.css';
+
 @import 'Widget.scss';
 @import 'AnalogIn.scss';
 @import 'AnalogOut.scss';
 @import 'ElementControl.scss';
+@import 'CustomFilter.scss';
 
 
-@import '../bower_components/codemirror/lib/codemirror.css';

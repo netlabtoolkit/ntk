@@ -6,4 +6,4 @@
 <textarea class="filterFunction" rv-value="widget:filter"/>
 <span class="" rv-text="widget:out">Helllooo</span>
 
-<div class="outlet"></div>
+<div class="outlet" draggable='true'></div>

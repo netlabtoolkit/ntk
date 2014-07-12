@@ -32,13 +32,6 @@ function(Backbone, rivets, WidgetView, Template){
 			});
 		},
 
-		onRender: function() {
-			WidgetView.prototype.onRender.call(this);
-
-			rivets.binders.opacity = function(el, value) {
-				el.style.opacity = value/100;
-			};
-		}
 	});
 });
 

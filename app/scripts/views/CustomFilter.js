@@ -23,7 +23,7 @@ function(Backbone, WidgetView, Template, CodeMirror){
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set('title', 'Expression');
 
-			//this.listenTo(this.model, 'change', this.registerFilters);
+			window.XX = this;
 		},
         /**
          * called when widget is rendered
@@ -32,6 +32,8 @@ function(Backbone, WidgetView, Template, CodeMirror){
          */
 		onRender: function() {
 			WidgetView.prototype.onRender.call(this);
+
+			this.registerFilters();
 
 			var self = this;
 			var codeEditor = CodeMirror.fromTextArea(this.$('.filterFunction')[0], {
