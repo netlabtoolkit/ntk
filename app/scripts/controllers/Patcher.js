@@ -15,6 +15,8 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 	var PatcherController = function(region) {
 		this.parentRegion = region;
 		this.views.mainCanvas = new WidgetsView();
+
+		//window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
 	};
 
 	PatcherController.prototype = {
@@ -43,32 +45,32 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 			this.parentRegion.show(this.views.mainCanvas);
 
 			// MANUALLY CREATING VIEWS FOR TESTING ////////////////////////////
-			var analogInView = new AnalogInView({
-				inputMapping: 'A0',
-			});
-			this.addWidgetToStage(analogInView)
-				.mapToModel({
-					view: analogInView,
-					modelType: 'ArduinoUno',
-					IOMapping: 'in',
-					server: serverAddress,
-				});
+			//var analogInView = new AnalogInView({
+				//inputMapping: 'A0',
+			//});
+			//this.addWidgetToStage(analogInView)
+				//.mapToModel({
+					//view: analogInView,
+					//modelType: 'ArduinoUno',
+					//IOMapping: 'in',
+					//server: serverAddress,
+				//});
 
-			var analogOutView = new AnalogOutView({
-				inputMapping: 'out',
-				outputMapping: 'out9',
-			});
+			//var analogOutView = new AnalogOutView({
+				//inputMapping: 'out',
+				//outputMapping: 'out9',
+			//});
 
-			this.addWidgetToStage(analogOutView)
-				.mapToModel({
-					view: analogOutView,
-					IOMapping: 'out',
-					modelType: 'ArduinoUno',
-					server: serverAddress,
-				});
+			//this.addWidgetToStage(analogOutView)
+				//.mapToModel({
+					//view: analogOutView,
+					//IOMapping: 'out',
+					//modelType: 'ArduinoUno',
+					//server: serverAddress,
+				//});
 
-			var customFilterView = new CustomFilterView();
-			this.addWidgetToStage(customFilterView);
+			//var customFilterView = new CustomFilterView();
+			//this.addWidgetToStage(customFilterView);
 
 			//////////////////////////////////////////////////////////////////
 			// prototype view adding
@@ -90,6 +92,51 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 					//self.addWidgetToStage(elementControlView);
 				}
 			});
+			window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
+		},
+		onExternalAddWidget: function(widgetType) {
+			var newWidget,
+				serverAddress = window.location.host;
+
+			if(widgetType === 'elementControl') {
+				var imageSrc = prompt('enter an image URL');
+				if(!imageSrc) {
+					imageSrc = 'http://payload294.cargocollective.com/1/4/130420/8181648/bDSC_1134.jpg';
+				}
+				var newWidget = new ElementControlView({
+					src: imageSrc,
+				});
+			}
+			else if(widgetType === 'analogIn') {
+				var newWidget = new AnalogInView({
+					inputMapping: 'A0',
+				});
+
+				this.mapToModel({
+					view: newWidget,
+					modelType: 'ArduinoUno',
+					IOMapping: 'in',
+					server: serverAddress,
+				});
+			}
+			else if(widgetType === 'analogOut') {
+				var newWidget = new AnalogOutView({
+					inputMapping: 'out',
+					outputMapping: 'out9',
+				});
+
+				this.mapToModel({
+					view: newWidget,
+					IOMapping: 'out',
+					modelType: 'ArduinoUno',
+					server: serverAddress,
+				});
+			}
+			else if(widgetType === 'expression') {
+				var newWidget = new CustomFilterView();
+			}
+
+			this.addWidgetToStage(newWidget);
 		},
 		/**
 		 * Render a view to the appropriate Canvas DOM element
