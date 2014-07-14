@@ -31,8 +31,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 			this.signalChainFunctions = [];
 
 			this.model = new WidgetConfigModel(options);
-			this.setWidgetBinders();
 			this.model.on('change', this.processSignalChain, this);
+
+			this.setWidgetBinders();
 		},
 		onRender: function() {
 			if(!this.el.className.match(/ widget/)) {
@@ -99,7 +100,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 				},
 
 				routine: function(el, value) {
-					// TODO bi-directional support
+					self.$('select').val(value);
 				}
 			}
 		},

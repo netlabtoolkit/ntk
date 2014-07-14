@@ -14,7 +14,7 @@ function(Backbone, rivets, WidgetView, Template){
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set({
 				title: 'Element Control',
-				activeControlParameter: 'Y',
+				activeControlParameter: 'left',
 				controlParameters: [
 					{
 						name: 'X',
