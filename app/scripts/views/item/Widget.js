@@ -4,8 +4,9 @@ define([
 	'models/WidgetConfig',
 	'text!tmpl/item/Widget_tmpl.js',
 	'jqueryui',
+	'jquerytouchpunch',
 ],
-function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
+function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouchpunch  ) {
     'use strict';
 
     /**
@@ -15,11 +16,11 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
      */
 	return Backbone.Marionette.ItemView.extend({
 		events: {
-			'drop .inlet': 'onDrop',
-			'dragover .inlet': 'onDragOver',
-			'dragenter .inlet': 'onDragEnter',
-			'dragleave .inlet': 'onDragLeave',
-			'dragstart .outlet': 'onDragStart',
+			//'drop .inlet': 'onDrop',
+			//'dragover .inlet': 'onDragOver',
+			//'dragenter .inlet': 'onDragEnter',
+			//'dragleave .inlet': 'onDragLeave',
+			//'dragstart .outlet': 'onDragStart',
 
 			'click .inlet .unMap': 'unMapInlet',
 		},
@@ -36,6 +37,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 			this.setWidgetBinders();
 		},
 		onRender: function() {
+			var self = this;
+
 			if(!this.el.className.match(/ widget/)) {
 				this.el.className += " widget";
 			}
@@ -50,6 +53,15 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 			//}
 
 			this.$el.draggable({handle: '.dragHandle'});
+			this.$('.outlet').draggable({
+				revert: true,
+			}).data('model', this.model);
+			this.$('.inlet').droppable({
+				hoverClass: 'hover',
+				drop: function(e, ui) {
+					self.onDrop($(ui.draggable).data('model'));
+				},
+			});
 		},
         /**
          * attach custom rivets binders for Widget views
@@ -104,27 +116,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl  ) {
 				}
 			}
 		},
-		onDragStart: function(e) {
-			e.originalEvent.dataTransfer.effectAllowed = 'all';
-			e.originalEvent.dataTransfer.setData('text', 'hello');
-
-			app.currentlyDraggedView = this;
-		},
-		onDragEnter: function(e) {
-			this.$('.inlet').addClass('hover');
-		},
-		onDragLeave: function(e) {
-			this.$('.inlet').removeClass('hover');
-		},
-		onDragOver: function(e) {
-			e.preventDefault();
-			e.originalEvent.dataTransfer.dropEffect = 'move';
-		},
-		onDrop: function(e) {
-			e.stopPropagation();
+		onDrop: function(model) {
 			app.Patcher.Controller.mapToModel({
 				view: this,
-				model: app.currentlyDraggedView.model,
+				model: model,
 				IOMapping: 'in',
 			});
 

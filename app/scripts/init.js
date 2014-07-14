@@ -13,6 +13,13 @@ require.config({
                 'jquery'
             ],
 		},
+		jquerytouchpunch: {
+			exports: 'jquerytouchpunch',
+            deps: [
+                'jquery',
+                'jqueryui',
+            ],
+		},
         backbone: {
             deps: [
                 'underscore',
@@ -39,6 +46,7 @@ require.config({
     paths: {
         jquery: '../bower_components/jquery/jquery',
         jqueryui: '../bower_components/jqueryui/jquery-ui',
+        jquerytouchpunch: '../bower_components/jquery-ui-touch-punch-improved/jquery.ui.touch-punch-improved',
         jqueryknob: '../bower_components/jquery-knob/js/jquery.knob',
         backbone: '../bower_components/backbone-amd/backbone',
         underscore: '../bower_components/underscore-amd/underscore',
