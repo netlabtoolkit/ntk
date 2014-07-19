@@ -4,10 +4,7 @@ var express = require('express');
 var http = require('http');
 var app = express();
 var path = require('path');
-//var async = require('async');
 var hbs = require('express-hbs');
-//var baucis = require('baucis');
-//var mongoose = require('mongoose');
 
 var five = require("johnny-five");
 
@@ -17,36 +14,6 @@ var board = five.Board();
 process.on('uncaughtException', function(err) {
 	  console.log('Caught exception: ' + err);
 });
-
-// start mongoose
-//mongoose.connect('mongodb://localhost/sit');
-//var db = mongoose.connection;
-
-//db.on('error', console.error.bind(console, 'connection error:'));
-//db.once('open', function callback () {
-
-	//[> test schema <]
-    //var testSchema = new mongoose.Schema({
-        //test: String
-    //});
-
-    //var Test = mongoose.model( 'test', testSchema );
-
-    //[> set Baucis <]
-    //baucis.rest({
-        //singular: 'test'
-    //});
-
-	//var app = express();
-
-	//app.configure(function(){
-		//app.set('port', 9000);
-
-		//app.set('view engine', 'handlebars');
-		//app.set('views', __dirname + '../app/scripts/views');
-	//});
-
-    //app.use('/api/v1', baucis());
 
 	//// simple log
 	app.use(function(req, res, next){
@@ -72,11 +39,38 @@ process.on('uncaughtException', function(err) {
 	var io = socketIO.listen(server);
 	var sensor,
 		servo;
+
+	var _ = require('underscore'),
+		events = require('events');
+
+	var ArduinoUnoModel = function(attributes) {
+		events.EventEmitter.call(this);
+
+		_.extend(this, {
+			get: function(field) {
+				return this[field];
+			},
+			set: function(field, value) {
+				this[field] = value;
+				this.emit('change', {field: field, value: this[field]});
+				return ;
+			},
+			A0: 0,
+			A1: 0,
+			out9: 0,
+		});
+
+		_.extend(this, attributes);
+	};
+
+	ArduinoUnoModel.prototype.__proto__ = events.EventEmitter.prototype;
+
 	board.on("ready", function() {
 		// Create a new `sensor` hardware instance.
 		sensor = new five.Sensor({
 			pin: "A0",
-			freq: 80
+			//freq: 80
+			freq: 100,
 		});
 		servo = five.Servo({
 			pin: 9,
@@ -87,31 +81,33 @@ process.on('uncaughtException', function(err) {
 			sensor: sensor
 		});
 
-		//sensor.scale([0, 100]).on("data", function() {
-			//console.log('A0', this.value );
-			//socket.emit('A0', Math.floor(this.value));
-		//});
-
 		io.on('connection', function(socket){
 			console.log('a user connected');
 
-			socket.on('blink', function(value) {
-				console.log('blink!!!!');
-
-				var led = new five.Led({
-					pin: 11,
-				});
-
-				led.pulse(value);
-
+			// Create the arduino uno instance
+			var arduinoModel = new ArduinoUnoModel();
+			arduinoModel.on('change', function(options) {
+				if(options.field !== 'out9') {
+					socket.emit('receivedModelUpdate', {modelType: 'ArduinoUno', field: options.field, value: options.value});
+				}
 			});
 
-			socket.on('out9', function(value) {
-				servo.to(value);
+			var hardwareModels = {
+				ArduinoUno: arduinoModel,
+			};
+
+
+			socket.on('sendModelUpdate', function(options) {
+				hardwareModels[options.modelType].set('out9', parseInt(options.model.out9, 10));
+			});
+			arduinoModel.on('change', function(options) {
+				if(options.field === 'out9') {
+					servo.to(options.value);
+				}
 			});
 
 			sensor.scale([0, 100]).on("data", function() {
-				socket.emit('A0', Math.floor(this.value));
+				arduinoModel.set('A0', Math.floor(this.value));
 			});
 
 		});
@@ -119,9 +115,5 @@ process.on('uncaughtException', function(err) {
 	server.listen(9001, function(){
 		console.log('Express App started!');
 	});
-
-
-
-//});
 
 

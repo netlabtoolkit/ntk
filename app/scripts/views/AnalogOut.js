@@ -15,11 +15,6 @@ function(Backbone, WidgetView, Template){
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set('title', 'AnalogOut');
-
-			this.listenTo(this.model, 'change', this.sendData);
-		},
-		sendData: function() {
-			window.socketIO.emit(this.model.get('outputMapping'), this.model.get('out') )
 		},
 	});
 });

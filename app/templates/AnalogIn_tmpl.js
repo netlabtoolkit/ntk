@@ -1,5 +1,5 @@
 <div class="title dragHandle">
-	{widget:title} <label><input type="checkbox" rv-checked="widget:active" rv-on-change="setActive" > Live</label>
+	{widget:title} <label><input type="checkbox" rv-checked="widget:active" > Live</label>
 </div>
 
 <!--<input type="range" rv-value="widget:in"/>-->

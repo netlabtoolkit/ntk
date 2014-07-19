@@ -48,9 +48,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			if(this.sourceModel) {
 				this.listenTo(this.sourceModel, 'change', this.syncWithSourceModel);
 			}
-			//if(this.destinationModel) {
-				//this.listenTo(this.destinationModel, 'change', this.syncWithSourceModel);
-			//}
+			if(this.destinationModel) {
+				this.listenTo(this.model, 'change', this.syncWithDestinationModel);
+			}
 
 			this.$el.draggable({handle: '.dragHandle'});
 			this.$('.outlet').draggable({
@@ -147,15 +147,32 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					for(var widgetProperty in this.model.attributes) {
 
 						if(this.model.attributes[widgetProperty] === property) {
-							//console.log(widgetProperty);
 							if(widgetProperty === 'inputMapping') {
-								//console.log(property, model.attributes[property]);
 								// Ins always defer to the sourceModel
-								this.model.set('in', model.attributes[property]);
+								if(model.changedAttributes()[property]) {
+									this.model.set('in', model.get(property));
+								}
 							}
-							else {
-								// Outs always refer to the widget's model
-								model.set('out', this.model.attributes[property]);
+						}
+					}
+				}
+			}
+
+			this.onSync();
+		},
+		syncWithDestinationModel: function(model) {
+			// check if the widget is "turned on"
+			if(this.model.get('active')) {
+				// Check if there is a mapping for the attribute given and map it if so
+				for(var property in this.destinationModel.attributes) {
+
+					for(var widgetProperty in model.attributes) {
+
+						if(this.model.attributes[widgetProperty] === property) {
+							if(widgetProperty === 'outputMapping') {
+								if(model.changedAttributes()['out']) {
+									this.destinationModel.set(model.get('outputMapping'), this.model.attributes.out);
+								}
 							}
 						}
 					}

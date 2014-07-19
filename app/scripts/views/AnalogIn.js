@@ -20,17 +20,8 @@ function(Backbone, rivets, SignalChainFunctions, WidgetView, Template, jquerykno
 			});
 			this.model.set('title', 'Analog In');
 
-			var self = this;
-
-			window.socketIO.on(this.model.get('inputMapping'), function(value) {
-				if(self.sourceModel) {
-					self.sourceModel.set(self.model.get('inputMapping'), value);
-				}
-			});
-
 			this.signalChainFunctions.push(SignalChainFunctions.scale);
 			this.signalChainFunctions.push(SignalChainFunctions.invert);
-			window.ZZ = this.signalChainFunctions;
 		},
 
 		onRender: function() {

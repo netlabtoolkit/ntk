@@ -18,7 +18,7 @@ function( Backbone ) {
 			smoothing: false,
 			easing: false,
 			inputMapping: 'out',
-			outputMapping: 'out9',
+			outputMapping: null,
 			in: 0,
 			out: 0,
 			inputFloor: 0,

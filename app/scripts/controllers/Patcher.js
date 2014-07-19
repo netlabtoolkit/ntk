@@ -33,66 +33,30 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 		 */
 		widgets: [],
 		hardwareModelInstances: {},
+		initialize: function() {
+			this.attachMainViews();
+		},
 		/**
 		 * Add the main view to the parent region
 		 *
 		 * @return
 		 */
 		attachMainViews: function() {
-			var serverAddress = window.location.host;
-			window.socketIO = window.io.connect(serverAddress);
+			//var serverAddress = window.location.host;
+			//window.socketIO = window.io.connect(serverAddress);
 
 			this.parentRegion.show(this.views.mainCanvas);
 
-			// MANUALLY CREATING VIEWS FOR TESTING ////////////////////////////
-			//var analogInView = new AnalogInView({
-				//inputMapping: 'A0',
-			//});
-			//this.addWidgetToStage(analogInView)
-				//.mapToModel({
-					//view: analogInView,
-					//modelType: 'ArduinoUno',
-					//IOMapping: 'in',
-					//server: serverAddress,
-				//});
-
-			//var analogOutView = new AnalogOutView({
-				//inputMapping: 'out',
-				//outputMapping: 'out9',
-			//});
-
-			//this.addWidgetToStage(analogOutView)
-				//.mapToModel({
-					//view: analogOutView,
-					//IOMapping: 'out',
-					//modelType: 'ArduinoUno',
-					//server: serverAddress,
-				//});
-
-			//var customFilterView = new CustomFilterView();
-			//this.addWidgetToStage(customFilterView);
-
-			//////////////////////////////////////////////////////////////////
-			// prototype view adding
-			var self = this;
-			this.views.mainCanvas.$el.on('click', function(e) {
-				if(e.metaKey) {
-					var imageSrc = prompt('enter an image URL');
-					if(!imageSrc) {
-						imageSrc = 'http://payload294.cargocollective.com/1/4/130420/8181648/bDSC_1134.jpg';
-					}
-					var elementControlView = new ElementControlView({
-						src: imageSrc,
-					});
-					self.addWidgetToStage(elementControlView);
-
-					//var elementControlView = new ElementControlView({
-						//src: imageSrc,
-					//});
-					//self.addWidgetToStage(elementControlView);
-				}
-			});
+			this.addEventListeners();
+		},
+		addEventListeners: function() {
 			window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
+			window.app.vent.on('receivedModelUpdate', function(data) {
+				var serverAddress = window.location.host;
+				var hardwareModel = this.getHardwareModelInstance(data.modelType, serverAddress);
+
+				hardwareModel.set(data.field, data.value);
+			}, this);
 		},
 		onExternalAddWidget: function(widgetType) {
 			var newWidget,
@@ -121,7 +85,6 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 			}
 			else if(widgetType === 'analogOut') {
 				var newWidget = new AnalogOutView({
-					inputMapping: 'out',
 					outputMapping: 'out9',
 				});
 
@@ -162,8 +125,8 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 				model = options.model,
 				IOMapping = options.IOMapping,
 				view = options.view,
-				server = options.server,
-				modelServerQuery = modelType + ":" + server;
+				server = options.server;
+				//modelServerQuery = modelType + ":" + server;
 
 			if(IOMapping === 'in') {
 				var modelPropertyName = 'sourceModel';
@@ -176,23 +139,44 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 				view[modelPropertyName] = model;
 			}
 			else {
-				if(this.hardwareModelInstances[modelServerQuery]) {
-					view[modelPropertyName] = this.hardwareModelInstances[modelServerQuery].model;
-				}
-				else {
-					var newModelInstance = new Models[modelType]();
-					this.hardwareModelInstances[modelServerQuery] = {
-						model: newModelInstance,
-						server: server,
-					};
 
-					view[modelPropertyName] = newModelInstance;
-				}
+				view[modelPropertyName] = this.getHardwareModelInstance(modelType, server);
 			}
 			// render the view to reassociate bindings and update any changes
 			view.render();
 
 			return this;
+		},
+        /**
+         * Get the singleton model:server instance and if it does not yet exist, create it and return it
+         *
+         * @param {string} modelType
+         * @param {string} server
+         * @return {HardwareModel}
+         */
+		getHardwareModelInstance: function(modelType, server) {
+
+			var modelServerQuery = modelType + ":" + server;
+
+			if(this.hardwareModelInstances[modelServerQuery]) {
+				return this.hardwareModelInstances[modelServerQuery].model;
+			}
+			else {
+				var newModelInstance = new Models[modelType]();
+				this.hardwareModelInstances[modelServerQuery] = {
+					model: newModelInstance,
+					server: server,
+				};
+				// Loop
+				newModelInstance.on('change', function(model) {
+					//console.log(model.changedAttributes());
+					if(model.changedAttributes().out9) {
+						window.app.vent.trigger('sendModelUpdate', {modelType: modelType, model: model});
+					}
+				});
+
+				return newModelInstance;
+			}
 		},
 	};
 
