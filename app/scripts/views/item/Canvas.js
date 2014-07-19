@@ -1,14 +1,14 @@
 define([
 	'backbone',
-	'hbs!tmpl/Canvas_tmpl'
+	'text!tmpl/Canvas_tmpl.js'
 ],
-function( Backbone, CanvasTmpl  ) {
+function( Backbone, Template  ) {
     'use strict';
 
 	return Backbone.View.extend({
 		initialize: function() {
 		},
-    	template: CanvasTmpl,
+    	template: _.template(Template),
 		className: 'mainCanvas',
 
 		/* Ui events hash */

@@ -1,15 +1,15 @@
 define([
 	'backbone',
 	'views/item/Widget',
-	'hbs!tmpl/composite/Widgets_tmpl'
+	'text!tmpl/Widgets_tmpl.js'
 ],
-function( Backbone, Widget, WidgetsTmpl  ) {
+function( Backbone, Widget, Template  ) {
     'use strict';
 
 	return Backbone.View.extend({
 		events: {},
 		subViews: [],
-    	template: WidgetsTmpl,
+    	template: _.template(Template),
 		className: 'widgets',
 
 		initialize: function() {
