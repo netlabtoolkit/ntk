@@ -50,13 +50,6 @@ module.exports = function (grunt) {
                     livereload: true
                 }
             }
-            /* not used at the moment
-            handlebars: {
-                files: [
-                    '<%= yeoman.app %>/templates/*.hbs'
-                ],
-                tasks: ['handlebars']
-            }*/
         },
 
         // testing server
@@ -72,7 +65,8 @@ module.exports = function (grunt) {
         // mocha command
         exec: {
             mocha: {
-                command: 'mocha-phantomjs http://localhost:<%= connect.testserver.options.port %>/test',
+                //command: 'mocha-phantomjs http://localhost:<%= connect.testserver.options.port %>/test',
+                command: 'mocha-phantomjs /test/index.html',
                 stdout: true
             }
         },
@@ -264,18 +258,6 @@ module.exports = function (grunt) {
             }
         },
 
-        // handlebars
-        handlebars: {
-            compile: {
-                options: {
-                    namespace: 'JST',
-                    amd: true
-                },
-                files: {
-                    '.tmp/scripts/templates.js': ['templates/**/*.hbs']
-                }
-            }
-        }
     });
 
     grunt.registerTask('createDefaultTemplate', function () {
@@ -307,7 +289,6 @@ module.exports = function (grunt) {
     grunt.registerTask('test', [
         'clean:server',
         'createDefaultTemplate',
-        'handlebars',
         'compass',
         'connect:testserver',
         'exec:mocha'
@@ -315,7 +296,6 @@ module.exports = function (grunt) {
 
     grunt.registerTask('build', [
         'createDefaultTemplate',
-        'handlebars',
         'compass:dist',
         'useminPrepare',
         'requirejs',

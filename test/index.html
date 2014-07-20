@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Mocha Spec Runner</title>
+    <link rel="stylesheet" href="../app/bower_components/mocha/mocha.css">
+</head>
+<body>
+    <div id="mocha"></div>
+    <script src="../app/bower_components/sinon/lib/sinon.js""></script>
+    <script src="../app/bower_components/mocha/mocha.js"></script>
+	<script>
+		mocha.setup('bdd');
+	</script>
+
+	<script src="../app/bower_components/requirejs/require.js" data-main="test.config.js"></script>
+
+</body>
+</html>

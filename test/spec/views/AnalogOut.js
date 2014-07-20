@@ -1,25 +1,30 @@
-(function() {
-	'use strict';
+define([
+	'chai',
+	'views/AnalogOut',
+	'backbone',
+],
+function( chai, Analogout, Backbone ) {
 
-	var root = this;
+	describe('Analogout View', function () {
+		var AnalogOut = new Analogout(),
+			expect = chai.expect;
 
-	root.define([
-		'views/AnalogOut'
-		],
-		function( Analogout ) {
-
-			describe('Analogout View', function () {
-
-				it('should be an instance of Analogout View', function () {
-					var AnalogOut = new Analogout();
-					expect( AnalogOut ).to.be.an.instanceof( Analogout );
-				});
-
-				it('should have more test written', function(){
-					expect( false ).to.be.ok;
-				});
-			});
-
+		it('should be an instance of Analogout View', function () {
+			expect( AnalogOut ).to.be.an.instanceof( Analogout );
 		});
 
-}).call( this );
+		it('should have a default model', function(){
+			expect( AnalogOut.model ).to.not.be.undefined;
+			expect( AnalogOut.model ).to.be.an.instanceof( Backbone.Model );
+		});
+
+		it('should process all incoming data and output the result', function(){
+			var number = Math.random() * 100;
+			AnalogOut.model.set('in', number);
+
+			expect( AnalogOut.model.get('out') ).to.equal(number);
+		});
+	});
+
+});
+
