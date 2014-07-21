@@ -17,6 +17,17 @@ function( Backbone ) {
 			active: true,
 			smoothing: false,
 			easing: false,
+			inlets: [
+				{
+					name: 'in',
+					mapping: 'out',
+				}
+			],
+			outlets: [
+				{
+					name: 'out',
+				}
+			],
 			inputMapping: 'out',
 			outputMapping: null,
 			in: 0,

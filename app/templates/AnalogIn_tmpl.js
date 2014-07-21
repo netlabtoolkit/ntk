@@ -2,7 +2,7 @@
 	{widget:title} <label><input type="checkbox" rv-checked="widget:active" > Live</label>
 </div>
 
-<!--<input type="range" rv-value="widget:in"/>-->
+
 
 <div class="dialwrapper" style="position:relative;">
 <input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/>
