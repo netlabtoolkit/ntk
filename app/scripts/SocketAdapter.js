@@ -11,7 +11,7 @@ function( Backbone ) {
 	SocketAdapter.prototype = {
 		bindToSocketServer: function() {
 			var serverAddress = window.location.host,
-			self = this;
+				self = this;
 
 			var socket = this.socket = window.io.connect(serverAddress);
 

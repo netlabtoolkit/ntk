@@ -45,7 +45,9 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 			//var serverAddress = window.location.host;
 			//window.socketIO = window.io.connect(serverAddress);
 
-			this.parentRegion.show(this.views.mainCanvas);
+			if(this.parentRegion) {
+				this.parentRegion.show(this.views.mainCanvas);
+			}
 
 			this.addEventListeners();
 		},

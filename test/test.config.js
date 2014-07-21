@@ -1,8 +1,9 @@
 require.config({
 
-    baseUrl: "../app/scripts/",
+	baseUrl: "../app/scripts/",
+    //baseUrl: "/scripts",
 
-    deps: ['backbone.marionette'],
+	deps: ['backbone.marionette'],
     shim: {
 		jqueryui: {
 			exports: 'jqueryui',
@@ -63,8 +64,9 @@ require.config({
 
 
 require([
-
-    '../../test/spec/views/AnalogOut'
+    '../../test/spec/views/AnalogOut',
+    '../../test/spec/views/ElementControl',
+    '../../test/spec/views/Widget',
 
 ], function() {
 
