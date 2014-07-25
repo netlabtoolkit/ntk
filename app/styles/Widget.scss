@@ -63,17 +63,18 @@
 
 	.dialwrapper .display {
 		position:absolute;
-		left:30px;
-		right:30px;
+		left:20px;
+		right:20px;
 		font-size:20px;
 		text-align:center;
 	}
 	.dialwrapper .invalue {
-		top:28px;
+		top:26px;
+		font-size:14px;
 	}
 
 	.dialwrapper .outvalue {
-		top:48px;
+		top:42px;
 	}
 
 	.options {

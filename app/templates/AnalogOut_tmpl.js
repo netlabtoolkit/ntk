@@ -3,7 +3,7 @@
 	{ widget:title }
 </div>
 <label><input type="checkbox" rv-checked="widget:active" >active</label>
-<input type="range" rv-value="widget:in" min="0" max="1023"/>
+<input type="range" rv-value="widget:in" min="0" max="255"/><br>
 <span class="text" rv-text="widget:out">AnalogOut Value</span>
 
 <div class="outlet" draggable="true"></div>
