@@ -74,8 +74,8 @@ process.on('uncaughtException', function(err) {
 		});
 		servo = five.Servo({
 			pin: 9,
-			//range: [0,170],
-			range: [0,1023],
+			range: [0,170],
+			//range: [0,1023],
 		});
 
 		board.repl.inject({
