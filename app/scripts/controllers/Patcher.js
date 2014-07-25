@@ -68,7 +68,8 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 			if(widgetType === 'elementControl') {
 				var imageSrc = prompt('enter an image URL');
 				if(!imageSrc) {
-					imageSrc = 'http://payload294.cargocollective.com/1/4/130420/8181648/bDSC_1134.jpg';
+					//imageSrc = 'http://payload294.cargocollective.com/1/4/130420/8181648/bDSC_1134.jpg';
+					imageSrc = 'images/pinkBlue.jpg';
 				}
 				var newWidget = new ElementControlView({
 					src: imageSrc,
