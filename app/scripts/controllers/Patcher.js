@@ -9,8 +9,9 @@ define([
 	'views/AnalogOut',
 	'views/ElementControl',
 	'views/CustomFilter',
+	'views/Blank',
 ],
-function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, AnalogOutView, ElementControlView, CustomFilterView){
+function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, AnalogOutView, ElementControlView, CustomFilterView, BlankView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -99,6 +100,9 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 			}
 			else if(widgetType === 'expression') {
 				var newWidget = new CustomFilterView();
+			}
+			else if(widgetType === 'blank') {
+				var newWidget = new BlankView();
 			}
 
 			this.addWidgetToStage(newWidget);

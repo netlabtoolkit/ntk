@@ -31,6 +31,9 @@ function( app, Backbone, Template  ) {
 			else if($(e.target).hasClass('expression')) {
 				widgetType = 'expression';
 			}
+			else if($(e.target).hasClass('blank')) {
+				widgetType = 'blank';
+			}
 
 			window.app.vent.trigger('ToolBar:addWidget', widgetType);
 		},

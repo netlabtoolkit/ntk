@@ -10,14 +10,14 @@ function(Backbone, rivets, SignalChainFunctions, WidgetView, Template, jquerykno
     'use strict';
 
 	return WidgetView.extend({
+		widgetEvents: {
+			'click .invert': 'toggleInvert',
+		},
 		className: 'analogIn',
 		template: _.template(Template),
 		initialize: function(options) {
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
-			_.extend(this.events, {
-				'click .invert': 'toggleInvert',
-			});
 			this.model.set('title', 'Analog In');
 
 			this.signalChainFunctions.push(SignalChainFunctions.scale);

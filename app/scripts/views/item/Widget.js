@@ -16,19 +16,15 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
      */
 	return Backbone.Marionette.ItemView.extend({
 		events: {
-			//'drop .inlet': 'onDrop',
-			//'dragover .inlet': 'onDragOver',
-			//'dragenter .inlet': 'onDragEnter',
-			//'dragleave .inlet': 'onDragLeave',
-			//'dragstart .outlet': 'onDragStart',
-
 			'click .inlet .unMap': 'unMapInlet',
 		},
+		widgetEvents: {},
 
 		className: 'widget',
 		template: _.template( WidgetTmpl ),
 
 		initialize: function(options) {
+			_.extend(this.events, this.widgetEvents);
 			this.signalChainFunctions = [];
 
 			this.model = new WidgetConfigModel(options);

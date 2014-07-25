@@ -3,7 +3,8 @@ function () {
 	// Static signal chain functions
 	return {
         /**
-         * scales a signal
+         * Scales a signal
+		 * Requires that the configuration options are present on the Widget's model
          *
          * @param {number} input
          * @return {number}
@@ -25,7 +26,7 @@ function () {
 			return output;
 		},
         /**
-         * inverts a signal
+         * Inverts a signal
          *
          * @param {number} input
          * @return {number}
