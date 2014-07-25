@@ -36,6 +36,7 @@ function(Backbone, WidgetView, Template, CodeMirror){
 			this.registerFilters();
 
 			var self = this;
+			console.log(this.el);
 			var codeEditor = CodeMirror.fromTextArea(this.$('.filterFunction')[0], {
 				lineNumbers: true,
 				smartIndent: true,

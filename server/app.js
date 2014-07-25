@@ -74,7 +74,8 @@ process.on('uncaughtException', function(err) {
 		});
 		servo = five.Servo({
 			pin: 9,
-			range: [0,170],
+			//range: [0,170],
+			range: [0,1023],
 		});
 
 		board.repl.inject({
@@ -106,7 +107,7 @@ process.on('uncaughtException', function(err) {
 				}
 			});
 
-			sensor.scale([0, 100]).on("data", function() {
+			sensor.scale([0, 1023]).on("data", function() {
 				arduinoModel.set('A0', Math.floor(this.value));
 			});
 
