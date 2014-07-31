@@ -25,10 +25,14 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 		initialize: function(options) {
 			_.extend(this.events, this.widgetEvents);
+			console.log(this.ins);
+			_.extend(options, {ins: this.ins});
+			_.extend(options, {outs: this.outs});
 			this.signalChainFunctions = [];
 
 			this.model = new WidgetConfigModel(options);
 			this.model.on('change', this.processSignalChain, this);
+			window.FF = this.model;
 
 			this.setWidgetBinders();
 		},
@@ -39,14 +43,15 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				this.el.className += " widget";
 			}
 
-			rivets.bind(this.$el, {widget: this.model, input: this.sourceModel, output: this.destinationModel});
+			//rivets.bind(this.$el, {widget: this.model, input: this.sourceModel, output: this.destinationModel});
+			rivets.bind(this.$el, {widget: this.model});
 
-			if(this.sourceModel) {
-				this.listenTo(this.sourceModel, 'change', this.syncWithSourceModel);
-			}
-			if(this.destinationModel) {
-				this.listenTo(this.model, 'change', this.syncWithDestinationModel);
-			}
+			//if(this.sourceModel) {
+				//this.listenTo(this.sourceModel, 'change', this.syncWithSourceModel);
+			//}
+			//if(this.destinationModel) {
+				//this.listenTo(this.model, 'change', this.syncWithDestinationModel);
+			//}
 
 			this.$el.draggable({handle: '.dragHandle'});
 			this.$('.outlet').draggable({
@@ -55,7 +60,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.$('.inlet').droppable({
 				hoverClass: 'hover',
 				drop: function(e, ui) {
-					self.onDrop($(ui.draggable).data('model'), ui, e);
+					self.onDrop(e, ui, $(ui.draggable).data('model'));
 				},
 			});
 		},
@@ -112,15 +117,20 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}
 			}
 		},
-		onDrop: function(model, ui, e) {
-			console.log(model, ui, e);
+		onDrop: function(e, ui, model) {
+			var sourceField = ui.draggable[0].dataset.field,
+				destinationField = e.target.dataset.field;
+
 			app.Patcher.Controller.mapToModel({
 				view: this,
 				model: model,
-				IOMapping: 'in',
+				// use ui data-field to map
+				IOMapping: {sourceField: sourceField, destinationField: destinationField},
 			});
 
-			this.$('.inlet').addClass('connected');
+			console.log(e.target.className);
+			//e.target.className += ' connected';
+			$(e.target).addClass('connected');
 		},
 		unMapInlet: function() {
 
@@ -128,6 +138,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.sourceModel = undefined;
 			this.$('.inlet').removeClass('connected');
 		},
+		sources: [],
+		destinationModels: [],
 		onSync: function() {},
         /**
          * Takes the attributes from the sourceModel and maps them onto the selected attributes of the Widget's model
@@ -178,16 +190,48 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			this.onSync();
 		},
+		addInputMap: function(map) {
+			this.sources.push(map);
+
+			this.listenTo(map.model, 'change', this.syncWithSource);
+		},
+		syncWithSource: function(model) {
+			var sourceMappings = _.map(_.where(this.sources, {model: model}), function(source) {
+				return source.map;
+			});
+
+			for(var i=sourceMappings.length-1; i>=0; i--) {
+				var mapping = sourceMappings[i];
+				this.model.set(mapping.destinationField, model.get(mapping.sourceField));
+			}
+		},
 		processSignalChain: function() {
-			var input = this.model.get('in');
 
-			// Process the input through all signal functions attached to this view's signalChainFunctions array
-			_.each(this.signalChainFunctions, function(func) {
-				func = _.bind(func, this);
-				input = func(input);
-			}, this);
+			var inputs = this.model.get('ins'),
+                inputsObj = {};
 
-			this.model.set('out', input);
+				if(inputs) {
+
+					for(var i=inputs.length-1; i>=0; i--) {
+						var input = inputs[i];
+						inputsObj[input.name] = this.model.get(input.fieldMap);
+					}
+
+					// Process the input through all signal functions attached to this view's signalChainFunctions array
+					_.each(this.signalChainFunctions, function(func) {
+						func = _.bind(func, this);
+						inputsObj = func(inputsObj);
+					}, this);
+
+					for(var processedInput in inputsObj) {
+						var outlet = _.findWhere(this.model.get('outs'), {name: processedInput});
+						console.log(inputsObj, processedInput, outlet);
+
+						if(outlet) {
+							this.model.set(outlet.fieldMap, inputsObj[processedInput] );
+						}
+					}
+				}
 		},
 
 	});

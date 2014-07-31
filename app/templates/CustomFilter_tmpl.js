@@ -1,4 +1,4 @@
-<!--<div rv-each-inlet="widget:inlets" rv-text="inlet.name"></div>-->
+<!-- <div rv-each-inlet="widget:ins" rv-text="inlet.name" class='inlet'></div> -->
 <div class="inlet"><span class="unMap">×</span></div>
 <div class="title dragHandle">
 	{widget:title}

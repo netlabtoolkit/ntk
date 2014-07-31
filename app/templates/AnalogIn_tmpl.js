@@ -39,5 +39,8 @@
       </ul>
 </div>
 
-<div class="outlet" draggable="true"></div>
+<!-- <div class="outlet" draggable="true"></div> -->
+<div class='outlets'>
+    <div class="outlet" rv-each-outlet="widget:outs" rv-text="outlet.name" rv-data-field="outlet.fieldMap"></div>
+</div>
 

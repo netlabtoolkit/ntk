@@ -8,7 +8,7 @@ define([
 	'views/AnalogIn',
 	'views/AnalogOut',
 	'views/ElementControl',
-	'views/CustomFilter',
+	'views/CustomFilterMulti',
 	'views/Blank',
 ],
 function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, AnalogOutView, ElementControlView, CustomFilterView, BlankView){
@@ -133,27 +133,67 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 				IOMapping = options.IOMapping,
 				view = options.view,
 				server = options.server;
-				//modelServerQuery = modelType + ":" + server;
 
-			if(IOMapping === 'in') {
-				var modelPropertyName = 'sourceModel';
-			}
-			else {
-				var modelPropertyName = 'destinationModel';
-			}
+
+			//if(IOMapping === 'in') {
+				//var modelPropertyName = 'sourceModel';
+				////var modelPropertyName = 'sourceModels';
+			//}
+			//else {
+				//var modelPropertyName = 'destinationModel';
+				////var modelPropertyName = 'destinationModels';
+			//}
 
 			if(model) {
-				view[modelPropertyName] = model;
+				//view[modelPropertyName] = model;
+				var mappingObject = {
+					model: model,
+					map: IOMapping,
+				};
+
+				view.addInputMap(mappingObject);
 			}
 			else {
 
-				view[modelPropertyName] = this.getHardwareModelInstance(modelType, server);
+				view.destinationModel = this.getHardwareModelInstance(modelType, server);
+				//view[modelPropertyName].push(this.getHardwareModelInstance(modelType, server) );
 			}
 			// render the view to reassociate bindings and update any changes
 			view.render();
 
 			return this;
 		},
+		//mapToModel: function(options) {
+
+			//var modelType = options.modelType,
+				//model = options.model,
+				//IOMapping = options.IOMapping,
+				//view = options.view,
+				//server = options.server;
+
+			//if(IOMapping === 'in') {
+				//var modelPropertyName = 'sourceModel';
+				////var modelPropertyName = 'sourceModels';
+			//}
+			//else {
+				//var modelPropertyName = 'destinationModel';
+				////var modelPropertyName = 'destinationModels';
+			//}
+
+			//if(model) {
+				//view[modelPropertyName] = model;
+				////view[modelPropertyName].push(model);
+			//}
+			//else {
+
+				//view[modelPropertyName] = this.getHardwareModelInstance(modelType, server);
+				////view[modelPropertyName].push(this.getHardwareModelInstance(modelType, server) );
+			//}
+			//// render the view to reassociate bindings and update any changes
+			//view.render();
+
+			//return this;
+		//},
         /**
          * Get the singleton model:server instance and if it does not yet exist, create it and return it
          *
