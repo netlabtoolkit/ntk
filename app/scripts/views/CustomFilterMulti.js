@@ -10,11 +10,11 @@ function(Backbone, WidgetView, Template, CodeMirror){
 
 	return WidgetView.extend({
 		ins: [
-			{name: 'one', fieldMap: 'inOne'},
-			{name: 'two', fieldMap: 'inTwo'},
+			{title: 'one', name: 'one', fieldMap: 'inOne'},
+			{title: 'two', name: 'two', fieldMap: 'inTwo'},
 		],
 		outs: [
-			{name: 'output', fieldMap: 'outOne'},
+			{title: 'out', name: 'output', fieldMap: 'outOne'},
 		],
 		className: 'customFilterMulti',
 		template: _.template(Template),
@@ -58,7 +58,7 @@ function(Backbone, WidgetView, Template, CodeMirror){
 		},
 		registerFilters: function() {
 			this.signalChainFunctions.length = 0;
-			this.signalChainFunctions.push(new Function("var inputs = arguments[0]; " + this.model.get('filter')));
+			this.signalChainFunctions.push(new Function("var inputs = arguments[1]; " + this.model.get('filter')));
 		},
 	});
 });

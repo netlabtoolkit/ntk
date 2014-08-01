@@ -14,13 +14,14 @@ function(Backbone, rivets, SignalChainFunctions, WidgetView, Template, jquerykno
 			'click .invert': 'toggleInvert',
 		},
 		ins: [
-			{
-				name: 'in',
-				fieldMap: 'out',
-			}
+            {
+                title: 'in',
+                name: 'in',
+                fieldMap: 'outblah',
+            }
 		],
 		outs: [
-			{name: 'output', fieldMap: 'out'},
+			{title: 'out', name: 'in', fieldMap: 'out'},
 		],
 		className: 'analogIn',
 		template: _.template(Template),
@@ -29,8 +30,8 @@ function(Backbone, rivets, SignalChainFunctions, WidgetView, Template, jquerykno
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set('title', 'Analog In');
 
-			//this.signalChainFunctions.push(SignalChainFunctions.scale);
-			//this.signalChainFunctions.push(SignalChainFunctions.invert);
+            this.signalChainFunctions.push(SignalChainFunctions.scale);
+            this.signalChainFunctions.push(SignalChainFunctions.invert);
 		},
 
 		onRender: function() {
@@ -49,7 +50,7 @@ function(Backbone, rivets, SignalChainFunctions, WidgetView, Template, jquerykno
 				'displayInput':false,
 				'min': 0,
 				'max': 1023,
-				'change' : function (v) { self.model.set('in', v); console.log(self.model.attributes); }
+				'change' : function (v) { self.model.set('in', v); }
 			});
 
 

@@ -25,7 +25,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 		initialize: function(options) {
 			_.extend(this.events, this.widgetEvents);
-			console.log(this.ins);
 			_.extend(options, {ins: this.ins});
 			_.extend(options, {outs: this.outs});
 			this.signalChainFunctions = [];
@@ -207,29 +206,29 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		},
 		processSignalChain: function() {
 
-			var inputs = this.model.get('ins'),
-                inputsObj = {};
+			var outputs = this.model.get('outs'),
+				outputsObj = {};
 
-				if(inputs) {
+				if(outputs) {
+					for(var i=outputs.length-1; i>=0; i--) {
+						var output = outputs[i];
+						outputsObj[output.fieldMap] = this.model.get(output.name);
 
-					for(var i=inputs.length-1; i>=0; i--) {
-						var input = inputs[i];
-						inputsObj[input.name] = this.model.get(input.fieldMap);
+						var outputField = outputsObj[output.fieldMap];
+						// Process the input through all signal functions attached to this view's signalChainFunctions array
+						_.each(this.signalChainFunctions, function(func) {
+							func = _.bind(func, this);
+							outputField = func(outputField, this.model.attributes);
+						}, this);
+
+						outputsObj[output.fieldMap] = outputField;
 					}
 
-					// Process the input through all signal functions attached to this view's signalChainFunctions array
-					_.each(this.signalChainFunctions, function(func) {
-						func = _.bind(func, this);
-						inputsObj = func(inputsObj);
-					}, this);
+					for(var processedOutput in outputsObj) {
+						var outputField = outputsObj[processedOutput];
 
-					for(var processedInput in inputsObj) {
-						var outlet = _.findWhere(this.model.get('outs'), {name: processedInput});
-						console.log(inputsObj, processedInput, outlet);
+						this.model.set(processedOutput, outputsObj[processedOutput]);
 
-						if(outlet) {
-							this.model.set(outlet.fieldMap, inputsObj[processedInput] );
-						}
 					}
 				}
 		},
