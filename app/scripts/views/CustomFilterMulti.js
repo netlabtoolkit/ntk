@@ -24,7 +24,7 @@ function(Backbone, WidgetView, Template, CodeMirror){
 				options = {};
 			}
 			_.extend(options, {
-				filter: "return {outOne: inputs.one + inputs.two};",
+				filter: "return inputs.inOne + inputs.inTwo;",
 				inOne: 2,
 				inTwo: 3,
 				outOne: 1,
