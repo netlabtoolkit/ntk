@@ -1,5 +1,5 @@
 <div class='inlets'>
-    <div rv-each-inlet="widget:ins" rv-text="inlet.name" rv-data-field="inlet.fieldMap" class='inlet'></div>
+    <div rv-each-inlet="widget:ins" rv-title="inlet.name" rv-data-field="inlet.fieldMap" class='inlet'>&middot;</div>
 </div>
 <div class="title dragHandle">
 	{ widget:title }

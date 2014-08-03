@@ -35,6 +35,7 @@ function( Backbone ) {
 			});
 
 			window.app.vent.on('sendModelUpdate', function(options) {
+				console.log('emitting');
 				socket.emit('sendModelUpdate', options);
 			});
 		},

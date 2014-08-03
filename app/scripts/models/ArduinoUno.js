@@ -13,6 +13,7 @@ function( Backbone, HardwareModel ) {
 	var ArduinoUno = HardwareModel.extend({
 
 		defaults: {
+			type: "ArduinoUno",
 			A0: 0,
 			A1: 0,
 			out9: 0,

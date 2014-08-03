@@ -1,6 +1,6 @@
 define([
 	'backbone',
-	'views/item/Widget',
+	'views/item/WidgetMulti',
 	'text!tmpl/Blank_tmpl.js',
 
 	'utils/SignalChainFunctions',
@@ -9,6 +9,12 @@ function(Backbone, WidgetView, Template, SignalChainFunctions){
     'use strict';
 
 	return WidgetView.extend({
+		ins: [
+			{title: 'in', name: 'in', fieldMap: 'in'},
+		],
+		outs: [
+			{title: 'out', name: 'out', fieldMap: 'out'},
+		],
         // Any custom DOM events should go here
         widgetEvents: {},
 		className: 'blank',

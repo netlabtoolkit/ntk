@@ -16,6 +16,7 @@ function(Backbone, WidgetView, Template, CodeMirror){
 		outs: [
 			{title: 'out', name: 'output', fieldMap: 'outOne'},
 		],
+		sources: [],
 		className: 'customFilterMulti',
 		template: _.template(Template),
 

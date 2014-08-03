@@ -23,6 +23,7 @@ function(Backbone, rivets, SignalChainFunctions, WidgetView, Template, jquerykno
 		outs: [
 			{title: 'out', name: 'in', fieldMap: 'out'},
 		],
+		sources: [],
 		className: 'analogIn',
 		template: _.template(Template),
 		initialize: function(options) {

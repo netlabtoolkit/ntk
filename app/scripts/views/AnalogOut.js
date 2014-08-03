@@ -17,6 +17,7 @@ function(Backbone, WidgetView, Template){
 		outs: [
 			{title: 'output', name: 'in', fieldMap: 'out'},
 		],
+		sources: [],
 		initialize: function(options) {
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);

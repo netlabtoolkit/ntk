@@ -31,7 +31,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			this.model = new WidgetConfigModel(options);
 			this.model.on('change', this.processSignalChain, this);
-			window.FF = this.model;
+			window.FF = this;
 
 			this.setWidgetBinders();
 		},
@@ -45,9 +45,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			//rivets.bind(this.$el, {widget: this.model, input: this.sourceModel, output: this.destinationModel});
 			rivets.bind(this.$el, {widget: this.model});
 
-			//if(this.sourceModel) {
-				//this.listenTo(this.sourceModel, 'change', this.syncWithSourceModel);
-			//}
+			if(this.sourceModel) {
+				this.listenTo(this.sourceModel, 'change', this.syncWithSourceModel);
+			}
 			//if(this.destinationModel) {
 				//this.listenTo(this.model, 'change', this.syncWithDestinationModel);
 			//}
@@ -199,9 +199,20 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				return source.map;
 			});
 
+			// Map any incoming data to this model's data
 			for(var i=sourceMappings.length-1; i>=0; i--) {
 				var mapping = sourceMappings[i];
-				this.model.set(mapping.destinationField, model.get(mapping.sourceField));
+				//if(this.model.attributes[mapping.destinationField]) {
+					this.model.set(mapping.destinationField, model.get(mapping.sourceField));
+				//}
+				//else if(model.attributes[mapping.destinationField]) {
+					//model.set(mapping.destinationField, this.model.get(mapping.sourceField));
+				//}
+				//console.log(mapping.sourceField, model.get(mapping.destinationField), mapping.destinationField, this.model.get(mapping.sourceField));
+				//if(model.get(mapping.destinationField) !== this.model.get(mapping.sourceField)) {
+					//model.set(mapping.destinationField, this.model.get(mapping.sourceField));
+					//console.log('send', {modelType: model.type, model: model});
+				//}
 			}
 		},
 		processSignalChain: function() {

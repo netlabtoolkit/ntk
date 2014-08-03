@@ -83,7 +83,8 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 				this.mapToModel({
 					view: newWidget,
 					modelType: 'ArduinoUno',
-					IOMapping: 'in',
+					//IOMapping: 'in',
+					IOMapping: {sourceField: "A0", destinationField: 'in'},
 					server: serverAddress,
 				});
 			}
@@ -94,7 +95,8 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 
 				this.mapToModel({
 					view: newWidget,
-					IOMapping: 'out',
+					//IOMapping: 'out',
+					IOMapping: {sourceField: "out", destinationField: 'out9'},
 					modelType: 'ArduinoUno',
 					server: serverAddress,
 				});
@@ -151,13 +153,18 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 					map: IOMapping,
 				};
 
-				view.addInputMap(mappingObject);
+				//view.addInputMap(mappingObject);
 			}
 			else {
-
-				view.destinationModel = this.getHardwareModelInstance(modelType, server);
+				//view.sourceModel = this.getHardwareModelInstance(modelType, server);
+				var sourceModel = this.getHardwareModelInstance(modelType, server);
+				var mappingObject = {
+					model: sourceModel,
+					map: IOMapping,
+				};
 				//view[modelPropertyName].push(this.getHardwareModelInstance(modelType, server) );
 			}
+			view.addInputMap(mappingObject);
 			// render the view to reassociate bindings and update any changes
 			view.render();
 

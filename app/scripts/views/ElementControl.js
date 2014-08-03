@@ -10,6 +10,7 @@ function(Backbone, rivets, WidgetView, Template){
 	return WidgetView.extend({
 		className: 'elementControl',
 		template: _.template(Template),
+		sources: [],
 		initialize: function(options) {
 			window.XX = this;
 			WidgetView.prototype.initialize.call(this, options);
