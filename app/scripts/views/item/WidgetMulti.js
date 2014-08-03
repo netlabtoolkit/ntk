@@ -202,17 +202,12 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			// Map any incoming data to this model's data
 			for(var i=sourceMappings.length-1; i>=0; i--) {
 				var mapping = sourceMappings[i];
-				//if(this.model.attributes[mapping.destinationField]) {
+				if(this.model.get('active') && this.model.attributes[mapping.destinationField] !== undefined) {
 					this.model.set(mapping.destinationField, model.get(mapping.sourceField));
-				//}
-				//else if(model.attributes[mapping.destinationField]) {
-					//model.set(mapping.destinationField, this.model.get(mapping.sourceField));
-				//}
-				//console.log(mapping.sourceField, model.get(mapping.destinationField), mapping.destinationField, this.model.get(mapping.sourceField));
-				//if(model.get(mapping.destinationField) !== this.model.get(mapping.sourceField)) {
-					//model.set(mapping.destinationField, this.model.get(mapping.sourceField));
-					//console.log('send', {modelType: model.type, model: model});
-				//}
+				}
+				else if(this.model.get('active') && model.attributes[mapping.destinationField] !== undefined) {
+					model.set(mapping.destinationField, this.model.get(mapping.sourceField));
+				}
 			}
 		},
 		processSignalChain: function() {
