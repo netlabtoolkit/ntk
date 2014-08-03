@@ -11,8 +11,12 @@ function(Backbone, rivets, WidgetView, Template){
 		className: 'elementControl',
 		template: _.template(Template),
 		initialize: function(options) {
+			window.XX = this;
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set({
+				ins: [
+					{name: 'in', fieldMap: 'in'},
+				],
                 outs: [
                     {title: 'out', name: 'in', fieldMap: 'in'},
                 ],
@@ -32,6 +36,7 @@ function(Backbone, rivets, WidgetView, Template){
 						parameter: 'opacity',
 					},
 				],
+				left: 0,
 			});
 		},
 

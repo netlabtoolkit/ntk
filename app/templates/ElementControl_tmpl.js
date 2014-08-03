@@ -1,4 +1,6 @@
-<div class="inlet"><span class="unMap">×</span></div>
+<div class='inlets'>
+    <div rv-each-inlet="widget:ins" rv-text="inlet.name" rv-data-field="inlet.fieldMap" class='inlet'></div>
+</div>
 <div class="title dragHandle">
 	{widget:title}
 </div>
@@ -8,4 +10,8 @@
 </select>
 <span class="text" rv-text="widget:in">Helllooo</span>
 <img rv-style-activeControl="widget:in" class="element" rv-src="widget:src"/>
+<img rv-style-left="widget:left" class="element" rv-src="widget:src"/>
 
+<div class='outlets'>
+    <div class="outlet" rv-each-outlet="widget:outs" rv-text="outlet.name" rv-data-field="outlet.fieldMap"></div>
+</div>
