@@ -42,21 +42,49 @@
 		}
 	}
 
-	.inlet.hover {
-		background-color: #000;
-	}
-	.inlet.connected {
-		background-color: #666;
-	}
 
-	.inlet {
+	.inlets {
+		position: absolute;
 		top: 0;
-		border-radius: 5px 5px 0 0 ;
-	}
-	.outlet {
-		border-radius: 0 0 5px 5px;
-	}
+		left: 0;
+		width: 100%;
+		height: 15px;
+		clear: both;
 
+		.inlet {
+			position: relative !important;
+			top: 0;
+			float: left;
+			width: 30px;
+			font-size: 34px;
+			color: #999;
+			line-height: 12px;
+			border-radius: 5px 5px 0 0 ;
+			
+		}
+
+		.inlet.hover {
+			background-color: #000;
+		}
+		.inlet.connected {
+			color: #333;
+		}
+
+	}
+	.outlets {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		width: 100%;
+		clear: both;
+
+		.outlet {
+			position: absolute;
+			float: left;
+			width: 30px;
+			border-radius: 0 0 5px 5px;
+		}
+	}
 	.dialwrapper {
 		margin-top:5px;
 	}

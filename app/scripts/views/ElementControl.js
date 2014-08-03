@@ -15,11 +15,14 @@ function(Backbone, rivets, WidgetView, Template){
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set({
 				ins: [
-					{name: 'in', fieldMap: 'in'},
+					//{name: 'in', fieldMap: 'in'},
+					{name: 'opacity', fieldMap: 'opacity'},
+					{name: 'X', fieldMap: 'left'},
+					{name: 'Y', fieldMap: 'top'},
 				],
-                outs: [
-                    {title: 'out', name: 'in', fieldMap: 'in'},
-                ],
+                //outs: [
+                    //{title: 'out', name: 'in', fieldMap: 'in'},
+                //],
 				title: 'Element Control',
 				activeControlParameter: 'left',
 				controlParameters: [
@@ -37,6 +40,8 @@ function(Backbone, rivets, WidgetView, Template){
 					},
 				],
 				left: 0,
+				opacity: 0,
+				top: 50,
 			});
 		},
 

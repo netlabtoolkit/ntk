@@ -74,8 +74,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				el.style.left = parseInt( value, 10 ) + "px";
 			};
 			rivets.binders.positiony = function(el, value) {
+				console.log('positiony');
 				el.style.top = parseInt( value, 10 ) + "px";
 			};
+
 			rivets.binders['style-*'] = function(el, value) {
 				el.style.setProperty(this.args[0], value/100);
 			};
@@ -127,8 +129,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				IOMapping: {sourceField: sourceField, destinationField: destinationField},
 			});
 
-			console.log(e.target.className);
-			//e.target.className += ' connected';
 			$(e.target).addClass('connected');
 		},
 		unMapInlet: function() {
