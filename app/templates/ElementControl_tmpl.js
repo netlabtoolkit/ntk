@@ -1,5 +1,5 @@
 <div class='inlets'>
-    <div rv-each-inlet="widget:ins" rv-title="inlet.name" rv-data-field="inlet.fieldMap" class='inlet'>&middot;</div>
+    <div rv-each-inlet="widget:ins" rv-title="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
 </div>
 <div class="title dragHandle">
 	{widget:title}
@@ -16,5 +16,5 @@
 	class="element" rv-src="widget:src"/>
 
 <div class='outlets'>
-    <div class="outlet" rv-each-outlet="widget:outs" rv-text="outlet.name" rv-data-field="outlet.fieldMap"></div>
+    <div class="outlet" rv-each-outlet="widget:outs" rv-text="outlet.title" rv-data-field="outlet.to"></div>
 </div>

@@ -10,11 +10,11 @@ function(Backbone, WidgetView, Template, CodeMirror){
 
 	return WidgetView.extend({
 		ins: [
-			{title: 'one', name: 'one', fieldMap: 'inOne'},
-			{title: 'two', name: 'two', fieldMap: 'inTwo'},
+			{title: 'one', from: 'one', to: 'inOne'},
+			{title: 'two', from: 'two', to: 'inTwo'},
 		],
 		outs: [
-			{title: 'out', name: 'output', fieldMap: 'outOne'},
+			{title: 'out', from: 'output', to: 'outOne'},
 		],
 		sources: [],
 		className: 'customFilterMulti',

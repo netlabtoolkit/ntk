@@ -16,12 +16,12 @@ function(Backbone, rivets, SignalChainFunctions, WidgetView, Template, jquerykno
 		ins: [
             {
                 title: 'in',
-                name: 'in',
-                fieldMap: 'outblah',
+                from: 'in',
+                to: 'outblah',
             }
 		],
 		outs: [
-			{title: 'out', name: 'in', fieldMap: 'out'},
+			{title: 'out', from: 'in', to: 'out'},
 		],
 		sources: [],
 		className: 'analogIn',

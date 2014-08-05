@@ -16,13 +16,13 @@ function(Backbone, rivets, WidgetView, Template){
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set({
 				ins: [
-					//{name: 'in', fieldMap: 'in'},
-					{name: 'opacity', fieldMap: 'opacity'},
-					{name: 'X', fieldMap: 'left'},
-					{name: 'Y', fieldMap: 'top'},
+					//{name: 'in', to: 'in'},
+					{title: 'opacity', from: 'opacity', to: 'opacity'},
+					{title: 'X Position', from: 'X', to: 'left'},
+					{title: 'Y Position', from: 'Y', to: 'top'},
 				],
                 //outs: [
-                    //{title: 'out', name: 'in', fieldMap: 'in'},
+                    //{title: 'out', name: 'in', to: 'in'},
                 //],
 				title: 'Element Control',
 				activeControlParameter: 'left',

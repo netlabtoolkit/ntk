@@ -12,10 +12,10 @@ function(Backbone, WidgetView, Template){
 		template: _.template(Template),
 
 		ins: [
-			{title: 'input', name: 'in', fieldMap: 'in'},
+			{title: 'input', from: 'in', to: 'in'},
 		],
 		outs: [
-			{title: 'output', name: 'in', fieldMap: 'out'},
+			{title: 'output', from: 'in', to: 'out'},
 		],
 		sources: [],
 		initialize: function(options) {
