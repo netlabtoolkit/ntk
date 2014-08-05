@@ -10,7 +10,6 @@
 	margin: 0;
 	padding: 15px;
 	padding-top: 25px;
-	/*padding-bottom: 0px;*/
 
 	border: 1px solid #666;
 	border-radius: 5px;
@@ -98,6 +97,8 @@
 			position: relative !important;
 			float: left;
 			width: 30px;
+
+			background-color:#DDD;
 		}
 		.outlet:first-child {
 			border-radius: 0 0 5px 5px;
@@ -136,27 +137,23 @@
 	}
 
 	.options li {
-	    font-family: 'Helvetica Neue', sans-serif;
-	    font-size: 1em;
-	    font-weight:bold;
-	    color: #000;
-	    text-align:center;
 	    display: inline-block;
 	    float: left;
 	    width: 30%;
+
+		cursor: pointer;
+
+	    color: #000;
+	    font-family: 'Helvetica Neue', sans-serif;
+	    font-size: 1em;
+	    font-weight:bold;
+	    text-align:center;
+
 	    border: 1px solid #fff;
-	    /* border-right: 1px solid #fff; */
 	    background-color: #ccc;
 	}
 
-	.options li a {
-	    color: #000;
-	    text-decoration: none;
-	}
-	.options li a:visited {
-	    /* color: #725d4c; */
-	}
-	.options li a:hover {
+	.options li:hover {
 	    color: #FFF;
-	}  
+	}
 }

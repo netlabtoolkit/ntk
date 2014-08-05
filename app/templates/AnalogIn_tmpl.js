@@ -36,9 +36,9 @@
 </div>
 <div class="options">
       <ul id="menu">
-        <li class='invert' rv-class-active="widget:invert">inv</li>
-        <li><a href="#">smo</a></li>
-        <li><a href="#">eas</a></li>
+        <li title="invert" class='invert' rv-class-active="widget:invert">inv</li>
+        <li title="smoothing">smo</li>
+        <li title="easing">eas</li>
       </ul>
 </div>
 

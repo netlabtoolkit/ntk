@@ -17,6 +17,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 	return Backbone.Marionette.ItemView.extend({
 		events: {
 			'click .inlet .unMap': 'unMapInlet',
+			'click .remove': 'removeWidget',
 		},
 		widgetEvents: {},
 
@@ -133,6 +134,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.stopListening(this.sourceModel);
 			this.sourceModel = undefined;
 			this.$('.inlet').removeClass('connected');
+		},
+		removeWidget: function() {
+
 		},
 		destinationModels: [],
 		onSync: function() {},
