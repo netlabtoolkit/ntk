@@ -28,6 +28,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			_.extend(options, {ins: this.ins});
 			_.extend(options, {outs: this.outs});
 			this.signalChainFunctions = [];
+			this.sources = [];
 
 			this.model = new WidgetConfigModel(options);
 			this.model.on('change', this.processSignalChain, this);
@@ -42,15 +43,11 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				this.el.className += " widget";
 			}
 
-			//rivets.bind(this.$el, {widget: this.model, input: this.sourceModel, output: this.destinationModel});
-			rivets.bind(this.$el, {widget: this.model});
+			rivets.bind(this.$el, {widget: this.model, sources: this.sources});
 
 			if(this.sourceModel) {
 				this.listenTo(this.sourceModel, 'change', this.syncWithSourceModel);
 			}
-			//if(this.destinationModel) {
-				//this.listenTo(this.model, 'change', this.syncWithDestinationModel);
-			//}
 
 			this.$el.draggable({handle: '.dragHandle'});
 			this.$('.outlet').draggable({
@@ -70,11 +67,11 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
          */
 		setWidgetBinders: function() {
 			var self = this;
+			// TODO: Pull out so this is not redefined everytime you create a widget
 			rivets.binders.positionx = function(el, value) {
 				el.style.left = parseInt( value, 10 ) + "px";
 			};
 			rivets.binders.positiony = function(el, value) {
-				console.log('positiony');
 				el.style.top = parseInt( value, 10 ) + "px";
 			};
 
@@ -137,7 +134,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.sourceModel = undefined;
 			this.$('.inlet').removeClass('connected');
 		},
-		sources: [],
 		destinationModels: [],
 		onSync: function() {},
         /**

@@ -1,7 +1,8 @@
 
 
-.analogIn {
+.widget.analogIn {
 	background-color: #ddd;
+	height: 225px;
 
 	li.active {
 		color: #fff;
@@ -9,6 +10,11 @@
 	}
 	.title {
 		background-color: #a5c9ea;
+	}
+	.settings {
+		input {
+			width: 25px;
+		}
 	}
 }
 

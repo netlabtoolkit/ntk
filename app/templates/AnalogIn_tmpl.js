@@ -2,6 +2,9 @@
 	{widget:title} <label><input type="checkbox" rv-checked="widget:active" > Live</label>
 </div>
 
+<div rv-each-source="sources" class="settings">
+	<input rv-value="source.map.sourceField">
+</div>
 
 
 <div class="dialwrapper" style="position:relative;">

@@ -38,6 +38,7 @@ process.on('uncaughtException', function(err) {
 	var socketIO = require('socket.io');
 	var io = socketIO.listen(server);
 	var sensor,
+		sensor1,
 		servo;
 
 	var _ = require('underscore'),
@@ -57,6 +58,10 @@ process.on('uncaughtException', function(err) {
 			},
 			A0: 0,
 			A1: 0,
+			A2: 0,
+			A3: 0,
+			A4: 0,
+			A5: 0,
 			out9: 0,
 		});
 
@@ -69,7 +74,10 @@ process.on('uncaughtException', function(err) {
 		// Create a new `sensor` hardware instance.
 		sensor = new five.Sensor({
 			pin: "A0",
-			//freq: 80
+			freq: 100,
+		});
+		sensor1 = new five.Sensor({
+			pin: "A5",
 			freq: 100,
 		});
 		servo = five.Servo({
@@ -109,6 +117,9 @@ process.on('uncaughtException', function(err) {
 
 			sensor.scale([0, 1023]).on("data", function() {
 				arduinoModel.set('A0', Math.floor(this.value));
+			});
+			sensor1.scale([0, 1023]).on("data", function() {
+				arduinoModel.set('A1', Math.floor(this.value));
 			});
 
 		});

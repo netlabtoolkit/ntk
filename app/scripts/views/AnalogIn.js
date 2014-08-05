@@ -3,10 +3,11 @@ define([
 	'rivets',
 	'utils/SignalChainFunctions',
 	'views/item/WidgetMulti',
+	'views/WidgetSettings',
 	'text!tmpl/AnalogIn_tmpl.js',
 	'jqueryknob',
 ],
-function(Backbone, rivets, SignalChainFunctions, WidgetView, Template, jqueryknob){
+function(Backbone, rivets, SignalChainFunctions, WidgetView, WidgetSettingsView, Template, jqueryknob){
     'use strict';
 
 	return WidgetView.extend({
@@ -23,7 +24,7 @@ function(Backbone, rivets, SignalChainFunctions, WidgetView, Template, jquerykno
 		outs: [
 			{title: 'out', from: 'in', to: 'out'},
 		],
-		sources: [],
+		//sources: [],
 		className: 'analogIn',
 		template: _.template(Template),
 		initialize: function(options) {
@@ -33,10 +34,13 @@ function(Backbone, rivets, SignalChainFunctions, WidgetView, Template, jquerykno
 
             this.signalChainFunctions.push(SignalChainFunctions.scale);
             this.signalChainFunctions.push(SignalChainFunctions.invert);
+
+			//this.settingsView = new WidgetSettingsView({model: this.model});
 		},
 
 		onRender: function() {
 			WidgetView.prototype.onRender.call(this);
+			//rivets.bind(this.$el, {widget: this.model, sources: this.sources});
 			var self = this;
 
 			this.$('.dial').knob({
