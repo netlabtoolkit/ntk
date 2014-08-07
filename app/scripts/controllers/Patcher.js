@@ -1,6 +1,7 @@
 define([
 	'application',
 	'backbone',
+	'cableManager',
 	'views/composite/Widgets',
 	'collections/Widgets',
 	'models/ArduinoUno',
@@ -11,7 +12,7 @@ define([
 	'views/CustomFilterMulti',
 	'views/Blank',
 ],
-function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, AnalogOutView, ElementControlView, CustomFilterView, BlankView){
+function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, AnalogOutView, ElementControlView, CustomFilterView, BlankView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -60,6 +61,9 @@ function(app, Backbone, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models,
 
 				hardwareModel.set(data.field, data.value);
 			}, this);
+
+			window.app.cableManager = new CableManager();
+			$(window.app.cableManager.parentEl).css({top: 0, left: 0, position: 'absolute', width: '100%', height: '100%'});
 		},
 		onExternalAddWidget: function(widgetType) {
 			var newWidget,

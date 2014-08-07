@@ -62,6 +62,7 @@ require.config({
         //json2: '../bower_components/require-handlebars-plugin/hbs/json2',
         //hbs: '../bower_components/require-handlebars-plugin/hbs',
         rivets: '../bower_components/rivets/dist/rivets',
+        cableManager: '../bower_components/cable-manager/CableManager',
     },
 
     //hbs: {

@@ -50,14 +50,30 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				this.listenTo(this.sourceModel, 'change', this.syncWithSourceModel);
 			}
 
-			this.$el.draggable({handle: '.dragHandle'});
+			this.$el.draggable({
+				handle: '.dragHandle',
+				drag: function(e, object) {
+					self.model.set({'offsetLeft': object.offset.left, 'offsetTop': object.offset.top, height: self.$el.height() + 40});
+					if(self.cable) {
+						app.cableManager.updateCoordinates(self.cable, {
+							to: {x: self.model.get('offsetLeft'), y: self.model.get('offsetTop')},
+						});
+					}
+				}
+			});
 			this.$('.outlet').draggable({
 				revert: true,
 			}).data('model', this.model);
 			this.$('.inlet').droppable({
 				hoverClass: 'hover',
 				drop: function(e, ui) {
-					self.onDrop(e, ui, $(ui.draggable).data('model'));
+					var droppedModel = $(ui.draggable).data('model');
+					self.onDrop(e, ui, droppedModel);
+
+					self.cable = app.cableManager.createConnection({
+						from: {x: droppedModel.get('offsetLeft'), y: droppedModel.get('offsetTop') + droppedModel.get('height')},
+						to: {x: self.model.get('offsetLeft'), y: self.model.get('offsetTop')},
+					});
 				},
 			});
 		},
@@ -207,6 +223,14 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}
 				else if(this.model.get('active') && model.attributes[mapping.destinationField] !== undefined) {
 					model.set(mapping.destinationField, this.model.get(mapping.sourceField));
+				}
+			}
+
+			if(model.changedAttributes().offsetLeft || model.changedAttributes().offsetTop ) {
+				if(this.cable) {
+						app.cableManager.updateCoordinates(this.cable, {
+							from: {x: model.get('offsetLeft'), y: model.get('offsetTop') + model.get('height')},
+						});
 				}
 			}
 		},
