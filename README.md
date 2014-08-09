@@ -13,9 +13,10 @@ https://gist.github.com/isaacs/579814
 
 If you are on Raspberry Pi, then you probably have an outdated version of Node. Here's a nice & easy upgrade method: http://joshondesign.com/2013/10/23/noderpi
 
-You will also need to install bower if you do not have it already:
+You will also need to install bower and grunt if you do not have them already:
 ```
 npm install bower
+npm install grunt
 ```
 
 To install this version of NETLab Toolkit:
