@@ -11,7 +11,7 @@ http://www.joyent.com/blog/installing-node-and-npm
 
 https://gist.github.com/isaacs/579814
 
-If you are on Raspberry Pi, then you probably have an outdated version of Node. Here's a nice & easy upgrade method: http://joshondesign.com/2013/10/23/noderpi
+If you are on Raspberry Pi, then you probably have an outdated version of Node. Here's a nice & easy upgrade method: https://github.com/DonaldDerek/rPi-cheat-sheet
 
 You will also need to install bower and grunt if you do not have them already:
 ```
