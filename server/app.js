@@ -23,7 +23,7 @@ process.on('uncaughtException', function(err) {
 
 	//// mount static
 	app.use(express.static( path.join( __dirname, '../app') ));
-	// For distributable version
+	// For distributable version, comment out the above and uncomment the line below
 	//app.use(express.static( path.join( __dirname, 'app') ));
 	app.use(express.static( path.join( __dirname, '../.tmp') ));
 
@@ -31,7 +31,7 @@ process.on('uncaughtException', function(err) {
 	//// route index.html
 	app.get('/', function(req, res){
 	  res.sendfile( path.join( __dirname, '../app/index.html' ) );
-	  // For distributable version
+	  // For distributable version, comment out the above and uncomment the line below
 	  //res.sendfile( path.join( __dirname, 'app/index.html' ) );
 	});
 
