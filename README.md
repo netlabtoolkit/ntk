@@ -39,12 +39,3 @@ or to run it as a standard application, run:
 node server/app.js
 ```
 
-If you want to produce a version that can be installed on a Raspberry Pi (or other embedded system) you have to currently do this manually. Run (on your laptop/desktop):
-```
-grunt build
-```
-
-Then copy the dist directory into the server directory. Rename it to "app" and comment out the lines labeled with the comment:
-```
-// For distributable version, comment out the above and uncomment the line below
-```
