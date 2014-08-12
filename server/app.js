@@ -23,12 +23,16 @@ process.on('uncaughtException', function(err) {
 
 	//// mount static
 	app.use(express.static( path.join( __dirname, '../app') ));
+	// For distributable version
+	//app.use(express.static( path.join( __dirname, 'app') ));
 	app.use(express.static( path.join( __dirname, '../.tmp') ));
 
 
 	//// route index.html
 	app.get('/', function(req, res){
 	  res.sendfile( path.join( __dirname, '../app/index.html' ) );
+	  // For distributable version
+	  //res.sendfile( path.join( __dirname, 'app/index.html' ) );
 	});
 
 
@@ -77,7 +81,7 @@ process.on('uncaughtException', function(err) {
 			freq: 100,
 		});
 		sensor1 = new five.Sensor({
-			pin: "A5",
+			pin: "A1",
 			freq: 100,
 		});
 		servo = five.Servo({

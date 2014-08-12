@@ -2,3 +2,6 @@
 .tmp
 app/bower_components
 node_modules
+server/app
+server/node_modules
+dist/

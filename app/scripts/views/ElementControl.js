@@ -12,18 +12,14 @@ function(Backbone, rivets, WidgetView, Template){
 		template: _.template(Template),
 		sources: [],
 		initialize: function(options) {
-			window.XX = this;
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set({
 				ins: [
 					//{name: 'in', to: 'in'},
-					{title: 'opacity', from: 'opacity', to: 'opacity'},
-					{title: 'X Position', from: 'X', to: 'left'},
-					{title: 'Y Position', from: 'Y', to: 'top'},
+					{title: 'opacity', to: 'opacity'},
+					{title: 'X Position', to: 'left'},
+					{title: 'Y Position', to: 'top'},
 				],
-                //outs: [
-                    //{title: 'out', name: 'in', to: 'in'},
-                //],
 				title: 'Element Control',
 				activeControlParameter: 'left',
 				controlParameters: [

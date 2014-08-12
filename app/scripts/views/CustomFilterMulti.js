@@ -9,13 +9,22 @@ function(Backbone, WidgetView, Template, CodeMirror){
     'use strict';
 
 	return WidgetView.extend({
+		// Map inputs to model
 		ins: [
-			{title: 'one', from: 'one', to: 'inOne'},
-			{title: 'two', from: 'two', to: 'inTwo'},
+			// title: decorative, to: <widget model field>
+			{title: 'one', to: 'inOne'},
+			{title: 'two', to: 'inTwo'},
 		],
 		outs: [
+			// title: decorative, from: <widget model field>, to: <widget model field being listened to>
 			{title: 'out', from: 'output', to: 'outOne'},
 		],
+		//defaults: {
+				//filter: "return inputs.inOne + inputs.inTwo;",
+				//inOne: 2,
+				//inTwo: 3,
+				//outOne: 1,
+		//},
 		sources: [],
 		className: 'customFilterMulti',
 		template: _.template(Template),

@@ -33,6 +33,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			this.model = new WidgetConfigModel(options);
 			this.model.on('change', this.processSignalChain, this);
+			// DEBUG
 			window.FF = this;
 
 			this.setWidgetBinders();
@@ -44,16 +45,22 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				this.el.className += " widget";
 			}
 
+			// Bind/rebind rivets to the models
 			rivets.bind(this.$el, {widget: this.model, sources: this.sources});
 
 			if(this.sourceModel) {
 				this.listenTo(this.sourceModel, 'change', this.syncWithSourceModel);
 			}
 
+			// Make Widget draggable
 			this.$el.draggable({
 				handle: '.dragHandle',
 				drag: function(e, object) {
+					// update our own stored position (for saving the state of this widget and also for triggering change event to inform any listening widgets attached to this widget)
+					// TODO: + 40 is added to the height to account for padding. Calculate that instead
 					self.model.set({'offsetLeft': object.offset.left, 'offsetTop': object.offset.top, height: self.$el.height() + 40});
+
+					// update any patch cables that are attached to the inlets on this model with our new coordinates
 					if(self.cable) {
 						app.cableManager.updateCoordinates(self.cable, {
 							to: {x: self.model.get('offsetLeft'), y: self.model.get('offsetTop')},
@@ -61,15 +68,18 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					}
 				}
 			});
+			// Set the data model on all outlets and make draggable
 			this.$('.outlet').draggable({
 				revert: true,
 			}).data('model', this.model);
+			// Make all inlets droppable and bind the onDrop handler when one drops onto it
 			this.$('.inlet').droppable({
 				hoverClass: 'hover',
 				drop: function(e, ui) {
 					var droppedModel = $(ui.draggable).data('model');
 					self.onDrop(e, ui, droppedModel);
 
+					// Create a new patch cable between the source widget and this widget's inlet
 					self.cable = app.cableManager.createConnection({
 						from: {x: droppedModel.get('offsetLeft'), y: droppedModel.get('offsetTop') + droppedModel.get('height')},
 						to: {x: self.model.get('offsetLeft'), y: self.model.get('offsetTop')},
@@ -132,6 +142,14 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}
 			}
 		},
+		/**
+		 * Called when you drop onto an inlet. Maps the dropped model w/ parameter to the inlet
+		 *
+		 * @param {Event} e
+		 * @param {element} ui
+		 * @param {Backbone.Model} model
+		 * @return {void}
+		 */
 		onDrop: function(e, ui, model) {
 			var sourceField = ui.draggable[0].dataset.field,
 				destinationField = e.target.dataset.field;

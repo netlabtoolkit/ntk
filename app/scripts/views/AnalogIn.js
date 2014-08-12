@@ -15,16 +15,15 @@ function(Backbone, rivets, SignalChainFunctions, WidgetView, WidgetSettingsView,
 			'click .invert': 'toggleInvert',
 		},
 		ins: [
-            {
-                title: 'in',
-                from: 'in',
-                to: 'outblah',
-            }
+            //{
+                //title: 'in',
+                //to: 'outblah',
+            //}
 		],
 		outs: [
+			// title is decorative, from: <widget model field>, to: <widget model field being listened to>
 			{title: 'out', from: 'in', to: 'out'},
 		],
-		//sources: [],
 		className: 'analogIn',
 		template: _.template(Template),
 		initialize: function(options) {

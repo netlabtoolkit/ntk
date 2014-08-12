@@ -12,7 +12,7 @@ function(Backbone, WidgetView, Template){
 		template: _.template(Template),
 
 		ins: [
-			{title: 'input', from: 'in', to: 'in'},
+			{title: 'input', to: 'in'},
 		],
 		outs: [
 			{title: 'output', from: 'in', to: 'out'},
