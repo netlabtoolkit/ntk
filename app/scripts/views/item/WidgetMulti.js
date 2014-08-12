@@ -26,6 +26,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 		initialize: function(options) {
 			_.extend(this.events, this.widgetEvents);
+			options = options ? options : {};
 			_.extend(options, {ins: this.ins});
 			_.extend(options, {outs: this.outs});
 			this.signalChainFunctions = [];

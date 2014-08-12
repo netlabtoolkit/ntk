@@ -13,6 +13,7 @@ function(Backbone, WidgetView, Template, SignalChainFunctions){
 			{title: 'in', name: 'in', fieldMap: 'in'},
 		],
 		outs: [
+			// title is decorative, from: <widget model field>, to: <widget model field being listened to>
 			{title: 'out', name: 'out', fieldMap: 'out'},
 		],
         // Any custom DOM events should go here
@@ -21,6 +22,7 @@ function(Backbone, WidgetView, Template, SignalChainFunctions){
 		template: _.template(Template),
 
 		initialize: function(options) {
+            console.log(this.ins);
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
 
