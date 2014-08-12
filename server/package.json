@@ -1,0 +1,17 @@
+{
+  "name": "netlab-server",
+  "version": "0.0.1",
+  "dependencies": {
+    "express": "~4.4.5",
+    "request": "~2.21.0",
+    "async": "~0.2.8",
+    "mongodb": "~1.3.6",
+    "mongoose": "~3.6.11",
+    "socket.io": "~1.0.0",
+    "underscore": "~1.4.4",
+    "johnny-five": "~0.7.49"
+  },
+  "engines": {
+    "node": ">=0.8.0"
+  }
+}
