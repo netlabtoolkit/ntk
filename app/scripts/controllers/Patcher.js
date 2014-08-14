@@ -62,6 +62,7 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
          */
 		addEventListeners: function() {
 			window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
+			window.app.vent.on('ToolBar:savePatch', this.savePatch, this);
 			window.app.vent.on('receivedModelUpdate', function(data) {
 				var serverAddress = window.location.host;
 				var hardwareModel = this.getHardwareModelInstance(data.modelType, serverAddress);
@@ -76,6 +77,9 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 			var newWidget,
 				serverAddress = window.location.host;
 
+			var newModel = this.widgetModels.create({});
+			console.log(newModel);
+
 			if(widgetType === 'elementControl') {
 				var imageSrc = prompt('enter an image URL');
 				if(!imageSrc) {
@@ -83,11 +87,13 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 					imageSrc = 'images/pinkBlue.jpg';
 				}
 				var newWidget = new ElementControlView({
+					model: newModel,
 					src: imageSrc,
 				});
 			}
 			else if(widgetType === 'analogIn') {
 				var newWidget = new AnalogInView({
+					model: newModel,
 					inputMapping: 'A0',
 				});
 
@@ -101,6 +107,7 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 			}
 			else if(widgetType === 'analogOut') {
 				var newWidget = new AnalogOutView({
+					model: newModel,
 					outputMapping: 'out9',
 				});
 
@@ -113,10 +120,14 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 				});
 			}
 			else if(widgetType === 'code') {
-				var newWidget = new CodeView();
+				var newWidget = new CodeView({
+					model: newModel,
+				});
 			}
 			else if(widgetType === 'blank') {
-				var newWidget = new BlankView();
+				var newWidget = new BlankView({
+					model: newModel,
+				});
 			}
 
 			this.addWidgetToStage(newWidget);
@@ -222,6 +233,12 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 
 				return newModelInstance;
 			}
+		},
+
+
+		savePatch: function() {
+			console.log(this.widgetModels);
+			//this.widgetModels.sync();
 		},
 	};
 

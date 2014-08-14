@@ -9,6 +9,7 @@ function( app, Backbone, Template  ) {
 	return Backbone.View.extend({
 		events: {
 			'click .addWidget': 'addWidget',
+			'click .savePatch': 'savePatch',
 		},
 		subViews: [],
 		template: _.template(Template),
@@ -36,6 +37,9 @@ function( app, Backbone, Template  ) {
 			}
 
 			window.app.vent.trigger('ToolBar:addWidget', widgetType);
+		},
+		savePatch: function() {
+			window.app.vent.trigger('ToolBar:savePatch');
 		},
 	});
 

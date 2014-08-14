@@ -32,7 +32,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.signalChainFunctions = [];
 			this.sources = [];
 
-			this.model = new WidgetConfigModel(options);
+			//this.model = new WidgetConfigModel(options);
+			this.model.set(options);
 			this.model.on('change', this.processSignalChain, this);
 			// DEBUG
 			window.FF = this;

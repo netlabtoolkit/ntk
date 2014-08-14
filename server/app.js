@@ -34,6 +34,9 @@ process.on('uncaughtException', function(err) {
 	  // For distributable version, comment out the above and uncomment the line below
 	  //res.sendfile( path.join( __dirname, 'app/index.html' ) );
 	});
+	app.get('/test', function(req, res){
+		console.log(req, res);
+	});
 
 
 	//// start server
