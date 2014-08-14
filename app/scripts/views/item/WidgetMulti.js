@@ -170,8 +170,14 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.sourceModel = undefined;
 			this.$('.inlet').removeClass('connected');
 		},
+        /**
+         * remove the widget from both the DOM and the controller
+         *
+         * @return {void}
+         */
 		removeWidget: function() {
-
+			app.Patcher.Controller.removeWidget(this);
+			this.remove();
 		},
 		destinationModels: [],
 		onSync: function() {},

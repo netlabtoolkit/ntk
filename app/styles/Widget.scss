@@ -16,6 +16,11 @@
 
 	background-color: #DDD;
 
+	.remove {
+		float: right;
+		width: 1em;
+	}
+
 	.title {
 		background-color: #a5c9ea;
 	}
@@ -63,11 +68,6 @@
 			top: 0;
 			float: left;
 			width: 30px;
-			/*font-size: 34px;*/
-			/*color: #999;*/
-			/*line-height: 12px;*/
-			/*border-right: 1px solid #c5c5c5;*/
-			
 		}
 		.inlet:first-child {
 			border-radius: 5px 0px 0 0 ;

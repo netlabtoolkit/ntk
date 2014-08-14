@@ -1,3 +1,4 @@
+<div class="remove">×</div>
 <div class='inlets'>
     <div rv-each-inlet="widget:ins" rv-alt="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
 </div>

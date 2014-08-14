@@ -53,6 +53,11 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 
 			this.addEventListeners();
 		},
+        /**
+         * add all event listeners for objects this controller is managing
+         *
+         * @return {void}
+         */
 		addEventListeners: function() {
 			window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
 			window.app.vent.on('receivedModelUpdate', function(data) {
@@ -125,6 +130,15 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 			this.widgets.push(view);
 			return this;
 		},
+        /**
+         * remove a widget from the array of widgets that we are tracking
+         *
+         * @param {WidgetMulti} widgetView
+         * @return {void}
+         */
+		removeWidget: function(widgetView) {
+			this.widgets = _.reject(this.widgets, function(view) { console.log(widgetView, view); return widgetView === view; });
+		},
 		/**
 		 * Assign a model to a view, instantiating the model if one is not instantiated yet
 		 * All models are singletons since we are only communicating with one
@@ -174,37 +188,6 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 
 			return this;
 		},
-		//mapToModel: function(options) {
-
-			//var modelType = options.modelType,
-				//model = options.model,
-				//IOMapping = options.IOMapping,
-				//view = options.view,
-				//server = options.server;
-
-			//if(IOMapping === 'in') {
-				//var modelPropertyName = 'sourceModel';
-				////var modelPropertyName = 'sourceModels';
-			//}
-			//else {
-				//var modelPropertyName = 'destinationModel';
-				////var modelPropertyName = 'destinationModels';
-			//}
-
-			//if(model) {
-				//view[modelPropertyName] = model;
-				////view[modelPropertyName].push(model);
-			//}
-			//else {
-
-				//view[modelPropertyName] = this.getHardwareModelInstance(modelType, server);
-				////view[modelPropertyName].push(this.getHardwareModelInstance(modelType, server) );
-			//}
-			//// render the view to reassociate bindings and update any changes
-			//view.render();
-
-			//return this;
-		//},
         /**
          * Get the singleton model:server instance and if it does not yet exist, create it and return it
          *

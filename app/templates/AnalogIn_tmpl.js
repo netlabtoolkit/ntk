@@ -1,3 +1,4 @@
+<div class="remove">×</div>
 <div class="title dragHandle">
 	{widget:title} <label><input type="checkbox" rv-checked="widget:active" > Live</label>
 </div>
