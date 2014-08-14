@@ -28,8 +28,8 @@ function( app, Backbone, Template  ) {
 			else if($(e.target).hasClass('elementControl')) {
 				widgetType = 'elementControl';
 			}
-			else if($(e.target).hasClass('expression')) {
-				widgetType = 'expression';
+			else if($(e.target).hasClass('addCode')) {
+				widgetType = 'code';
 			}
 			else if($(e.target).hasClass('blank')) {
 				widgetType = 'blank';

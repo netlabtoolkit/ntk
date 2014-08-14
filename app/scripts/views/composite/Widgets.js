@@ -40,6 +40,7 @@ function( Backbone, Widget, Template  ) {
          * @return {Backbone.View} this view
          */
 		addView: function(view) {
+			console.log(view);
 			this.subViews.push(view);
 			this.el.appendChild(view.render().el);
 

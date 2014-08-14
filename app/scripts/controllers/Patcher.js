@@ -9,16 +9,14 @@ define([
 	'views/AnalogIn',
 	'views/AnalogOut',
 	'views/ElementControl',
-	'views/CustomFilterMulti',
+	'views/Code',
 	'views/Blank',
 ],
-function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, AnalogOutView, ElementControlView, CustomFilterView, BlankView){
+function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, AnalogOutView, ElementControlView, CodeView, BlankView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
 		this.views.mainCanvas = new WidgetsView();
-
-		//window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
 	};
 
 	PatcherController.prototype = {
@@ -71,6 +69,7 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 			$(window.app.cableManager.parentEl).css({top: 0, left: 0, position: 'absolute', width: '100%', height: '100%'});
 		},
 		onExternalAddWidget: function(widgetType) {
+			console.log(widgetType);
 			var newWidget,
 				serverAddress = window.location.host;
 
@@ -110,8 +109,9 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 					server: serverAddress,
 				});
 			}
-			else if(widgetType === 'expression') {
-				var newWidget = new CustomFilterView();
+			else if(widgetType === 'code') {
+				var newWidget = new CodeView();
+				console.log(newWidget);
 			}
 			else if(widgetType === 'blank') {
 				var newWidget = new BlankView();

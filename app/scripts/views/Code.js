@@ -1,7 +1,7 @@
 define([
 	'backbone',
 	'views/item/WidgetMulti',
-	'text!tmpl/CustomFilterMulti_tmpl.js',
+	'text!tmpl/Code_tmpl.js',
 
 	'codemirror',
 ],
@@ -26,7 +26,7 @@ function(Backbone, WidgetView, Template, CodeMirror){
 				//outOne: 1,
 		//},
 		sources: [],
-		className: 'customFilterMulti',
+		className: 'code',
 		template: _.template(Template),
 
 		initialize: function(options) {
@@ -41,7 +41,7 @@ function(Backbone, WidgetView, Template, CodeMirror){
 			});
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
-			this.model.set('title', 'Expression');
+			this.model.set('title', 'Code');
 		},
         /**
          * called when widget is rendered
