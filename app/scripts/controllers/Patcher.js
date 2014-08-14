@@ -17,6 +17,10 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 	var PatcherController = function(region) {
 		this.parentRegion = region;
 		this.views.mainCanvas = new WidgetsView();
+		this.widgetModels = new WidgetsCollection();
+
+		// DEBUG
+		window.GG = this;
 	};
 
 	PatcherController.prototype = {
@@ -69,7 +73,6 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 			$(window.app.cableManager.parentEl).css({top: 0, left: 0, position: 'absolute', width: '100%', height: '100%'});
 		},
 		onExternalAddWidget: function(widgetType) {
-			console.log(widgetType);
 			var newWidget,
 				serverAddress = window.location.host;
 
@@ -111,7 +114,6 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 			}
 			else if(widgetType === 'code') {
 				var newWidget = new CodeView();
-				console.log(newWidget);
 			}
 			else if(widgetType === 'blank') {
 				var newWidget = new BlankView();
@@ -128,6 +130,7 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 		addWidgetToStage: function(view) {
 			this.views.mainCanvas.addView(view);
 			this.widgets.push(view);
+			this.widgetModels.add(view.model);
 			return this;
 		},
         /**
@@ -137,7 +140,8 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
          * @return {void}
          */
 		removeWidget: function(widgetView) {
-			this.widgets = _.reject(this.widgets, function(view) { console.log(widgetView, view); return widgetView === view; });
+			this.widgets = _.reject(this.widgets, function(view) { return widgetView === view; });
+			this.widgetModels.remove(widgetView.model);
 		},
 		/**
 		 * Assign a model to a view, instantiating the model if one is not instantiated yet
