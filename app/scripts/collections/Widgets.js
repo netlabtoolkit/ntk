@@ -8,7 +8,6 @@ function( Backbone, WidgetModel ) {
 	return Backbone.Collection.extend({
 		url: '/test',
 		initialize: function() {
-			console.log("initialize a Widgets collection");
 		},
 		model: WidgetModel,
 	});

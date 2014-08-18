@@ -10,6 +10,7 @@ function( app, Backbone, Template  ) {
 		events: {
 			'click .addWidget': 'addWidget',
 			'click .savePatch': 'savePatch',
+			'click .loadPatch': 'loadPatch',
 		},
 		subViews: [],
 		template: _.template(Template),
@@ -37,6 +38,10 @@ function( app, Backbone, Template  ) {
 			}
 
 			window.app.vent.trigger('ToolBar:addWidget', widgetType);
+		},
+		loadPatch: function() {
+			var JSONString = prompt('Paste your JSON here');
+			window.app.vent.trigger('ToolBar:loadPatch', JSONString);
 		},
 		savePatch: function() {
 			window.app.vent.trigger('ToolBar:savePatch');

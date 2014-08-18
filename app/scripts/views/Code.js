@@ -26,6 +26,7 @@ function(Backbone, WidgetView, Template, CodeMirror){
 				//outOne: 1,
 		//},
 		sources: [],
+		typeID: 'Code',
 		className: 'code',
 		template: _.template(Template),
 

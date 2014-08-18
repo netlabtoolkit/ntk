@@ -8,6 +8,7 @@ function(Backbone, WidgetView, Template){
     'use strict';
 
 	return WidgetView.extend({
+		typeID: 'AnalogOut',
 		className: 'analogOut',
 		template: _.template(Template),
 

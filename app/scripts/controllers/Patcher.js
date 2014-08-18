@@ -2,6 +2,7 @@ define([
 	'application',
 	'backbone',
 	'cableManager',
+	'controllers/PatchLoader',
 	'views/composite/Widgets',
 	'collections/Widgets',
 	'models/ArduinoUno',
@@ -12,12 +13,19 @@ define([
 	'views/Code',
 	'views/Blank',
 ],
-function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, AnalogOutView, ElementControlView, CodeView, BlankView){
+function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, AnalogOutView, ElementControlView, CodeView, BlankView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
 		this.views.mainCanvas = new WidgetsView();
 		this.widgetModels = new WidgetsCollection();
+
+		// Create a patch loader / saver for reloading in JSON "patches"
+		this.patchLoader = new PatchLoader({
+			serverAddress: 'localhost',
+			addFunction: (function(self) { return function() {return self.onExternalAddWidget.apply(self, arguments)}; })(this),
+			mapFunction: (function(self) { return function() {return self.mapToModel.apply(self, arguments)}; })(this),
+		});
 
 		// DEBUG
 		window.GG = this;
@@ -63,6 +71,7 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 		addEventListeners: function() {
 			window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
 			window.app.vent.on('ToolBar:savePatch', this.savePatch, this);
+			window.app.vent.on('ToolBar:loadPatch', this.loadPatch, this);
 			window.app.vent.on('receivedModelUpdate', function(data) {
 				var serverAddress = window.location.host;
 				var hardwareModel = this.getHardwareModelInstance(data.modelType, serverAddress);
@@ -76,14 +85,13 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 		onExternalAddWidget: function(widgetType) {
 			var newWidget,
 				serverAddress = window.location.host;
+			widgetType = widgetType.toLowerCase();
 
 			var newModel = this.widgetModels.create({});
-			console.log(newModel);
 
-			if(widgetType === 'elementControl') {
+			if(widgetType === 'elementcontrol') {
 				var imageSrc = prompt('enter an image URL');
 				if(!imageSrc) {
-					//imageSrc = 'http://payload294.cargocollective.com/1/4/130420/8181648/bDSC_1134.jpg';
 					imageSrc = 'images/pinkBlue.jpg';
 				}
 				var newWidget = new ElementControlView({
@@ -91,7 +99,7 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 					src: imageSrc,
 				});
 			}
-			else if(widgetType === 'analogIn') {
+			else if(widgetType === 'analogin') {
 				var newWidget = new AnalogInView({
 					model: newModel,
 					inputMapping: 'A0',
@@ -100,12 +108,11 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 				this.mapToModel({
 					view: newWidget,
 					modelType: 'ArduinoUno',
-					//IOMapping: 'in',
 					IOMapping: {sourceField: "A0", destinationField: 'in'},
 					server: serverAddress,
 				});
 			}
-			else if(widgetType === 'analogOut') {
+			else if(widgetType === 'analogout') {
 				var newWidget = new AnalogOutView({
 					model: newModel,
 					outputMapping: 'out9',
@@ -113,7 +120,6 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 
 				this.mapToModel({
 					view: newWidget,
-					//IOMapping: 'out',
 					IOMapping: {sourceField: "out", destinationField: 'out9'},
 					modelType: 'ArduinoUno',
 					server: serverAddress,
@@ -131,6 +137,8 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 			}
 
 			this.addWidgetToStage(newWidget);
+
+			return newWidget;
 		},
 		/**
 		 * Render a view to the appropriate Canvas DOM element
@@ -142,7 +150,7 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 			this.views.mainCanvas.addView(view);
 			this.widgets.push(view);
 			this.widgetModels.add(view.model);
-			return this;
+			return view;
 		},
         /**
          * remove a widget from the array of widgets that we are tracking
@@ -169,16 +177,6 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 				view = options.view,
 				server = options.server;
 
-
-			//if(IOMapping === 'in') {
-				//var modelPropertyName = 'sourceModel';
-				////var modelPropertyName = 'sourceModels';
-			//}
-			//else {
-				//var modelPropertyName = 'destinationModel';
-				////var modelPropertyName = 'destinationModels';
-			//}
-
 			if(model) {
 				//view[modelPropertyName] = model;
 				var mappingObject = {
@@ -186,16 +184,13 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 					map: IOMapping,
 				};
 
-				//view.addInputMap(mappingObject);
 			}
 			else {
-				//view.sourceModel = this.getHardwareModelInstance(modelType, server);
 				var sourceModel = this.getHardwareModelInstance(modelType, server);
 				var mappingObject = {
 					model: sourceModel,
 					map: IOMapping,
 				};
-				//view[modelPropertyName].push(this.getHardwareModelInstance(modelType, server) );
 			}
 			view.addInputMap(mappingObject);
 			// render the view to reassociate bindings and update any changes
@@ -236,9 +231,11 @@ function(app, Backbone, CableManager, WidgetsView, WidgetsCollection, ArduinoUno
 		},
 
 
+		loadPatch: function(JSONString) {
+			this.patchLoader.loadJSON(JSONString);
+		},
 		savePatch: function() {
-			console.log(this.widgetModels);
-			//this.widgetModels.sync();
+			this.patchLoader.save(this.widgetModels);
 		},
 	};
 

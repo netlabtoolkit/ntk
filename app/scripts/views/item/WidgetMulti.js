@@ -25,10 +25,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		template: _.template( WidgetTmpl ),
 
 		initialize: function(options) {
+			// We pass the model to the widget which ends up in options. If we extend options here, we'd end up with a recursive reference so nulling it out for now.
+			options.model = undefined;
 			_.extend(this.events, this.widgetEvents);
 			options = options ? options : {};
 			_.extend(options, {ins: this.ins});
 			_.extend(options, {outs: this.outs});
+			_.extend(options, {typeID: this.typeID});
 			this.signalChainFunctions = [];
 			this.sources = [];
 
@@ -60,7 +63,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				drag: function(e, object) {
 					// update our own stored position (for saving the state of this widget and also for triggering change event to inform any listening widgets attached to this widget)
 					// TODO: + 40 is added to the height to account for padding. Calculate that instead
-					self.model.set({'offsetLeft': object.offset.left, 'offsetTop': object.offset.top, height: self.$el.height() + 40});
+					self.model.set({'offsetLeft': object.offset.left, 'offsetTop': object.offset.top, height: self.$el.height() + 40, positionTop: object.position.top, positionLeft: object.position.left});
 
 					// update any patch cables that are attached to the inlets on this model with our new coordinates
 					if(self.cable) {
@@ -289,6 +292,12 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}
 		},
 
+
+		setFromModel: function(model) {
+			//this.$el.css({top: model.offsetTop, left: model.offsetLeft});
+			this.$el.css({top: model.positionTop, left: model.positionLeft});
+			this.model.set(model);
+		},
 	});
 
 });

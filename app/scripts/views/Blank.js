@@ -18,6 +18,7 @@ function(Backbone, WidgetView, Template, SignalChainFunctions){
 		],
         // Any custom DOM events should go here
         widgetEvents: {},
+		typeID: 'Blank',
 		className: 'blank',
 		template: _.template(Template),
 
