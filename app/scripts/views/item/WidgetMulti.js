@@ -96,6 +96,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					self.onDrop(e, ui, droppedModel);
 				},
 			});
+
 		},
         /**
          * attach custom rivets binders for Widget views
@@ -164,6 +165,16 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			var sourceField = ui.draggable[0].dataset.field,
 				destinationField = e.target.dataset.field;
 
+			// If the offsets have not been set from dragging, set them manually
+			if(!this.model.get('offsetLeft') && !this.model.get('offsetTop')) {
+				this.model.set({'offsetLeft': this.$el.offset().left, 'offsetTop': this.$el.offset().top, height: this.$el.height() + 40, positionTop: this.$el.position().top, positionLeft: this.$el.position().left});
+			}
+
+			if(!model.get('offsetLeft') && !model.get('offsetTop')) {
+				model.set({'offsetLeft': $(ui.draggable[0].parentNode.parentNode).position().left+5, 'offsetTop': $(ui.draggable[0].parentNode.parentNode).position().top + $(ui.draggable[0].parentNode.parentNode).height()-22, height: $(ui.draggable[0]).height() + 40, positionTop: $(ui.draggable[0]).position().top, positionLeft: $(ui.draggable[0]).position().left});
+			}
+
+			// Map the dropped model to this inlet
 			app.Patcher.Controller.mapToModel({
 				view: this,
 				model: model,
