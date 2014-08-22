@@ -58,13 +58,18 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				this.listenTo(this.sourceModel, 'change', this.syncWithSourceModel);
 			}
 
+			this.makeDraggable();
+
+		},
+		makeDraggable: function() {
+			var self = this;
 			// Make Widget draggable
 			this.$el.draggable({
 				handle: '.dragHandle',
 				drag: function(e, object) {
 					// update our own stored position (for saving the state of this widget and also for triggering change event to inform any listening widgets attached to this widget)
 					// TODO: + 40 is added to the height to account for padding. Calculate that instead
-					self.model.set({'offsetLeft': object.offset.left, 'offsetTop': object.offset.top, height: self.$el.height() + 40, positionTop: object.position.top, positionLeft: object.position.left});
+					self.model.set({'offsetLeft': object.position.left, 'offsetTop': object.position.top, height: self.$el.height() + 40, positionTop: object.position.top, positionLeft: object.position.left});
 
 					// update any patch cables that are attached to the inlets on this model with our new coordinates
 					if(self.cables.length) {
@@ -84,6 +89,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					}
 				}
 			});
+			this.$el.css({position: 'absolute'});
 			// Set the data model on all outlets and make draggable
 			this.$('.outlet').draggable({
 				revert: true,
@@ -167,7 +173,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			// If the offsets have not been set from dragging, set them manually
 			if(!this.model.get('offsetLeft') && !this.model.get('offsetTop')) {
-				this.model.set({'offsetLeft': this.$el.offset().left, 'offsetTop': this.$el.offset().top, height: this.$el.height() + 40, positionTop: this.$el.position().top, positionLeft: this.$el.position().left});
+				this.model.set({'offsetLeft': this.$el.position().left, 'offsetTop': this.$el.position().top, height: this.$el.height() + 40, positionTop: this.$el.position().top, positionLeft: this.$el.position().left});
 			}
 
 			if(!model.get('offsetLeft') && !model.get('offsetTop')) {
@@ -332,8 +338,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 
 		setFromModel: function(model) {
-			//this.$el.css({top: model.offsetTop, left: model.offsetLeft});
-			this.$el.css({top: model.positionTop, left: model.positionLeft});
+			this.$el.css({top: model.offsetTop, left: model.offsetLeft});
+			//this.$el.css({top: model.positionTop, left: model.positionLeft});
 			this.model.set(model);
 		},
 	});
