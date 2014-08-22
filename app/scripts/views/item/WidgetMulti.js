@@ -192,7 +192,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		removeWidget: function() {
 			app.Patcher.Controller.removeWidget(this);
 			for(var i=this.cables.length-1; i>=0; i--) {
-				this.cables[i].remove();
+				this.cables[i].cable.remove();
 			}
 			this.remove();
 		},
