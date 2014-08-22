@@ -187,6 +187,12 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 					map: IOMapping,
 				};
 
+				// Create a new patch cable between the source widget and this widget's inlet
+				var cable = window.app.cableManager.createConnection({
+					from: {x: model.get('offsetLeft'), y: model.get('offsetTop') + model.get('height')},
+					to: {x: view.model.get('offsetLeft'), y: view.model.get('offsetTop')},
+				});
+				view.cable = cable;
 			}
 			else {
 				var sourceModel = this.getHardwareModelInstance(modelType, server);
@@ -211,6 +217,7 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 
 			// render the view to reassociate bindings and update any changes
 			view.render();
+
 
 			return this;
 		},

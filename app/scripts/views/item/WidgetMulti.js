@@ -67,7 +67,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 					// update any patch cables that are attached to the inlets on this model with our new coordinates
 					if(self.cable) {
-						app.cableManager.updateCoordinates(self.cable, {
+						self.cable.updateCoordinates( {
 							to: {x: self.model.get('offsetLeft'), y: self.model.get('offsetTop')},
 						});
 					}
@@ -83,12 +83,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				drop: function(e, ui) {
 					var droppedModel = $(ui.draggable).data('model');
 					self.onDrop(e, ui, droppedModel);
-
-					// Create a new patch cable between the source widget and this widget's inlet
-					self.cable = app.cableManager.createConnection({
-						from: {x: droppedModel.get('offsetLeft'), y: droppedModel.get('offsetTop') + droppedModel.get('height')},
-						to: {x: self.model.get('offsetLeft'), y: self.model.get('offsetTop')},
-					});
 				},
 			});
 		},
@@ -257,9 +251,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			if(model.changedAttributes().offsetLeft || model.changedAttributes().offsetTop ) {
 				if(this.cable) {
-						app.cableManager.updateCoordinates(this.cable, {
-							from: {x: model.get('offsetLeft'), y: model.get('offsetTop') + model.get('height')},
-						});
+					this.cable.updateCoordinates( {
+						from: {x: model.get('offsetLeft'), y: model.get('offsetTop') + model.get('height')},
+					});
 				}
 			}
 		},
