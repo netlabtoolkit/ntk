@@ -12,17 +12,42 @@ function(app){
 	};
 
 	PatchLoader.prototype = {
-		save: function(collection) {
-			var saveWindow = window.open();
-			saveWindow.document.write(JSON.stringify(collection));
+		save: function(collection, mappings) {
+			var saveWindow = window.open(),
+				saveConfig = {
+					widgets: collection,
+					mappings: mappings,
+				}
+
+			saveWindow.document.write(JSON.stringify(saveConfig));
 		},
 		loadJSON: function(JSONString) {
-			var widgets = JSON.parse(JSONString);
+			var loadConfig = JSON.parse(JSONString);
+			var widgets = loadConfig.widgets,
+				mappings = loadConfig.mappings,
+				widgetViews = [];
 
 			for(var i=widgets.length-1; i>=0; i--) {
 				var newWidget = this.addFunction(widgets[i].typeID);
 				// after adding the widget, duplicate the settings by passing them to the widget's own method for doing that
 				newWidget.setFromModel(widgets[i]);
+
+				widgetViews.push(newWidget);
+			}
+
+			for(var i=mappings.length-1; i>=0; i--) {
+				// Find the actual model that matches the widget ID (wid)
+				var modelSourceView = _.find(widgetViews, function(view) {return mappings[i].modelWID == view.model.get('wid')} ),
+					widgetView = _.find(widgetViews, function(view) {return mappings[i].viewWID == view.model.get('wid')} )
+
+				if(modelSourceView && widgetView) {
+
+					this.mapFunction({
+						model: modelSourceView.model,
+						IOMapping: mappings[i].map,
+						view: widgetView,
+					});
+				}
 			}
 		},
 

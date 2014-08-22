@@ -44,6 +44,7 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 		 * @return {Array}
 		 */
 		widgets: [],
+		widgetMappings: [],
 		hardwareModelInstances: {},
 		initialize: function() {
 			this.attachMainViews();
@@ -149,6 +150,9 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 		addWidgetToStage: function(view) {
 			this.views.mainCanvas.addView(view);
 			this.widgets.push(view);
+			if(!view.model.get('wid')) {
+				view.model.set('wid', view.model.cid);
+			}
 			this.widgetModels.add(view.model);
 			return view;
 		},
@@ -178,7 +182,6 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 				server = options.server;
 
 			if(model) {
-				//view[modelPropertyName] = model;
 				var mappingObject = {
 					model: model,
 					map: IOMapping,
@@ -193,6 +196,19 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 				};
 			}
 			view.addInputMap(mappingObject);
+			var modelWID = mappingObject.model.get('wid');
+
+			if(view) {
+				viewWID = view.model.get('wid');
+			}
+
+			if(modelWID) {
+				this.widgetMappings.push({viewWID: viewWID, map: mappingObject.map, modelWID: modelWID});
+			}
+			else {
+				this.widgetMappings.push({viewWID: viewWID, map: mappingObject.map, modelWID: modelType});
+			}
+
 			// render the view to reassociate bindings and update any changes
 			view.render();
 
@@ -220,7 +236,6 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 				};
 				// Loop
 				newModelInstance.on('change', function(model) {
-					//console.log(model.changedAttributes());
 					if(model.changedAttributes().out9) {
 						window.app.vent.trigger('sendModelUpdate', {modelType: modelType, model: model});
 					}
@@ -235,7 +250,7 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 			this.patchLoader.loadJSON(JSONString);
 		},
 		savePatch: function() {
-			this.patchLoader.save(this.widgetModels);
+			this.patchLoader.save(this.widgetModels, this.widgetMappings);
 		},
 	};
 
