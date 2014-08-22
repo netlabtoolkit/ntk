@@ -179,7 +179,8 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 				model = options.model,
 				IOMapping = options.IOMapping,
 				view = options.view,
-				server = options.server;
+				server = options.server,
+				inletOffsets = options.inletOffsets;
 
 			if(model) {
 				var mappingObject = {
@@ -192,7 +193,7 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 					from: {x: model.get('offsetLeft'), y: model.get('offsetTop') + model.get('height')},
 					to: {x: view.model.get('offsetLeft'), y: view.model.get('offsetTop')},
 				});
-				view.addCable(cable, model);
+				view.addCable(cable, model, inletOffsets);
 			}
 			else {
 				var sourceModel = this.getHardwareModelInstance(modelType, server);

@@ -69,9 +69,17 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					// update any patch cables that are attached to the inlets on this model with our new coordinates
 					if(self.cables.length) {
 						for(var i=self.cables.length-1; i>=0; i--) {
-							self.cables[i].cable.updateCoordinates( {
-								to: {x: self.model.get('offsetLeft'), y: self.model.get('offsetTop')},
-							});
+							if(self.cables[i].offsets) {
+								self.cables[i].cable.updateCoordinates( {
+									to: {x: self.model.get('offsetLeft') + self.cables[i].offsets.x , y: self.model.get('offsetTop') + self.cables[i].offsets.y},
+								});
+							}
+							else {
+								self.cables[i].cable.updateCoordinates( {
+									to: {x: self.model.get('offsetLeft'), y: self.model.get('offsetTop')},
+								});
+
+							}
 						}
 					}
 				}
@@ -161,6 +169,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				model: model,
 				// use ui data-field to map
 				IOMapping: {sourceField: sourceField, destinationField: destinationField},
+				inletOffsets: {x: $(e.target).position().left + 5, y: $(e.target).position().top + 8},
 			});
 
 			$(e.target).addClass('connected');
@@ -181,8 +190,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
          * @param {Backbone.Model} fromModel the model that the cable is attached to on the other side
          * @return {WidgetView} this view
          */
-		addCable: function(cable, fromModel) {
-			this.cables.push({ model: fromModel, cable: cable });
+		addCable: function(cable, fromModel, inletOffsets) {
+			this.cables.push({ model: fromModel, cable: cable, offsets: inletOffsets });
 		},
         /**
          * remove the widget from both the DOM and the controller
