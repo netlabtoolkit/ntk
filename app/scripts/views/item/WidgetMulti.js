@@ -34,6 +34,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			_.extend(options, {typeID: this.typeID});
 			this.signalChainFunctions = [];
 			this.sources = [];
+			this.cables = [];
 
 			//this.model = new WidgetConfigModel(options);
 			this.model.set(options);
@@ -66,10 +67,12 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					self.model.set({'offsetLeft': object.offset.left, 'offsetTop': object.offset.top, height: self.$el.height() + 40, positionTop: object.position.top, positionLeft: object.position.left});
 
 					// update any patch cables that are attached to the inlets on this model with our new coordinates
-					if(self.cable) {
-						self.cable.updateCoordinates( {
-							to: {x: self.model.get('offsetLeft'), y: self.model.get('offsetTop')},
-						});
+					if(self.cables.length) {
+						for(var i=self.cables.length-1; i>=0; i--) {
+							self.cables[i].cable.updateCoordinates( {
+								to: {x: self.model.get('offsetLeft'), y: self.model.get('offsetTop')},
+							});
+						}
 					}
 				}
 			});
@@ -169,12 +172,28 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.$('.inlet').removeClass('connected');
 		},
         /**
+         *
+         */
+        /**
+         * add a patch cable to this widget so we can update and track it
+         *
+         * @param {Cable} cable
+         * @param {Backbone.Model} fromModel the model that the cable is attached to on the other side
+         * @return {WidgetView} this view
+         */
+		addCable: function(cable, fromModel) {
+			this.cables.push({ model: fromModel, cable: cable });
+		},
+        /**
          * remove the widget from both the DOM and the controller
          *
          * @return {void}
          */
 		removeWidget: function() {
 			app.Patcher.Controller.removeWidget(this);
+			for(var i=this.cables.length-1; i>=0; i--) {
+				this.cables[i].remove();
+			}
 			this.remove();
 		},
 		destinationModels: [],
@@ -250,10 +269,15 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 
 			if(model.changedAttributes().offsetLeft || model.changedAttributes().offsetTop ) {
-				if(this.cable) {
-					this.cable.updateCoordinates( {
-						from: {x: model.get('offsetLeft'), y: model.get('offsetTop') + model.get('height')},
-					});
+				if(this.cables.length) {
+					for(var i=this.cables.length-1; i>=0; i--) {
+						var cableObj = this.cables[i];
+						if(cableObj.model === model) {
+							cableObj.cable.updateCoordinates( {
+								from: {x: model.get('offsetLeft'), y: model.get('offsetTop') + model.get('height')},
+							});
+						}
+					}
 				}
 			}
 		},

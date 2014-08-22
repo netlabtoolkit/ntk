@@ -192,7 +192,7 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 					from: {x: model.get('offsetLeft'), y: model.get('offsetTop') + model.get('height')},
 					to: {x: view.model.get('offsetLeft'), y: view.model.get('offsetTop')},
 				});
-				view.cable = cable;
+				view.addCable(cable, model);
 			}
 			else {
 				var sourceModel = this.getHardwareModelInstance(modelType, server);
