@@ -38,7 +38,7 @@ function(Backbone, rivets, WidgetView, Template){
 					},
 				],
 				left: 0,
-				opacity: 0,
+				opacity: 100,
 				top: 50,
 			});
 		},
