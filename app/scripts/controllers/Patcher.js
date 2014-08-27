@@ -230,7 +230,6 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
          * @return {HardwareModel}
          */
 		getHardwareModelInstance: function(modelType, server) {
-
 			var modelServerQuery = modelType + ":" + server;
 
 			if(this.hardwareModelInstances[modelServerQuery]) {
