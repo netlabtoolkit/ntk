@@ -255,6 +255,11 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 
 
 		loadPatch: function(JSONString) {
+			for(var i=this.widgets.length-1; i>=0; i--) {
+				this.widgets[i].removeWidget();
+			}
+
+			this.widgets.length = 0;
 			this.patchLoader.loadJSON(JSONString);
 		},
 		savePatch: function() {
