@@ -4,25 +4,27 @@
 	left: 30px;
 
 	display: block;
-	width: 100px;
-	height: 200px;
+
 
 	margin: 0;
-	padding: 15px;
-	padding-top: 25px;
+	/*padding: 15px;
+	padding-top: 25px;*/
 
-	border: 1px solid #666;
+	/* border: 1px solid #666;
 	border-radius: 5px;
 
 	background-color: #DDD;
-
+    */
 	.remove {
 		float: right;
 		width: 1em;
 	}
 
 	.title {
-		background-color: #a5c9ea;
+		/*background-color: #a5c9ea;*/
+        padding-top: 3px;
+        padding-left: 3px;
+        
 	}
 
 	input[type=range] {
@@ -33,17 +35,15 @@
 	}
 
 	.outlet, .inlet {
-		/*position: absolute !important;*/
-		left: 0;
-		bottom: 0;
-		height: 15px;
-		width: 100%;
+
+		height: 24px;
+		width: 20px;
+        margin-bottom: 2px;
 
 		font-size: 34px;
 		color: #999;
-		line-height: 12px;
+        line-height: 22px;
 
-		border-right: 1px solid #c5c5c5;
 		cursor: move;
 
 		.unMap {
@@ -53,24 +53,25 @@
 
 
 	.inlets {
-		position: absolute;
-		top: 0;
-		left: 0;
+		/*position: absolute;*/
+/*		top: 0;
+		left: 0;*/
 		clear: both;
 		width: 100%;
-		height: 15px;
+		height: 24px;
 
-		border-radius: 5px 5px 0 0 ;
+		border-radius: 0px 0px 5px 5px;
 		border-bottom: 1px solid #c5c5c5;
 
 		.inlet {
-			position: relative !important;
-			top: 0;
-			float: left;
-			width: 30px;
+
+/*			top: 0;
+			float: left;*/
+			width: 20px;
+            background-color:#666;
 		}
 		.inlet:first-child {
-			border-radius: 5px 0px 0 0 ;
+			border-radius: 5px 0px 0px 5px;
 		}
 
 		.inlet.hover {
@@ -82,52 +83,67 @@
 
 	}
 	.outlets {
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		width: 100%;
-		height: 15px;
+		/*position: absolute;*/
+		width: 20px;
+		height: 24px;
 		clear: both;
 
-		border-radius: 0 0 5px 5px;
-		border-top: 1px solid #c5c5c5;
+		border-radius: 0px 5px 5px 0px;
 
 		.outlet {
-			/*position: absolute;*/
-			position: relative !important;
-			float: left;
-			width: 30px;
-
-			background-color:#DDD;
+			width: 20px;
+			background-color:#666;
 		}
 		.outlet:first-child {
-			border-radius: 0 0 5px 5px;
+			border-radius: 0px 5px 5px 0px;
 		}
+        
+        
 	}
+    .dot {
+        margin-right: 2px;
+        float: right;
+    }
 	.dialwrapper {
 		margin-top:5px;
+        margin-left:8px;
 	}
 
 	.dialwrapper .display {
 		position:absolute;
-		left:20px;
+		left:13px;
 		right:20px;
 		font-size:20px;
 		text-align:center;
 	}
 	.dialwrapper .invalue {
-		top:26px;
+		top:20px;
 		font-size:14px;
 	}
 
 	.dialwrapper .outvalue {
-		top:42px;
+		top:36px;
 	}
+    
+    .range-table {
+        margin-left: 2px;
+        width: 95%;
+        
+        tr td {
+            text-align: center;
+        }
+    }
+    
+    table tr td .range-input {
+        width: 25px;
+        height: 8px;
+    }
 
 	.options {
 	    width: 100%;
 	    height: 30px;
-	    margin-top: 10px;
+	    margin-top: 3px;
+        margin-left: 3px;
 	}
 
 	.options ul {
@@ -156,4 +172,76 @@
 	.options li:hover {
 	    color: #FFF;
 	}
+    
+    .widget-top {
+        width: 96px;
+        height: 20px;
+        margin-left: 20px;
+        background-color: #ddd;
+        border-top-left-radius: 5px;
+        border-top-right-radius: 5px;
+    }
+    .widget-left {
+        margin: 0;
+        float:left;
+        width: 20px;
+        /*height: 100px;*/
+        margin-top: 0px;
+        
+        .left-tab {
+            margin-bottom: 1px;
+            background-color: #666;
+            border-top-left-radius: 5px;
+            border-bottom-left-radius: 5px;
+            
+            .settings input {
+                margin-top: 3px;
+                margin-left: 3px;
+                margin-bottom: 3px;
+                width: 18px;
+            }
+        }
+    }
+    .widget-left input {
+        font-family: Arial;
+        font-size: 10px;
+        margin-left: 1px;
+        width: 90%;
+    }
+
+    .widget-body {
+        background-color: #eee;
+        float:left;
+        width: 96px;
+        height: 110px;
+        border-bottom-right-radius: 5px;
+        border-bottom-left-radius: 5px;
+    }
+    
+    .widget-body input {
+        font-family: Arial;
+        font-size: 10px;
+        margin-left: 1px;
+        width: 80%;
+        height: 10px;
+    }
+    .widget-output {
+        width: 12px;
+        height: 24px;
+        margin-bottom: 1px;
+        background-color: #cec9c9;
+        border-top-right-radius: 5px;
+        border-bottom-right-radius: 5px;
+    }
+
+    .widget-right {
+        float: left;
+        margin-top: 14px;
+        width: 20px;
+    }
+    
+    .widget-bottom {
+        clear: both;
+    }
+
 }

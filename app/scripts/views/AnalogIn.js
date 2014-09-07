@@ -30,7 +30,7 @@ function(Backbone, rivets, SignalChainFunctions, WidgetView, WidgetSettingsView,
 		initialize: function(options) {
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
-			this.model.set('title', 'Analog In');
+			this.model.set('title', 'AnalogIn');
 
             this.signalChainFunctions.push(SignalChainFunctions.scale);
             this.signalChainFunctions.push(SignalChainFunctions.invert);
@@ -49,13 +49,13 @@ function(Backbone, rivets, SignalChainFunctions, WidgetView, WidgetSettingsView,
 				'inputColor' : '#000000',
 				'angleOffset':-125,
 				'angleArc':250,
-				'width':100,
-				'height':80,
+				'width':80,
+				'height':62,
 				'font':"'Helvetica Neue', sans-serif",
 				'displayInput':false,
 				'min': 0,
 				'max': 1023,
-				'change' : function (v) { self.model.set('in', v); }
+				'change' : function (v) { self.model.set('in', parseInt(v)); }
 			});
 
 

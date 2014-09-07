@@ -21,7 +21,7 @@ function(Backbone, rivets, WidgetView, Template){
 					{title: 'X Position', to: 'left'},
 					{title: 'Y Position', to: 'top'},
 				],
-				title: 'Element Control',
+				title: 'ElementControl',
 				activeControlParameter: 'left',
 				controlParameters: [
 					{
@@ -37,9 +37,9 @@ function(Backbone, rivets, WidgetView, Template){
 						parameter: 'opacity',
 					},
 				],
-				left: 0,
+				left: 100,
 				opacity: 100,
-				top: 50,
+				top: 100,
 			});
 		},
 

@@ -10,11 +10,11 @@ function(Backbone, WidgetView, Template, SignalChainFunctions){
 
 	return WidgetView.extend({
 		ins: [
-			{title: 'in', name: 'in', fieldMap: 'in'},
+			{title: 'in', to: 'in'},
 		],
 		outs: [
 			// title is decorative, from: <widget model field>, to: <widget model field being listened to>
-			{title: 'out', name: 'out', fieldMap: 'out'},
+			{title: 'out', from: 'in', to: 'out'}, 
 		],
         // Any custom DOM events should go here
         widgetEvents: {},
@@ -23,7 +23,7 @@ function(Backbone, WidgetView, Template, SignalChainFunctions){
 		template: _.template(Template),
 
 		initialize: function(options) {
-            console.log(this.ins);
+            //console.log(this.ins);
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
 
@@ -31,8 +31,12 @@ function(Backbone, WidgetView, Template, SignalChainFunctions){
 			this.model.set('title', 'Blank');
 
             // If you want to register your own signal processing function, push them to signalChainFunctions
-			//this.signalChainFunctions.push(SignalChainFunctions.scale);
+			this.signalChainFunctions.push(this.signalProcess);
 		},
+        
+        signalProcess: function(input) {
+            return Number(input);
+        },
         /**
          * called when widget is rendered
          *
@@ -41,5 +45,6 @@ function(Backbone, WidgetView, Template, SignalChainFunctions){
         onRender: function() {
             WidgetView.prototype.onRender.call(this);
         },
+        
 	});
 });
