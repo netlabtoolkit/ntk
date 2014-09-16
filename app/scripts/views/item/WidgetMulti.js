@@ -39,8 +39,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			//this.model = new WidgetConfigModel(options);
 			this.model.set(options);
 			this.model.on('change', this.processSignalChain, this);
-			// DEBUG
-			window.FF = this;
 
 			this.setWidgetBinders();
 		},
@@ -69,7 +67,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				drag: function(e, object) {
 					// update our own stored position (for saving the state of this widget and also for triggering change event to inform any listening widgets attached to this widget)
 					// TODO: + 40 is added to the height to account for padding. Calculate that instead
-					self.model.set({'offsetLeft': object.position.left, 'offsetTop': object.position.top, height: self.$el.height() + 40, positionTop: object.position.top, positionLeft: object.position.left});
+					self.model.set({'offsetLeft': object.position.left + self.$el.width(), 'offsetTop': object.position.top, height: self.$el.height(), positionTop: object.position.top, positionLeft: object.position.left});
 
 					// update any patch cables that are attached to the inlets on this model with our new coordinates
 					if(self.cables.length) {
@@ -173,11 +171,11 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			// If the offsets have not been set from dragging, set them manually
 			if(!this.model.get('offsetLeft') && !this.model.get('offsetTop')) {
-				this.model.set({'offsetLeft': this.$el.position().left, 'offsetTop': this.$el.position().top, height: this.$el.height() + 40, positionTop: this.$el.position().top, positionLeft: this.$el.position().left});
+				this.model.set({'offsetLeft': this.$el.position().left, 'offsetTop': this.$el.position().top, height: this.$el.height() + 0, positionTop: this.$el.position().top, positionLeft: this.$el.position().left});
 			}
 
 			if(!model.get('offsetLeft') && !model.get('offsetTop')) {
-				model.set({'offsetLeft': $(ui.draggable[0].parentNode.parentNode).position().left+5, 'offsetTop': $(ui.draggable[0].parentNode.parentNode).position().top + $(ui.draggable[0].parentNode.parentNode).height()-22, height: $(ui.draggable[0]).height() + 40, positionTop: $(ui.draggable[0]).position().top, positionLeft: $(ui.draggable[0]).position().left});
+				model.set({'offsetLeft': $(ui.draggable[0].parentNode.parentNode).position().left+5, 'offsetTop': $(ui.draggable[0].parentNode.parentNode).position().top + $(ui.draggable[0].parentNode.parentNode).height()-22, height: $(ui.draggable[0]).height() + 0, positionTop: $(ui.draggable[0]).position().top, positionLeft: $(ui.draggable[0]).position().left});
 			}
 
 			// Map the dropped model to this inlet
@@ -300,7 +298,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 						var cableObj = this.cables[i];
 						if(cableObj.model === model) {
 							cableObj.cable.updateCoordinates( {
-								from: {x: model.get('offsetLeft'), y: model.get('offsetTop') + model.get('height')},
+								//from: {x: model.get('offsetLeft'), y: model.get('offsetTop') + model.get('height')},
+								from: {x: model.get('offsetLeft'), y: model.get('offsetTop')},
 							});
 						}
 					}

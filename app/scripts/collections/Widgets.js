@@ -6,7 +6,7 @@ function( Backbone, WidgetModel ) {
     'use strict';
 
 	return Backbone.Collection.extend({
-		url: '/test',
+		//url: '/test',
 		initialize: function() {
 		},
 		model: WidgetModel,

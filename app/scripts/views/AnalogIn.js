@@ -2,12 +2,13 @@ define([
 	'backbone',
 	'rivets',
 	'utils/SignalChainFunctions',
+	'utils/SignalChainClasses',
 	'views/item/WidgetMulti',
 	'views/WidgetSettings',
 	'text!tmpl/AnalogIn_tmpl.js',
 	'jqueryknob',
 ],
-function(Backbone, rivets, SignalChainFunctions, WidgetView, WidgetSettingsView, Template, jqueryknob){
+function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView, WidgetSettingsView, Template, jqueryknob){
     'use strict';
 
 	return WidgetView.extend({
@@ -32,9 +33,11 @@ function(Backbone, rivets, SignalChainFunctions, WidgetView, WidgetSettingsView,
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set('title', 'AnalogIn');
 
-            this.signalChainFunctions.push(SignalChainFunctions.scale);
-            this.signalChainFunctions.push(SignalChainFunctions.invert);
+            //this.signalChainFunctions.push(SignalChainFunctions.scale);
+            //this.signalChainFunctions.push(SignalChainFunctions.invert);
+			this.signalChainFunctions.push(SignalChainClasses.getSmoother({tolerance: 500}));
 
+			window.app.timingController.registerFrameCallback(this.processSignalChain, this);
 			//this.settingsView = new WidgetSettingsView({model: this.model});
 		},
 

@@ -4,8 +4,6 @@ define([
 function(app){
 
 	var PatchLoader = function(options) {
-
-		window.WW = this;
 		this.serverAddress = options.serverAddress,
 		this.addFunction = options.addFunction,
 		this.mapFunction = options.mapFunction;

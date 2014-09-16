@@ -3,17 +3,19 @@ define([
 	'backbone',
 	'cableManager',
 	'controllers/PatchLoader',
+	'controllers/Timing',
 	'views/composite/Widgets',
 	'collections/Widgets',
 	'models/ArduinoUno',
 	'models/ModelMap',
+	'models/WidgetConfig',
 	'views/AnalogIn',
 	'views/AnalogOut',
 	'views/ElementControl',
 	'views/Code',
 	'views/Blank',
 ],
-function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, AnalogInView, AnalogOutView, ElementControlView, CodeView, BlankView){
+function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, WidgetModel, AnalogInView, AnalogOutView, ElementControlView, CodeView, BlankView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -27,8 +29,6 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 			mapFunction: (function(self) { return function() {return self.mapToModel.apply(self, arguments)}; })(this),
 		});
 
-		// DEBUG
-		window.GG = this;
 	};
 
 	PatcherController.prototype = {
@@ -55,8 +55,8 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 		 * @return
 		 */
 		attachMainViews: function() {
-			//var serverAddress = window.location.host;
-			//window.socketIO = window.io.connect(serverAddress);
+			// Create a timing controller for registering frame-based callbacks
+			window.app.timingController = new TimingController();
 
 			if(this.parentRegion) {
 				this.parentRegion.show(this.views.mainCanvas);
@@ -88,7 +88,9 @@ function(app, Backbone, CableManager, PatchLoader, WidgetsView, WidgetsCollectio
 				serverAddress = window.location.host;
 			widgetType = widgetType.toLowerCase();
 
-			var newModel = this.widgetModels.create({});
+			//var newModel = this.widgetModels.create({});
+			var newModel = new WidgetModel();
+			this.widgetModels.add(newModel);
 
 			if(widgetType === 'elementcontrol') {
 				var imageSrc = prompt('enter an image URL');
