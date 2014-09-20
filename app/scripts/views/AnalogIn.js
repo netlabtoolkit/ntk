@@ -33,12 +33,12 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set('title', 'AnalogIn');
 
-            //this.signalChainFunctions.push(SignalChainFunctions.scale);
-            //this.signalChainFunctions.push(SignalChainFunctions.invert);
+			this.signalChainFunctions.push(SignalChainFunctions.scale);
+			this.signalChainFunctions.push(SignalChainFunctions.invert);
+
 			this.signalChainFunctions.push(SignalChainClasses.getSmoother({tolerance: 500}));
 
 			window.app.timingController.registerFrameCallback(this.processSignalChain, this);
-			//this.settingsView = new WidgetSettingsView({model: this.model});
 		},
 
 		onRender: function() {
