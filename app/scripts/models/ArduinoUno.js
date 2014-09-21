@@ -14,9 +14,9 @@ function( Backbone, HardwareModel ) {
 
 		defaults: {
 			type: "ArduinoUno",
-			A0: 0,
-			A1: 0,
-			out9: 0,
+				A0: 0,
+				A1: 0,
+				out9: 0,
 		},
 
     });

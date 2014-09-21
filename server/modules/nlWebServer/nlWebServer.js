@@ -1,12 +1,15 @@
 module.exports = function(options) {
 
-	var port = options.port || '9001';
+	var port = options.port || '9001',
+        device = options.device;
 
 
 	var express = require('express');
-	var http = require('http');
-	var app = express();
-	var path = require('path');
+        http = require('http'),
+        path = require('path'),
+        socketIO = require('socket.io');
+
+    app = express(),
 
 	var WebServer = function() {
 		this.port = port;
@@ -16,8 +19,8 @@ module.exports = function(options) {
 			next();
 		});
 
-		app.use(express.static( path.join( __dirname, '../app') ));
-		app.use(express.static( path.join( __dirname, '../.tmp') ));
+		app.use(express.static( path.join( __dirname, '../../../app') ));
+		app.use(express.static( path.join( __dirname, '../../../.tmp') ));
 
 		this.server = http.createServer(app);
 
@@ -35,6 +38,9 @@ module.exports = function(options) {
 				console.log('Express App started!');
 			});
 		},
+        initSockets: function() {
+            this.io = socketIO.listen(this.server);
+        },
 	}
 
 	return new WebServer();

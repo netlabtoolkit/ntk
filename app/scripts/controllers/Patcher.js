@@ -192,8 +192,8 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 
 				// Create a new patch cable between the source widget and this widget's inlet
 				var cable = window.app.cableManager.createConnection({
-					from: {x: model.get('offsetLeft'), y: model.get('offsetTop') + model.get('height')},
-					to: {x: view.model.get('offsetLeft'), y: view.model.get('offsetTop')},
+					from: {x: model.get('offsetLeft') + inletOffsets.source.x, y: model.get('offsetTop') + inletOffsets.source.y},
+					to: {x: view.model.get('offsetLeft') + inletOffsets.destination.x, y: view.model.get('offsetTop') + inletOffsets.destination.y},
 				});
 				view.addCable(cable, model, inletOffsets);
 			}

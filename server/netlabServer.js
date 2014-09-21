@@ -13,6 +13,6 @@ var deviceType = process.argv[2] || 'arduino',
 var deviceController = new nlHardware({deviceType: deviceType});
 
 // WEB SERVER
-var server = new require('./modules/nlWebServer/WebServer')({port: 9001});
+var server = new require('./modules/nlWebServer/nlWebServer')({port: 9001, device: deviceController});
 server.start();
 

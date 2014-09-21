@@ -66,15 +66,16 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				handle: '.dragHandle',
 				drag: function(e, object) {
 					// update our own stored position (for saving the state of this widget and also for triggering change event to inform any listening widgets attached to this widget)
-					// TODO: + 40 is added to the height to account for padding. Calculate that instead
-					self.model.set({'offsetLeft': object.position.left + self.$el.width(), 'offsetTop': object.position.top, height: self.$el.height(), positionTop: object.position.top, positionLeft: object.position.left});
+					self.model.set({'offsetLeft': object.position.left, 'offsetTop': object.position.top, height: self.$el.height(), width: self.$el.width()});
 
 					// update any patch cables that are attached to the inlets on this model with our new coordinates
 					if(self.cables.length) {
 						for(var i=self.cables.length-1; i>=0; i--) {
 							if(self.cables[i].offsets) {
 								self.cables[i].cable.updateCoordinates( {
-									to: {x: self.model.get('offsetLeft') + self.cables[i].offsets.x , y: self.model.get('offsetTop') + self.cables[i].offsets.y},
+									//to: {x: self.model.get('offsetLeft') + self.cables[i].offsets.x , y: self.model.get('offsetTop') + self.cables[i].offsets.y},
+									//to: {x: self.model.get('offsetLeft'), y: self.model.get('offsetTop')},
+									to: {x: self.model.get('offsetLeft') + self.cables[i].offsets.destination.x, y: self.model.get('offsetTop') + self.cables[i].offsets.destination.y},
 								});
 							}
 							else {
@@ -171,11 +172,11 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			// If the offsets have not been set from dragging, set them manually
 			if(!this.model.get('offsetLeft') && !this.model.get('offsetTop')) {
-				this.model.set({'offsetLeft': this.$el.position().left, 'offsetTop': this.$el.position().top, height: this.$el.height() + 0, positionTop: this.$el.position().top, positionLeft: this.$el.position().left});
+				this.model.set({'offsetLeft': this.$el.position().left, 'offsetTop': this.$el.position().top, height: this.$el.height(), width: this.$el.width()});
 			}
 
 			if(!model.get('offsetLeft') && !model.get('offsetTop')) {
-				model.set({'offsetLeft': $(ui.draggable[0].parentNode.parentNode).position().left+5, 'offsetTop': $(ui.draggable[0].parentNode.parentNode).position().top + $(ui.draggable[0].parentNode.parentNode).height()-22, height: $(ui.draggable[0]).height() + 0, positionTop: $(ui.draggable[0]).position().top, positionLeft: $(ui.draggable[0]).position().left});
+				model.set({'offsetLeft': $(ui.draggable[0].parentNode.parentNode).position().left, 'offsetTop': $(ui.draggable[0].parentNode.parentNode).position().top, height: this.$el.height(), width: this.$el.width()});
 			}
 
 			// Map the dropped model to this inlet
@@ -184,7 +185,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				model: model,
 				// use ui data-field to map
 				IOMapping: {sourceField: sourceField, destinationField: destinationField},
-				inletOffsets: {x: $(e.target).position().left + 5, y: $(e.target).position().top + 8},
+				// the numbers here are to center the cables and visually nudge on the outlet/inlet for visual alignment
+				inletOffsets: {source: {x: model.get('width') - 8, y: ui.draggable.css({top: 0, left: 0}).position().top + 12}, destination: {x: 5, y: $(e.target).position().top + 12}},
 			});
 
 			$(e.target).addClass('connected');
@@ -298,8 +300,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 						var cableObj = this.cables[i];
 						if(cableObj.model === model) {
 							cableObj.cable.updateCoordinates( {
-								//from: {x: model.get('offsetLeft'), y: model.get('offsetTop') + model.get('height')},
-								from: {x: model.get('offsetLeft'), y: model.get('offsetTop')},
+								from: {x: model.get('offsetLeft') + cableObj.offsets.source.x, y: model.get('offsetTop') + cableObj.offsets.source.y},
 							});
 						}
 					}
