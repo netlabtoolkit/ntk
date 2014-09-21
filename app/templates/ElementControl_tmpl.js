@@ -1,16 +1,16 @@
-<div class="widget-top">
+<div class="widgetTop typeMedia">
     <div class="title dragHandle">
 	{widget:title} <div class="remove">×</div>
     </div>
 </div>
     
-<div class="widget-left">
+<div class="widgetLeft">
     <div class=left-tab><label><input type="checkbox" rv-checked="widget:active" ></label></div>
     <div class='inlets'>
         <div rv-each-inlet="widget:ins" rv-title="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
     </div>
 </div>
-<div class="widget-body">
+<div class="widgetBody">
 </div>
 <img rv-style-opacity="widget:opacity"
 	rv-positionx="widget:left"
