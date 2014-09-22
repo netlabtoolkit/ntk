@@ -195,7 +195,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 					from: {x: model.get('offsetLeft') + inletOffsets.source.x, y: model.get('offsetTop') + inletOffsets.source.y},
 					to: {x: view.model.get('offsetLeft') + inletOffsets.destination.x, y: view.model.get('offsetTop') + inletOffsets.destination.y},
 				});
-				view.addCable(cable, model, inletOffsets);
+				view.addCable(cable, model, inletOffsets, IOMapping);
 			}
 			else {
 				var sourceModel = this.getHardwareModelInstance(modelType, server);

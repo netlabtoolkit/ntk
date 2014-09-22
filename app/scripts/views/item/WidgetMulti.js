@@ -73,8 +73,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 						for(var i=self.cables.length-1; i>=0; i--) {
 							if(self.cables[i].offsets) {
 								self.cables[i].cable.updateCoordinates( {
-									//to: {x: self.model.get('offsetLeft') + self.cables[i].offsets.x , y: self.model.get('offsetTop') + self.cables[i].offsets.y},
-									//to: {x: self.model.get('offsetLeft'), y: self.model.get('offsetTop')},
 									to: {x: self.model.get('offsetLeft') + self.cables[i].offsets.destination.x, y: self.model.get('offsetTop') + self.cables[i].offsets.destination.y},
 								});
 							}
@@ -88,12 +86,21 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					}
 				}
 			});
+
 			this.$el.css({position: 'absolute'});
 			// Set the data model on all outlets and make draggable
 			this.$('.outlet').draggable({
 				revert: true,
 			}).data('model', this.model);
+
 			// Make all inlets droppable and bind the onDrop handler when one drops onto it
+			this.$('.inlet').draggable({
+				revert: true,
+				stop: function(e, ui) {
+					self.unMapInlet(e, ui, this);
+				}
+			});
+
 			this.$('.inlet').droppable({
 				hoverClass: 'hover',
 				drop: function(e, ui) {
@@ -191,15 +198,26 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			$(e.target).addClass('connected');
 		},
-		unMapInlet: function() {
-
-			this.stopListening(this.sourceModel);
-			this.sourceModel = undefined;
-			this.$('.inlet').removeClass('connected');
-		},
         /**
+         * Remove mapping objects and stop listening to the field. Also remove the cable associated with the inlet
          *
+         * @param {Event} e
+         * @param {DOM element} ui
+         * @param {DOM element} draggable
+         * @return {void}
          */
+		unMapInlet: function(e, ui, draggable) {
+			var inletField = draggable.dataset.field;
+
+			// Remove all mappings that match this inlet's field
+			this.sources = _.reject(this.sources, function(item){ return item.map.destinationField === inletField; });
+
+			// Remove the cable and the reference to the cable from the cables array
+			var cableToRemove = _.find(this.cables, function(item) { return item.map.destinationField === inletField});
+			cableToRemove.cable.remove();
+			this.cables = _.reject(this.sources, function(item) { return item.map.destinationField === inletField});
+
+		},
         /**
          * add a patch cable to this widget so we can update and track it
          *
@@ -207,8 +225,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
          * @param {Backbone.Model} fromModel the model that the cable is attached to on the other side
          * @return {WidgetView} this view
          */
-		addCable: function(cable, fromModel, inletOffsets) {
-			this.cables.push({ model: fromModel, cable: cable, offsets: inletOffsets });
+		addCable: function(cable, fromModel, inletOffsets, mapping) {
+			//this.cables.push({ model: fromModel, cable: cable, offsets: inletOffsets });
+			this.cables.push({ map: mapping, model: fromModel, cable: cable, offsets: inletOffsets });
 		},
         /**
          * remove the widget from both the DOM and the controller
