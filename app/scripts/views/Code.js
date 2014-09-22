@@ -43,6 +43,7 @@ function(Backbone, WidgetView, Template, CodeMirror){
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set('title', 'Code');
+
 		},
         /**
          * called when widget is rendered
@@ -51,10 +52,12 @@ function(Backbone, WidgetView, Template, CodeMirror){
          */
 		onRender: function() {
 			WidgetView.prototype.onRender.call(this);
+            
+            var self = this;
 
 			this.registerFilters();
 
-			var self = this;
+			
 			var codeEditor = CodeMirror.fromTextArea(this.$('.filterFunction')[0], {
 				lineNumbers: true,
 				smartIndent: true,
@@ -65,6 +68,11 @@ function(Backbone, WidgetView, Template, CodeMirror){
 				self.model.set('filter', codeEditor.getValue());
 				self.registerFilters.apply(self);
 			});
+            
+            this.$( ".widgetBottom .content" ).hide();   
+            this.$( ".widgetBottom .tab" ).click(function() {
+                self.$( ".widgetBottom .content" ).toggle();
+            });
 
 		},
 		registerFilters: function() {

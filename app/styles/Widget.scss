@@ -7,21 +7,13 @@
 
 
 	margin: 0;
-	/*padding: 15px;
-	padding-top: 25px;*/
 
-	/* border: 1px solid #666;
-	border-radius: 5px;
-
-	background-color: #DDD;
-    */
 	.remove {
 		float: right;
 		width: 1em;
 	}
 
 	.title {
-		/*background-color: #a5c9ea;*/
         padding-top: 3px;
         padding-left: 3px;
         font-size: 11px;
@@ -61,8 +53,8 @@
 		width: 100%;
 		height: 24px;
 
-		border-radius: 0px 0px 5px 5px;
-		border-bottom: 1px solid #c5c5c5;
+		/* border-radius: 0px 0px 5px 5px; */
+        
 
 		.inlet {
 
@@ -70,9 +62,10 @@
 			float: left;*/
 			width: 20px;
             background-color:#666;
+            border-radius: 5px 0px 0px 5px;
 		}
 		.inlet:first-child {
-			border-radius: 5px 0px 0px 5px;
+			/*border-radius: 5px 0px 0px 5px;*/
 		}
 
 		.inlet.hover {
@@ -84,7 +77,6 @@
 
 	}
 	.outlets {
-		/*position: absolute;*/
 		width: 20px;
 		height: 24px;
 		clear: both;
@@ -126,7 +118,7 @@
 		top:36px;
 	}
     
-    .range-table {
+    .rangeTable {
         margin-left: 2px;
         width: 95%;
         
@@ -174,7 +166,7 @@
 	    color: #FFF;
 	}
     
-    .widget-top {
+    .widgetTop {
         width: 96px;
         height: 20px;
         margin-left: 20px;
@@ -182,7 +174,7 @@
         border-top-left-radius: 5px;
         border-top-right-radius: 5px;
     }
-    .widget-left {
+    .widgetLeft {
         margin: 0;
         float:left;
         width: 20px;
@@ -203,14 +195,14 @@
             }
         }
     }
-    .widget-left input {
+    .widgetLeft input {
         font-family: Arial;
         font-size: 10px;
         margin-left: 1px;
         width: 90%;
     }
 
-    .widget-body {
+    .widgetBody {
         background-color: #eee;
         float:left;
         width: 96px;
@@ -219,14 +211,14 @@
         border-bottom-left-radius: 5px;
     }
     
-    .widget-body input {
+    .widgetBody input {
         font-family: Arial;
         font-size: 10px;
         margin-left: 1px;
         width: 80%;
         height: 10px;
     }
-    .widget-output {
+    .widgetOutput {
         width: 12px;
         height: 24px;
         margin-bottom: 1px;
@@ -235,14 +227,50 @@
         border-bottom-right-radius: 5px;
     }
 
-    .widget-right {
+    .widgetRight {
         float: left;
         margin-top: 14px;
         width: 20px;
     }
     
-    .widget-bottom {
+    .widgetBottom {
         clear: both;
+        margin-left: 20px;
+        
+        .tab {
+            width: 86px;
+            height: 14px;
+            background-color: #cec9c9;
+            margin-left: 5px;
+            border-bottom-left-radius: 5px;
+            border-bottom-right-radius: 5px;
+            
+            p {
+                font-size: 10px;
+                text-align: center;
+                margin-left: auto;
+                margin-right: auto;
+                
+            }
+        }
+        
+        .content {
+            padding-top: 1px;
+            margin-left: 5px;
+        }
+    }
+
+    .typeIn {
+    	background-color: #f4e2a1;
+    }
+    .typeProcess {
+    	background-color: #b4b342;
+    }
+    .typeOut {
+    	background-color: #8AB2CC;
+    }
+    .typeMedia {
+    	background-color: #86B0FF;
     }
 
 }
