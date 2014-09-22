@@ -4,8 +4,8 @@
     </div>
 </div>
 <div class="widgetLeft">
-    <div class=left-tab><input type="checkbox" rv-checked="widget:active" /></div>
-    <div class=left-tab>
+    <div class=leftTab><input type="checkbox" rv-checked="widget:active" /></div>
+    <div class=leftTab>
         <div rv-each-source="sources" class="settings">
             <input rv-value="source.map.sourceField">
         </div>
