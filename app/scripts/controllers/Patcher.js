@@ -212,10 +212,20 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 			}
 
 			if(modelWID) {
-				this.widgetMappings.push({viewWID: viewWID, map: mappingObject.map, modelWID: modelWID});
+				this.widgetMappings.push({
+					viewWID: viewWID,
+					map: mappingObject.map,
+					modelWID: modelWID,
+					offsets: inletOffsets,
+				});
 			}
 			else {
-				this.widgetMappings.push({viewWID: viewWID, map: mappingObject.map, modelWID: modelType});
+				this.widgetMappings.push({
+					viewWID: viewWID,
+					map: mappingObject.map,
+					modelWID: modelType,
+					offsets: inletOffsets,
+				});
 			}
 
 			// render the view to reassociate bindings and update any changes

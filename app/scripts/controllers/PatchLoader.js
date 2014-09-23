@@ -44,6 +44,7 @@ function(app){
 						model: modelSourceView.model,
 						IOMapping: mappings[i].map,
 						view: widgetView,
+						inletOffsets: mappings[i].offsets,
 					});
 				}
 			}
