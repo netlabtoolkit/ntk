@@ -57,6 +57,11 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 
 			this.makeDraggable();
+            
+            this.$( ".widgetBottom .content" ).hide();   
+            this.$( ".widgetBottom .tab" ).click(function() {
+                self.$( ".widgetBottom .content" ).toggle();
+            });
 
 		},
 		makeDraggable: function() {

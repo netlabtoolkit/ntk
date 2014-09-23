@@ -60,7 +60,7 @@
 
 /*			top: 0;
 			float: left;*/
-			width: 20px;
+			width: 25px;
             background-color:#666;
             border-radius: 5px 0px 0px 5px;
 		}
@@ -77,7 +77,7 @@
 
 	}
 	.outlets {
-		width: 20px;
+		width: 25px;
 		height: 24px;
 		clear: both;
 
@@ -169,7 +169,7 @@
     .widgetTop {
         width: 96px;
         height: 20px;
-        margin-left: 20px;
+        margin-left: 25px;
         background-color: #ddd;
         border-top-left-radius: 5px;
         border-top-right-radius: 5px;
@@ -177,11 +177,11 @@
     .widgetLeft {
         margin: 0;
         float:left;
-        width: 20px;
+        width: 25px;
         /*height: 100px;*/
         margin-top: 0px;
         
-        .left-tab {
+        .leftTab {
             margin-bottom: 1px;
             background-color: #666;
             border-top-left-radius: 5px;
@@ -191,7 +191,7 @@
                 margin-top: 3px;
                 margin-left: 3px;
                 margin-bottom: 3px;
-                width: 18px;
+                
             }
         }
     }
@@ -199,7 +199,7 @@
         font-family: Arial;
         font-size: 10px;
         margin-left: 1px;
-        width: 90%;
+        width: 60%;
     }
 
     .widgetBody {
@@ -229,8 +229,30 @@
 
     .widgetRight {
         float: left;
-        margin-top: 14px;
-        width: 20px;
+        margin-top: 0px;
+        width: 25px;
+        
+        .rightTab {
+            margin-bottom: 1px;
+            background-color: #666;
+            border-top-right-radius: 5px;
+            border-bottom-right-radius: 5px;
+            
+            .settings input {
+                margin-top: 3px;
+                margin-right: 0px;
+                margin-bottom: 3px;
+                
+            }
+        }
+    }
+    
+    .widgetRight input {
+        font-family: Arial;
+        font-size: 10px;
+        margin-left: 1px;
+        margin-right: 0px;
+        width: 60%;
     }
     
     .widgetBottom {

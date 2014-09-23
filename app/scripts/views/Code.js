@@ -68,11 +68,6 @@ function(Backbone, WidgetView, Template, CodeMirror){
 				self.model.set('filter', codeEditor.getValue());
 				self.registerFilters.apply(self);
 			});
-            
-            this.$( ".widgetBottom .content" ).hide();   
-            this.$( ".widgetBottom .tab" ).click(function() {
-                self.$( ".widgetBottom .content" ).toggle();
-            });
 
 		},
 		registerFilters: function() {
