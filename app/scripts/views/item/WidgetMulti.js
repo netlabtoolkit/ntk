@@ -57,8 +57,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 
 			this.makeDraggable();
-            
-            this.$( ".widgetBottom .content" ).hide();   
+
+            this.$( ".widgetBottom .content" ).hide();
             this.$( ".widgetBottom .tab" ).click(function() {
                 self.$( ".widgetBottom .content" ).toggle();
             });
@@ -101,6 +101,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			// Make all inlets droppable and bind the onDrop handler when one drops onto it
 			this.$('.inlet').draggable({
 				revert: true,
+				revertDuration: 0,
 				stop: function(e, ui) {
 					self.unMapInlet(e, ui, this);
 				}
@@ -219,6 +220,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			// Remove the cable and the reference to the cable from the cables array
 			var cableToRemove = _.find(this.cables, function(item) { return item.map.destinationField === inletField});
+			window.app.vent.trigger('Widget:removeMapping', cableToRemove.map );
 			cableToRemove.cable.remove();
 			this.cables = _.reject(this.cables, function(item) { return item.map.destinationField === inletField});
 

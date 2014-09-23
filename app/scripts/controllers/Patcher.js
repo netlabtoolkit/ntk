@@ -82,6 +82,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 
 			window.app.cableManager = new CableManager();
 			$(window.app.cableManager.parentEl).css({top: 0, left: 0, position: 'absolute', width: '100%', height: '100%'});
+			window.app.vent.on('Widget:removeMapping', this.removeMapping, this);
 		},
 		onExternalAddWidget: function(widgetType) {
 			var newWidget,
@@ -233,6 +234,9 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 
 
 			return this;
+		},
+		removeMapping: function(mapping) {
+			this.widgetMappings.splice(this.widgetMappings.indexOf(mapping), 1);
 		},
         /**
          * Get the singleton model:server instance and if it does not yet exist, create it and return it
