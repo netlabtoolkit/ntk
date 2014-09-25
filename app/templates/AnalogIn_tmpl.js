@@ -18,7 +18,7 @@
         <div class="display invalue" rv-text="widget:in">100</div>
         <div class="display outvalue" rv-text="widget:out">1023</div>
     </div>
-        
+
     <table class="rangeTable" border="0" cellspacing="3" cellpadding="0">
       <tr>
         <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:outputFloor"></td>
@@ -29,8 +29,8 @@
     <div class="options">
           <ul id="menu">
             <li title="invert" class='invert' rv-class-active="widget:invert">inv</li>
-            <li title="smoothing">smo</li>
-            <li title="easing">eas</li>
+            <li title="smoothing" class="smoothing" rv-class-active="widget:smoothing">smo</li>
+            <li title="easing" class="easing">eas</li>
           </ul>
     </div>
 </div>

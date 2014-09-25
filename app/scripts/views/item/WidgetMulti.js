@@ -363,10 +363,18 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		},
 
 
+        /**
+         * Set the attributes of a model based on a passed model
+		 * (usually from something like a patch loader or something)
+         *
+         * @param {object} model
+         * @return {WidgetMulti} this view
+         */
 		setFromModel: function(model) {
 			this.$el.css({top: model.offsetTop, left: model.offsetLeft});
-			//this.$el.css({top: model.positionTop, left: model.positionLeft});
 			this.model.set(model);
+
+			return this;
 		},
 	});
 

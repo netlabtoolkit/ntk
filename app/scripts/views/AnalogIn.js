@@ -9,17 +9,18 @@ define([
 	'jqueryknob',
 ],
 function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView, WidgetSettingsView, Template, jqueryknob){
-    'use strict';
+	'use strict';
 
 	return WidgetView.extend({
 		widgetEvents: {
 			'click .invert': 'toggleInvert',
+			'click .smoothing': 'toggleSmoothing',
 		},
 		ins: [
-            //{
-                //title: 'in',
-                //to: 'outblah',
-            //}
+			//{
+				//title: 'in',
+				//to: 'outblah',
+			//}
 		],
 		outs: [
 			// title is decorative, from: <widget model field>, to: <widget model field being listened to>
@@ -36,14 +37,17 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			this.signalChainFunctions.push(SignalChainFunctions.scale);
 			this.signalChainFunctions.push(SignalChainFunctions.invert);
 
-			this.signalChainFunctions.push(SignalChainClasses.getSmoother({tolerance: 500}));
+			// Create a Smoother instance that averages values over time
+			// then push its processing function onto the stack
+			this.smoother = new SignalChainClasses.Smoother({tolerance: 500});
+			this.signalChainFunctions.push(this.smoother.getChainFunction());
 
+			// Register the signal chain to be updated at frame rate
 			window.app.timingController.registerFrameCallback(this.processSignalChain, this);
 		},
 
 		onRender: function() {
 			WidgetView.prototype.onRender.call(this);
-			//rivets.bind(this.$el, {widget: this.model, sources: this.sources});
 			var self = this;
 
 			this.$('.dial').knob({
@@ -74,6 +78,17 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			e.preventDefault();
 			e.stopPropagation();
 			this.model.set('invert', !this.model.get('invert'));
+		},
+		/**
+		 * toggleSmoothing - toggle on/off signal smoothing
+		 *
+		 * @return
+		 */
+		toggleSmoothing: function(e) {
+			e.preventDefault();
+			e.stopPropagation();
+			this.smoother.toggleActive();
+			this.model.set('smoothing', this.smoother.active);
 		},
 
 	});
