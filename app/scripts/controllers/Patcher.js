@@ -93,7 +93,6 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 			this.widgetModels.add(newModel);
 
 			if(widgetType) {
-				console.log(widgetType);
 				var newWidget = new Widgets[widgetType]({
 					model: newModel,
 				});

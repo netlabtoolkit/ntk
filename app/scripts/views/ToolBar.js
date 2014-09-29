@@ -20,7 +20,6 @@ function( app, Backbone, Template, Widgets ) {
 			this.el.innerHTML = this.template();
 
 			for(var widgetName in Widgets) {
-				console.log(widgetName);
 				var widgetEl = document.createElement('div');
 				$(widgetEl)
 					.addClass('addWidget')
