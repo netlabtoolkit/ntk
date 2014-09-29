@@ -49,7 +49,7 @@ Adding Your Custom Widget
 ------------------------
 When you are ready to run your widget you will need to add it into the system by opening the WidgetMap.js file located in the same directory (/app/scripts/views).
 
-Add your widgets path at the top of the file in the define section:
+Look at the top of the file in the define section:
 ```
 define([
 	'views/Blank/Blank',
@@ -59,7 +59,7 @@ define([
 	'views/ElementControl',
 ],
 ```
-Add your widget like so:
+and add your widget like so:
 ```
 define([
 	'views/Blank/Blank',
@@ -72,12 +72,12 @@ define([
 ```
 Note that the ".js" at the end of the file is unnecessary.
 
-Then pass the widget into the function call as a parameter:
+Then pass the widget into the function call as a parameter (order is very important. Always add to the end):
 ```
 function(Blank, AnalogIn, AnalogOut, Code, ElementControl){
-```
-becomes this (order is very important. Always add to the end)
-```
+
+...
+
 function(Blank, AnalogIn, AnalogOut, Code, ElementControl, MyCustomWidget){
 ```
 
@@ -90,9 +90,9 @@ And finally, add your widget to the map like so:
 		Code: Code,
 		ElementControl: ElementControl,
 	};
-```
-becomes this:
-```
+
+...
+
 	return {
 		Blank: Blank,
 		AnalogIn: AnalogIn,
@@ -104,5 +104,5 @@ becomes this:
 ```
 
 
-This will both add the widget to the lefthand toolbar and allow your widget to be loaded from the GUI. 
+This will both add the widget to the lefthand toolbar and allow your widget to be loaded from the GUI.
 That's it!
