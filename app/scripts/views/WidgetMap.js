@@ -9,10 +9,10 @@ function(Blank, AnalogIn, AnalogOut, Code, ElementControl){
     'use strict';
 
 	return {
-		Blank: Blank,
-		AnalogIn: AnalogIn,
-		AnalogOut: AnalogOut,
-		Code: Code,
-		ElementControl: ElementControl,
+		'Blank': Blank,
+		'Analog In': AnalogIn,
+		'Analog Out': AnalogOut,
+		'Code': Code,
+		'Element Control': ElementControl,
 	};
 });

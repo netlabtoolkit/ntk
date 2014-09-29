@@ -84,22 +84,22 @@ function(Blank, AnalogIn, AnalogOut, Code, ElementControl, MyCustomWidget){
 And finally, add your widget to the map like so:
 ```
 	return {
-		Blank: Blank,
-		AnalogIn: AnalogIn,
-		AnalogOut: AnalogOut,
-		Code: Code,
-		ElementControl: ElementControl,
+		'Blank': Blank,
+		'Analog In': AnalogIn,
+		'Analog Out': AnalogOut,
+		'Code': Code,
+		'Element Control': ElementControl,
 	};
 
 ...
 
 	return {
-		Blank: Blank,
-		AnalogIn: AnalogIn,
-		AnalogOut: AnalogOut,
-		Code: Code,
-		ElementControl: ElementControl,
-		MyCustomWidget: MyCustomWidget,
+		'Blank': Blank,
+		'Analog In': AnalogIn,
+		'Analog Out': AnalogOut,
+		'Code': Code,
+		'Element Control': ElementControl,
+		'My Custom Widget Name': MyCustomWidget,
 	};
 ```
 
