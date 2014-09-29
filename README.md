@@ -39,3 +39,70 @@ or to run it as a standard application, run:
 node server/app.js
 ```
 
+Creating a New Widget
+---------------------
+Copy the Blank Widget folder located in the /app/scripts/views directory and name this new folder with the name of your widget.
+
+This folder contains two files. A view file and a template file. Open the view file to see comments on building out a custom view.
+
+Adding Your Custom Widget
+------------------------
+When you are ready to run your widget you will need to add it into the system by opening the WidgetMap.js file located in the same directory (/app/scripts/views).
+
+Add your widgets path at the top of the file in the define section:
+```
+define([
+	'views/Blank/Blank',
+	'views/AnalogIn',
+	'views/AnalogOut',
+	'views/Code',
+	'views/ElementControl',
+],
+```
+Add your widget like so:
+```
+define([
+	'views/Blank/Blank',
+	'views/AnalogIn',
+	'views/AnalogOut',
+	'views/Code',
+	'views/ElementControl',
+	'views/MyCustomWidget/MyCustomWidget',
+],
+```
+Note that the ".js" at the end of the file is unnecessary.
+
+Then pass the widget into the function call as a parameter:
+```
+function(Blank, AnalogIn, AnalogOut, Code, ElementControl){
+```
+becomes this (order is very important. Always add to the end)
+```
+function(Blank, AnalogIn, AnalogOut, Code, ElementControl, MyCustomWidget){
+```
+
+And finally, add your widget to the map like so:
+```
+	return {
+		Blank: Blank,
+		AnalogIn: AnalogIn,
+		AnalogOut: AnalogOut,
+		Code: Code,
+		ElementControl: ElementControl,
+	};
+```
+becomes this:
+```
+	return {
+		Blank: Blank,
+		AnalogIn: AnalogIn,
+		AnalogOut: AnalogOut,
+		Code: Code,
+		ElementControl: ElementControl,
+		MyCustomWidget: MyCustomWidget,
+	};
+```
+
+
+This will both add the widget to the lefthand toolbar and allow your widget to be loaded from the GUI. 
+That's it!

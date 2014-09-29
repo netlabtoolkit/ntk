@@ -8,6 +8,7 @@ define([
 	'collections/Widgets',
 	'models/ArduinoUno',
 	'models/ModelMap',
+	'views/WidgetMap',
 	'models/WidgetConfig',
 	'views/AnalogIn',
 	'views/AnalogOut',
@@ -15,7 +16,7 @@ define([
 	'views/Code',
 	'views/Blank',
 ],
-function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, WidgetModel, AnalogInView, AnalogOutView, ElementControlView, CodeView, BlankView){
+function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, AnalogInView, AnalogOutView, ElementControlView, CodeView, BlankView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -87,62 +88,22 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 		onExternalAddWidget: function(widgetType) {
 			var newWidget,
 				serverAddress = window.location.host;
-			widgetType = widgetType.toLowerCase();
 
-			//var newModel = this.widgetModels.create({});
 			var newModel = new WidgetModel();
 			this.widgetModels.add(newModel);
 
-			if(widgetType === 'elementcontrol') {
-				var imageSrc = prompt('enter an image URL');
-				if(!imageSrc) {
-					imageSrc = 'images/pinkBlue.jpg';
-				}
-				var newWidget = new ElementControlView({
+			if(widgetType) {
+				console.log(widgetType);
+				var newWidget = new Widgets[widgetType]({
 					model: newModel,
-					src: imageSrc,
-				});
-			}
-			else if(widgetType === 'analogin') {
-				var newWidget = new AnalogInView({
-					model: newModel,
-					inputMapping: 'A0',
 				});
 
-				this.mapToModel({
-					view: newWidget,
-					modelType: 'ArduinoUno',
-					IOMapping: {sourceField: "A0", destinationField: 'in'},
-					server: serverAddress,
-				});
-			}
-			else if(widgetType === 'analogout') {
-				var newWidget = new AnalogOutView({
-					model: newModel,
-					outputMapping: 'out9',
-				});
+				this.addWidgetToStage(newWidget);
 
-				this.mapToModel({
-					view: newWidget,
-					IOMapping: {sourceField: "out", destinationField: 'out9'},
-					modelType: 'ArduinoUno',
-					server: serverAddress,
-				});
-			}
-			else if(widgetType === 'code') {
-				var newWidget = new CodeView({
-					model: newModel,
-				});
-			}
-			else if(widgetType === 'blank') {
-				var newWidget = new BlankView({
-					model: newModel,
-				});
+				return newWidget;
 			}
 
-			this.addWidgetToStage(newWidget);
-
-			return newWidget;
+			return false;
 		},
 		/**
 		 * Render a view to the appropriate Canvas DOM element

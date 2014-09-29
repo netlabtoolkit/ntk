@@ -1,14 +1,14 @@
 define([
 	'application',
 	'backbone',
-	'text!tmpl/ToolBar_tmpl.js'
+	'text!tmpl/ToolBar_tmpl.js',
+	'views/WidgetMap',
 ],
-function( app, Backbone, Template  ) {
+function( app, Backbone, Template, Widgets ) {
     'use strict';
 
 	return Backbone.View.extend({
 		events: {
-			'click .addWidget': 'addWidget',
 			'click .savePatch': 'savePatch',
 			'click .loadPatch': 'loadPatch',
 		},
@@ -18,26 +18,19 @@ function( app, Backbone, Template  ) {
 
 		render: function() {
 			this.el.innerHTML = this.template();
-		},
-		addWidget: function(e) {
-			var widgetType = "";
-			if($(e.target).hasClass('analogIn')) {
-				widgetType = 'analogIn';
-			}
-			else if($(e.target).hasClass('analogOut')) {
-				widgetType = 'analogOut';
-			}
-			else if($(e.target).hasClass('elementControl')) {
-				widgetType = 'elementControl';
-			}
-			else if($(e.target).hasClass('addCode')) {
-				widgetType = 'code';
-			}
-			else if($(e.target).hasClass('blank')) {
-				widgetType = 'blank';
-			}
 
-			window.app.vent.trigger('ToolBar:addWidget', widgetType);
+			for(var widgetName in Widgets) {
+				console.log(widgetName);
+				var widgetEl = document.createElement('div');
+				$(widgetEl)
+					.addClass('addWidget')
+					.data('widgetType', widgetName)
+					.text(widgetName)
+					.on('click', function(e) {
+						window.app.vent.trigger('ToolBar:addWidget', $(this).data('widgetType'));
+					});
+				this.$el.append(widgetEl);
+			}
 		},
 		loadPatch: function() {
 			var JSONString = prompt('Paste your JSON here');
