@@ -8,7 +8,7 @@ function(Backbone, rivets, WidgetView, Template){
     'use strict';
 
 	return WidgetView.extend({
-		typeID: 'ElementControl',
+		typeID: 'Element Control',
 		className: 'elementControl',
 		template: _.template(Template),
 		sources: [],

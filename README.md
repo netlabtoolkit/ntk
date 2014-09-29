@@ -99,7 +99,7 @@ And finally, add your widget to the map like so:
 		'Analog Out': AnalogOut,
 		'Code': Code,
 		'Element Control': ElementControl,
-		'My Custom Widget Name': MyCustomWidget,
+		'The typeID of My Custom Widget View': MyCustomWidget,
 	};
 ```
 

@@ -52,12 +52,12 @@ function(Backbone, WidgetView, Template, CodeMirror){
          */
 		onRender: function() {
 			WidgetView.prototype.onRender.call(this);
-            
+
             var self = this;
 
 			this.registerFilters();
 
-			
+
 			var codeEditor = CodeMirror.fromTextArea(this.$('.filterFunction')[0], {
 				lineNumbers: true,
 				smartIndent: true,
