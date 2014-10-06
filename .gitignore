@@ -5,3 +5,4 @@ node_modules
 server/app
 server/node_modules
 dist/
+.tern-project
