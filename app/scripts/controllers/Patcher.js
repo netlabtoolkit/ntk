@@ -93,9 +93,43 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 			this.widgetModels.add(newModel);
 
 			if(widgetType) {
-				var newWidget = new Widgets[widgetType]({
-					model: newModel,
-				});
+
+				// Special cases for Hardware interfacing widgets for now
+				if(widgetType === 'Analog In') {
+					var newWidget = new AnalogInView({
+						model: newModel,
+						inputMapping: 'A0',
+					});
+
+					this.mapToModel({
+						view: newWidget,
+						modelType: 'ArduinoUno',
+						IOMapping: {sourceField: "A0", destinationField: 'in'},
+						server: serverAddress,
+					});
+				}
+				else if(widgetType === 'Analog Out') {
+					var newWidget = new AnalogOutView({
+						model: newModel,
+						outputMapping: 'out9',
+					});
+
+					this.addWidgetToStage(newWidget);
+
+					this.mapToModel({
+						view: newWidget,
+						IOMapping: {sourceField: "out", destinationField: 'out9'},
+						modelType: 'ArduinoUno',
+						server: serverAddress,
+					});
+
+					return newWidget;
+				}
+				else {
+					var newWidget = new Widgets[widgetType]({
+						model: newModel,
+					});
+				}
 
 				this.addWidgetToStage(newWidget);
 

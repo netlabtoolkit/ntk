@@ -14,7 +14,14 @@ function(Backbone, rivets, WidgetView, Template){
 		sources: [],
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
+
+			var elementSrc = prompt('Please enter an image URL');
+			if(!elementSrc) {
+				elementSrc = 'images/pinkBlue.jpg';
+			}
+
 			this.model.set({
+				src: elementSrc,
 				ins: [
 					//{name: 'in', to: 'in'},
 					{title: 'opacity', to: 'opacity'},
