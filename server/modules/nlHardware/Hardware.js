@@ -10,35 +10,36 @@ module.exports = function(options) {
     var five = require("johnny-five");
     var board = five.Board();
 
-    var sensors = [];
+    //var sensors = [];
 	board.on("ready", function() {
         var pollFreq = 100;
 
-		// Create a new `sensor` hardware instance.
-		sensor = new five.Sensor({
-			pin: "A0",
-			freq: 100,
-		});
-		sensor1 = new five.Sensor({
-			pin: "A1",
-			freq: 100,
-		});
-		servo = five.Servo({
-			pin: 9,
-			range: [0,170],
-			//range: [0,1023],
-		});
-
-
         // Instantiate and add each sensor listed on the model to the sensors array
-        for(var input in model.inputs) {
-            var sensor = new five.sensor({
-                pin: input,
-                freq: pollFreq,
-            });
+		for(var input in model.inputs) {
+			
+			// Set the pin to analog read mode
+			this.pinMode(input, five.Pin.ANALOG);
 
-            sensors.push(sensor);
-        }
+			// Set the handler for the pin to set the model
+			this.analogRead(input, function(value) {
+				model.set(input, Math.floor(value));
+			});
+
+			//sensors.push(sensor);
+		}
+
+
+		// Cycle through and add all the outputs here
+		for(var output in model.outputs) {
+			board.pinMode(output, five.Pin.OUTPUT);
+		}
+
+		// RESPOND TO input from the USER and set the OUTPUT
+		model.on('change', function(options) {
+			if(options.field === 'out9') {
+				servo.to(options.value);
+			}
+		});
 
 		//board.repl.inject({
 			//sensor: sensor

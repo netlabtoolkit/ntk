@@ -1,15 +1,16 @@
 module.exports = function(options) {
 
+	//var domain = require('domain');
 	var port = options.port || '9001',
-        device = options.device;
+		device = options.device;
 
 
-	var express = require('express');
-        http = require('http'),
-        path = require('path'),
-        socketIO = require('socket.io');
+		var express = require('express');
+		http = require('http'),
+		path = require('path'),
+		socketIO = require('socket.io');
 
-    app = express(),
+		app = express(),
 
 	var WebServer = function() {
 		this.port = port;
@@ -38,9 +39,9 @@ module.exports = function(options) {
 				console.log('Express App started!');
 			});
 		},
-        initSockets: function() {
-            this.io = socketIO.listen(this.server);
-        },
+		initSockets: function() {
+			this.io = socketIO.listen(this.server);
+		},
 	}
 
 	return new WebServer();
