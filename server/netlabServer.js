@@ -1,9 +1,9 @@
 'use strict';
 
 // stop gap to handle when no board is plugged in. Will switch to domain when we setup a proper server
-process.on('uncaughtException', function(err) {
-	console.log('Caught exception: ' + err);
-});
+//process.on('uncaughtException', function(err) {
+	//console.log('Caught exception: ' + err);
+//});
 
 //////////!!!!!!!!!!!!!!!!!!!!!!!
 var deviceType = process.argv[2] || 'arduino',

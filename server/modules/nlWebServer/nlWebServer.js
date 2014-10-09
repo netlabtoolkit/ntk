@@ -10,7 +10,7 @@ module.exports = function(options) {
 		path = require('path'),
 		socketIO = require('socket.io');
 
-		app = express(),
+		app = express();
 
 	var WebServer = function() {
 		this.port = port;
@@ -38,9 +38,12 @@ module.exports = function(options) {
 			this.server.listen(this.port, function(){
 				console.log('Express App started!');
 			});
+
+			this.initSockets();
 		},
 		initSockets: function() {
 			this.io = socketIO.listen(this.server);
+			device.setTransport(this.io);
 		},
 	}
 

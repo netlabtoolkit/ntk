@@ -15,6 +15,6 @@
 			"node": ">=0.8.0"
 		},
 		"scripts": {
-			"start": "node app.js"
+			"start": "node netlabServer.js"
 		}
 }
