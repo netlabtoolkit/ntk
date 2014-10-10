@@ -41,15 +41,15 @@ node server/app.js
 
 Creating a New Widget
 ---------------------
-Copy the Blank Widget folder located in the /app/scripts/views directory and name this new folder with the name of your widget.
+Copy the Blank Widget folder located in the /app/scripts/views directory and name this new folder with the name of your widget. Rename the view file to your widget name (e.g. MyCustomWidget.js). You may also want to create and edit the corresponding .scss file in the /app/styles directory.
 
-This folder contains two files. A view file and a template file. Open the view file to see comments on building out a custom view.
+The widget folder contains two files. A view file (e.g. Blank.js) and a template file (template.js). Open the view file to see comments on building out a custom view. In the view file, be sure to change names of the typeID, className and title to your new widget name. Also, rename the view file to your widget name (e.g. MyCustomWidget.js).
 
-Adding Your Custom Widget
+Adding Your Custom Widget to WidgetMap.js
 ------------------------
-When you are ready to run your widget you will need to add it into the system by opening the WidgetMap.js file located in the same directory (/app/scripts/views).
+When you are ready to test and run your widget you will need to add it into the system by opening the WidgetMap.js file located in the same directory (/app/scripts/views). There are three changes that need to be made to this file.
 
-Look at the top of the file in the define section:
+1) Look at the top of the file in the define section:
 ```
 define([
 	'views/Blank/Blank',
@@ -72,7 +72,7 @@ define([
 ```
 Note that the ".js" at the end of the file is unnecessary.
 
-Then pass the widget into the function call as a parameter (order is very important. Always add to the end):
+2) Then pass the widget into the function call as a parameter (order is very important. Always add to the end):
 ```
 function(Blank, AnalogIn, AnalogOut, Code, ElementControl){
 
@@ -81,7 +81,7 @@ function(Blank, AnalogIn, AnalogOut, Code, ElementControl){
 function(Blank, AnalogIn, AnalogOut, Code, ElementControl, MyCustomWidget){
 ```
 
-And finally, add your widget to the map like so:
+3) And finally, add your widget to the map like so:
 ```
 	return {
 		'Blank': Blank,
