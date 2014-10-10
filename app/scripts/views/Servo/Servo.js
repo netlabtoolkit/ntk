@@ -26,8 +26,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
-		typeID: 'Blank',
-		className: 'blank',
+		typeID: 'Servo',
+		className: 'servo',
 		template: _.template(Template),
 
 		initialize: function(options) {
@@ -35,10 +35,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			WidgetView.prototype.initialize.call(this, options);
 
             // Call any custom DOM events here
-			this.model.set('title', 'Blank');
+			this.model.set('title', 'Servo');
 
             // If you want to register your own signal processing function, push them to signalChainFunctions
-			this.signalChainFunctions.push(this.limitRange);
+			this.signalChainFunctions.push(this.limitServoRange);
 
 			// Likewise, if you need to register an instance-based processor
 			//this.smoother = new SignalChainClasses.Smoother({tolerance: 50});
@@ -86,7 +86,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 		// Any custom function can be attached to the widget like this "limitServoRange" function
 		// and can be accessed via this.limitServoRange();
-        limitRange: function(input) {
+        limitServoRange: function(input) {
             var output = input;
             output = Math.max(output, 0);
             output = Math.min(output, 180);

@@ -1,4 +1,4 @@
-<div class="widgetTop typeProcess">
+<div class="widgetTop typeOut">
     <div class="title dragHandle">
 	{ widget:title } <div class="remove">×</div>
     </div>
@@ -25,7 +25,13 @@
 </div>
 
 <div class="widgetRight">
-    <div class='outlets'>
-        <div class="outlet" rv-each-outlet="widget:outs" rv-alt="outlet.title" rv-data-field="outlet.to">&middot;</div>
+    <div class=rightTab><input type="checkbox" rv-checked="widget:active" /></div>
+    <div class=rightTab>
+        <div class='settings'>
+            <input type='text' value='D3'>
+        </div>
+        <!-- <div rv-each-source="sources" class="settings">
+            <input rv-value="source.map.sourceField">
+        </div> -->
     </div>
 </div>

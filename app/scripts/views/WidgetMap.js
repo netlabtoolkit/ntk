@@ -4,8 +4,9 @@ define([
 	'views/AnalogOut',
 	'views/Code',
 	'views/ElementControl',
+    'views/Servo/Servo',
 ],
-function(Blank, AnalogIn, AnalogOut, Code, ElementControl){
+function(Blank, AnalogIn, AnalogOut, Code, ElementControl,Servo){
     'use strict';
 
 	return {
@@ -14,5 +15,6 @@ function(Blank, AnalogIn, AnalogOut, Code, ElementControl){
 		'Analog Out': AnalogOut,
 		'Code': Code,
 		'Element Control': ElementControl,
+        'Servo': Servo,
 	};
 });
