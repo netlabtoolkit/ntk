@@ -39,7 +39,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 			// Create a Smoother instance that averages values over time
 			// then push its processing function onto the stack
-			this.smoother = new SignalChainClasses.Smoother({tolerance: 500});
+			this.smoother = new SignalChainClasses.Smoother({tolerance: 60});
 			this.signalChainFunctions.push(this.smoother.getChainFunction());
 
 			// Register the signal chain to be updated at frame rate
