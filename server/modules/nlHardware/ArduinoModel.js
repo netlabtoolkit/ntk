@@ -14,8 +14,19 @@ module.exports = function(attributes) {
 			return this.inputs[field];
 		},
 		set: function(field, value) {
-			this.outputs[field] = value;
-			this.emit('change', {field: field, value: this[field]});
+
+			if(this.outputs[field] !== undefined) {
+				if(this.outputs[field] !== value) {
+					this.outputs[field] = value;
+					this.emit('change', {field: field, value: this.outpus[field]});
+				}
+			}
+			else if(this.inputs[field] !== undefined) {
+				if(this.inputs[field] !== value) {
+					this.inputs[field] = value;
+					this.emit('change', {field: field, value: this.inputs[field]});
+				}
+			}
 			return this;
 		},
 		inputs: {
