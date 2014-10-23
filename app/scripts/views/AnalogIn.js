@@ -74,6 +74,14 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 
 		},
+		/**
+		 * onRemove  - Called when the widget is removed. Used for cleanup.
+		 *
+		 * @return {void}
+		 */
+		onRemove: function() {
+			window.app.timingController.removeFrameCallback(this.processSignalChain);
+		},
 		toggleInvert: function(e) {
 			e.preventDefault();
 			e.stopPropagation();

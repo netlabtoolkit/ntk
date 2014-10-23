@@ -246,7 +246,11 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			for(var i=this.cables.length-1; i>=0; i--) {
 				this.cables[i].cable.remove();
 			}
+
 			this.remove();
+			if(this.onRemove) {
+				this.onRemove();
+			}
 		},
 		destinationModels: [],
 		onSync: function() {},
@@ -334,7 +338,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 		},
 		processSignalChain: function() {
-
 			var outputs = this.model.get('outs'),
 				outputsObj = {};
 
