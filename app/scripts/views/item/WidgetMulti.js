@@ -89,7 +89,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 							}
 						}
 					}
-				}
+				},
+				stack: ".widget",
 			});
 
 			this.$el.css({position: 'absolute'});
