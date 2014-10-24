@@ -1,5 +1,4 @@
 
-
 module.exports = function(options) {
 	//var domain = require('domain').create();
 
@@ -9,13 +8,13 @@ module.exports = function(options) {
 		var modelMap = {
 			arduino: './ArduinoModel',
 		};
-		var sensors = [];
+		var sensors = [],
+			outputs = {};
 
 		var model = require(modelMap[deviceType])();
 		var five = require("johnny-five");
 		var board = five.Board();
 
-		console.log('board on');
 		board.on("ready", function() {
 			var pollFreq = 100;
 
@@ -23,10 +22,6 @@ module.exports = function(options) {
 			for(var input in model.inputs) {
 
 				(function() {
-				// Set the pin to analog read mode
-				//board.pinMode(input, five.Pin.ANALOG);
-				//board.pinMode(inp, five.Pin.ANALOG);
-
 					if(!parseInt(input, 10)) {
 						var sensor = new five.Sensor({
 							pin: input,
@@ -56,15 +51,26 @@ module.exports = function(options) {
 			}
 
 
+			//board.pinMode(9, five.Pin.OUTPUT);
 			// Cycle through and add all the outputs here
-			//for(var output in model.outputs) {
+			for(var output in model.outputs) {
+				(function() {
+					// Setting this as an LED temporarily until I figure out Johnny-Five's scheme for analogWrite
+					var outputPin = new five.Led(parseInt(output.substr(1),10));
+					outputs[output] = outputPin;
+				})();
+
+				//y++;
 				//board.pinMode(output, five.Pin.OUTPUT);
-			//}
+			}
+
 
 			//// RESPOND TO input from the USER and set the OUTPUT
 			model.on('change', function(options) {
 				if(model.outputs[options.field] !== undefined) {
-					board.analogWrite(options.field, options.value);
+					//board.analogWrite(options.field, options.value);
+					// Setting this as an LED temporarily until I figure out Johnny-Five's scheme for analogWrite
+					 outputs[options.field].brightness(options.value);
 				}
 			});
 
@@ -74,7 +80,6 @@ module.exports = function(options) {
 		board.on('error', function(err) {
 			console.log(err);
 		});
-		console.log('board on done');
 
 
 		Hardware = {
@@ -83,9 +88,20 @@ module.exports = function(options) {
 				this.bindModelToTransport(transport, this.model);
 			},
 			bindModelToTransport: function(transport, model) {
+				// Listen for changes made on the hardware to update the front-end
 				this.model.on('change', function(options) {
-					//console.log('change and emit', options.field, options.value);
 					transport.emit('receivedModelUpdate', {modelType: model.type, field: options.field, value: options.value});
+				});
+
+				// Listen for changes from the front-end to update the hardware
+				transport.on('connection', function(socket) {
+					socket.on('sendModelUpdate', function(options) {
+						for(var field in options.model) {
+							if(model.outputs[field] !== undefined) {
+								model.set(field, parseInt(options.model[field], 10));
+							}
+						}
+					});
 				});
 			},
 
@@ -96,6 +112,5 @@ module.exports = function(options) {
 		//console.log('domain ERROR!!!', error);
 	//});
 
-    //return model;
 	return Hardware;
 }

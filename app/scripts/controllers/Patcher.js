@@ -111,14 +111,14 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 				else if(widgetType === 'Analog Out') {
 					var newWidget = new AnalogOutView({
 						model: newModel,
-						outputMapping: 'out9',
+						outputMapping: 'D9',
 					});
 
 					this.addWidgetToStage(newWidget);
 
 					this.mapToModel({
 						view: newWidget,
-						IOMapping: {sourceField: "out", destinationField: 'out9'},
+						IOMapping: {sourceField: "out", destinationField: 'D9'},
 						modelType: 'ArduinoUno',
 						server: serverAddress,
 					});
@@ -253,7 +253,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 				};
 				// Loop
 				newModelInstance.on('change', function(model) {
-					if(model.changedAttributes().out9) {
+					if(model.changedAttributes().D9) {
 						window.app.vent.trigger('sendModelUpdate', {modelType: modelType, model: model});
 					}
 				});

@@ -18,7 +18,7 @@ module.exports = function(attributes) {
 			if(this.outputs[field] !== undefined) {
 				if(this.outputs[field] !== value) {
 					this.outputs[field] = value;
-					this.emit('change', {field: field, value: this.outpus[field]});
+					this.emit('change', {field: field, value: this.outputs[field]});
 				}
 			}
 			else if(this.inputs[field] !== undefined) {
@@ -38,7 +38,7 @@ module.exports = function(attributes) {
 			A5: 0,
 		},
 		outputs: {
-			out9: 0,
+			D9: 0,
 		},
 	});
 

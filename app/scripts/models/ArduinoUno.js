@@ -16,7 +16,7 @@ function( Backbone, HardwareModel ) {
 			type: "ArduinoUno",
 				A0: 0,
 				A1: 0,
-				out9: 0,
+				D9: 0,
 		},
 
     });
