@@ -12,7 +12,7 @@
 </div>
 <div class="widgetBody">
 </div>
-<img rv-style-opacity="widget:opacity"
+<img class="detachedEl" rv-style-opacity="widget:opacity"
 	rv-positionx="widget:left"
 	rv-positiony="widget:top"
 	class="element" rv-src="widget:src"/>

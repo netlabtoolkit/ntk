@@ -17,7 +17,7 @@
         padding-top: 3px;
         padding-left: 3px;
         font-size: 11px;
-        
+
 	}
 
 	input[type=range] {
@@ -54,7 +54,7 @@
 		height: 24px;
 
 		/* border-radius: 0px 0px 5px 5px; */
-        
+
 
 		.inlet {
 
@@ -90,8 +90,8 @@
 		.outlet:first-child {
 			border-radius: 0px 5px 5px 0px;
 		}
-        
-        
+
+
 	}
     .dot {
         margin-right: 2px;
@@ -117,16 +117,16 @@
 	.dialwrapper .outvalue {
 		top:36px;
 	}
-    
+
     .rangeTable {
         margin-left: 2px;
         width: 95%;
-        
+
         tr td {
             text-align: center;
         }
     }
-    
+
     table tr td .range-input {
         width: 25px;
         height: 8px;
@@ -165,7 +165,7 @@
 	.options li:hover {
 	    color: #FFF;
 	}
-    
+
     .widgetTop {
         width: 96px;
         height: 20px;
@@ -180,18 +180,18 @@
         width: 25px;
         /*height: 100px;*/
         margin-top: 0px;
-        
+
         .leftTab {
             margin-bottom: 1px;
             background-color: #666;
             border-top-left-radius: 5px;
             border-bottom-left-radius: 5px;
-            
+
             .settings input {
                 margin-top: 3px;
                 margin-left: 3px;
                 margin-bottom: 3px;
-                
+
             }
         }
     }
@@ -210,7 +210,7 @@
         border-bottom-right-radius: 5px;
         border-bottom-left-radius: 5px;
     }
-    
+
     .widgetBody input {
         font-family: Arial;
         font-size: 10px;
@@ -231,22 +231,22 @@
         float: left;
         margin-top: 0px;
         width: 25px;
-        
+
         .rightTab {
             margin-bottom: 1px;
             background-color: #666;
             border-top-right-radius: 5px;
             border-bottom-right-radius: 5px;
-            
+
             .settings input {
                 margin-top: 3px;
                 margin-right: 0px;
                 margin-bottom: 3px;
-                
+
             }
         }
     }
-    
+
     .widgetRight input {
         font-family: Arial;
         font-size: 10px;
@@ -254,11 +254,11 @@
         margin-right: 0px;
         width: 60%;
     }
-    
+
     .widgetBottom {
         clear: both;
         margin-left: 25px;
-        
+
         .tab {
             width: 86px;
             height: 14px;
@@ -266,16 +266,16 @@
             margin-left: 5px;
             border-bottom-left-radius: 5px;
             border-bottom-right-radius: 5px;
-            
+
             p {
                 font-size: 10px;
                 text-align: center;
                 margin-left: auto;
                 margin-right: auto;
-                
+
             }
         }
-        
+
         .content {
             padding-top: 1px;
             margin-left: 5px;
@@ -296,4 +296,10 @@
     	background-color: #86B0FF;
     }
 
+}
+
+
+
+.detachedEl {
+	position: fixed;
 }
