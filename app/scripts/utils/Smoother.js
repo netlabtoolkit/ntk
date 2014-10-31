@@ -27,6 +27,22 @@ function ($) {
 	};
 
 	Smoother.prototype = {
+        /**
+         * setBufferLength
+         *
+         * @param size
+         * @return {undefined}
+         */
+		setBufferLength: function(size) {
+			numOfHistoryItems = size;
+
+			// Reinitialize the buffer
+			var values = this.values;
+			values.length = 0;
+			for(var i=numOfHistoryItems-1; i>=0; i--) {
+				values[i] = 0;
+			}
+		},
 		/**
 		 * Push a value to a stack used to average values
 		 *

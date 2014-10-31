@@ -12,11 +12,11 @@ function(){
 	};
 
 	TimingController.prototype = {
-		tick: function() {
+		tick: function(timeStamp) {
 			var callbacks = self.frameCallbacks;
 
 			for(var i=callbacks.length-1; i>=0; i--) {
-				callbacks[i](frameCount);
+				callbacks[i](frameCount, timeStamp);
 			}
 
 			frameCount++;
