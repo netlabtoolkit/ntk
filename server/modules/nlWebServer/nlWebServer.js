@@ -5,15 +5,15 @@ module.exports = function(options) {
 		device = options.device;
 
 
-		var express = require('express');
+	var express = require('express');
 		http = require('http'),
-		path = require('path'),
-		socketIO = require('socket.io');
+		path = require('path');
 
 		app = express();
 
 	var WebServer = function() {
 		this.port = port;
+
 		//// simple log
 		app.use(function(req, res, next){
 			console.log('%s %s', req.method, req.url);
@@ -34,16 +34,22 @@ module.exports = function(options) {
 	};
 
 	WebServer.prototype = {
+		/**
+		 * start the server listening and return a Promise
+		 *
+		 * @return {Promise}
+		 */
 		start: function() {
-			this.server.listen(this.port, function(){
-				console.log('Express App started!');
-			});
+			var server = this.server,
+				port = this.port;
 
-			this.initSockets();
-		},
-		initSockets: function() {
-			this.io = socketIO.listen(this.server);
-			device.setTransport(this.io);
+			return new Promise(function(resolve, reject) {
+				server.listen(port, function(){
+					console.log('Webserver has started!');
+
+					resolve(server);
+				});
+			});
 		},
 	}
 
