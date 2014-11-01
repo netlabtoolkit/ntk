@@ -15,9 +15,10 @@ var deviceType = process.argv[2] || 'arduino',
 var deviceController = new nlHardware({deviceType: deviceType});
 
 // Create a WEB SERVER then create a transport tied to the webserver
-var nlWebServer = new require('./modules/nlWebServer/nlWebServer')({port: 9001, device: deviceController});
+var nlWebServer = new require('./modules/nlWebServer/nlWebServer');
 
-nlWebServer.start()
+nlWebServer({port: 9001, device: deviceController})
+	.start()
 	.then(function(server) {
 		var io = socketIO.listen(server);
 

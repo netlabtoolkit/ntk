@@ -43,7 +43,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, jquerykno
          */
         onRender: function() {
             WidgetView.prototype.onRender.call(this);
-            
+
             var self = this;
 
 			this.$('.dial').knob({
@@ -68,14 +68,22 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, jquerykno
 				$(el).trigger('change');
 			};
         },
-        
-                
-        limitServoRange: function(input) {
-            var output = input;
-            output = Math.max(output, 0);
-            output = Math.min(output, 180);
-            return Number(output);
-        },
-        
+
+
+		/**
+		 * This is optional and you do not have to implement it. This will be called everytime there is a change to a Widget's model
+		 *
+		 * @param {Backbone.Model} model
+		 * @return {void}
+		 */
+		onModelChange: function(model) {
+		},
+		limitServoRange: function(input) {
+			var output = input;
+			output = Math.max(output, 0);
+			output = Math.min(output, 180);
+			return Number(output);
+		},
+
 	});
 });

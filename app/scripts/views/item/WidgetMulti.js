@@ -39,6 +39,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			//this.model = new WidgetConfigModel(options);
 			this.model.set(options);
 			this.model.on('change', this.processSignalChain, this);
+			this.model.on('change', this.onModelChange, this);
 
 			this.setWidgetBinders();
 		},
@@ -63,6 +64,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
                 self.$( ".widgetBottom .content" ).toggle();
             });
 
+		},
+		onModelChange: function(model) {
 		},
 		makeDraggable: function() {
 			var self = this;
