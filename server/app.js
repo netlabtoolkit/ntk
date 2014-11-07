@@ -46,7 +46,8 @@ process.on('uncaughtException', function(err) {
 	var io = socketIO.listen(server);
 	var sensor,
 		sensor1,
-		servo;
+		servo,
+        pwm;
 
 	var _ = require('underscore'),
 		events = require('events');
@@ -87,14 +88,20 @@ process.on('uncaughtException', function(err) {
 			pin: "A1",
 			freq: 100,
 		});
-		servo = five.Servo({
+		servo = new five.Servo({
 			pin: 9,
-			range: [0,170],
+			range: [0,180],
 			//range: [0,1023],
 		});
+        
+        pwm = new five.Led({
+          pin: 3, 
+          type: "pwm"
+        });
 
 		board.repl.inject({
-			sensor: sensor
+			sensor: sensor,
+            led: pwm
 		});
 
 		io.on('connection', function(socket){
@@ -114,11 +121,12 @@ process.on('uncaughtException', function(err) {
 
 
 			socket.on('sendModelUpdate', function(options) {
-				hardwareModels[options.modelType].set('out9', parseInt(options.model.out9, 10));
+				hardwareModels[options.modelType].set('out9', parseInt(options.model.D9, 10));
 			});
 			arduinoModel.on('change', function(options) {
 				if(options.field === 'out9') {
-					servo.to(options.value);
+					//servo.to(options.value);
+                    pwm.brightness(options.value);
 				}
 			});
 
