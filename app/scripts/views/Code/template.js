@@ -12,10 +12,10 @@
 </div>
 
 <div class="widgetBody">
-    in1: <span class="text" rv-text="widget:inOne">Helllooo</span><br>
-    in2: <span class="text" rv-text="widget:inTwo">Helllooo</span><br><br>
-    
-    out: <span class="" rv-text="widget:outOne">Helllooo</span>
+    <div class="inletValueTop"></div>
+    <div class="inletValue"><span rv-text="widget:in1">0</span> in1</div>
+    <div class="inletValue"><span rv-text="widget:in2">0</span> in2</div>
+    <div class="inletValue"><span class="" rv-text="widget:out1">0</span> out</div>
 </div>
 
 <div class="widgetRight">

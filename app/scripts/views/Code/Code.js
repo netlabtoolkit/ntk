@@ -1,7 +1,7 @@
 define([
 	'backbone',
 	'views/item/WidgetMulti',
-	'text!tmpl/Code_tmpl.js',
+	'text!./template.js',
 
 	'codemirror',
 ],
@@ -12,12 +12,12 @@ function(Backbone, WidgetView, Template, CodeMirror){
 		// Map inputs to model
 		ins: [
 			// title: decorative, to: <widget model field>
-			{title: 'one', to: 'inOne'},
-			{title: 'two', to: 'inTwo'},
+			{title: 'one', to: 'in1'},
+			{title: 'two', to: 'in2'},
 		],
 		outs: [
 			// title: decorative, from: <widget model field>, to: <widget model field being listened to>
-			{title: 'out', from: 'output', to: 'outOne'},
+			{title: 'out', from: 'output', to: 'out1'},
 		],
 		//defaults: {
 				//filter: "return inputs.inOne + inputs.inTwo;",
@@ -35,10 +35,10 @@ function(Backbone, WidgetView, Template, CodeMirror){
 				options = {};
 			}
 			_.extend(options, {
-				filter: "return inputs.inOne + inputs.inTwo;",
-				inOne: 2,
-				inTwo: 3,
-				outOne: 1,
+				filter: "return inputs.in1 + inputs.in2;",
+				in1: 0,
+				in2: 0,
+				out1: 0,
 			});
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);

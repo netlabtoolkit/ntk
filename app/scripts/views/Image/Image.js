@@ -2,14 +2,14 @@ define([
 	'backbone',
 	'rivets',
 	'views/item/WidgetMulti',
-	'text!tmpl/ElementControl_tmpl.js'
+	'text!./template.js',
 ],
 function(Backbone, rivets, WidgetView, Template){
     'use strict';
 
 	return WidgetView.extend({
-		typeID: 'Element Control',
-		className: 'elementControl',
+		typeID: 'Image',
+		className: 'image',
 		template: _.template(Template),
 		sources: [],
 		initialize: function(options) {
@@ -28,7 +28,7 @@ function(Backbone, rivets, WidgetView, Template){
 					{title: 'X Position', to: 'left'},
 					{title: 'Y Position', to: 'top'},
 				],
-				title: 'ElementControl',
+				title: 'Image',
 				activeControlParameter: 'left',
 				controlParameters: [
 					{
@@ -48,6 +48,13 @@ function(Backbone, rivets, WidgetView, Template){
 				opacity: 100,
 				top: 100,
 			});
+		},
+        
+        onRender: function() {
+			WidgetView.prototype.onRender.call(this);
+			var self = this;
+            this.$('.detachedEl').css( 'cursor', 'move' );
+            this.$( ".detachedEl" ).draggable({ cursor: "move" });
 		},
 
 	});

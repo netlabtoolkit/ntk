@@ -1,21 +1,21 @@
 define([
 	'views/Blank/Blank',
-	'views/AnalogIn',
-	'views/AnalogOut',
-	'views/Code',
-	'views/ElementControl',
+	'views/AnalogIn/AnalogIn',
+	'views/AnalogOut/AnalogOut',
+	'views/Code/Code',
+	'views/Image/Image',
     'views/Servo/Servo',
     'views/CloudOut/CloudOut',
 ],
-function(Blank, AnalogIn, AnalogOut, Code, ElementControl,Servo,CloudOut){
+function(Blank, AnalogIn, AnalogOut, Code, Image, Servo, CloudOut){
     'use strict';
 
 	return {
 		'Blank': Blank,
-		'Analog In': AnalogIn,
-		'Analog Out': AnalogOut,
+		'AnalogIn': AnalogIn,
+		'AnalogOut': AnalogOut,
 		'Code': Code,
-		'Element Control': ElementControl,
+		'Image': Image,
         'Servo': Servo,
         'CloudOut': CloudOut,
 	};

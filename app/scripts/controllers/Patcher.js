@@ -10,11 +10,11 @@ define([
 	'models/ModelMap',
 	'views/WidgetMap',
 	'models/WidgetConfig',
-	'views/AnalogIn',
-	'views/AnalogOut',
-	'views/ElementControl',
-	'views/Code',
-	'views/Blank',
+	'views/AnalogIn/AnalogIn',
+	'views/AnalogOut/AnalogOut',
+	'views/Image/Image',
+	'views/Code/Code',
+	'views/Blank/Blank',
 ],
 function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, AnalogInView, AnalogOutView, ElementControlView, CodeView, BlankView){
 
@@ -95,7 +95,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 			if(widgetType) {
 
 				// Special cases for Hardware interfacing widgets for now
-				if(widgetType === 'Analog In') {
+				if(widgetType === 'AnalogIn') {
 					var newWidget = new AnalogInView({
 						model: newModel,
 						inputMapping: 'A0',
@@ -108,7 +108,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 						server: serverAddress,
 					});
 				}
-				else if(widgetType === 'Analog Out') {
+				else if(widgetType === 'AnalogOut') {
 					var newWidget = new AnalogOutView({
 						model: newModel,
 						outputMapping: 'D9',

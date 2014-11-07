@@ -5,7 +5,7 @@ define([
 	'utils/SignalChainClasses',
 	'views/item/WidgetMulti',
 	'views/WidgetSettings',
-	'text!tmpl/AnalogIn_tmpl.js',
+	'text!./template.js',
 	'jqueryknob',
 ],
 function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView, WidgetSettingsView, Template, jqueryknob){

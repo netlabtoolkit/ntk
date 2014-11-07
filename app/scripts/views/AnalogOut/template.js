@@ -12,9 +12,11 @@
 </div>
 
 <div class="widgetBody">
-    <span class="text" rv-text="widget:in">AnalogOut Value</span><br>
-    <input type="range" rv-value="widget:in" min="0" max="255"/><br>
-    <span class="text" rv-text="widget:out">AnalogOut Value</span>
+    <div class="dialwrapper" style="position:relative;">
+        <input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/>
+        <div class="display invalue" rv-text="widget:in">100</div>
+        <div class="display outvalue" rv-text="widget:out">1023</div>
+    </div>
 </div>
 
 <div class="widgetRight">

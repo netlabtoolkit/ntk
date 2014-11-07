@@ -6,9 +6,10 @@
 @import '../bower_components/codemirror/lib/codemirror.css';
 
 @import 'Widget.scss';
-@import 'AnalogIn.scss';
-@import 'AnalogOut.scss';
-@import 'ElementControl.scss';
-@import 'Code.scss';
-
-
+@import '../scripts/views/AnalogIn/styles.scss';
+@import '../scripts/views/AnalogOut/styles.scss';
+@import '../scripts/views/Image/styles.scss';
+@import '../scripts/views/Code/styles.scss';
+@import '../scripts/views/CloudOut/styles.scss';
+@import '../scripts/views/Code/styles.scss';
+@import '../scripts/views/Servo/styles.scss';
