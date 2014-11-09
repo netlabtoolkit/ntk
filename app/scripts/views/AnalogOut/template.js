@@ -20,7 +20,10 @@
 </div>
 
 <div class="widgetRight">
-    <!--<div class='outlets'>
-        <div class="outlet" rv-each-outlet="widget:outs" rv-text="outlet.title" rv-data-field="outlet.to"></div>
-    </div>-->
+    <div class=rightTab><input type="checkbox" rv-checked="widget:active" /></div>
+    <div class=rightTab>
+        <div rv-each-source="sources" class='settings'>
+            <input rv-value="source.map.destinationField">
+        </div>
+    </div>
 </div>

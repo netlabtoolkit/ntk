@@ -10,7 +10,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
     'use strict';
 
 	return WidgetView.extend({
-		typeID: 'Analog Out',
+		typeID: 'AnalogOut',
 		className: 'analogOut',
 		template: _.template(Template),
 

@@ -1,4 +1,4 @@
-<div class="widgetTop typeProcess">
+<div class="widgetTop typeOut">
     <div class="title dragHandle">
 	{ widget:title } <div class="remove">×</div>
     </div>
@@ -21,11 +21,6 @@
         
 </div>
 
-<div class="widgetRight">
-    <div class='outlets'>
-        <div class="outlet" rv-each-outlet="widget:outs" rv-alt="outlet.title" rv-data-field="outlet.to">&middot;</div>
-    </div>
-</div>
 
 <div class="widgetBottom">
     <div class="tab"><p>more</p></div>

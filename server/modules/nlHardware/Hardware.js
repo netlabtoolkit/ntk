@@ -25,7 +25,7 @@ module.exports = function(options) {
 					if(!parseInt(input, 10)) {
 						var sensor = new five.Sensor({
 							pin: input,
-							freq: 100,
+							freq: 25,
 						});
 
 						sensors.push(sensor);
@@ -55,9 +55,21 @@ module.exports = function(options) {
 			// Cycle through and add all the outputs here
 			for(var output in model.outputs) {
 				(function() {
-					// Setting this as an LED temporarily until I figure out Johnny-Five's scheme for analogWrite
-					var outputPin = new five.Led(parseInt(output.substr(1),10));
-					outputs[output] = outputPin;
+					// hack for right now to hard code pin 3 as pwm, pin 9 as servo
+                    pin = parseInt(output.substr(1),10);
+					var outputPin;
+                    
+                    if (pin < 9) {
+                        outputPin = new five.Led(pin);
+                    } else {
+                        //outputPin = new five.Led(pin);
+                        outputPin = new five.Servo({
+                            pin: pin,
+                            range: [0,180],
+                        });
+                    }
+                    outputs[output] = outputPin;
+                        
 				})();
 
 				//y++;
@@ -67,10 +79,14 @@ module.exports = function(options) {
 
 			//// RESPOND TO input from the USER and set the OUTPUT
 			model.on('change', function(options) {
+                
 				if(model.outputs[options.field] !== undefined) {
-					//board.analogWrite(options.field, options.value);
-					// Setting this as an LED temporarily until I figure out Johnny-Five's scheme for analogWrite
-					 outputs[options.field].brightness(options.value);
+                    var pin = parseInt(options.field.substr(1),10);
+                    if (pin < 9) {
+				        outputs[options.field].brightness(options.value);
+                    } else {
+                        outputs[options.field].to(options.value);
+                    }
 				}
 			});
 

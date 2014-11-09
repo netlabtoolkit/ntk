@@ -17,7 +17,13 @@ function( Backbone, HardwareModel ) {
 			type: "ArduinoUno",
 			A0: 0,
 			A1: 0,
+            A2: 0,
+            D3: 0,
+            D5: 0,
+            D6: 0,
 			D9: 0,
+            D10: 0,
+            D11: 0,
 			inputs: {
 				A0: 0,
 				A1: 0,
@@ -27,6 +33,9 @@ function( Backbone, HardwareModel ) {
 				A5: 0,
 			},
 			outputs: {
+                D3: 0,
+                D5: 0,
+                D6: 0,
 				D9: 0,
 				D10: 0,
 				D11: 0,

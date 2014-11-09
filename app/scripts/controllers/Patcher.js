@@ -15,8 +15,9 @@ define([
 	'views/Image/Image',
 	'views/Code/Code',
 	'views/Blank/Blank',
+    'views/Servo/Servo',
 ],
-function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, AnalogInView, AnalogOutView, ElementControlView, CodeView, BlankView){
+function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, AnalogInView, AnalogOutView, ImageView, CodeView, BlankView, ServoView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -111,6 +112,23 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 				else if(widgetType === 'AnalogOut') {
 					var newWidget = new AnalogOutView({
 						model: newModel,
+						outputMapping: 'D3',
+					});
+
+					this.addWidgetToStage(newWidget);
+
+					this.mapToModel({
+						view: newWidget,
+						IOMapping: {sourceField: "out", destinationField: 'D3'},
+						modelType: 'ArduinoUno',
+						server: serverAddress,
+					});
+
+					return newWidget;
+				}
+                else if(widgetType === 'Servo') {
+					var newWidget = new ServoView({
+						model: newModel,
 						outputMapping: 'D9',
 					});
 
@@ -124,7 +142,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 					});
 
 					return newWidget;
-				}
+                }
 				else {
 					var newWidget = new Widgets[widgetType]({
 						model: newModel,
@@ -253,7 +271,9 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 				};
 				// Loop
 				newModelInstance.on('change', function(model) {
-					if(model.changedAttributes().D9) {
+                    var chg = model.changedAttributes();
+					if(model.changedAttributes().D3 || model.changedAttributes().D5|| model.changedAttributes().D6 ||
+                      model.changedAttributes().D9 || model.changedAttributes().D10|| model.changedAttributes().D11) {
 						window.app.vent.trigger('sendModelUpdate', {modelType: modelType, model: model});
 					}
 				});

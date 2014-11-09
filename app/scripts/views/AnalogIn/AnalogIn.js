@@ -26,7 +26,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// title is decorative, from: <widget model field>, to: <widget model field being listened to>
 			{title: 'out', from: 'in', to: 'out'},
 		],
-		typeID: 'Analog In',
+		typeID: 'AnalogIn',
 		className: 'analogIn',
 		template: _.template(Template),
 		initialize: function(options) {

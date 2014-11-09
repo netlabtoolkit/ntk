@@ -14,7 +14,6 @@ module.exports = function(attributes) {
 			return this.inputs[field];
 		},
 		set: function(field, value) {
-
 			if(this.outputs[field] !== undefined) {
 				if(this.outputs[field] !== value) {
 					this.outputs[field] = value;
@@ -33,12 +32,14 @@ module.exports = function(attributes) {
 			A0: 0,
 			A1: 0,
 			A2: 0,
-			A3: 0,
-			A4: 0,
-			A5: 0,
 		},
 		outputs: {
-			D9: 0,
+			D3: 0,
+            D5: 0,
+            D6: 0,
+            D9: 0,
+            D10: 0,
+            D11: 0,
 		},
 	});
 
