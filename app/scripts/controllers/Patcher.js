@@ -293,6 +293,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 		},
 		savePatch: function() {
 			this.patchLoader.save(this.widgetModels, this.widgetMappings);
+			window.app.vent.trigger('savePatchToServer', {collection: this.widgetModels, mappings: this.widgetMappings});
 		},
 	};
 
