@@ -6,3 +6,4 @@ server/app
 server/node_modules
 dist/
 .tern-project
+server/modules/nlHardware/currentPatch.json
