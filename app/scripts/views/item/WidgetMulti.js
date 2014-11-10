@@ -45,7 +45,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		},
 		onRender: function() {
 			var self = this;
-
 			if(!this.el.className.match(/ widget/)) {
 				this.el.className += " widget";
 			}
@@ -264,49 +263,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
          * @param model
          * @return
          */
-		syncWithSourceModel: function(model) {
-			// check if the widget is "turned on"
-			if(this.model.get('active')) {
-				// Check if there is a mapping for the attribute given and map it if so
-				for(var property in model.attributes) {
-
-					for(var widgetProperty in this.model.attributes) {
-
-						if(this.model.attributes[widgetProperty] === property) {
-							if(widgetProperty === 'inputMapping') {
-								// Ins always defer to the sourceModel
-								if(model.changedAttributes()[property]) {
-									this.model.set('in', model.get(property));
-								}
-							}
-						}
-					}
-				}
-			}
-
-			this.onSync();
-		},
-		syncWithDestinationModel: function(model) {
-			// check if the widget is "turned on"
-			if(this.model.get('active')) {
-				// Check if there is a mapping for the attribute given and map it if so
-				for(var property in this.destinationModel.attributes) {
-
-					for(var widgetProperty in model.attributes) {
-
-						if(this.model.attributes[widgetProperty] === property) {
-							if(widgetProperty === 'outputMapping') {
-								if(model.changedAttributes()['out']) {
-									this.destinationModel.set(model.get('outputMapping'), this.model.attributes.out);
-								}
-							}
-						}
-					}
-				}
-			}
-
-			this.onSync();
-		},
 		addInputMap: function(map) {
 			this.sources.push(map);
 
@@ -321,9 +277,11 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			for(var i=sourceMappings.length-1; i>=0; i--) {
 				var mapping = sourceMappings[i];
 				if(this.model.get('active') && this.model.attributes[mapping.destinationField] !== undefined) {
+                    // update the input of the widget
 					this.model.set(mapping.destinationField, model.get(mapping.sourceField));
 				}
-				else if(this.model.get('active') && model.attributes[mapping.destinationField] !== undefined) {
+				else if (this.model.get('active') && this.model.get('activeOut') && model.attributes[mapping.destinationField] !== undefined) {
+                    // update the output of the widget where hardware such as Arduino is involved
 					model.set(mapping.destinationField, this.model.get(mapping.sourceField));
 				}
 			}

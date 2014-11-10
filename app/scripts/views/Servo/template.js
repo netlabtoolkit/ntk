@@ -20,7 +20,7 @@
 </div>
 
 <div class="widgetRight">
-    <div class=rightTab><input type="checkbox" rv-checked="widget:active" /></div>
+    <div class=rightTab><input type="checkbox" rv-checked="widget:activeOut" /></div>
     <div class=rightTab>
         <div rv-each-source="sources" class='settings'>
             <input rv-value="source.map.destinationField">

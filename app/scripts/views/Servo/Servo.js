@@ -38,7 +38,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this.model.set('title', 'Servo');
 
             // If you want to register your own signal processing function, push them to signalChainFunctions
-			this.signalChainFunctions.push(this.limitServoRange);
+			this.signalChainFunctions.push(this.limitRange);
 
 			// Likewise, if you need to register an instance-based processor
 			//this.smoother = new SignalChainClasses.Smoother({tolerance: 50});
@@ -84,9 +84,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
 
 
-		// Any custom function can be attached to the widget like this "limitServoRange" function
-		// and can be accessed via this.limitServoRange();
-        limitServoRange: function(input) {
+		// Any custom function can be attached to the widget like this "limitRange" function
+		// and can be accessed via this.limitRange();
+        limitRange: function(input) {
             var output = input;
             output = Math.max(output, 0);
             output = Math.min(output, 180);
