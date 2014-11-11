@@ -114,8 +114,23 @@ module.exports = function(options) {
 				transport.on('connection', function(socket) {
 
 					var patchFileName = 'modules/nlHardware/currentPatch.json';
+
 					// Read the currently stored patch file and push it to the client
 					fs.readFile(patchFileName, 'utf8', function (err, data) {
+						socket.on('saveCurrentPatch', function(options) {
+							var patch = options.patch;
+
+							fs.writeFile(patchFileName, patch, function(err) {
+								if(err) {
+									console.log(err);
+								}
+								else {
+									socket.emit('loadPatchFromServer', patch);
+									console.log('file saved');
+								}
+							});
+						});
+
 						if (err) {
 							console.log('Error: ' + err);
 							return;
@@ -133,19 +148,6 @@ module.exports = function(options) {
 						});
 
 
-						socket.on('saveCurrentPatch', function(options) {
-							var patch = options.patch;
-
-							fs.writeFile(patchFileName, patch, function(err) {
-								if(err) {
-									console.log(err);
-								}
-								else {
-									socket.emit('loadPatchFromServer', patch);
-									console.log('file saved');
-								}
-							});
-						});
 					});
 
 
