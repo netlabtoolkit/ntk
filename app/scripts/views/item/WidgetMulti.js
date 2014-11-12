@@ -264,7 +264,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
          * @return
          */
 		addInputMap: function(map) {
-			console.log(map);
 			this.sources.push(map);
 
 			this.listenTo(map.model, 'change', this.syncWithSource);

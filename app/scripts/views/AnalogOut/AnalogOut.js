@@ -24,7 +24,10 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 		initialize: function(options) {
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
-			this.model.set({'title': 'AnalogOut'});
+			this.model.set({
+				title: 'AnalogOut',
+				outputMapping: 'D6'
+			});
 
             this.signalChainFunctions.push(this.limitRange);
 		},

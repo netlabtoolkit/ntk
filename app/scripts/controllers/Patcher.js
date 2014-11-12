@@ -271,10 +271,13 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 				};
 				// Loop
 				newModelInstance.on('change', function(model) {
-                    var chg = model.changedAttributes();
-					if(model.changedAttributes().D3 || model.changedAttributes().D5|| model.changedAttributes().D6 ||
-                      model.changedAttributes().D9 || model.changedAttributes().D10|| model.changedAttributes().D11) {
-						window.app.vent.trigger('sendModelUpdate', {modelType: modelType, model: model});
+                    var changedAttributes = model.changedAttributes();
+					// Check all the changed attributes
+					for(attribute in changedAttributes) {
+						// and see if the attribute exists in the outputs section of this model
+						if(newModelInstance.attributes.outputs[attribute] !== undefined) {
+							window.app.vent.trigger('sendModelUpdate', {modelType: modelType, model: model});
+						}
 					}
 				});
 
