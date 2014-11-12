@@ -264,6 +264,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
          * @return
          */
 		addInputMap: function(map) {
+			console.log(map);
 			this.sources.push(map);
 
 			this.listenTo(map.model, 'change', this.syncWithSource);
@@ -282,7 +283,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}
 				else if (this.model.get('active') && this.model.get('activeOut') && model.attributes[mapping.destinationField] !== undefined) {
                     // update the output of the widget where hardware such as Arduino is involved
-					model.set(mapping.destinationField, this.model.get(mapping.sourceField));
+					model.set(this.model.get('outputMapping'), this.model.get(mapping.sourceField));
 				}
 			}
 

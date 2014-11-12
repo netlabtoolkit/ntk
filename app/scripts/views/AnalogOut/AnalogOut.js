@@ -7,7 +7,7 @@ define([
 
 ],
 function(Backbone, rivets, WidgetView, Template, jqueryknob){
-    'use strict';
+	'use strict';
 
 	return WidgetView.extend({
 		typeID: 'AnalogOut',
@@ -24,11 +24,11 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 		initialize: function(options) {
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
-			this.model.set('title', 'AnalogOut');
-            
+			this.model.set({'title': 'AnalogOut'});
+
             this.signalChainFunctions.push(this.limitRange);
 		},
-        
+
         onRender: function() {
 			// always call the superclass
             WidgetView.prototype.onRender.call(this);
@@ -49,14 +49,14 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				'max': 255,
 				'change' : function (v) { self.model.set('in', parseInt(v)); }
 			});
-            
+
 			rivets.binders.knob = function(el, value) {
 				el.value = value;
 				$(el).val(value);
 				$(el).trigger('change');
 			};
         },
-        
+
         limitRange: function(input) {
             var output = input;
             output = Math.max(output, 0);

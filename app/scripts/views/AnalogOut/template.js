@@ -3,7 +3,7 @@
 	{ widget:title } <div class="remove">×</div>
     </div>
 </div>
-    
+
 <div class="widgetLeft">
     <div class=leftTab><label><input type="checkbox" rv-checked="widget:active" ></label></div>
     <div class='inlets'>
@@ -22,8 +22,8 @@
 <div class="widgetRight">
     <div class=rightTab><input type="checkbox" rv-checked="widget:activeOut" /></div>
     <div class=rightTab>
-        <div rv-each-source="sources" class='settings'>
-            <input rv-value="source.map.destinationField">
+        <div class='settings'>
+			<input rv-value="widget:outputMapping">
         </div>
     </div>
 </div>
