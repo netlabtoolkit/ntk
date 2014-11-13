@@ -5,17 +5,20 @@
 </div>
 
 <div class="widgetLeft">
-    <div class=leftTab><label><input type="checkbox" rv-checked="widget:active" ></label></div>
     <div class='inlets'>
         <div rv-each-inlet="widget:ins" rv-alt="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
     </div>
 </div>
 
 <div class="widgetBody">
-    <div class="inletValueTop"></div>
-    <div class="inletValue"><span rv-text="widget:in1">0</span> in1</div>
-    <div class="inletValue"><span rv-text="widget:in2">0</span> in2</div>
-    <div class="inletValue"><span class="" rv-text="widget:out1">0</span> out</div>
+    <div class="widgetBodyLeft">
+        <div class="inletValue"><span rv-text="widget:in1">0</span> in1</div>
+        <div class="inletValue"><span rv-text="widget:in2">0</span> in2</div>
+    </div>
+    <div class="widgetBodyRight">
+        <div class="inletValue">out <span class="" rv-text="widget:out1">0</span></div>
+    </div>
+    
 </div>
 
 <div class="widgetRight">

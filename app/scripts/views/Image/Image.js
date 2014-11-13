@@ -24,9 +24,9 @@ function(Backbone, rivets, WidgetView, Template){
 				src: elementSrc,
 				ins: [
 					//{name: 'in', to: 'in'},
-					{title: 'opacity', to: 'opacity'},
 					{title: 'X Position', to: 'left'},
 					{title: 'Y Position', to: 'top'},
+                    {title: 'opacity', to: 'opacity'},
 				],
 				title: 'Image',
 				activeControlParameter: 'left',
