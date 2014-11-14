@@ -5,7 +5,6 @@
 </div>
 
 <div class="widgetLeft">
-    <div class=leftTab><label><input type="checkbox" rv-checked="widget:active" ></label></div>
     <div class='inlets'>
         <div rv-each-inlet="widget:ins" rv-alt="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
     </div>

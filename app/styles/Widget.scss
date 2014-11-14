@@ -210,10 +210,26 @@
         border-bottom-right-radius: 5px;
         border-bottom-left-radius: 5px;
         
+        .widgetBodyLeft {
+            float: left;   
+        }
+        
+        .widgetBodyRight {
+            float: right;   
+        }
+        
         .inletValue {
             
-            height: 26px;
+            margin-top: 6px;
+            height: 20px;
             clear: both;
+        }
+        
+        .outValue {
+            
+            margin-top: 6px;
+            height: 20px;
+            float: right;
         }
         
         .inletValueTop {
