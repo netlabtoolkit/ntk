@@ -280,7 +280,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
                     // update the input of the widget
 					this.model.set(mapping.destinationField, model.get(mapping.sourceField));
 				}
-				else if (this.model.get('active') && this.model.get('activeOut') && model.attributes[mapping.destinationField] !== undefined) {
+				else if(this.model.get('active') && this.model.get('activeOut') && model.attributes[mapping.destinationField] !== undefined) {
                     // update the output of the widget where hardware such as Arduino is involved
 					model.set(this.model.get('outputMapping'), this.model.get(mapping.sourceField));
 				}

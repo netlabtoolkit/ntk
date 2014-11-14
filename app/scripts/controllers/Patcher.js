@@ -217,6 +217,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 					map: IOMapping,
 				};
 			}
+			// Pass the mapping to the view. The view will handle the event binding
 			view.addInputMap(mappingObject);
 			var modelWID = mappingObject.model.get('wid');
 

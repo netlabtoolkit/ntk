@@ -11,18 +11,34 @@ var deviceType = process.argv[2] || 'arduino',
 	nlHardware = require('./modules/nlHardware/Hardware'),
 	socketIO = require('socket.io');
 
+// Some options
+var serverPort = 9001;
+
 // The currently selected/attached hardware device
 var deviceController = new nlHardware({deviceType: deviceType});
 
 // Create a WEB SERVER then create a transport tied to the webserver
 var nlWebServer = new require('./modules/nlWebServer/nlWebServer');
 
-nlWebServer({port: 9001, device: deviceController})
+nlWebServer({port: serverPort, device: deviceController})
 	.start()
 	.then(function(server) {
 		var io = socketIO.listen(server);
 
 		// set the transport to the device
 		deviceController.setTransport(io);
+
+		var path = require('path'),
+			childProcess = require('child_process'),
+			phantomjs = require('phantomjs'),
+			binPath = phantomjs.path;
+
+		var childArgs = [
+			  path.join(__dirname, 'phantomjs/loadClient.js')
+		];
+
+		childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {
+			// post phantom stuff here
+		});
 	});
 
