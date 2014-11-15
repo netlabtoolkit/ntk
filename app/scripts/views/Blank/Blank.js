@@ -64,14 +64,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				'fgColor':'#000000',
 				'bgColor':'#ffffff',
 				'inputColor' : '#000000',
-				'angleOffset':-90,
-				'angleArc':180,
+				'angleOffset':-125,
+				'angleArc':250,
 				'width':80,
 				'height':62,
 				'font':"'Helvetica Neue', sans-serif",
 				'displayInput':false,
 				'min': 0,
-				'max': 180,
+				'max': 500,
 				'change' : function (v) { self.model.set('in', parseInt(v)); }
 			});
 
@@ -89,7 +89,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         limitRange: function(input) {
             var output = input;
             output = Math.max(output, 0);
-            output = Math.min(output, 180);
+            output = Math.min(output, 500);
             return Number(output);
         },
 
