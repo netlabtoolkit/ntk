@@ -79,7 +79,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             var width = parseInt(this.model.get('outWidth'),10);
             var min = parseInt(this.model.get('outMin'),10);
             var max = parseInt(this.model.get('outMax'),10);
-            //console.log("modelChange: " + this.model.get('in'));
+            
+            var out = 
             this.model.set('outA',this.envelope(input,this.model.get('outACenter'),width,min,max));
             this.model.set('outB',this.envelope(input,this.model.get('outBCenter'),width,min,max));
             this.model.set('outC',this.envelope(input,this.model.get('outCCenter'),width,min,max));
@@ -98,6 +99,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         envelope: function(input, center, width, min, max) {
             
             input = parseInt(input,10);
+            center = parseInt(center,10);
+            
             var splitValue = min;
             
             var start = center - (width/2);
