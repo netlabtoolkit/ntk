@@ -6,8 +6,9 @@ define([
 	'views/Image/Image',
     'views/Servo/Servo',
     'views/CloudOut/CloudOut',
+    'views/Splitter/Splitter',
 ],
-function(Blank, AnalogIn, AnalogOut, Code, Image, Servo, CloudOut){
+function(Blank, AnalogIn, AnalogOut, Code, Image, Servo, CloudOut, Splitter){
     'use strict';
 
 	return {
@@ -18,5 +19,6 @@ function(Blank, AnalogIn, AnalogOut, Code, Image, Servo, CloudOut){
 		'Image': Image,
         'Servo': Servo,
         'CloudOut': CloudOut,
+        'Splitter': Splitter,
 	};
 });

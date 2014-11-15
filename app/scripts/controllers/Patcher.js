@@ -16,8 +16,9 @@ define([
 	'views/Code/Code',
 	'views/Blank/Blank',
     'views/Servo/Servo',
+    'views/Splitter/Splitter',
 ],
-function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, AnalogInView, AnalogOutView, ImageView, CodeView, BlankView, ServoView){
+function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, AnalogInView, AnalogOutView, ImageView, CodeView, BlankView, ServoView,SplitterView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;

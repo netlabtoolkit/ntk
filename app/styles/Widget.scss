@@ -86,10 +86,11 @@
 		.outlet {
 			width: 20px;
 			background-color:#666;
+            border-radius: 0px 5px 5px 0px;
 		}
-		.outlet:first-child {
+/*		.outlet:first-child {
 			border-radius: 0px 5px 5px 0px;
-		}
+		}*/
 
 
 	}
@@ -128,7 +129,7 @@
     }
 
     table tr td .range-input {
-        width: 25px;
+        width: 30px;
         height: 8px;
     }
 
@@ -221,15 +222,25 @@
         .inletValue {
             
             margin-top: 6px;
+            margin-left: 2px;
             height: 20px;
+            width: 25px;
             clear: both;
         }
         
-        .outValue {
+        
+        
+        .outletValue {
             
             margin-top: 6px;
-            height: 20px;
-            float: right;
+            height: 19px;
+            width: 69px;
+            clear: both;
+            
+            .outputParam {
+                width: 28px;
+                margin-right: 2px;
+            }
         }
         
         .inletValueTop {
@@ -239,7 +250,7 @@
 
     .widgetBody input {
         font-family: Arial;
-        font-size: 10px;
+        font-size: 12px;
         margin-left: 1px;
         width: 80%;
         height: 10px;
@@ -303,10 +314,24 @@
         }
 
         .content {
-            padding-top: 1px;
+            padding: 5px;
             margin-left: 5px;
+            
             background-color: #fff;
+            
+            label {
+                display: inline-block;
+                width: 40px;
+            }
+            
+            .moreParam {
+                width: 40px;
+            }
         }
+        
+        
+        
+        
     }
 
     .typeIn {
