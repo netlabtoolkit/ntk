@@ -28,6 +28,9 @@ module.exports = function(options) {
 		app.get('/', function(req, res){
 			res.sendfile( path.join( __dirname, '../app/index.html' ) );
 		});
+		app.get('/server', function(req, res){
+			res.sendfile( path.join( __dirname, '../../app/index.html' ) );
+		});
 		app.get('/test', function(req, res){
 			console.log(req, res);
 		});

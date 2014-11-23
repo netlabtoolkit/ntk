@@ -78,9 +78,10 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 			window.app.vent.on('ToolBar:loadPatch', this.loadPatch, this);
 			window.app.vent.on('receivedModelUpdate', function(data) {
 				var serverAddress = window.location.host;
-				var hardwareModel = this.getHardwareModelInstance(data.modelType, serverAddress);
+				//var hardwareModel = this.getHardwareModelInstance(data.modelType, serverAddress);
+				var hardwareModel = this.hardwareModelInstances[data.modelType + ':' + serverAddress];
 
-				hardwareModel.set(data.field, data.value);
+				hardwareModel && hardwareModel.model.set(data.field, data.value);
 			}, this);
 
 			window.app.cableManager = new CableManager();
@@ -278,6 +279,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 					for(attribute in changedAttributes) {
 						// and see if the attribute exists in the outputs section of this model
 						if(newModelInstance.attributes.outputs[attribute] !== undefined) {
+							console.log('change', changedAttributes);
 							window.app.vent.trigger('sendModelUpdate', {modelType: modelType, model: model});
 						}
 					}

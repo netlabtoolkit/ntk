@@ -10,10 +10,15 @@ function(Backbone, CanvasView){
 		/* Backbone routes hash */
 		routes: {
 			'': 'index',
+			'server': 'setServerClient',
 		},
 
 		index: function() {
 			//this.renderContainerViews();
+		},
+		setServerClient: function() {
+			app.server = true;
+			console.log('setting server');
 		},
 		renderContainerViews: function() {
 			console.log('rendering main', window.app);

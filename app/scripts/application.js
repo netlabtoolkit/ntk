@@ -18,12 +18,12 @@ function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule) {
 		toolBarRegion: '#toolBarRegion',
 	});
 
-	App.module('Patcher', PatcherModule);
-	App.module('ToolBar', ToolBarModule);
 
 	// Initializers
 	App.addInitializer( function () {
 		Communicator.mediator.trigger("APP:START");
+		App.module('Patcher', PatcherModule);
+		App.module('ToolBar', ToolBarModule);
 		App.mainRouter = new MainRouter();
 		Backbone.history.start();
 	});

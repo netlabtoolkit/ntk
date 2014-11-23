@@ -37,8 +37,8 @@ nlWebServer({port: serverPort, device: deviceController})
 			  path.join(__dirname, 'phantomjs/loadClient.js')
 		];
 
-		childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {
-			// post phantom stuff here
-		});
+		//childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {
+			//// post phantom stuff here
+		//});
 	});
 

@@ -39,9 +39,16 @@ function( Backbone ) {
 				console.log("ERROR: ", err);
 			});
 
-			window.app.vent.on('sendModelUpdate', function(options) {
-				socket.emit('sendModelUpdate', options);
-			});
+			if(app.server) {
+				window.app.vent.on('sendModelUpdate', function(options) {
+					//socket.emit('server:sendModelUpdate', options);
+				});
+			}
+			else {
+				window.app.vent.on('sendModelUpdate', function(options) {
+					socket.emit('sendModelUpdate', options);
+				});
+			}
 
 			window.app.vent.on('savePatchToServer', function(options) {
 
