@@ -25,17 +25,20 @@ nlWebServer({port: serverPort, device: deviceController})
 	.then(function(server) {
 		var io = socketIO.listen(server);
 
+		// temprarily passing the deviceController model to the clientSync before having the server specific version
+		var clientSync = require('./modules/nlMultiClientSync/nlMultiClientSync')({transport: io, model: deviceController.model});
 		// set the transport to the device
 		deviceController.setTransport(io);
 
-		var path = require('path'),
-			childProcess = require('child_process'),
-			phantomjs = require('phantomjs'),
-			binPath = phantomjs.path;
+		// TEMP DISABLE UNTIL MULTISYNC IS IN PLACE
+		//var path = require('path'),
+			//childProcess = require('child_process'),
+			//phantomjs = require('phantomjs'),
+			//binPath = phantomjs.path;
 
-		var childArgs = [
-			  path.join(__dirname, 'phantomjs/loadClient.js')
-		];
+		//var childArgs = [
+			  //path.join(__dirname, 'phantomjs/loadClient.js')
+		//];
 
 		//childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {
 			//// post phantom stuff here

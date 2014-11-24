@@ -13,6 +13,7 @@ module.exports = function(options) {
 			outputs = {};
 
 		var model = require(modelMap[deviceType])();
+		this.model = model;
 		var five = require("johnny-five");
 		var board = five.Board();
 
@@ -111,47 +112,47 @@ module.exports = function(options) {
 				});
 
 				// Listen for changes from the front-end to update the hardware
-				transport.on('connection', function(socket) {
+				//transport.on('connection', function(socket) {
 
-					var patchFileName = 'modules/nlHardware/currentPatch.json';
+					//var patchFileName = 'modules/nlHardware/currentPatch.json';
 
-					// Read the currently stored patch file and push it to the client
-					fs.readFile(patchFileName, 'utf8', function (err, data) {
-						socket.on('saveCurrentPatch', function(options) {
-							var patch = options.patch;
+					//// Read the currently stored patch file and push it to the client
+					//fs.readFile(patchFileName, 'utf8', function (err, data) {
+						//socket.on('saveCurrentPatch', function(options) {
+							//var patch = options.patch;
 
-							fs.writeFile(patchFileName, patch, function(err) {
-								if(err) {
-									console.log(err);
-								}
-								else {
-									socket.emit('loadPatchFromServer', patch);
-									console.log('file saved');
-								}
-							});
-						});
+							//fs.writeFile(patchFileName, patch, function(err) {
+								//if(err) {
+									//console.log(err);
+								//}
+								//else {
+									//socket.emit('loadPatchFromServer', patch);
+									//console.log('file saved');
+								//}
+							//});
+						//});
 
-						if (err) {
-							console.log('Error: ' + err);
-							return;
-						}
+						//if (err) {
+							//console.log('Error: ' + err);
+							//return;
+						//}
 
-						var currentPatch = JSON.parse(data);
+						//var currentPatch = JSON.parse(data);
 
-						socket.emit('loadPatchFromServer', JSON.stringify(currentPatch));
-						socket.on('sendModelUpdate', function(options) {
-							for(var field in options.model) {
-								if(model.outputs[field] !== undefined) {
-									model.set(field, parseInt(options.model[field], 10));
-								}
-							}
-						});
-
-
-					});
+						//socket.emit('loadPatchFromServer', JSON.stringify(currentPatch));
+						//socket.on('sendModelUpdate', function(options) {
+							//for(var field in options.model) {
+								//if(model.outputs[field] !== undefined) {
+									//model.set(field, parseInt(options.model[field], 10));
+								//}
+							//}
+						//});
 
 
-				});
+					//});
+
+
+				//});
 			},
 
 		};
