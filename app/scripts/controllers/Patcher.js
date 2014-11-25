@@ -308,17 +308,20 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 					model: newModelInstance,
 					server: server,
 				};
-				// Loop
-				newModelInstance.on('change', function(model) {
-                    var changedAttributes = model.changedAttributes();
-					// Check all the changed attributes
-					for(attribute in changedAttributes) {
-						// and see if the attribute exists in the outputs section of this model
-						if(newModelInstance.attributes.outputs[attribute] !== undefined) {
-							window.app.vent.trigger('sendModelUpdate', {modelType: modelType, model: model});
+
+				// Only the server can update hardware
+				if(window.app.server) {
+					newModelInstance.on('change', function(model) {
+						var changedAttributes = model.changedAttributes();
+						// Check all the changed attributes
+						for(attribute in changedAttributes) {
+							// and see if the attribute exists in the outputs section of this model
+							if(newModelInstance.attributes.outputs[attribute] !== undefined) {
+								window.app.vent.trigger('sendModelUpdate', {modelType: modelType, model: model});
+							}
 						}
-					}
-				});
+					});
+				}
 
 				return newModelInstance;
 			}

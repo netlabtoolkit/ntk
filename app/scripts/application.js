@@ -22,10 +22,10 @@ function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule) {
 	// Initializers
 	App.addInitializer( function () {
 		Communicator.mediator.trigger("APP:START");
-		App.module('Patcher', PatcherModule);
-		App.module('ToolBar', ToolBarModule);
 		App.mainRouter = new MainRouter();
 		Backbone.history.start();
+		App.module('Patcher', PatcherModule);
+		App.module('ToolBar', ToolBarModule);
 	});
 
 	return App;

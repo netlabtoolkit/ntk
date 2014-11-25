@@ -25,7 +25,7 @@ module.exports = function(options) {
 
 		this.server = http.createServer(app);
 
-		app.get('/', function(req, res){
+		app.get('*', function(req, res){
 			res.sendfile( path.join( __dirname, '../app/index.html' ) );
 		});
 		app.get('/server', function(req, res){
