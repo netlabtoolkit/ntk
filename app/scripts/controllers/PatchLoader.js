@@ -26,7 +26,7 @@ function(app){
 				widgetViews = [];
 
 			for(var i=widgets.length-1; i>=0; i--) {
-				var newWidget = this.addFunction(widgets[i].typeID);
+				var newWidget = this.addFunction(widgets[i].typeID, true);
 				// after adding the widget, duplicate the settings by passing them to the widget's own method for doing that
 				newWidget.setFromModel(widgets[i]);
 

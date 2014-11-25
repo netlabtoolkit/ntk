@@ -69,8 +69,8 @@ module.exports = function(options) {
 			});
 
 			socket.on('client:addWidget', function(view) {
-				this.masterPatch.widgets.push(view);
-				//socket.broadcast.emit('server:clientModelUpdate', );
+				self.masterPatch.widgets.push(JSON.parse(view));
+				this.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			});
 
 			socket.on('saveCurrentPatch', function(options) {

@@ -91,7 +91,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 
 			window.app.vent.on('updateWidgetModelFromServer', this.updateWidgetModelFromServer, this);
 		},
-		onExternalAddWidget: function(widgetType) {
+		onExternalAddWidget: function(widgetType, addedFromLoader) {
 			var newWidget,
 				serverAddress = window.location.host;
 
@@ -120,7 +120,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 						outputMapping: 'D3',
 					});
 
-					this.addWidgetToStage(newWidget);
+					this.addWidgetToStage(newWidget, addedFromLoader);
 
 					this.mapToModel({
 						view: newWidget,
@@ -137,7 +137,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 						outputMapping: 'D9',
 					});
 
-					this.addWidgetToStage(newWidget);
+					this.addWidgetToStage(newWidget, addedFromLoader);
 
 					this.mapToModel({
 						view: newWidget,
@@ -154,7 +154,8 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 					});
 				}
 
-				this.addWidgetToStage(newWidget);
+
+				this.addWidgetToStage(newWidget, addedFromLoader);
 
 				return newWidget;
 			}
@@ -167,16 +168,18 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 		 * @param view
 		 * @return {object} this controller
 		 */
-		addWidgetToStage: function(view) {
+		addWidgetToStage: function(view, addedFromLoader) {
 			this.views.mainCanvas.addView(view);
 			this.widgets.push(view);
 			if(!view.model.get('wid')) {
 				view.model.set('wid', view.model.cid);
 			}
+			if(!addedFromLoader) {
+				window.app.vent.trigger('addWidget', view.model);
+			}
 			this.widgetModels.add(view.model);
 			this.bindModelToServer(view.model);
 
-			//window.app.vent.trigger('addWidget', view);
 
 			return view;
 		},

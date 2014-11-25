@@ -58,8 +58,8 @@ function( Backbone ) {
 					socket.emit('client:sendModelUpdate', options);
 				});
 				window.app.vent.on('addWidget', function(options) {
-					console.log('addWidget');
-					socket.emit('client:addWidget', options);
+					//console.log('addWidget', JSON.stringify( options ));
+					socket.emit('client:addWidget', JSON.stringify( options ));
 				});
 				window.app.vent.on('removeWidget', function(options) {
 					socket.emit('client:removeWidget', options);
