@@ -87,6 +87,9 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 			window.app.cableManager = new CableManager();
 			$(window.app.cableManager.parentEl).css({top: 0, left: 0, position: 'absolute', width: '100%', height: '100%'});
 			window.app.vent.on('Widget:removeMapping', this.removeMapping, this);
+
+
+			window.app.vent.on('updateWidgetModelFromServer', this.updateWidgetModelFromServer, this);
 		},
 		onExternalAddWidget: function(widgetType) {
 			var newWidget,
@@ -171,7 +174,40 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 				view.model.set('wid', view.model.cid);
 			}
 			this.widgetModels.add(view.model);
+			this.bindModelToServer(view.model);
 			return view;
+		},
+        /**
+         * updateWidgetModelFromServer
+         *
+         * @param {object} changedWidgets 
+         * @return {void}
+         */
+		updateWidgetModelFromServer: function(changedWidgets) {
+			var wid, changedAttributes;
+			for(var i=changedWidgets.length-1; i >= 0; i--) {
+
+				var widget = changedWidgets[i];
+				wid = widget.wid;
+				if(widget.changedAttributes) {
+					changedAttributes = widget.changedAttributes;
+				}
+
+
+				// If we find the model in our collection to update, set its attributes with the changes
+				var modelToUpdate = this.widgetModels.where({wid: wid});
+				if(modelToUpdate.length) {
+					modelToUpdate[0].set(changedAttributes, {updateNoTrigger: true});
+				}
+			}
+
+		},
+		bindModelToServer: function(model) {
+			model.on('change', function(model, options){
+				if(options.updateNoTrigger !== true) {
+					window.app.vent.trigger('widgetUpdate', {wid: model.get('wid'), changedAttributes: model.changedAttributes()});
+				}
+			});
 		},
         /**
          * remove a widget from the array of widgets that we are tracking
@@ -279,7 +315,6 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 					for(attribute in changedAttributes) {
 						// and see if the attribute exists in the outputs section of this model
 						if(newModelInstance.attributes.outputs[attribute] !== undefined) {
-							console.log('change', changedAttributes);
 							window.app.vent.trigger('sendModelUpdate', {modelType: modelType, model: model});
 						}
 					}

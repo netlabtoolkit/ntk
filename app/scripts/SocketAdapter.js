@@ -31,6 +31,10 @@ function( Backbone ) {
 				}
 			});
 
+			socket.on("server:clientModelUpdate", function(data){
+				window.app.vent.trigger('updateWidgetModelFromServer', data);
+			});
+
 			socket.on("disconnect", function() {
 				self.connected = false;
 			});
@@ -47,6 +51,9 @@ function( Backbone ) {
 			else {
 				window.app.vent.on('sendModelUpdate', function(options) {
 					socket.emit('sendModelUpdate', options);
+				});
+				window.app.vent.on('widgetUpdate', function(options){
+					socket.emit('client:sendModelUpdate', options);
 				});
 			}
 
