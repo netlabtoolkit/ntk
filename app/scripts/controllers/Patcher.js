@@ -175,6 +175,9 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 			}
 			this.widgetModels.add(view.model);
 			this.bindModelToServer(view.model);
+
+			//window.app.vent.trigger('addWidget', view);
+
 			return view;
 		},
         /**
@@ -218,6 +221,8 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 		removeWidget: function(widgetView) {
 			this.widgets = _.reject(this.widgets, function(view) { return widgetView === view; });
 			this.widgetModels.remove(widgetView.model);
+
+			//window.app.vent.trigger('removeWidget', view.model.wid);
 		},
 		/**
 		 * Assign a model to a view, instantiating the model if one is not instantiated yet

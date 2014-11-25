@@ -31,17 +31,17 @@ nlWebServer({port: serverPort, device: deviceController})
 		deviceController.setTransport(io);
 
 		// TEMP DISABLE UNTIL MULTISYNC IS IN PLACE
-		//var path = require('path'),
-			//childProcess = require('child_process'),
-			//phantomjs = require('phantomjs'),
-			//binPath = phantomjs.path;
+		var path = require('path'),
+			childProcess = require('child_process'),
+			phantomjs = require('phantomjs'),
+			binPath = phantomjs.path;
 
-		//var childArgs = [
-			  //path.join(__dirname, 'phantomjs/loadClient.js')
-		//];
+		var childArgs = [
+			  path.join(__dirname, 'phantomjs/loadClient.js')
+		];
 
-		//childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {
-			//// post phantom stuff here
-		//});
+		childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {
+			// post phantom stuff here
+		});
 	});
 

@@ -35,6 +35,7 @@ function( Backbone ) {
 				window.app.vent.trigger('updateWidgetModelFromServer', data);
 			});
 
+
 			socket.on("disconnect", function() {
 				self.connected = false;
 			});
@@ -46,6 +47,7 @@ function( Backbone ) {
 			if(app.server) {
 				window.app.vent.on('sendModelUpdate', function(options) {
 					//socket.emit('server:sendModelUpdate', options);
+					socket.emit('sendModelUpdate', options);
 				});
 			}
 			else {
@@ -54,6 +56,13 @@ function( Backbone ) {
 				});
 				window.app.vent.on('widgetUpdate', function(options){
 					socket.emit('client:sendModelUpdate', options);
+				});
+				window.app.vent.on('addWidget', function(options) {
+					console.log('addWidget');
+					socket.emit('client:addWidget', options);
+				});
+				window.app.vent.on('removeWidget', function(options) {
+					socket.emit('client:removeWidget', options);
 				});
 			}
 

@@ -12,6 +12,7 @@ module.exports = function(options) {
 		this.loadPatchFromServer();
 		this.transport.on('connection', this.registerClient);
 		self = this;
+
 	};
 
 	MultiClientSync.prototype = {
@@ -30,23 +31,11 @@ module.exports = function(options) {
 			}
 		},
 		loadPatchFromServer: function() {
-			var patchFileName = 'modules/nlHardware/currentPatch.json';
+			var patchFileName = __dirname + '/currentPatch.json';
 
+			console.log(__dirname);
 			// Read the currently stored patch file and push it to the client
 			fs.readFile(patchFileName, 'utf8', function (err, data) {
-				self.transport.on('saveCurrentPatch', function(options) {
-					var patch = options.patch;
-
-					fs.writeFile(patchFileName, patch, function(err) {
-						if(err) {
-							console.log(err);
-						}
-						else {
-							self.transport.emit('loadPatchFromServer', patch);
-							console.log('file saved');
-						}
-					});
-				});
 
 				if (err) {
 					console.log('Error: ' + err);
@@ -58,25 +47,47 @@ module.exports = function(options) {
 
 		},
 		registerClient: function(socket) {
-				//socket.emit('loadPatchFromServer', JSON.stringify(currentPatch));
-				socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
-				socket.on('sendModelUpdate', function(options) {
-					for(var field in options.model) {
-						if(model.outputs[field] !== undefined) {
-							model.set(field, parseInt(options.model[field], 10));
-						}
+			//self.clients.push(socket);
+
+			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
+			socket.on('sendModelUpdate', function(options) {
+				for(var field in options.model) {
+					if(model.outputs[field] !== undefined) {
+						model.set(field, parseInt(options.model[field], 10));
+					}
+				}
+			});
+			// New responder. Anytime a widget changes, notify all other clients
+			socket.on('client:sendModelUpdate', function(options) {
+				var wid = options.wid,
+				changedAttributes = options.changedAttributes;
+
+				self.updateClients([{wid: wid, changedAttributes: changedAttributes}], this);
+			});
+
+			socket.on('client:removeWidget', function() {
+			});
+
+			socket.on('client:addWidget', function(view) {
+				this.masterPatch.widgets.push(view);
+				//socket.broadcast.emit('server:clientModelUpdate', );
+			});
+
+			socket.on('saveCurrentPatch', function(options) {
+				//var patch = JSON.stringify(options.patch);
+				var patch = options.patch;
+				var patchFileName = __dirname + '/currentPatch.json';
+
+				fs.writeFile(patchFileName, patch, function(err) {
+					if(err) {
+						console.log(err);
+					}
+					else {
+						self.transport.emit('loadPatchFromServer', patch);
+						console.log('file saved');
 					}
 				});
-				// New responder. Anytime a widget changes, notify all other clients
-				socket.on('client:sendModelUpdate', function(options) {
-					var wid = options.wid,
-						changedAttributes = options.changedAttributes;
-
-					self.updateClients([{wid: wid, changedAttributes: changedAttributes}], this);
-				});
-
-
-
+			});
 
 		},
 		updateClients: function(changes, socket) {
