@@ -64,6 +64,9 @@ function( Backbone ) {
 				window.app.vent.on('removeWidget', function(options) {
 					socket.emit('client:removeWidget', options);
 				});
+				window.app.vent.on('updateModelMappings', function(mappings) {
+					socket.emit('client:updateModelMappings', JSON.stringify( mappings ));
+				});
 			}
 
 			window.app.vent.on('savePatchToServer', function(options) {

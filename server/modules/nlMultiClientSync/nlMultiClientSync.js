@@ -33,7 +33,6 @@ module.exports = function(options) {
 		loadPatchFromServer: function() {
 			var patchFileName = __dirname + '/currentPatch.json';
 
-			console.log(__dirname);
 			// Read the currently stored patch file and push it to the client
 			fs.readFile(patchFileName, 'utf8', function (err, data) {
 
@@ -65,11 +64,19 @@ module.exports = function(options) {
 				self.updateClients([{wid: wid, changedAttributes: changedAttributes}], this);
 			});
 
-			socket.on('client:removeWidget', function() {
+			socket.on('client:removeWidget', function(wid) {
+				self.masterPatch.widgets = _.reject(self.masterPatch.widgets, function(view) { return wid === view.wid; });
+				this.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			});
 
 			socket.on('client:addWidget', function(view) {
 				self.masterPatch.widgets.push(JSON.parse(view));
+				this.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
+			});
+			socket.on('client:updateModelMappings', function(mappings) {
+				// We should do the below in the future instead to limit traffic
+				//self.masterPatch.mappings.push(JSON.parse(mappings));
+				self.masterPatch.mappings = JSON.parse(mappings);
 				this.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			});
 

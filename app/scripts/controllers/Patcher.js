@@ -112,7 +112,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 						modelType: 'ArduinoUno',
 						IOMapping: {sourceField: "A0", destinationField: 'in'},
 						server: serverAddress,
-					});
+					}, addedFromLoader);
 				}
 				else if(widgetType === 'AnalogOut') {
 					var newWidget = new AnalogOutView({
@@ -127,7 +127,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 						IOMapping: {sourceField: "out", destinationField: 'D3'},
 						modelType: 'ArduinoUno',
 						server: serverAddress,
-					});
+					}, addedFromLoader);
 
 					return newWidget;
 				}
@@ -144,7 +144,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 						IOMapping: {sourceField: "out", destinationField: 'D9'},
 						modelType: 'ArduinoUno',
 						server: serverAddress,
-					});
+					}, addedFromLoader);
 
 					return newWidget;
                 }
@@ -221,11 +221,14 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
          * @param {WidgetMulti} widgetView
          * @return {void}
          */
-		removeWidget: function(widgetView) {
+		removeWidget: function(widgetView, calledFromLoader) {
 			this.widgets = _.reject(this.widgets, function(view) { return widgetView === view; });
 			this.widgetModels.remove(widgetView.model);
 
-			//window.app.vent.trigger('removeWidget', view.model.wid);
+
+			if(!calledFromLoader) {
+				window.app.vent.trigger('removeWidget', widgetView.model.get( 'wid' ));
+			}
 		},
 		/**
 		 * Assign a model to a view, instantiating the model if one is not instantiated yet
@@ -234,7 +237,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 		 * @param {object} options
 		 * @return {Backbone.View} the view that was passed in
 		 */
-		mapToModel: function(options) {
+		mapToModel: function(options, addedFromLoader) {
 
 			var modelType = options.modelType,
 				model = options.model,
@@ -290,12 +293,16 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 
 			// render the view to reassociate bindings and update any changes
 			view.render();
+			if(!addedFromLoader) {
+				window.app.vent.trigger('updateModelMappings', this.widgetMappings);
+			}
 
 
 			return this;
 		},
 		removeMapping: function(mapping) {
 			this.widgetMappings.splice(this.widgetMappings.indexOf(mapping), 1);
+			window.app.vent.trigger('updateModelMappings', this.widgetMappings);
 		},
         /**
          * Get the singleton model:server instance and if it does not yet exist, create it and return it
@@ -338,7 +345,8 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 
 		loadPatch: function(JSONString) {
 			for(var i=this.widgets.length-1; i>=0; i--) {
-				this.widgets[i].removeWidget();
+				// (event, calledFromLoader)
+				this.widgets[i].removeWidget(null, true);
 			}
 
 			this.widgets.length = 0;

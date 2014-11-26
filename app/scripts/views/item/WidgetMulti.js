@@ -244,8 +244,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
          *
          * @return {void}
          */
-		removeWidget: function() {
-			app.Patcher.Controller.removeWidget(this);
+		removeWidget: function(e, calledFromLoader) {
+			app.Patcher.Controller.removeWidget(this, calledFromLoader);
 			for(var i=this.cables.length-1; i>=0; i--) {
 				this.cables[i].cable.remove();
 			}

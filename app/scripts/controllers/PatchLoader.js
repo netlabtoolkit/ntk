@@ -45,7 +45,7 @@ function(app){
 						IOMapping: mappings[i].map,
 						view: widgetView,
 						inletOffsets: mappings[i].offsets,
-					});
+					}, true);
 				}
 			}
 		},
