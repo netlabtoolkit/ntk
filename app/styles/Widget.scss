@@ -20,7 +20,7 @@
 
 	}
 
-	input[type=range] {
+	input[type='range'] {
 		width: 80px;
 	}
 	.dragHandle {
@@ -196,7 +196,7 @@
             }
         }
     }
-    .widgetLeft input {
+    .widgetLeft input[type='text'] {
         font-family: Arial;
         font-size: 10px;
         margin-left: 1px;
@@ -246,15 +246,21 @@
         .inletValueTop {
             margin-top: 20px;
         }
+        
+        input[type='checkbox'] {
+            width: 12px;
+        }
     }
 
-    .widgetBody input {
+    .widgetBody input[type='text'] {
         font-family: Arial;
         font-size: 12px;
         margin-left: 1px;
         width: 80%;
-        height: 10px;
+        height: 12px;
     }
+    
+    
     .widgetOutput {
         width: 12px;
         height: 24px;
@@ -284,7 +290,7 @@
         }
     }
 
-    .widgetRight input {
+    .widgetRight input[type=text] {
         font-family: Arial;
         font-size: 10px;
         margin-left: 1px;
@@ -321,7 +327,7 @@
             
             label {
                 display: inline-block;
-                width: 40px;
+                width: 60px;
             }
             
             .moreParam {
@@ -335,21 +341,19 @@
     }
 
     .typeIn {
-    	background-color: #f4e2a1;
+    	background-color: #de9bd0; 
     }
     .typeProcess {
-    	background-color: #b4b342;
+    	background-color: #8fc985;
     }
     .typeOut {
-    	background-color: #8AB2CC;
+    	background-color: #43cec4;
     }
     .typeMedia {
-    	background-color: #86B0FF;
+    	background-color: #ef7253;
     }
 
 }
-
-
 
 .detachedEl {
 	position: fixed;

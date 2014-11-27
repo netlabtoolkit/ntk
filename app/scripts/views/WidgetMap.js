@@ -1,24 +1,40 @@
 define([
-	'views/Blank/Blank',
+
 	'views/AnalogIn/AnalogIn',
+    'views/CloudIn/CloudIn',
+
+    'views/Code/Code',
+    'views/Splitter/Splitter',
+	'views/Blank/Blank',
+    
+    'views/Image/Image',
+    'views/Audio/Audio',
+    'views/Video/Video',
+    
 	'views/AnalogOut/AnalogOut',
-	'views/Code/Code',
-	'views/Image/Image',
     'views/Servo/Servo',
     'views/CloudOut/CloudOut',
-    'views/Splitter/Splitter',
+
 ],
-function(Blank, AnalogIn, AnalogOut, Code, Image, Servo, CloudOut, Splitter){
+function(AnalogIn, CloudIn, Code, Splitter, Blank, Image, Audio, Video, AnalogOut, Servo, CloudOut){
     'use strict';
 
 	return {
-		'Blank': Blank,
 		'AnalogIn': AnalogIn,
-		'AnalogOut': AnalogOut,
+        'CloudIn': CloudIn,
+        
 		'Code': Code,
+        'Splitter': Splitter,
+        'Blank': Blank,
+        
 		'Image': Image,
+        'Audio': Audio,
+        'Video': Video,
+        
+        'AnalogOut': AnalogOut,
         'Servo': Servo,
         'CloudOut': CloudOut,
-        'Splitter': Splitter,
+        
+
 	};
 });

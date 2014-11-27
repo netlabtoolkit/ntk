@@ -26,8 +26,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
-		typeID: 'CloudOut',
-		className: 'cloudOut',
+		typeID: 'CloudIn',
+		className: 'cloudIn',
 		template: _.template(Template),
 
 		initialize: function(options) {
@@ -36,23 +36,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
             // Call any custom DOM events here
             this.model.set({
-                title: 'CloudOut',
-                sendPeriod: 10000,
-                privateKey: 'your-private-key',
+                title: 'CloudIn',
+                getPeriod: 10000,
                 publicKey: 'your-public-key',
-                averageInputs: false,
-                sendToCloud: false,
+                getFromCloud: false,
             });
             
             // private variables
             this.startFrame = 0;
-            this.inputLast = 0
-            this.inputCumulative = 0;
-            this.inputCount= 0;
-            this.lastSendToCloud = false;
-
-            // If you want to register your own signal processing function, push them to signalChainFunctions
-			this.signalChainFunctions.push(this.watchData);
 
 			// If you would like to register any function to be called at frame rate (60fps)
 			window.app.timingController.registerFrameCallback(this.timeKeeper, this);
@@ -99,45 +90,46 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			window.app.timingController.removeFrameCallback(this.timeKeeper);
 		},
         
-        watchData: function(input) {
-			this.inputLast = Number(input);
-            var value = Number(input);
-            this.inputCount++;
-            this.inputCumulative += Number(input);
-            if (this.model.get('averageInputs')) {
-                value = parseInt(this.inputCumulative / this.inputCount);
-            }
-            return value;
-        },
-        
         timeKeeper: function(frameCount) {
             var self = this;
-            if (this.model.get('sendToCloud')) {
+            if (this.model.get('getFromCloud')) {
                 var timeDiff = (frameCount - this.startFrame) * (1000/60);
-                var period = this.model.get('sendPeriod');
+                var period = this.model.get('getPeriod');
                 this.$('.timeLeft').text(' Send in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
                 if (timeDiff > period) {
                     this.$('.outvalue').css('color','#ff0000');
                     this.$('.outvalue').animate({color: '#000000' },10000,'swing');
-                    //var avg = (this.inputCumulative / this.inputCount).toString();
-                    var avg = (this.model.get('out')).toString();
                     var pubKey = this.model.get('publicKey');
-                    var priKey = this.model.get('privateKey');
-                    var url = 'https://data.sparkfun.com/input/' + pubKey + '?private_key=' + priKey + '&testdata=' + avg;
-                    $.getJSON(url)
-                      .done(function( json ) {
-                        //console.log( "JSON Data: " + JSON.stringify(json) );
-                      })
-                      .fail(function( jqxhr, textStatus, error ) {
-                        var err = textStatus + ", " + error;
-                        console.log( "Connection to cloud servive failed: " + err );
-                        self.model.set('sendToCloud',false);
-                        self.$('.timeLeft').text("Couldn't connect");
+                    var url = 'https://data.sparkfun.com/output/' + pubKey + '.json';
+                    $.ajax({
+                        url: url,
+                        jsonp: 'callback',
+                        cache: true,
+                        dataType: 'jsonp',
+                        data: {
+                            page: 1
+                        },
+                        success: function(response) {
+                            // check for success
+                            if (response.success == false) {
+                                console.log( "Connection to cloud servive failed");
+                                self.model.set('getFromCloud',false);
+                                self.$('.timeLeft').text("Couldn't connect");
+                            } else {
+                                self.model.set('in',Number(response[0].testdata));
+                                self.$('.dial').val(Number(response[0].testdata)).trigger('change');
+                            }
+                        },
+                        
+                        fail: function( jqxhr, textStatus, error ) {
+                            var err = textStatus + ", " + error;
+                            console.log( "Connection to cloud servive failed: " + err );
+                            self.model.set('getFromCloud',false);
+                            self.$('.timeLeft').text("Couldn't connect");
+                        }
                     });
                     console.log(timeDiff + " msecs");
                     this.startFrame = frameCount;
-                    this.inputCount = 0;
-                    this.inputCumulative = 0;
                 }
             } else {
                 this.startFrame = frameCount;

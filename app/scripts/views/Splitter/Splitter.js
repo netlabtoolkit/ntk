@@ -85,15 +85,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.model.set('outC',this.envelope(input,this.model.get('outCCenter'),width,min,max));
             this.model.set('outD',this.envelope(input,this.model.get('outDCenter'),width,min,max));
         },
-
-		// Any custom function can be attached to the widget like this "limitServoRange" function
-		// and can be accessed via this.limitServoRange();
-        limitRange: function(input) {
-            var output = input;
-            output = Math.max(output, 0);
-            output = Math.min(output, 180);
-            return Number(output);
-        },
             
         envelope: function(input, center, width, min, max) {
             

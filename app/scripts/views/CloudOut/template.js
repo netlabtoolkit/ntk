@@ -19,13 +19,18 @@
     <br><div class='timeLeft'>Send in: 10s</div>
         
 </div>
+    
+<div class="widgetRight">
+    <div class=rightTab><input type="checkbox" rv-checked="widget:sendToCloud" /></div>
+</div>
 
 
 <div class="widgetBottom">
     <div class="tab"><p>more</p></div>
     <div class="content">
-        send every <input type="text" rv-value="widget:sendPeriod"><br>
-        public key <input class="keys" type="text" rv-value="widget:publicKey"><br>
-        private key <input class="keys" type="text" rv-value="widget:privateKey"><br>
+        <label for="avg">avg inputs</label> <input name="avg" type="checkbox" rv-checked="widget:averageInputs" /> <br>
+        <label for="send">send every</label> <input name="send" type="text" rv-value="widget:sendPeriod"><br>
+        <label for="pubKey">public key</label> <input name="pubKey" class="keys" type="text" rv-value="widget:publicKey"><br>
+        <label for="priKey">private key</label> <input name="priKey" class="keys" type="text" rv-value="widget:privateKey"><br>
     </div>
 </div>

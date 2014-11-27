@@ -7,7 +7,7 @@
     <div class=leftTab><input type="checkbox" rv-checked="widget:active" /></div>
     <div class=leftTab>
         <div rv-each-source="sources" class="settings">
-            <input rv-value="source.map.sourceField">
+            <input type='text' rv-value="source.map.sourceField">
         </div>
     </div>
 </div>

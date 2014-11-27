@@ -22,7 +22,7 @@
     <div class=rightTab><input type="checkbox" rv-checked="widget:activeOut" /></div>
     <div class=rightTab>
         <div class='settings'>
-			<input rv-value="widget:outputMapping">
+			<input type='text' rv-value="widget:outputMapping">
         </div>
     </div>
 </div>
