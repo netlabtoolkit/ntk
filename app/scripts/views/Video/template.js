@@ -17,7 +17,10 @@
         <div class="inletValue"><span rv-text="widget:time">100</span> Time</div>
     </div>
 </div>
-<video class="detachedEl" id="video" width="300" rv-src="widget:src">
-Your browser does not support the video element
-</video>
+
+<% if(!server) { %>
+	<video class="detachedEl" id="video" width="300" rv-src="widget:src">
+	Your browser does not support the video element
+	</video>
+<% } %>
 

@@ -15,7 +15,12 @@ function(Backbone, rivets, WidgetView, Template){
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
 
-			var elementSrc = prompt('Please enter the video URL');
+			var elementSrc = undefined;
+
+			if(!app.server) {
+				elementSrc = prompt('Please enter the video URL');
+			}
+
 			if(!elementSrc) {
 				elementSrc = 'assets/video/ball.mp4';
 			}
@@ -35,63 +40,64 @@ function(Backbone, rivets, WidgetView, Template){
                 volume: 100.0,
 				speed: 100.0,
                 time: 0,
-                
+
 			});
-                    
+
             this.lastTimeIn = 0;
             this.playing = false;
-                    
+
             this.domReady = false;
 
 		},
-        
+
         onRender: function() {
 			WidgetView.prototype.onRender.call(this);
 			var self = this;
-                    
+
             this.$('.detachedEl').css( 'cursor', 'move' );
             this.$( ".detachedEl" ).draggable({ cursor: "move" });
-                    
+
             this.domReady = true;
-                    
+
             //console.log($("#video")[0].duration);
 
 		},
-                    
+
         onModelChange: function() {
             if (this.domReady) {
-                var play = parseInt(this.model.get('play'),10);
-                var volume = Math.min(parseFloat(this.model.get('volume')) / 100,1.0);
-                var speed = parseFloat(this.model.get('speed')) / 100;
-                var time = parseFloat(this.model.get('time'));
-                var videoEl = this.$("#video")[0];
+				if(!app.server) {
+					var play = parseInt(this.model.get('play'),10);
+					var volume = Math.min(parseFloat(this.model.get('volume')) / 100,1.0);
+					var speed = parseFloat(this.model.get('speed')) / 100;
+					var time = parseFloat(this.model.get('time'));
+					var videoEl = this.$("#video")[0];
 
-                
-                if (play >= 500 && !this.playing) {
-                    videoEl.play();
-                    this.playing = true;
-                    //console.log('play');
-                } else if (play < 500 && this.playing) {
-                    videoEl.pause();
-                    this.playing = false;
-                    //console.log('pause');
-                }
+					if (play >= 500 && !this.playing) {
+						videoEl.play();
+						this.playing = true;
+						//console.log('play');
+					} else if (play < 500 && this.playing) {
+						videoEl.pause();
+						this.playing = false;
+						//console.log('pause');
+					}
 
-                videoEl.volume = volume;
+					videoEl.volume = volume;
 
-                videoEl.playbackRate = speed;
-                
-                if (time != this.lastTimeIn) {
-                    var timeLimited = Math.min(time, Math.floor(videoEl.duration));
-                    timeLimited = Math.max(timeLimited, 0);
-                    videoEl.currentTime = timeLimited;
-                    //console.log(videoEl.duration);
-                    //console.log(timeLimited);
-                }
-                           
+					videoEl.playbackRate = speed;
+
+					if (time != this.lastTimeIn) {
+						var timeLimited = Math.min(time, Math.floor(videoEl.duration));
+						timeLimited = Math.max(timeLimited, 0);
+						videoEl.currentTime = timeLimited;
+						//console.log(videoEl.duration);
+						//console.log(timeLimited);
+					}
+				}
+
                 this.lastTimeIn = time;
             }
-            
+
         },
 
 	});

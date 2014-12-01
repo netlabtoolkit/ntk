@@ -51,8 +51,8 @@ module.exports = function(options) {
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			socket.on('sendModelUpdate', function(options) {
 				for(var field in options.model) {
-					if(model.outputs[field] !== undefined) {
-						model.set(field, parseInt(options.model[field], 10));
+					if(self.model.outputs[field] !== undefined) {
+						self.model.set(field, parseInt(options.model[field], 10));
 					}
 				}
 			});

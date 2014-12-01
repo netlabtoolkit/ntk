@@ -19,7 +19,12 @@ function(Backbone, rivets, WidgetView, Template){
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
 
-			var elementSrc = prompt('Please enter the audio URL');
+			var elementSrc = undefined;
+
+			if(!app.server) {
+				elementSrc = prompt('Please enter the audio URL');
+			}
+
 			if(!elementSrc) {
 				elementSrc = 'assets/audio/slowDrums.mp3';
 			}

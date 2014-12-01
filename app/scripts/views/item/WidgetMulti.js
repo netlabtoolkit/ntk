@@ -22,7 +22,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		widgetEvents: {},
 
 		className: 'widget',
-		template: _.template( WidgetTmpl ),
+		//template: _.template( WidgetTmpl ),
+		template: function(serializedModel) {
+			return _.template( WidgetTmpl, {server: app.server} );
+		},
 
 		initialize: function(options) {
 			// We pass the model to the widget which ends up in options. If we extend options here, we'd end up with a recursive reference so nulling it out for now.
@@ -38,6 +41,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			//this.model = new WidgetConfigModel(options);
 			this.model.set(options);
+			this.model.set('server', app.server);
 			this.model.on('change', this.processSignalChain, this);
 			this.model.on('change', this.onModelChange, this);
 
