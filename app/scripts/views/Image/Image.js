@@ -17,7 +17,7 @@ function(Backbone, rivets, WidgetView, Template){
 
 			var elementSrc = prompt('Please enter an image URL');
 			if(!elementSrc) {
-				elementSrc = 'assets/images/pinkBlue.jpg';
+				elementSrc = 'assets/images/NTKlogogreen_small.jpg';
 			}
 
 			this.model.set({
