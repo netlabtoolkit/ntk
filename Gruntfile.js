@@ -30,7 +30,7 @@ module.exports = function (grunt) {
         watch: {
 
             compass: {
-                files: ['<%= yeoman.app %>/styles/{,*/}*.{scss,sass}'],
+                files: ['<%= yeoman.app %>/scripts/views/{,*/}*.{scss,sass}'],
                 tasks: ['compass']
             },
 
@@ -80,17 +80,17 @@ module.exports = function (grunt) {
             },
             dev: {
                 options: {
-                    script: 'server/app.js'
+                    script: 'server/netlabServer.js'
                 }
             },
             prod: {
                 options: {
-                    script: 'server/app.js'
+                    script: 'server/netlabServer.js'
                 }
             },
             test: {
                 options: {
-                    script: 'server/app.js'
+                    script: 'server/netlabServer.js'
                 }
             }
         },

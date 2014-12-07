@@ -27,7 +27,8 @@ module.exports = function(options) {
 					if(!parseInt(input, 10)) {
 						var sensor = new five.Sensor({
 							pin: input,
-							freq: 25,
+							//freq: 25,
+							freq: 100,
 						});
 
 						sensors.push(sensor);
