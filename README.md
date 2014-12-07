@@ -32,11 +32,10 @@ git clone https://github.com/netlabtoolkit/widgets-html5.git
 cd widgets-html5
 bower install
 npm install
-
+```
 
 Starting the server
 ---------------------
-```
 To run a live-reload development server after installation run grunt in that directory:
 ```
 grunt
