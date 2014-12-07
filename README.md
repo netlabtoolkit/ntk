@@ -18,6 +18,7 @@ You will also need to install command-line tools, bower, and grunt if you do not
 npm install -g grunt-cli
 npm install -g bower
 npm install -g grunt
+npm install -g phantomjs
 
 sudo gem update —system
 sudo gem install compass
