@@ -15,13 +15,14 @@ function(Backbone, rivets, WidgetView, Template){
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
 
-			var elementSrc = prompt('Please enter an image URL');
+/*			var elementSrc = prompt('Please enter an image URL');
 			if(!elementSrc) {
 				elementSrc = 'assets/images/NTKlogogreen_small.jpg';
 			}
+*/
 
 			this.model.set({
-				src: elementSrc,
+				src: 'assets/images/NTKlogogreen.jpg',
 				ins: [
 					//{name: 'in', to: 'in'},
 					{title: 'X Position', to: 'left'},
@@ -53,8 +54,10 @@ function(Backbone, rivets, WidgetView, Template){
         onRender: function() {
 			WidgetView.prototype.onRender.call(this);
 			var self = this;
-            this.$('.detachedEl').css( 'cursor', 'move' );
-            this.$( ".detachedEl" ).draggable({ cursor: "move" });
+            if(!app.server) {
+                this.$('.detachedEl').css( 'cursor', 'move' );
+                this.$( '.detachedEl' ).draggable({ cursor: 'move' });
+            }
 		},
 
 	});

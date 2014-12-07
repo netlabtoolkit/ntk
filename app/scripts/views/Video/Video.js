@@ -12,9 +12,14 @@ function(Backbone, rivets, WidgetView, Template){
 		className: 'video',
 		template: _.template(Template),
 		sources: [],
+        widgetEvents: {
+			'change #loop': 'loopChange',
+            'change #continuous': 'continuousChange',
+		},
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
 
+/*
 			var elementSrc = undefined;
 
 			if(!app.server) {
@@ -24,12 +29,13 @@ function(Backbone, rivets, WidgetView, Template){
 			if(!elementSrc) {
 				elementSrc = 'assets/video/ball.mp4';
 			}
+*/
 
 			this.model.set({
-				src: elementSrc,
+				src: 'assets/video/ball.mp4',
 				ins: [
 					{title: 'Play', to: 'play'},
-					{title: 'Volume', to: 'volume'},
+/*					{title: 'Volume', to: 'volume'},*/
                     {title: 'Speed', to: 'speed'},
                     {title: 'Time', to: 'time'},
 				],
@@ -40,6 +46,8 @@ function(Backbone, rivets, WidgetView, Template){
                 volume: 100.0,
 				speed: 100.0,
                 time: 0,
+                loop: false,
+                continuous: false,
 
 			});
 
@@ -71,20 +79,22 @@ function(Backbone, rivets, WidgetView, Template){
 					var speed = parseFloat(this.model.get('speed')) / 100;
 					var time = parseFloat(this.model.get('time'));
 					var videoEl = this.$("#video")[0];
-
-					if (play >= 500 && !this.playing) {
-						videoEl.play();
-						this.playing = true;
-						//console.log('play');
-					} else if (play < 500 && this.playing) {
-						videoEl.pause();
-						this.playing = false;
-						//console.log('pause');
-					}
-
-					videoEl.volume = volume;
-
+                    videoEl.volume = volume;
 					videoEl.playbackRate = speed;
+                
+                    if (!this.model.get('continuous')) {
+                        if (play >= 500 && !this.playing) {
+                            videoEl.play();
+                            this.playing = true;
+                            //console.log('play');
+                        } else if (play < 500 && this.playing) {
+                            videoEl.pause();
+                            this.playing = false;
+                            //console.log('pause');
+                        }
+                    }
+
+
 
 					if (time != this.lastTimeIn) {
 						var timeLimited = Math.min(time, Math.floor(videoEl.duration));
@@ -98,6 +108,22 @@ function(Backbone, rivets, WidgetView, Template){
                 this.lastTimeIn = time;
             }
 
+        },
+                             
+        loopChange: function(e) {
+            if(!app.server) {
+                this.$("#video")[0].loop = this.model.get('loop');
+            }
+        },
+            
+        continuousChange: function(e) {
+            if(!app.server) {
+                if (this.model.get('continuous')) {
+                    this.$("#video")[0].loop = this.model.get('loop');
+                    this.$("#video")[0].play();
+                    this.playing = true;
+                }
+            }
         },
 
 	});

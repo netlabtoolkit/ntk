@@ -16,8 +16,18 @@
         <div class="inletValue"><span rv-text="widget:opacity">100</span> Opacity</div>
     </div>
 </div>
-<img class="detachedEl" rv-style-opacity="widget:opacity"
-	rv-positionx="widget:left"
-	rv-positiony="widget:top"
-	class="element" rv-src="widget:src"/>
+        
+<div class="widgetBottom">
+    <div class="tab"><p>more</p></div>
+    <div class="content">
+        <label>image file</label> <input type="text" rv-value="widget:src"><br>
+    </div>
+</div>
+        
+<% if(!server) { %>
+    <img class="detachedEl" rv-style-opacity="widget:opacity"
+        rv-positionx="widget:left"
+        rv-positiony="widget:top"
+        class="element" rv-src="widget:src"/>
+<% } %>
 

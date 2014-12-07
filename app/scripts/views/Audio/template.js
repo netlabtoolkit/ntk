@@ -18,7 +18,16 @@
     </div>
 </div>
         
-<audio id="audio" rv-src="widget:src">
-Your browser does not support the audio element
-</audio>
-
+<div class="widgetBottom">
+    <div class="tab"><p>more</p></div>
+    <div class="content">
+        <label>continuous</label> <input id="continuous" type="checkbox" rv-checked="widget:continuous" /><br>
+        <label>audio file</label> <input type="text" rv-value="widget:src"><br>
+    </div>
+</div>
+  
+<% if(!server) { %>
+    <audio id="audio" rv-src="widget:src">
+    Your browser does not support the audio element
+    </audio>
+<% } %>
