@@ -2,6 +2,8 @@ define([
 
 	'views/AnalogIn/AnalogIn',
     'views/CloudIn/CloudIn',
+    'views/Knob/Knob',
+    'views/Button/Button',
 
     'views/Code/Code',
     'views/Splitter/Splitter',
@@ -16,12 +18,14 @@ define([
     'views/CloudOut/CloudOut',
 
 ],
-function(AnalogIn, CloudIn, Code, Splitter, Blank, Image, Audio, Video, AnalogOut, Servo, CloudOut){
+function(AnalogIn, CloudIn, Knob, Button, Code, Splitter, Blank, Image, Audio, Video, AnalogOut, Servo, CloudOut){
     'use strict';
 
 	return {
 		'AnalogIn': AnalogIn,
         'CloudIn': CloudIn,
+        'Knob': Knob,
+        'Button': Button,
         
 		'Code': Code,
         'Splitter': Splitter,

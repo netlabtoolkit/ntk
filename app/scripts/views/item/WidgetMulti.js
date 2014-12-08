@@ -177,6 +177,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					self.$('select').val(value);
 				}
 			}
+            // rivets formatters
+            rivets.formatters.rounded = function (value){
+                return Number(value).toFixed(0);
+            }
 		},
 		/**
 		 * Called when you drop onto an inlet. Maps the dropped model w/ parameter to the inlet

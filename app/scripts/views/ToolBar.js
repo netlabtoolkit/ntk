@@ -11,6 +11,7 @@ function( app, Backbone, Template, Widgets ) {
 		events: {
 			'click .savePatch': 'savePatch',
 			'click .loadPatch': 'loadPatch',
+            'click .hideWidgets': 'hideWidgets',
 		},
 		subViews: [],
 		template: _.template(Template),
@@ -38,6 +39,10 @@ function( app, Backbone, Template, Widgets ) {
 		savePatch: function() {
 			window.app.vent.trigger('ToolBar:savePatch');
 		},
+        hideWidgets: function() {
+            self.$( ".widgetAuthoring" ).toggle();
+            self.$( ".patchCableParent" ).toggle();
+        }
 	});
 
 });

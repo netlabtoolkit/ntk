@@ -6,17 +6,23 @@
     </div>
 
     <div class="widgetLeft">
-        <div class=leftTab><input type="checkbox" rv-checked="widget:getFromCloud" /></div>
+        <div class='inlets'>
+            <div rv-each-inlet="widget:ins" rv-alt="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
+        </div>
     </div>
 
     <div class="widgetBody">
         <div class="dialwrapper" style="position:relative;">
             <input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/>
-
-            <div class="display outvalue" rv-text="widget:out">1023</div>
+            <div class="display outvalue" rv-text="widget:out | rounded">1023</div>
         </div>
-        <br><div class='timeLeft'>Get in: 10s</div>
 
+        <table class="rangeTable" border="0" cellspacing="3" cellpadding="0">
+          <tr>
+            <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:outputFloor"></td>
+            <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:outputCeiling"></td>
+          </tr>
+        </table>
     </div>
 
     <div class="widgetRight">
@@ -25,12 +31,16 @@
         </div>
     </div>
 
-
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-            <label>get every</label> <input type="text" rv-value="widget:getPeriod"><br>
-            <label>public key</label> <input class="keys" type="text" rv-value="widget:publicKey"><br>
+
         </div>
+    </div>
+</div>
+
+<div class="detachedEl">
+    <div class="dialwrapperUI">
+        <input type="text" class="knob" rv-value="widget:in" rv-knob="widget:in"/>
     </div>
 </div>

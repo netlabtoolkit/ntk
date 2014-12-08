@@ -1,7 +1,7 @@
 .widget {
 	position: relative;
 	top: 50px;
-	left: 30px;
+	left: 100px;
 
 	display: block;
 
@@ -243,6 +243,10 @@
             }
         }
         
+        .outputSingle {
+            padding-left: 40px; 
+        }
+        
         .inletValueTop {
             margin-top: 20px;
         }
@@ -357,4 +361,17 @@
 
 .detachedEl {
 	position: fixed;
+    
+    .ui-button.ui-widget {
+        width: 200px !important;
+        height: 200px !important;
+    }
+    
+    .ui-button .ui-button-text {
+        font-size: 2.0em !important;
+    }
+}
+
+.dialwrapperUI {
+    margin-top: 5px;
 }
