@@ -16,6 +16,7 @@ function( app, Backbone, Template, Widgets ) {
 		subViews: [],
 		template: _.template(Template),
 		className: 'toolBar',
+        widgetsVisible: true,
 
 		render: function() {
 			this.el.innerHTML = this.template();
@@ -40,8 +41,15 @@ function( app, Backbone, Template, Widgets ) {
 			window.app.vent.trigger('ToolBar:savePatch');
 		},
         hideWidgets: function() {
-            self.$( ".widgetAuthoring" ).toggle();
-            self.$( ".patchCableParent" ).toggle();
+            this.widgetsVisible = !this.widgetsVisible;
+            console.log(this.widgetsVisible);
+            if (this.widgetsVisible) {
+                self.$( ".widgetAuthoring" ).show('fast');
+                self.$( ".patchCableParent" ).show('fast');
+            } else {
+                self.$( ".widgetAuthoring" ).hide('fast');
+                self.$( ".patchCableParent" ).hide('fast');
+            }
         }
 	});
 
