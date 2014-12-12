@@ -42,7 +42,6 @@ function( app, Backbone, Template, Widgets ) {
 		},
         hideWidgets: function() {
             this.widgetsVisible = !this.widgetsVisible;
-            console.log(this.widgetsVisible);
             if (this.widgetsVisible) {
                 self.$( ".widgetAuthoring" ).show('fast');
                 self.$( ".patchCableParent" ).show('fast');
