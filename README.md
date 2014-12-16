@@ -1,4 +1,4 @@
-widgets-html5
+NTK - NETLab Toolkit
 =============
 
 NETLab Toolkit JavaScript version
