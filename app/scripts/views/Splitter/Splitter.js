@@ -74,7 +74,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
         },
 
-        onModelChange: function() {
+        onModelChange: function(model) {
             var input = this.model.get('in');
             var width = parseInt(this.model.get('outWidth'),10);
             var min = parseInt(this.model.get('outMin'),10);
