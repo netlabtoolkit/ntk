@@ -12,6 +12,7 @@ function( app, Backbone, Template, Widgets ) {
 			'click .savePatch': 'savePatch',
 			'click .loadPatch': 'loadPatch',
             'click .hideWidgets': 'hideWidgets',
+            'click .fullScreen': 'fullScreen',
 		},
 		subViews: [],
 		template: _.template(Template),
@@ -49,7 +50,19 @@ function( app, Backbone, Template, Widgets ) {
                 self.$( ".widgetAuthoring" ).hide('fast');
                 self.$( ".patchCableParent" ).hide('fast');
             }
-        }
+        },
+        fullScreen: function() {
+            var el = document.getElementById("patcherRegion")
+            if(el.requestFullscreen) {
+                el.requestFullscreen();
+            } else if(el.mozRequestFullScreen) {
+                el.mozRequestFullScreen();
+            } else if(el.webkitRequestFullscreen) {
+                el.webkitRequestFullscreen();
+            } else if(el.msRequestFullscreen) {
+                el.msRequestFullscreen();
+            }
+        },
 	});
 
 });
