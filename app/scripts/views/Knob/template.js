@@ -39,8 +39,14 @@
     </div>
 </div>
 
-<div class="detachedEl">
-    <div class="dialwrapperUI">
+<% if(!server) { %>
+    <div class="dialwrapperUI detachedEl" 
+        rv-style-opacity="widget:opacity"
+        rv-positionx="widget:left"
+        rv-positiony="widget:top">
         <input type="text" class="knob" rv-value="widget:in" rv-knob="widget:in"/>
+        <div class="dragKnob widgetAuthoring">Drag</div>
     </div>
-</div>
+<% } %>
+    
+

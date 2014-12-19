@@ -41,6 +41,12 @@
     </div>
 </div>
 
-<div class="detachedEl">
-    <button id="theButton">Button</button>
-</div>
+<% if(!server) { %>
+    <div class="detachedEl" 
+        rv-style-opacity="widget:opacity"
+        rv-positionx="widget:left"
+        rv-positiony="widget:top">
+        <button id="theButton">Button</button>
+        <div class="dragKnob widgetAuthoring">Drag</div>
+    </div>
+<% } %>

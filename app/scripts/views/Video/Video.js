@@ -15,21 +15,11 @@ function(Backbone, rivets, WidgetView, Template){
         widgetEvents: {
 			'change #loop': 'loopChange',
             'change #continuous': 'continuousChange',
+            'mouseup .detachedEl': 'imgMoved',
 		},
+
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
-
-/*
-			var elementSrc = undefined;
-
-			if(!app.server) {
-				elementSrc = prompt('Please enter the video URL');
-			}
-
-			if(!elementSrc) {
-				elementSrc = 'assets/video/ball.mp4';
-			}
-*/
 
 			this.model.set({
 				src: 'assets/video/ball.mp4',
@@ -48,6 +38,26 @@ function(Backbone, rivets, WidgetView, Template){
                 time: 0,
                 loop: false,
                 continuous: false,
+                
+                activeControlParameter: 'left',
+				controlParameters: [
+					{
+						name: 'X',
+						parameter: 'left',
+					},
+					{
+						name: 'Y',
+						parameter: 'top',
+					},
+					{
+						name: 'opacity',
+						parameter: 'opacity',
+					},
+				],
+				left: 100,
+                top: 200,
+				opacity: 100,
+
 
 			});
 
@@ -62,8 +72,9 @@ function(Backbone, rivets, WidgetView, Template){
 			WidgetView.prototype.onRender.call(this);
 			var self = this;
 
-            this.$('.detachedEl').css( 'cursor', 'move' );
-            this.$( ".detachedEl" ).draggable({ cursor: "move" });
+            this.$( '.detachedEl' ).css( 'cursor', 'move' );
+            this.$( '.detachedEl' ).css( 'position', 'fixed' );
+            this.$( '.detachedEl' ).draggable({ cursor: "move" });
 
             this.domReady = true;
 
@@ -124,6 +135,12 @@ function(Backbone, rivets, WidgetView, Template){
                     this.playing = true;
                 }
             }
+        },
+        
+        imgMoved: function(e) {
+            var offset = this.$('.detachedEl').offset();
+            this.model.set('left',offset.left);
+            this.model.set('top',offset.top);
         },
 
 	});

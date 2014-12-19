@@ -12,9 +12,9 @@
     </div>
     <div class="widgetBody">
         <div class="widgetBodyLeft">
-            <div class="inletValue"><span rv-text="widget:left | round">100</span> X</div>
-            <div class="inletValue"><span rv-text="widget:top | round">100</span> Y</div>
-            <div class="inletValue"><span rv-text="widget:opacity | round">100</span> Opacity</div>
+            <div class="inletValue"><span rv-text="widget:left | rounded">100</span> X</div>
+            <div class="inletValue"><span rv-text="widget:top | rounded">100</span> Y</div>
+            <div class="inletValue"><span rv-text="widget:opacity | rounded">100</span> Opacity</div>
         </div>
     </div>
 

@@ -12,14 +12,12 @@ function(Backbone, rivets, WidgetView, Template){
 		className: 'image',
 		template: _.template(Template),
 		sources: [],
+        
+        widgetEvents: {
+			'mouseup .detachedEl': 'imgMoved',
+		},
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
-
-/*			var elementSrc = prompt('Please enter an image URL');
-			if(!elementSrc) {
-				elementSrc = 'assets/images/NTKlogogreen_small.jpg';
-			}
-*/
 
 			this.model.set({
 				src: 'assets/images/NTKlogogreen.jpg',
@@ -46,8 +44,8 @@ function(Backbone, rivets, WidgetView, Template){
 					},
 				],
 				left: 100,
+                top: 200,
 				opacity: 100,
-				top: 100,
 			});
 		},
         
@@ -55,10 +53,17 @@ function(Backbone, rivets, WidgetView, Template){
 			WidgetView.prototype.onRender.call(this);
 			var self = this;
             if(!app.server) {
-                this.$('.detachedEl').css( 'cursor', 'move' );
+                this.$( '.detachedEl' ).css( 'cursor', 'move' );
+                this.$( '.detachedEl' ).css( 'position', 'fixed' );
                 this.$( '.detachedEl' ).draggable({ cursor: 'move' });
             }
 		},
+        
+        imgMoved: function(e) {
+            var offset = this.$('.detachedEl').offset();
+            this.model.set('left',offset.left);
+            this.model.set('top',offset.top);
+        },
 
 	});
 });

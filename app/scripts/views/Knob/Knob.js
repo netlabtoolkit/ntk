@@ -24,7 +24,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			{title: 'out', from: 'in', to: 'out'},
 		],
         // Any custom DOM events should go here (Backbone style)
-        widgetEvents: {},
+        widgetEvents: {
+			'mouseup .detachedEl': 'imgMoved',
+		},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'Knob',
 		className: 'knob',
@@ -35,7 +37,27 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			WidgetView.prototype.initialize.call(this, options);
 
             // Call any custom DOM events here
-			this.model.set('title', 'Knob');
+            this.model.set({
+                title: 'Knob',
+                activeControlParameter: 'left',
+                controlParameters: [
+                    {
+                        name: 'X',
+                        parameter: 'left',
+                    },
+                    {
+                        name: 'Y',
+                        parameter: 'top',
+                    },
+                    {
+                        name: 'opacity',
+                        parameter: 'opacity',
+                    },
+                ],
+                left: 100,
+                top: 200,
+                opacity: 100,
+            });
             
             this.signalChainFunctions.push(SignalChainFunctions.scale);
 
@@ -61,6 +83,15 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             WidgetView.prototype.onRender.call(this);
 
             var self = this;
+            
+            if(!app.server) {
+                this.$( '.detachedEl' ).css( 'position', 'fixed' );
+                this.$( '.detachedEl' ).draggable({ 
+                    cursor: 'move',
+                    handle: '.dragKnob',
+                });
+                this.$( '.dragKnob' ).css( 'cursor', 'move' );
+            }
 
 			this.$('.dial').knob({
 				'fgColor':'#000000',
@@ -101,11 +132,15 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				$(el).val(parseInt(value));
 				$(el).trigger('change');
 			};
+            
+
         },
-
-
-		// Any custom function can be attached to the widget like this "limitServoRange" function
-		// and can be accessed via this.limitServoRange();
+        
+        imgMoved: function(e) {
+            var offset = this.$('.detachedEl').offset();
+            this.model.set('left',offset.left);
+            this.model.set('top',offset.top);
+        },
 
 
 	});
