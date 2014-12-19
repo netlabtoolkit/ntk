@@ -25,7 +25,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		],
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {
-			'mouseup .detachedEl': 'imgMoved',
+			'mouseup .dragKnob': 'imgMoved',
 		},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'Knob',
