@@ -24,7 +24,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		],
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {
-			'mouseup .detachedEl': 'imgMoved',
+			'mouseup .dragKnob': 'imgMoved',
 		},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'Button',
@@ -94,10 +94,22 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.$( "#theButton" ).mousedown(function() {
                 self.model.set('in', parseInt(self.model.get('outputCeiling'),10));
             });
-                
             this.$( "#theButton" ).mouseup(function() {
                 self.model.set('in', parseInt(self.model.get('outputFloor'),10));
             });
+
+            this.$( "#theButton" ).on('touchstart',function() {
+                self.model.set('in', parseInt(self.model.get('outputCeiling'),10));
+            });
+            
+            this.$( "#theButton" ).on('touchend',function() {
+                self.model.set('in', parseInt(self.model.get('outputFloor'),10));
+            });
+                
+            this.$( "#theButton" ).on('touchcancel',function() {
+                self.model.set('in', parseInt(self.model.get('outputFloor'),10));
+            });
+            
             
             if(!app.server) {
                 this.$( '.detachedEl' ).css( 'position', 'fixed' );
