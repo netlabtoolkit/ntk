@@ -7,6 +7,7 @@ module.exports = function(options) {
 	var MultiClientSync = function(options) {
 		options.transport ? this.transport = options.transport : undefined;
 		options.model ? this.model = options.model : undefined;
+		this.model && this.bindModelToTransport(this.model);
 		this.masterPatch = [];
 
 		this.loadPatchFromServer();
@@ -30,6 +31,18 @@ module.exports = function(options) {
 				}
 			}
 		},
+        /**
+         * Binds a hardware model to the front-end
+         *
+         * @param model
+         * @return {undefined}
+         */
+		bindModelToTransport: function(model) {
+			// Listen for changes made on the hardware to update the front-end
+			model.on('change', function(options) {
+				self.transport.emit('receivedModelUpdate', {modelType: model.type, field: options.field, value: options.value});
+			});
+		},
 		loadPatchFromServer: function() {
 			var patchFileName = __dirname + '/currentPatch.json';
 
@@ -48,6 +61,10 @@ module.exports = function(options) {
 		registerClient: function(socket) {
 			//self.clients.push(socket);
 
+			console.log('connect');
+			for(var socketID in self.transport.sockets.connected) {
+				console.log(socketID);
+			}
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			socket.on('sendModelUpdate', function(options) {
 				for(var field in options.model) {

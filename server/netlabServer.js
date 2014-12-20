@@ -25,10 +25,8 @@ nlWebServer({port: serverPort, device: deviceController})
 	.then(function(server) {
 		var io = socketIO.listen(server);
 
-		// temprarily passing the deviceController model to the clientSync before having the server specific version
+		// Passing the deviceController model to the clientSync before having the server specific version
 		var clientSync = require('./modules/nlMultiClientSync/nlMultiClientSync')({transport: io, model: deviceController.model});
-		// set the transport to the device
-		deviceController.setTransport(io);
 
 		// TEMP DISABLE UNTIL MULTISYNC IS IN PLACE
 		var path = require('path'),
@@ -41,7 +39,7 @@ nlWebServer({port: serverPort, device: deviceController})
 		];
 
 		childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {
-			// post phantom stuff here
+			 //post phantom stuff here
 		});
 	});
 
