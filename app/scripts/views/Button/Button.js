@@ -23,7 +23,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			{title: 'out', from: 'in', to: 'out'},
 		],
         // Any custom DOM events should go here (Backbone style)
-        widgetEvents: {},
+        widgetEvents: {
+			'mouseup .dragKnob': 'imgMoved',
+		},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'Button',
 		className: 'button',
@@ -34,7 +36,27 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			WidgetView.prototype.initialize.call(this, options);
 
             // Call any custom DOM events here
-			this.model.set('title', 'Button');
+            this.model.set({
+                title: 'Button',
+                activeControlParameter: 'left',
+                controlParameters: [
+                    {
+                        name: 'X',
+                        parameter: 'left',
+                    },
+                    {
+                        name: 'Y',
+                        parameter: 'top',
+                    },
+                    {
+                        name: 'opacity',
+                        parameter: 'opacity',
+                    },
+                ],
+                left: 100,
+                top: 200,
+                opacity: 100,
+            });
             
             //this.signalChainFunctions.push(SignalChainFunctions.scale);
             
@@ -72,16 +94,44 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.$( "#theButton" ).mousedown(function() {
                 self.model.set('in', parseInt(self.model.get('outputCeiling'),10));
             });
-                
             this.$( "#theButton" ).mouseup(function() {
                 self.model.set('in', parseInt(self.model.get('outputFloor'),10));
             });
+
+            this.$( "#theButton" ).on('touchstart',function() {
+                self.model.set('in', parseInt(self.model.get('outputCeiling'),10));
+            });
+            
+            this.$( "#theButton" ).on('touchend',function() {
+                self.model.set('in', parseInt(self.model.get('outputFloor'),10));
+            });
+                
+            this.$( "#theButton" ).on('touchcancel',function() {
+                self.model.set('in', parseInt(self.model.get('outputFloor'),10));
+            });
+            
+            
+            if(!app.server) {
+                this.$( '.detachedEl' ).css( 'position', 'fixed' );
+                this.$( '.detachedEl' ).draggable({ 
+                    cursor: 'move',
+                    handle: '.dragKnob',
+                });
+                this.$( '.dragKnob' ).css( 'cursor', 'move' );
+            }
         },
 
 
 		// Any custom function can be attached to the widget like this "limitServoRange" function
 		// and can be accessed via this.limitServoRange();
 
+        imgMoved: function(e) {
+            var offset = this.$('.detachedEl').offset();
+            this.model.set('left',offset.left);
+            this.model.set('top',offset.top);
+        },
 
 	});
+    
+
 });
