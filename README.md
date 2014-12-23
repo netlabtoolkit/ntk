@@ -7,7 +7,7 @@ DISCLAIMER: This is an active development branch and is quite far from being "re
 
 Installation
 ---------------------
-You must first install node and npm if you have not done so. 
+You must first install node and npm if you have not done so. If you are on a Mac, you need to install the Xcode command line tools by installing Xcode (free from the app store) before you do the following.
 
 https://gist.github.com/isaacs/579814 (we recommend the first example: node-and-npm-in-30-seconds.sh)
 
