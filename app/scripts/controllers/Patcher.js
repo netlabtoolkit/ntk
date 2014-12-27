@@ -76,7 +76,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 			window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
 			window.app.vent.on('ToolBar:savePatch', this.savePatch, this);
 			window.app.vent.on('ToolBar:loadPatch', this.loadPatch, this);
-			window.app.vent.on('receivedModelUpdate', function(data) {
+			window.app.vent.on('receivedDeviceModelUpdate', function(data) {
 				var serverAddress = window.location.host;
 				//var hardwareModel = this.getHardwareModelInstance(data.modelType, serverAddress);
 				var hardwareModel = this.hardwareModelInstances[data.modelType + ':' + serverAddress];

@@ -19,22 +19,21 @@ function( Backbone ) {
 				window.app.vent.trigger('ToolBar:loadPatch', data);
 			});
 
-
 			socket.on("connect", function() {
 				self.connected = true;
 				window.app.vent.trigger("socket:connected");
 			});
 
-			socket.on("receivedModelUpdate", function(data){
-				if(window.app && window.app.vent) {
-					window.app.vent.trigger("receivedModelUpdate", data);
-				}
-			});
 
 			socket.on("server:clientModelUpdate", function(data){
 				window.app.vent.trigger('updateWidgetModelFromServer', data);
 			});
 
+			socket.on("receivedModelUpdate", function(data){
+				if(window.app && window.app.vent) {
+					window.app.vent.trigger("receivedDeviceModelUpdate", data);
+				}
+			});
 
 			socket.on("disconnect", function() {
 				self.connected = false;
@@ -44,11 +43,16 @@ function( Backbone ) {
 				console.log("ERROR: ", err);
 			});
 
-			if(app.server) {
+			if(window.app.server) {
 				window.app.vent.on('sendModelUpdate', function(options) {
-					//socket.emit('server:sendModelUpdate', options);
 					socket.emit('sendModelUpdate', options);
 				});
+
+
+				//window.app.vent.on('widgetUpdate', function(options){
+					//console.log('send widgetUpdate');
+					//socket.emit('client:sendModelUpdate', options);
+				//});
 			}
 			else {
 				window.app.vent.on('sendModelUpdate', function(options) {
@@ -58,7 +62,6 @@ function( Backbone ) {
 					socket.emit('client:sendModelUpdate', options);
 				});
 				window.app.vent.on('addWidget', function(options) {
-					//console.log('addWidget', JSON.stringify( options ));
 					socket.emit('client:addWidget', JSON.stringify( options ));
 				});
 				window.app.vent.on('removeWidget', function(options) {

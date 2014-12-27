@@ -22,7 +22,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		widgetEvents: {},
 
 		className: 'widget',
-		//template: _.template( WidgetTmpl ),
 		template: function(serializedModel) {
 			return _.template( WidgetTmpl, {server: app.server} );
 		},
@@ -42,7 +41,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			//this.model = new WidgetConfigModel(options);
 			this.model.set(options);
 			this.model.set('server', app.server);
-			this.model.on('change', this.processSignalChain, this);
+			if(app.server) {
+				this.model.on('change', this.processSignalChain, this);
+			}
 			this.model.on('change', this.onModelChange, this);
 
 			this.setWidgetBinders();
@@ -290,7 +291,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}
 				else if(this.model.get('active') && this.model.get('activeOut') && model.attributes[mapping.destinationField] !== undefined) {
                     // update the output of the widget where hardware such as Arduino is involved
-					model.set(this.model.get('outputMapping'), this.model.get(mapping.sourceField));
+					if(model.attributes[this.model.get('outputMapping')] != this.model.get(mapping.sourceField)) {
+						var attributes = {};
+						attributes[this.model.get('outputMapping')] = this.model.get(mapping.sourceField);
+
+						model.set(attributes, {fromServer:false});
+					}
+
 				}
 			}
 

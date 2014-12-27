@@ -15,13 +15,13 @@ module.exports = function(attributes) {
 		},
 		set: function(field, value) {
 			if(this.outputs[field] !== undefined) {
-				if(this.outputs[field] !== value) {
+				if(parseInt(this.outputs[field],10) !== parseInt(value,10)) {
 					this.outputs[field] = value;
 					this.emit('change', {field: field, value: this.outputs[field]});
 				}
 			}
-			else if(this.inputs[field] !== undefined) {
-				if(this.inputs[field] !== value) {
+			else if(this.inputs[field] != undefined) {
+				if(parseInt(this.inputs[field], 10) !== parseInt( value, 10 )) {
 					this.inputs[field] = value;
 					this.emit('change', {field: field, value: this.inputs[field]});
 				}

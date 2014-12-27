@@ -20,8 +20,14 @@ module.exports = function(options) {
 		clients: [],
 		setMaster: function(patch) {
 			this.masterPatch = patch;
-			this.broadcast('loadPatchFromServer', patch);
+			//this.broadcast('loadPatchFromServer', patch);
 		},
+        /**
+         * Add any changes to the master model reference (with no events emitted from this function)
+         *
+         * @param {object} changes
+         * @return {void}
+         */
 		updateMaster: function(changes) {
 			for(var i=changes.length-1; i >=0; i--) {
 				var currentModel = changes[i];
@@ -33,9 +39,10 @@ module.exports = function(options) {
 		},
         /**
          * Binds a hardware model to the front-end
+		 * Listends to the model 'change' event and brodcasts that change to all clients
          *
          * @param model
-         * @return {undefined}
+         * @return {void}
          */
 		bindModelToTransport: function(model) {
 			// Listen for changes made on the hardware to update the front-end
@@ -43,6 +50,11 @@ module.exports = function(options) {
 				self.transport.emit('receivedModelUpdate', {modelType: model.type, field: options.field, value: options.value});
 			});
 		},
+        /**
+         * Loads a patch from a file and sets the patch as our master model reference
+         *
+         * @return {void}
+         */
 		loadPatchFromServer: function() {
 			var patchFileName = __dirname + '/currentPatch.json';
 
@@ -58,13 +70,14 @@ module.exports = function(options) {
 			});
 
 		},
+        /**
+         * Bind to all events coming from the client
+         *
+         * @param {Socket} socket
+         * @return {void}
+         */
 		registerClient: function(socket) {
-			//self.clients.push(socket);
 
-			console.log('connect');
-			for(var socketID in self.transport.sockets.connected) {
-				console.log(socketID);
-			}
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			socket.on('sendModelUpdate', function(options) {
 				for(var field in options.model) {
@@ -76,7 +89,7 @@ module.exports = function(options) {
 			// New responder. Anytime a widget changes, notify all other clients
 			socket.on('client:sendModelUpdate', function(options) {
 				var wid = options.wid,
-				changedAttributes = options.changedAttributes;
+					changedAttributes = options.changedAttributes;
 
 				self.updateClients([{wid: wid, changedAttributes: changedAttributes}], this);
 			});
@@ -114,26 +127,66 @@ module.exports = function(options) {
 			});
 
 		},
+        /**
+         * Update all registered clients with a set of changes
+         *
+         * @param {object} changes
+         * @param {Socket} socket
+         * @return {void}
+         */
 		updateClients: function(changes, socket) {
-			this.updateMaster(changes);
-			if(socket) {
-				socket.broadcast.emit('server:clientModelUpdate', changes);
+
+			// Check if there are any changes
+			var i = changes.length-1,
+				changesExist = false;
+
+			// Check if any changes were actually passed to this function
+			while(i >= 0) {
+				if(changes[i] && changes[i].changedAttributes !== false) {
+					changesExist = this.areChangesNew(changes[i]);
+					if(changesExist) {
+						// short circuit the while loop if we found one
+						i = -1;
+					}
+				}
+
+				i--;
+			}
+
+			// If we have a set of changes passed
+			if(changesExist) {
+
+				// Update the master model reference and then update the clients
+				this.updateMaster(changes);
+				if(socket) {
+					socket.broadcast.emit('server:clientModelUpdate', changes);
+				}
+				else {
+					this.transport.emit('server:clientModelUpdate', changes);
+				}
+			}
+		},
+		areChangesNew: function(widgetChanges) {
+			var masterWidget = _.findWhere(this.masterPatch.widgets, {wid: widgetChanges.wid}),
+				changesExist = false;
+
+			if(masterWidget) {
+				var changedAttributes = widgetChanges.changedAttributes;
+
+				for(var attribute in changedAttributes) {
+					// Casting should be fine here since we are dealing with strings converted to numbers, etc. No double equal used for that reason.
+					if(masterWidget[attribute] != changedAttributes[attribute]) {
+						changesExist = true;
+					}
+				}
 			}
 			else {
-				this.transport.emit('server:clientModelUpdate', changes);
+				// if we don't find a master widget, then it is a new widget and therefore changes are new
+				changedExist = true;
 			}
-		},
-		sendUpdate:function(client) {
-		},
-		onReceiveUpdate: function() {
-		},
-		addWidget: function() {
-		},
-		deleteWidget: function() {
-		},
 
-		broadcast: function(message, data) {
-		},
+			return changesExist;
+		}
 	};
 
 	return new MultiClientSync(options);

@@ -46,14 +46,20 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 			// If you would like to register any function to be called at frame rate (60fps)
 			//window.app.timingController.registerFrameCallback(this.processSignalChain, this);
+			
+			// This is here because this widget effectively does not output (only outputs to hardware and then, only on server)
+			// So we go ahead and process so the output can be shown in the widget
+			if(!app.server) {
+				this.model.on('change', this.processSignalChain, this);
+			}
 		},
 
-        /**
-         * Called when widget is rendered
+		/**
+		 * Called when widget is rendered
 		 * Most of your custom binding and functionality will happen here
-         *
-         * @return {void}
-         */
+		 *
+		 * @return {void}
+		 */
         onRender: function() {
 			// always call the superclass
             WidgetView.prototype.onRender.call(this);
