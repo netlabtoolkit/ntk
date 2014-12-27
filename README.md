@@ -1,4 +1,4 @@
-NTK - NETLab Toolkit
+NTK
 =============
 
 NETLab Toolkit JavaScript version
