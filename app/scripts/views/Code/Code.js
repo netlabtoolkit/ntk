@@ -42,6 +42,13 @@ function(Backbone, WidgetView, Template, CodeMirror){
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set('title', 'Code');
 
+			// Re-register the filter function after a change. Filter is interpreted once and converted to a function so it has to be re-evaluated
+			this.model.on('change', function(model) {
+				if(model.changedAttributes().filter) {
+					this.registerFilters();
+				}
+			}, this);
+
 		},
         /**
          * called when widget is rendered
