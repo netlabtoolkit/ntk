@@ -39,7 +39,6 @@ nlWebServer({port: serverPort, device: deviceController})
 		];
 
 		childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {
-			 //post phantom stuff here
 		});
 	});
 

@@ -17,15 +17,14 @@ http://www.joyent.com/blog/installing-node-and-npm
 
 If you are on Raspberry Pi, then you probably have an outdated version of Node. Here's a nice & easy upgrade method: https://github.com/DonaldDerek/rPi-cheat-sheet
 
-You will also need to install command-line tools: bower, grunt, compass, phantomjs if you do not have them already:
+You will also need to install command-line tools: Ruby, bower, phantomjs, SASS, and the require.js build tool if you do not have them already:
 ```
-npm install -g grunt-cli
 npm install -g bower
-npm install -g grunt
 npm install -g phantomjs
+npm install -g requirejs
 
 sudo gem update —system
-sudo gem install compass
+sudo gem install sass
 ```
 
 To install this version of NETLab Toolkit:
@@ -40,11 +39,18 @@ Starting the server
 ---------------------
 To run a live-reload development server after installation run grunt in that directory:
 ```
-grunt
+npm run dev
 ```
-or to run it as a standard application, run:
+
+or to run it as a standard application...
+
+To build the production version (you will need to do this at least once if you haven't at some point):
 ```
-cd server
+npm run build
+```
+
+To start the server:
+```
 npm start
 ```
 
@@ -119,9 +125,5 @@ function(Blank, AnalogIn, AnalogOut, Code, Image, MyWidget){
 ```
 
 This will both add the widget to the lefthand toolbar and allow your widget to be loaded from the GUI.
-
-4) And finally, add your styles.scss to the build system
-
-To add the widget styles.scss file to the build system, add its path to the end of /app/styles/main.scss
 
 That's it!

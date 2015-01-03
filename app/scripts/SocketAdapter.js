@@ -49,10 +49,9 @@ function( Backbone ) {
 				});
 
 
-				//window.app.vent.on('widgetUpdate', function(options){
-					//console.log('send widgetUpdate');
-					//socket.emit('client:sendModelUpdate', options);
-				//});
+				window.app.vent.on('widgetUpdate', function(options){
+					socket.emit('client:sendModelUpdate', options);
+				});
 			}
 			else {
 				window.app.vent.on('sendModelUpdate', function(options) {

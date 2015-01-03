@@ -20,16 +20,19 @@ module.exports = function(options) {
 			next();
 		});
 
-		app.use(express.static( path.join( __dirname, '../../../app') ));
-		app.use(express.static( path.join( __dirname, '../../../.tmp') ));
+		app.use(express.static( path.join( __dirname, '../../dist') ));
+		app.use(express.static( path.join( __dirname, '../../.tmp') ));
 
 		this.server = http.createServer(app);
 
+		app.get('/devTools', function(req, res){
+			res.sendfile( path.join( __dirname, '../../devTools/cssrefresh.js' ) );
+		});
 		app.get('*', function(req, res){
-			res.sendfile( path.join( __dirname, '../app/index.html' ) );
+			res.sendfile( path.join( __dirname, '../../dist/index.html' ) );
 		});
 		app.get('/server', function(req, res){
-			res.sendfile( path.join( __dirname, '../../app/index.html' ) );
+			res.sendfile( path.join( __dirname, '../../dist/index.html' ) );
 		});
 		app.get('/test', function(req, res){
 			console.log(req, res);

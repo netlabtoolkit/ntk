@@ -318,28 +318,28 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			var outputs = this.model.get('outs'),
 				outputsObj = {};
 
-				if(outputs) {
-					for(var i=outputs.length-1; i>=0; i--) {
-						var output = outputs[i];
-						outputsObj[output.to] = this.model.get(output.from);
+			if(outputs) {
+				for(var i=outputs.length-1; i>=0; i--) {
+					var output = outputs[i];
+					outputsObj[output.to] = this.model.get(output.from);
 
-						var outputField = outputsObj[output.to];
-						// Process the input through all signal functions attached to this view's signalChainFunctions array
-						_.each(this.signalChainFunctions, function(func) {
-							func = _.bind(func, this);
-							outputField = func(outputField, this.model.attributes);
-						}, this);
+					var outputField = outputsObj[output.to];
+					// Process the input through all signal functions attached to this view's signalChainFunctions array
+					_.each(this.signalChainFunctions, function(func) {
+						func = _.bind(func, this);
+						outputField = func(outputField, this.model.attributes);
+					}, this);
 
-						outputsObj[output.to] = outputField;
-					}
-
-					for(var processedOutput in outputsObj) {
-						var outputField = outputsObj[processedOutput];
-
-						this.model.set(processedOutput, outputsObj[processedOutput]);
-
-					}
+					outputsObj[output.to] = outputField;
 				}
+
+				for(var processedOutput in outputsObj) {
+					var outputField = outputsObj[processedOutput];
+
+					this.model.set(processedOutput, outputsObj[processedOutput]);
+
+				}
+			}
 		},
 
 

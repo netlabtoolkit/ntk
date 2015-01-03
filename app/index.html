@@ -30,6 +30,9 @@
 		</div>
 		<div id="patcherRegion">
 		</div>
+
+		<!--load the liveRealod code-->
+		<script type="text/javascript" src="/devTools"></script>
 		<script>
 
 			// http://paulirish.com/2011/requestanimationframe-for-smart-animating/
@@ -61,11 +64,11 @@
 					if (!window.cancelAnimationFrame)
 					window.cancelAnimationFrame = function(id) {
 						clearTimeout(id);
-						};
-						}());
-					</script>
+					};
+				}());
+	</script>
 					<!-- build:js scripts/main.js -->
-					<script data-main="scripts/init" src="bower_components/requirejs/require.js"></script>
+					<script data-main="scripts/main" src="bower_components/requirejs/require.js"></script>
 					<!-- endbuild -->
 
         <script>document.write('<script src="http://'

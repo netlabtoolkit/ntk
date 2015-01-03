@@ -203,7 +203,9 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 				// If we find the model in our collection to update, set its attributes with the changes
 				var modelToUpdate = this.widgetModels.where({wid: wid});
 				if(modelToUpdate.length) {
-					modelToUpdate[0].set(changedAttributes, {updateNoTrigger: true});
+					var trigger = true;
+					if(window.app.server) { trigger = false;}
+					modelToUpdate[0].set(changedAttributes, {updateNoTrigger: trigger});
 				}
 			}
 
