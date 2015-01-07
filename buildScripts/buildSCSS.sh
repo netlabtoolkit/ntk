@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Make sure that the for loop separates on line breaks from "find" rather than spaces (default)
+SAVEIFS=$IFS
+IFS=$(echo -en "\n\b")
+
 # Build main SCSS files first which include @imports for the other scss files
 sass ./app/styles/main.scss ./server/dist/styles/main.css
 
