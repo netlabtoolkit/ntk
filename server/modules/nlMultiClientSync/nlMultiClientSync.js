@@ -22,12 +22,12 @@ module.exports = function(options) {
 			this.masterPatch = patch;
 			//this.broadcast('loadPatchFromServer', patch);
 		},
-        /**
-         * Add any changes to the master model reference (with no events emitted from this function)
-         *
-         * @param {object} changes
-         * @return {void}
-         */
+		/**
+		 * Add any changes to the master model reference (with no events emitted from this function)
+		 *
+		 * @param {object} changes
+		 * @return {void}
+		 */
 		updateMaster: function(changes) {
 			for(var i=changes.length-1; i >=0; i--) {
 				var currentModel = changes[i];

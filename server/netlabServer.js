@@ -1,9 +1,9 @@
 'use strict';
 
 // stop gap to handle when no board is plugged in. Will switch to domain when we setup a proper server
-process.on('uncaughtException', function(err) {
-	  console.log('Caught exception on MAIN THREAD: ' + err);
-});
+//process.on('uncaughtException', function(err) {
+	  //console.log('Caught exception on MAIN THREAD: ' + err);
+//});
 /////////////////////////////////
 
 // Create a hardware device
@@ -19,6 +19,7 @@ var deviceController = new nlHardware({deviceType: deviceType});
 
 // Create a WEB SERVER then create a transport tied to the webserver
 var nlWebServer = new require('./modules/nlWebServer/nlWebServer');
+
 
 nlWebServer({port: serverPort, device: deviceController})
 	.start()
@@ -37,6 +38,17 @@ nlWebServer({port: serverPort, device: deviceController})
 		var childArgs = [
 			  path.join(__dirname, 'phantomjs/loadClient.js')
 		];
+
+		// A helper function to shut down the child.
+		childProcess.shutdown = function () {
+			// Get rid of the exit listener since this is a planned exit.
+			this.removeListener("exit", this.onUnexpectedExit);
+			this.kill("SIGTERM");
+		};
+
+		process.once("exit", function () {
+			//childProcess.shutdown();
+		});
 
 		childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {
 		});
