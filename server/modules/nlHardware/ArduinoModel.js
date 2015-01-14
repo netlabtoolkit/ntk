@@ -24,6 +24,9 @@ module.exports = function(attributes) {
 			return this;
 		},
 		addDefaultPins: function addDefaultPins() {
+			// Store all pin mode mappings (string -> integer)
+			this.PINMODES = this.board.io.MODES;
+
 			var pollFreq = 100;
 
 			// Instantiate each sensor listed on the model to the sensors array
@@ -60,7 +63,7 @@ module.exports = function(attributes) {
 			for(var output in this.outputs) {
 				(function() {
 					// hack for right now to hard code pin <3 as pwm, pin 9 as servo
-					pin = parseInt(output.substr(1),10);
+					var pin = parseInt(output.substr(1),10);
 					var outputPin;
 
 					if (pin < 9) {
@@ -98,13 +101,31 @@ module.exports = function(attributes) {
 			return this;
 		},
 		setHardwarePin: function(field, value) {
-			if(this.outputs[field] !== undefined) {
-				var pin = parseInt(field.substr(1),10);
-				if (pin < 9) {
+			var outputField = this.outputs[field];
+			if(outputField !== undefined) {
+				var pinMode = outputField.pin.mode;
+
+				// Check which pinmode is set on the pin to detemine which method to call
+				if (pinMode === this.PINMODES.PWM) {
 					this.outputs[field].pin.brightness(value);
-				} else {
+				} else if(pinMode === this.PINMODES.SERVO) {
 					this.outputs[field].pin.to(value);
 				}
+
+				// For reference:
+				//MODES:
+				//{ INPUT: 0,
+				//OUTPUT: 1,
+				//ANALOG: 2,
+				//PWM: 3,
+				//SERVO: 4,
+				//SHIFT: 5,
+				//I2C: 6,
+				//ONEWIRE: 7,
+				//STEPPER: 8,
+				//IGNORE: 127,
+				//UNKOWN: 16 },
+
 			}
 		},
 	};
