@@ -1,6 +1,11 @@
 
 module.exports = function(options) {
 	//var domain = require('domain').create();
+
+	//domain.on('error', function(error) {
+		//console.log('domain ERROR!!!', error);
+	//});
+
 	//domain.run(function() {
 
 		var deviceType = options.deviceType || 'arduino';
@@ -19,9 +24,6 @@ module.exports = function(options) {
 		};
 	//});
 
-	//domain.on('error', function(error) {
-		//console.log('domain ERROR!!!', error);
-	//});
 
 	return Hardware;
 }

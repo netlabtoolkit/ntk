@@ -86,6 +86,17 @@ module.exports = function(options) {
 					}
 				}
 			});
+
+			// Allow the front-end to switch IO modes on the device
+			socket.on('client:changeIOMode', function(options) {
+				var options = JSON.parse(options);
+
+				if(options.port && options.mode) {
+					self.model.setIOMode(options.port, options.mode);
+				}
+
+			});
+			
 			// New responder. Anytime a widget changes, notify all other clients
 			socket.on('client:sendModelUpdate', function(options) {
 				var wid = options.wid,

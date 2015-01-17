@@ -29,7 +29,6 @@ nlWebServer({port: serverPort, device: deviceController})
 		// Passing the deviceController model to the clientSync before having the server specific version
 		var clientSync = require('./modules/nlMultiClientSync/nlMultiClientSync')({transport: io, model: deviceController.model});
 
-		// TEMP DISABLE UNTIL MULTISYNC IS IN PLACE
 		var path = require('path'),
 			childProcess = require('child_process'),
 			phantomjs = require('phantomjs'),

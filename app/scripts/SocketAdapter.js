@@ -69,6 +69,9 @@ function( Backbone ) {
 				window.app.vent.on('updateModelMappings', function(mappings) {
 					socket.emit('client:updateModelMappings', JSON.stringify( mappings ));
 				});
+				window.app.vent.on('Widget:hardwareSwitch', function(portAndMode) {
+					socket.emit('client:changeIOMode', JSON.stringify( portAndMode ));
+				});
 			}
 
 			window.app.vent.on('savePatchToServer', function(options) {

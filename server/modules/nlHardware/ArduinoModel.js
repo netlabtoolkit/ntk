@@ -34,9 +34,8 @@ module.exports = function(attributes) {
 
 				(function() {
 					if(!parseInt(input, 10)) {
-						var sensor = new five.Sensor({
+						var sensor = five.Sensor({
 							pin: input,
-							//freq: 25,
 							freq: pollFreq,
 						});
 
@@ -127,6 +126,46 @@ module.exports = function(attributes) {
 				//UNKOWN: 16 },
 
 			}
+		},
+		setIOMode: function setPinMode(pin, mode) {
+			// Always immediately set an input to a Sensor. If it is already a sensor, then we are resetting it
+			if(mode === 'INPUT') {
+				delete this.outputs[pin].pin;
+				var sensor = five.Sensor({
+					pin: input,
+					//freq: 25,
+					freq: pollFreq,
+				});
+
+				this.inputs[pin].pin = sensor;
+			}
+			else if(mode === 'OUTPUT') {
+			}
+			else if(mode === 'ANALOG') {
+			}
+			else if(mode === 'PWM') {
+				var hardwarePin = parseInt(pin.substr(1),10);
+
+				var outputPin = five.Led(hardwarePin);
+				this.outputs[pin].pin = outputPin;
+			}
+			else if(mode === 'SERVO') {
+				var hardwarePin = parseInt(pin.substr(1),10);
+
+				var outputPin = five.Servo({
+					pin: hardwarePin,
+					range: [0,180],
+				});
+
+				this.outputs[pin].pin = outputPin;
+			}
+			else if(mode === 'STEPPER') {
+			}
+			else if(mode === 'I2C') {
+			}
+
+			//SHIFT: 5,
+			//ONEWIRE: 7,
 		},
 	};
 	_.extend(this, johnnyFiveHardwareModel);
