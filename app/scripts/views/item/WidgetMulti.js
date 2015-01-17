@@ -45,6 +45,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				this.model.on('change', this.processSignalChain, this);
 			}
 			this.model.on('change', this.onModelChange, this);
+			this.model.on('change', this.checkOutputMappingUpdate, this);
 
 			this.setWidgetBinders();
 		},
@@ -70,6 +71,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 		},
 		onModelChange: function(model) {
+		},
+		checkOutputMappingUpdate: function checkOutputMappingUpdate(model) {
+			var outputMapping = model.changedAttributes().outputMapping;
+
+			if(outputMapping) {
+				window.app.vent.trigger('Widget:hardwareSwitch', {port: outputMapping, mode: this.deviceMode} );
+			}
 		},
 		makeDraggable: function() {
 			var self = this;
@@ -297,6 +305,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 						model.set(attributes, {fromServer:false});
 					}
+
 
 				}
 			}

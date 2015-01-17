@@ -22,12 +22,12 @@ module.exports = function(options) {
 			this.masterPatch = patch;
 			//this.broadcast('loadPatchFromServer', patch);
 		},
-        /**
-         * Add any changes to the master model reference (with no events emitted from this function)
-         *
-         * @param {object} changes
-         * @return {void}
-         */
+		/**
+		 * Add any changes to the master model reference (with no events emitted from this function)
+		 *
+		 * @param {object} changes
+		 * @return {void}
+		 */
 		updateMaster: function(changes) {
 			for(var i=changes.length-1; i >=0; i--) {
 				var currentModel = changes[i];
@@ -86,6 +86,17 @@ module.exports = function(options) {
 					}
 				}
 			});
+
+			// Allow the front-end to switch IO modes on the device
+			socket.on('client:changeIOMode', function(options) {
+				var options = JSON.parse(options);
+
+				if(options.port && options.mode) {
+					self.model.setIOMode(options.port, options.mode);
+				}
+
+			});
+			
 			// New responder. Anytime a widget changes, notify all other clients
 			socket.on('client:sendModelUpdate', function(options) {
 				var wid = options.wid,
