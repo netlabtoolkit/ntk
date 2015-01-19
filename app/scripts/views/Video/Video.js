@@ -22,7 +22,8 @@ function(Backbone, rivets, WidgetView, Template){
 			WidgetView.prototype.initialize.call(this, options);
 
 			this.model.set({
-				src: 'assets/video/ball.mp4',
+				srcmp4: 'assets/video/ball.mp4',
+                srcogg: 'assets/video/ball.ogv',
 				ins: [
 					{title: 'Play', to: 'play'},
 /*					{title: 'Volume', to: 'volume'},*/
