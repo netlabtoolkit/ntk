@@ -37,24 +37,24 @@ module.exports = function(options) {
 				}
 			}
 		},
-        /**
-         * Binds a hardware model to the front-end
+		/**
+		 * Binds a hardware model to the front-end
 		 * Listends to the model 'change' event and brodcasts that change to all clients
-         *
-         * @param model
-         * @return {void}
-         */
+		 *
+		 * @param model
+		 * @return {void}
+		 */
 		bindModelToTransport: function(model) {
 			// Listen for changes made on the hardware to update the front-end
 			model.on('change', function(options) {
 				self.transport.emit('receivedModelUpdate', {modelType: model.type, field: options.field, value: options.value});
 			});
 		},
-        /**
-         * Loads a patch from a file and sets the patch as our master model reference
-         *
-         * @return {void}
-         */
+		/**
+		 * Loads a patch from a file and sets the patch as our master model reference
+		 *
+		 * @return {void}
+		 */
 		loadPatchFromServer: function() {
 			var patchFileName = __dirname + '/currentPatch.json';
 
@@ -70,12 +70,12 @@ module.exports = function(options) {
 			});
 
 		},
-        /**
-         * Bind to all events coming from the client
-         *
-         * @param {Socket} socket
-         * @return {void}
-         */
+		/**
+		 * Bind to all events coming from the client
+		 *
+		 * @param {Socket} socket
+		 * @return {void}
+		 */
 		registerClient: function(socket) {
 
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
@@ -138,13 +138,13 @@ module.exports = function(options) {
 			});
 
 		},
-        /**
-         * Update all registered clients with a set of changes
-         *
-         * @param {object} changes
-         * @param {Socket} socket
-         * @return {void}
-         */
+		/**
+		 * Update all registered clients with a set of changes
+		 *
+		 * @param {object} changes
+		 * @param {Socket} socket
+		 * @return {void}
+		 */
 		updateClients: function(changes, socket) {
 
 			// Check if there are any changes
