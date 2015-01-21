@@ -34,16 +34,16 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		initialize: function(options) {
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
-            
-            this.model.set({
+
+			this.model.set({
 				title: 'AnalogIn',
-                easing: false,
-                easingAmount: 30,
-                smoothingAmount: 60
-                
+				easing: false,
+				easingAmount: 30,
+				smoothingAmount: 60
+
 			});
-            
-            this.easingLast = 0;
+
+			this.easingLast = 0;
 
 			this.signalChainFunctions.push(SignalChainFunctions.scale);
 			this.signalChainFunctions.push(SignalChainFunctions.invert);

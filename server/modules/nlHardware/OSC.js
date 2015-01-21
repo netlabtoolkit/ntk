@@ -20,6 +20,8 @@ module.exports = function(attributes) {
 				var field = msg[0],
 					value = msg[1];
 
+				console.log('message!', msg, self.receiving, self.receiving[field]);
+
 				self.set(field, value);
 			});
 
@@ -39,10 +41,10 @@ module.exports = function(attributes) {
 				}
 			}
 			else if(this.receiving[field] !== undefined) {
+				console.log('received', field, value, parseInt(this.receiving[field], 10), parseInt( value, 10) );
 				if(parseInt(this.receiving[field], 10) !== parseInt( value, 10 )) {
 					this.receiving[field] = value;
 					this.emit('change', {field: field, value: this.receiving[field]});
-					console.log('received', field, value);
 				}
 			}
 			return this;
@@ -54,10 +56,10 @@ module.exports = function(attributes) {
 	_.extend(this, {
 		type: 'OSC',
 		receiving: {
-			'/receiveMsg': 0,
+			'ntkReceiveMsg': 0,
 		},
 		sending: {
-			'/sendMsg': 0,
+			'ntkSendMsg': 0,
 		},
 	});
 

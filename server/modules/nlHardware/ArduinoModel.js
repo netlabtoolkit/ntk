@@ -43,7 +43,7 @@ module.exports = function(attributes) {
 						self.inputs[input].pin = sensor;
 
 						//board.repl.inject({
-						//sensor: sensor
+							//sensor: sensor
 						//});
 
 						sensor.scale([0, 1023]).on("data", function() {
@@ -93,8 +93,8 @@ module.exports = function(attributes) {
 			}
 			else if(this.inputs[field] != undefined) {
 				if(parseInt(this.inputs[field], 10) !== parseInt( value, 10 )) {
-					this.inputs[field] = value;
-					this.emit('change', {field: field, value: this.inputs[field]});
+					this.inputs[field].value = value;
+					this.emit('change', {field: field, value: this.inputs[field].value});
 				}
 			}
 			return this;

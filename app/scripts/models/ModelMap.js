@@ -1,10 +1,12 @@
 define([
 	'models/ArduinoUno',
+	'models/OSC',
 ],
-function( ArduinoUnoModel ) {
+function( ArduinoUnoModel, OSCModel ) {
     'use strict';
 
 	return {
 		ArduinoUno: ArduinoUnoModel,
+		OSC: OSCModel,
 	};
 });

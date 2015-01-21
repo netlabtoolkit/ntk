@@ -16,9 +16,10 @@ define([
 	'views/Code/Code',
 	'views/Blank/Blank',
     'views/Servo/Servo',
+    'views/OSCIn/OSCIn',
     'views/Splitter/Splitter',
 ],
-function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, AnalogInView, AnalogOutView, ImageView, CodeView, BlankView, ServoView,SplitterView){
+function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, AnalogInView, AnalogOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, SplitterView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -143,6 +144,23 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 						view: newWidget,
 						IOMapping: {sourceField: "out", destinationField: 'D9'},
 						modelType: 'ArduinoUno',
+						server: serverAddress,
+					}, addedFromLoader);
+
+					return newWidget;
+                }
+                else if(widgetType === 'OSCIn') {
+					var newWidget = new OSCInView({
+						model: newModel,
+						outputMapping: 'D9',
+					});
+
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
+					this.mapToModel({
+						view: newWidget,
+						IOMapping: {sourceField: "ntkReceiveMsg", destinationField: 'in'},
+						modelType: 'OSC',
 						server: serverAddress,
 					}, addedFromLoader);
 
