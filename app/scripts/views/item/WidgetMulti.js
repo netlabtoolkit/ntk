@@ -132,11 +132,11 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			});
 
 		},
-        /**
-         * attach custom rivets binders for Widget views
-         *
-         * @return
-         */
+		/**
+		 * attach custom rivets binders for Widget views
+		 *
+		 * @return
+		 */
 		setWidgetBinders: function() {
 			var self = this;
 			// TODO: Pull out so this is not redefined everytime you create a widget
@@ -224,14 +224,14 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			$(e.target).addClass('connected');
 		},
-        /**
-         * Remove mapping objects and stop listening to the field. Also remove the cable associated with the inlet
-         *
-         * @param {Event} e
-         * @param {DOM element} ui
-         * @param {DOM element} draggable
-         * @return {void}
-         */
+		/**
+		 * Remove mapping objects and stop listening to the field. Also remove the cable associated with the inlet
+		 *
+		 * @param {Event} e
+		 * @param {DOM element} ui
+		 * @param {DOM element} draggable
+		 * @return {void}
+		 */
 		unMapInlet: function(e, ui, draggable) {
 			var inletField = draggable.dataset.field;
 
@@ -245,22 +245,22 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.cables = _.reject(this.cables, function(item) { return item.map.destinationField === inletField});
 
 		},
-        /**
-         * add a patch cable to this widget so we can update and track it
-         *
-         * @param {Cable} cable
-         * @param {Backbone.Model} fromModel the model that the cable is attached to on the other side
-         * @return {WidgetView} this view
-         */
+		/**
+		 * add a patch cable to this widget so we can update and track it
+		 *
+		 * @param {Cable} cable
+		 * @param {Backbone.Model} fromModel the model that the cable is attached to on the other side
+		 * @return {WidgetView} this view
+		 */
 		addCable: function(cable, fromModel, inletOffsets, mapping) {
 			//this.cables.push({ model: fromModel, cable: cable, offsets: inletOffsets });
 			this.cables.push({ map: mapping, model: fromModel, cable: cable, offsets: inletOffsets });
 		},
-        /**
-         * remove the widget from both the DOM and the controller
-         *
-         * @return {void}
-         */
+		/**
+		 * remove the widget from both the DOM and the controller
+		 *
+		 * @return {void}
+		 */
 		removeWidget: function(e, calledFromLoader) {
 			app.Patcher.Controller.removeWidget(this, calledFromLoader);
 			for(var i=this.cables.length-1; i>=0; i--) {
@@ -274,12 +274,12 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		},
 		destinationModels: [],
 		onSync: function() {},
-        /**
-         * Takes the attributes from the sourceModel and maps them onto the selected attributes of the Widget's model
-         *
-         * @param model
-         * @return
-         */
+		/**
+		 * Takes the attributes from the sourceModel and maps them onto the selected attributes of the Widget's model
+		 *
+		 * @param model
+		 * @return
+		 */
 		addInputMap: function(map) {
 			this.sources.push(map);
 
@@ -352,13 +352,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		},
 
 
-        /**
-         * Set the attributes of a model based on a passed model
+		/**
+		 * Set the attributes of a model based on a passed model
 		 * (usually from something like a patch loader or something)
-         *
-         * @param {object} model
-         * @return {WidgetMulti} this view
-         */
+		 *
+		 * @param {object} model
+		 * @return {WidgetMulti} this view
+		 */
 		setFromModel: function(model) {
 			this.$el.css({top: model.offsetTop, left: model.offsetLeft});
 			this.model.set(model);

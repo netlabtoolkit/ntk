@@ -16,7 +16,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			'click .invert': 'toggleInvert',
 			'click .smoothing': 'toggleSmoothing',
             'click .easing': 'toggleEasing',
-            'change #smoothingAmount': 'smoothingAmtChange',
+            'change .smoothingAmount': 'smoothingAmtChange',
 		},
 		ins: [
 			//{
@@ -56,7 +56,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 			// Register the signal chain to be updated at frame rate
 			window.app.timingController.registerFrameCallback(this.processSignalChain, this);
-            
+
             // If you would like to register any function to be called at frame rate (60fps)
 			window.app.timingController.registerFrameCallback(this.timeKeeper, this);
 		},
@@ -113,38 +113,38 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			this.smoother.toggleActive();
 			this.model.set('smoothing', this.smoother.active);
 		},
-        
+
         toggleEasing: function(e) {
 			e.preventDefault();
 			e.stopPropagation();
 			this.model.set('easing', !this.model.get('easing'));
 		},
-        
-        easing: function(input) {
-            this.easingNew = input;
-            if (this.model.get('easing')) {
-                return this.easingLast;
-            } else {
-                return input;
-            }
-        },
-        
-        easeOutExpo: function(t, b, c, d) {
-            return c * (-Math.pow(2, -10 * t/d) + 1) + b;
-        },
-        
-        timeKeeper: function(frameCount) {
-            if (this.model.get('easing')) {
-                this.easingLast = this.easeOutExpo (0.17,this.easingLast,(this.easingNew - this.easingLast), this.model.get('easingAmount'));
-                if (Math.abs(this.easingLast - this.easingNew) < 0.4) this.easingLast = this.easingNew;
-            } else {
-                this.easingLast = this.easingNew;
-            }  
-        },
-        
-        smoothingAmtChange: function(e) {
-            this.smoother.setBufferLength(this.model.get('smoothingAmount'));
-        },
+
+		easing: function(input) {
+			this.easingNew = input;
+			if (this.model.get('easing')) {
+				return this.easingLast;
+			} else {
+				return input;
+			}
+		},
+
+		easeOutExpo: function(t, b, c, d) {
+			return c * (-Math.pow(2, -10 * t/d) + 1) + b;
+		},
+
+		timeKeeper: function(frameCount) {
+			if (this.model.get('easing')) {
+				this.easingLast = this.easeOutExpo (0.17,this.easingLast,(this.easingNew - this.easingLast), this.model.get('easingAmount'));
+				if (Math.abs(this.easingLast - this.easingNew) < 0.4) this.easingLast = this.easingNew;
+			} else {
+				this.easingLast = this.easingNew;
+			}  
+		},
+
+		smoothingAmtChange: function(e) {
+			this.smoother.setBufferLength(this.model.get('smoothingAmount'));
+		},
 
 	});
 });
