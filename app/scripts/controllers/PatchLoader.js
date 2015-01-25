@@ -11,19 +11,24 @@ function(app){
 
 	PatchLoader.prototype = {
 		save: function(collection, mappings) {
-			var saveWindow = window.open(),
-				saveConfig = {
-					widgets: collection,
-					mappings: mappings,
-				}
+			//var saveWindow = window.open(),
+				//saveConfig = {
+					//widgets: collection,
+					//mappings: mappings,
+				//}
 
-			saveWindow.document.write(JSON.stringify(saveConfig));
+			//saveWindow.document.write(JSON.stringify(saveConfig));
 		},
-		loadJSON: function(JSONString) {
+		loadJSON: function(JSONString, save) {
 			var loadConfig = JSON.parse(JSONString);
+
 			var widgets = loadConfig.widgets,
 				mappings = loadConfig.mappings,
 				widgetViews = [];
+
+			if(save) {
+				window.app.vent.trigger('savePatchToServer', {collection: widgets, mappings: mappings});
+			}
 
 			for(var i=widgets.length-1; i>=0; i--) {
 				var newWidget = this.addFunction(widgets[i].typeID, true);
@@ -48,6 +53,7 @@ function(app){
 					}, true);
 				}
 			}
+
 		},
 
 	};

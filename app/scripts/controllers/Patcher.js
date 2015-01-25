@@ -363,14 +363,15 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 		},
 
 
-		loadPatch: function(JSONString) {
+		loadPatch: function(JSONString, save) {
 			for(var i=this.widgets.length-1; i>=0; i--) {
 				// (event, calledFromLoader)
 				this.widgets[i].removeWidget(null, true);
 			}
 
+			this.widgetMappings.length = 0;
 			this.widgets.length = 0;
-			this.patchLoader.loadJSON(JSONString);
+			this.patchLoader.loadJSON(JSONString, save);
 		},
 		savePatch: function() {
 			this.patchLoader.save(this.widgetModels, this.widgetMappings);

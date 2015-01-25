@@ -20,7 +20,8 @@ module.exports = function(options) {
 		clients: [],
 		setMaster: function(patch) {
 			this.masterPatch = patch;
-			//this.broadcast('loadPatchFromServer', patch);
+			//self.transport.emit('loadPatchFromServer', patch);
+			self.transport.sockets.emit('loadPatchFromServer', patch);
 		},
 		/**
 		 * Add any changes to the master model reference (with no events emitted from this function)
@@ -56,7 +57,7 @@ module.exports = function(options) {
 		 * @return {void}
 		 */
 		loadPatchFromServer: function() {
-			var patchFileName = __dirname + '/currentPatch.json';
+			var patchFileName = __dirname + '/currentPatch.nlp';
 
 			// Read the currently stored patch file and push it to the client
 			fs.readFile(patchFileName, 'utf8', function (err, data) {
@@ -122,21 +123,23 @@ module.exports = function(options) {
 			});
 
 			socket.on('saveCurrentPatch', function(options) {
-				//var patch = JSON.stringify(options.patch);
-				var patch = options.patch;
-				var patchFileName = __dirname + '/currentPatch.json';
-
-				fs.writeFile(patchFileName, patch, function(err) {
-					if(err) {
-						console.log(err);
-					}
-					else {
-						self.transport.emit('loadPatchFromServer', patch);
-						console.log('file saved');
-					}
-				});
+				self.loadPatch(options);
 			});
 
+		},
+		loadPatch: function(options) {
+			var patch = options.patch;
+			var patchFileName = __dirname + '/currentPatch.nlp';
+
+			fs.writeFile(patchFileName, patch, function(err) {
+				if(err) {
+					console.log(err);
+				}
+				else {
+					self.setMaster(JSON.parse(patch));
+					console.log('file saved');
+				}
+			});
 		},
 		/**
 		 * Update all registered clients with a set of changes

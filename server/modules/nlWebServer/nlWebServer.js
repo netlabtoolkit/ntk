@@ -1,18 +1,26 @@
 module.exports = function(options) {
 
 	//var domain = require('domain');
-	var port = options.port || '9001',
-		device = options.device;
 
 
 	var express = require('express');
+		_ = require('underscore'),
 		http = require('http'),
-		path = require('path');
+		path = require('path'),
+		fs = require('fs'),
+		events = require('events'),
+		formidable = require('formidable');
 
-		app = express();
+	app = express();
 
-	var WebServer = function() {
+	events.EventEmitter.call(this);
+	_.extend(this, events.EventEmitter.prototype);
+
+		var port = options.port || '9001',
+			device = options.device;
 		this.port = port;
+
+
 
 		//// simple log
 		app.use(function(req, res, next){
@@ -20,10 +28,40 @@ module.exports = function(options) {
 			next();
 		});
 
+
 		app.use(express.static( path.join( __dirname, '../../dist') ));
 		app.use(express.static( path.join( __dirname, '../../.tmp') ));
 
 		this.server = http.createServer(app);
+
+		app.get('/patch.nlp', function(req, res){
+			res.sendfile( path.join( __dirname, '../nlMultiClientSync/currentPatch.nlp' ) );
+		});
+
+		var self = this;
+
+		// Receive a file from the client and load it as a patch
+		app.post('/loadPatch', function(req, res, next) {
+
+			var form = new formidable.IncomingForm();
+
+			form.parse(req, function(err, fields, files) {
+				res.writeHead(200, {'content-type': 'text/plain'});
+				res.write('received upload\n\n');
+
+				fs.readFile(files.patch.path, 'utf8', function (err, data) {
+
+					if (err) {
+						console.log('Error: ' + err);
+						return;
+					}
+
+					var loadedPatch = data;
+					self.emit('loadPatch', { patch: loadedPatch });
+				});
+			res.end();
+			});
+		});
 
 		app.get('/devTools', function(req, res){
 			res.sendfile( path.join( __dirname, '../../devTools/cssrefresh.js' ) );
@@ -37,9 +75,9 @@ module.exports = function(options) {
 		app.get('/test', function(req, res){
 			console.log(req, res);
 		});
-	};
+		
 
-	WebServer.prototype = {
+	WebServer = {
 		/**
 		 * start the server listening and return a Promise
 		 *
@@ -59,5 +97,7 @@ module.exports = function(options) {
 		},
 	}
 
-	return new WebServer();
+
+	_.extend(this, WebServer);
+	return this;
 };

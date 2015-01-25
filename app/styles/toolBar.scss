@@ -17,6 +17,7 @@
 	font-size: 12px;
 
 	.addWidget,
+	.downloadPatch,
 	.loadPatch, .savePatch, .hideWidgets, .fullScreen {
 		float: left;
 		width: 100%;
@@ -30,7 +31,7 @@
 		cursor: pointer;
 	}
 
-	.loadPatch, .savePatch, .hideWidgets, .fullScreen {
+	.loadPatch, .savePatch, .downloadPatch, .hideWidgets, .fullScreen {
 		background-color: #999;
 		color: #555;
 		border: 1px solid #555;

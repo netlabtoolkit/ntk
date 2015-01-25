@@ -4,12 +4,13 @@
   "dependencies": {
     "es6-shim": "^0.22.2",
     "express": "~4.4.5",
+    "formidable": "^1.0.16",
+    "johnny-five": "~0.7.49",
+    "node-osc": "^0.3.0",
+    "phantomjs": "^1.9.13",
     "request": "~2.21.0",
     "socket.io": "~1.0.0",
-    "underscore": "~1.4.4",
-	"johnny-five": "~0.7.49",
-	"node-osc": "^0.3.0",
-    "phantomjs": "^1.9.13"
+    "underscore": "~1.4.4"
   },
   "devDependencies": {
     "matchdep": "~0.1.2",
@@ -23,8 +24,7 @@
     "start": "node server/netlabServer.js",
     "build": "npm run clean && npm run optimizeRequire && npm run compileSCSS",
     "dev": "npm run clean && npm run copyAppToDist && npm run compileSCSS && node ./buildScripts/liveReload.js & open http://localhost:9001 & npm start",
-
-	"copyAppToDist": "cp -r ./app/* ./server/dist",
+    "copyAppToDist": "cp -r ./app/* ./server/dist",
     "clean": "./buildScripts/clean.sh",
     "optimizeRequire": "./buildScripts/optimizeRequire.sh",
     "compileSCSS": "./buildScripts/buildSCSS.sh"

@@ -7,10 +7,13 @@ define([
 function( app, Backbone, Template, Widgets ) {
     'use strict';
 
+	var self;
+
 	return Backbone.View.extend({
 		events: {
 			'click .savePatch': 'savePatch',
-			'click .loadPatch': 'loadPatch',
+			'click .downloadPatch': 'downloadPatch',
+			'click .loadPatch': 'showUploadFileDialog',
             'click .hideWidgets': 'hideWidgets',
             'click .fullScreen': 'fullScreen',
 		},
@@ -20,6 +23,7 @@ function( app, Backbone, Template, Widgets ) {
         widgetsVisible: true,
 
 		render: function() {
+			self = this;
 			this.el.innerHTML = this.template();
 
 			for(var widgetName in Widgets) {
@@ -31,15 +35,49 @@ function( app, Backbone, Template, Widgets ) {
 					.on('click', function(e) {
 						window.app.vent.trigger('ToolBar:addWidget', $(this).data('widgetType'));
 					});
+
 				this.$el.append(widgetEl);
 			}
+
+			var fileInput = this.$('#patchFileUpload')[0];
+			fileInput.addEventListener("change", this.loadPatch);
 		},
-		loadPatch: function() {
-			var JSONString = prompt('Paste your JSON here');
-			window.app.vent.trigger('ToolBar:loadPatch', JSONString);
+		showUploadFileDialog: function() {
+			this.$('#patchFileUpload').click();
+		},
+		loadPatch: function(e) {
+			//var JSONString = prompt('Paste your JSON here');
+			//window.app.vent.trigger('ToolBar:loadPatch', JSONString, true);
+			
+			var fileInput = document.getElementById('patchFileUpload');
+			var formData = new FormData();
+			if(fileInput.files.length > 0) {
+				formData.append("patch", fileInput.files[0]);
+			}
+
+			$.ajax({
+				url: "/loadPatch",
+				type: "POST",
+				data: formData,
+				processData: false,
+				contentType: false,
+				success: function (res) {
+					console.log('patch uploaded');
+				}
+			});
+
+			// Reset the form so you can re-upload the same file
+			$('.inputForm').empty();
+			$('.inputForm').append('<input type="file" name="images" id="patchFileUpload" style="display:none" />');
+			var fileInput = $('#patchFileUpload')[0];
+			fileInput.addEventListener("change", self.loadPatch);
 		},
 		savePatch: function() {
 			window.app.vent.trigger('ToolBar:savePatch');
+		},
+		downloadPatch: function() {
+			window.app.vent.trigger('ToolBar:savePatch');
+			window.location.href = "/patch.nlp";
 		},
         hideWidgets: function() {
             this.widgetsVisible = !this.widgetsVisible;
