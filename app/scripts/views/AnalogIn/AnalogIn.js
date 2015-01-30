@@ -123,6 +123,9 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		easing: function(input) {
 			this.easingNew = input;
 			if (this.model.get('easing')) {
+				if (isNaN(this.easingLast)) {
+					this.easingLast = this.easingNew;
+				}
 				return this.easingLast;
 			} else {
 				return input;
@@ -137,9 +140,12 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			if (this.model.get('easing')) {
 				this.easingLast = this.easeOutExpo (0.17,this.easingLast,(this.easingNew - this.easingLast), this.model.get('easingAmount'));
 				if (Math.abs(this.easingLast - this.easingNew) < 0.4) this.easingLast = this.easingNew;
+				if (isNaN(this.easingLast)) {
+					this.easingLast = this.easingNew;
+				}
 			} else {
 				this.easingLast = this.easingNew;
-			}  
+			}
 		},
 
 		smoothingAmtChange: function(e) {
