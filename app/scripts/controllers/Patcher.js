@@ -91,12 +91,15 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 
 
 			window.app.vent.on('updateWidgetModelFromServer', this.updateWidgetModelFromServer, this);
+			window.app.vent.on('updateWidgetMappingFromServer', this.updateWidgetMappingFromServer, this);
 		},
-		onExternalAddWidget: function(widgetType, addedFromLoader) {
+		onExternalAddWidget: function(widgetType, addedFromLoader, wid) {
 			var newWidget,
 				serverAddress = window.location.host;
 
 			var newModel = new WidgetModel();
+
+
 			this.widgetModels.add(newModel);
 
 			if(widgetType) {
@@ -108,12 +111,17 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 						inputMapping: 'A0',
 					});
 
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
 					this.mapToModel({
 						view: newWidget,
 						modelType: 'ArduinoUno',
 						IOMapping: {sourceField: "A0", destinationField: 'in'},
 						server: serverAddress,
 					}, addedFromLoader);
+
+
+					return newWidget;
 				}
 				else if(widgetType === 'AnalogOut') {
 					var newWidget = new AnalogOutView({
@@ -209,6 +217,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
          */
 		updateWidgetModelFromServer: function(changedWidgets) {
 			var wid, changedAttributes;
+
 			for(var i=changedWidgets.length-1; i >= 0; i--) {
 
 				var widget = changedWidgets[i];
@@ -234,6 +243,20 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 					window.app.vent.trigger('widgetUpdate', {wid: model.get('wid'), changedAttributes: model.changedAttributes()});
 				}
 			});
+		},
+		updateWidgetMappingFromServer: function updateWidgetMappingFromServer(mapping) {
+			var widgetView = _.find(this.widgets, function(view) {
+				//return view.model.cid == mapping.viewWID;
+				//return view.model.cid == mapping.modelWID;
+				return view.model.get('wid') == mapping.modelWID;
+			});
+
+			if(widgetView) {
+				var sourceMap = widgetView.sources[0];
+
+				sourceMap.map.destinationField = mapping.map.destinationField;
+				sourceMap.map.sourceField = mapping.map.sourceField;
+			}
 		},
         /**
          * remove a widget from the array of widgets that we are tracking
@@ -266,35 +289,27 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 				server = options.server,
 				inletOffsets = options.inletOffsets;
 
+			// If we have a view, grab its wid
+			if(view) {
+				viewWID = view.model.get('wid');
+			}
+
 			if(model) {
 				var mappingObject = {
 					model: model,
 					map: IOMapping,
 				};
 
-				// Create a new patch cable between the source widget and this widget's inlet
-				var cable = window.app.cableManager.createConnection({
-					from: {x: model.get('offsetLeft') + inletOffsets.source.x, y: model.get('offsetTop') + inletOffsets.source.y},
-					to: {x: view.model.get('offsetLeft') + inletOffsets.destination.x, y: view.model.get('offsetTop') + inletOffsets.destination.y},
-				});
-				view.addCable(cable, model, inletOffsets, IOMapping);
-			}
-			else {
-				var sourceModel = this.getHardwareModelInstance(modelType, server);
-				var mappingObject = {
-					model: sourceModel,
-					map: IOMapping,
-				};
-			}
-			// Pass the mapping to the view. The view will handle the event binding
-			view.addInputMap(mappingObject);
-			var modelWID = mappingObject.model.get('wid');
+				if(inletOffsets) {
+					// Create a new patch cable between the source widget and this widget's inlet
+					var cable = window.app.cableManager.createConnection({
+						from: {x: model.get('offsetLeft') + inletOffsets.source.x, y: model.get('offsetTop') + inletOffsets.source.y},
+						to: {x: view.model.get('offsetLeft') + inletOffsets.destination.x, y: view.model.get('offsetTop') + inletOffsets.destination.y},
+					});
+					view.addCable(cable, model, inletOffsets, IOMapping);
+				}
 
-			if(view) {
-				viewWID = view.model.get('wid');
-			}
-
-			if(modelWID) {
+				var modelWID = mappingObject.model.get('wid');
 				this.widgetMappings.push({
 					viewWID: viewWID,
 					map: mappingObject.map,
@@ -302,7 +317,14 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 					offsets: inletOffsets,
 				});
 			}
+			// If we don't have a model, it means we are using a "hardware model" so get one of those and use it
 			else {
+				var sourceModel = this.getHardwareModelInstance(modelType, server);
+				var mappingObject = {
+					model: sourceModel,
+					map: IOMapping,
+				};
+				//var modelWID = view.model.get('wid');
 				this.widgetMappings.push({
 					viewWID: viewWID,
 					map: mappingObject.map,
@@ -310,6 +332,13 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 					offsets: inletOffsets,
 				});
 			}
+
+			// Pass the mapping to the view. The view will handle the event binding
+			
+			view.addInputMap(mappingObject);
+
+
+			window.OO = this;
 
 			// render the view to reassociate bindings and update any changes
 			view.render();

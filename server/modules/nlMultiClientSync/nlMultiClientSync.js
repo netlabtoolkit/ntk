@@ -38,6 +38,19 @@ module.exports = function(options) {
 				}
 			}
 		},
+		updateMappings: function(changes, socket) {
+			var currentMap = JSON.parse( changes );
+			console.log('currentMap', currentMap, currentMap.mappings, this.masterPatch.mappings);
+			var masterModel = _.findWhere(this.masterPatch.mappings, {modelWID: currentMap.wid});
+
+			if(masterModel) {
+				//_.extend(masterModel, currentMap);
+				masterModel.map = currentMap.mappings[0].map;
+				console.log('BROADCASTING server:clientMappingUpdate', masterModel);
+				socket.broadcast.emit('server:clientMappingUpdate', JSON.stringify( masterModel ));
+			}
+
+		},
 		/**
 		 * Binds a hardware model to the front-end
 		 * Listends to the model 'change' event and brodcasts that change to all clients
@@ -106,6 +119,11 @@ module.exports = function(options) {
 				self.updateClients([{wid: wid, changedAttributes: changedAttributes}], this);
 			});
 
+			// When we receive an update to the mappings from the client
+			socket.on('client:sendSourceMappingUpdate', function(options) {
+				self.updateMappings(options, socket);
+			});
+
 			socket.on('client:removeWidget', function(wid) {
 				self.masterPatch.widgets = _.reject(self.masterPatch.widgets, function(view) { return wid === view.wid; });
 				this.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
@@ -115,6 +133,7 @@ module.exports = function(options) {
 				self.masterPatch.widgets.push(JSON.parse(view));
 				this.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			});
+
 			socket.on('client:updateModelMappings', function(mappings) {
 				// We should do the below in the future instead to limit traffic
 				//self.masterPatch.mappings.push(JSON.parse(mappings));

@@ -31,7 +31,7 @@ function(app){
 			}
 
 			for(var i=widgets.length-1; i>=0; i--) {
-				var newWidget = this.addFunction(widgets[i].typeID, true);
+				var newWidget = this.addFunction(widgets[i].typeID, true, widgets[i].wid);
 				// after adding the widget, duplicate the settings by passing them to the widget's own method for doing that
 				newWidget.setFromModel(widgets[i]);
 
@@ -50,6 +50,14 @@ function(app){
 						IOMapping: mappings[i].map,
 						view: widgetView,
 						inletOffsets: mappings[i].offsets,
+					}, true);
+				}
+				else {
+
+					this.mapFunction({
+						modelType: mappings[i].modelWID,
+						IOMapping: mappings[i].map,
+						view: widgetView,
 					}, true);
 				}
 			}

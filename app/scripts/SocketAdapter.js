@@ -29,6 +29,10 @@ function( Backbone ) {
 				window.app.vent.trigger('updateWidgetModelFromServer', data);
 			});
 
+			socket.on('server:clientMappingUpdate', function(data) {
+				window.app.vent.trigger('updateWidgetMappingFromServer', JSON.parse( data ));
+			});
+
 			socket.on("receivedModelUpdate", function(data){
 				if(window.app && window.app.vent) {
 					window.app.vent.trigger("receivedDeviceModelUpdate", data);
@@ -71,6 +75,15 @@ function( Backbone ) {
 				});
 				window.app.vent.on('Widget:hardwareSwitch', function(portAndMode) {
 					socket.emit('client:changeIOMode', JSON.stringify( portAndMode ));
+				});
+
+				window.app.vent.on('Widget:updateSourceMappings', function(wid, sources) {
+					var options = {
+						wid: wid,
+						mappings: sources
+					};
+
+					socket.emit('client:sendSourceMappingUpdate', JSON.stringify( options ));
 				});
 			}
 

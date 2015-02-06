@@ -18,6 +18,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		events: {
 			'click .inlet .unMap': 'unMapInlet',
 			'click .remove': 'removeWidget',
+			'blur .settings input': 'onChangeSettings',
 		},
 		widgetEvents: {},
 
@@ -274,6 +275,21 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		},
 		destinationModels: [],
 		onSync: function() {},
+		onChangeSettings: function() {
+
+			var inputVal = this.$('.settings input').val();
+
+			this.model.set('inputMapping', inputVal);
+
+			var mappings = this.sources.slice(this.sources.length-1);
+			mappings = JSON.parse(JSON.stringify(this.sources));
+
+			for(var i=mappings.length-1; i >= 0; i--) {
+				mappings[i].model = undefined;
+			}
+
+			window.app.vent.trigger('Widget:updateSourceMappings', this.model.get('wid'), mappings);
+		},
 		/**
 		 * Takes the attributes from the sourceModel and maps them onto the selected attributes of the Widget's model
 		 *
@@ -281,9 +297,32 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return
 		 */
 		addInputMap: function(map) {
-			this.sources.push(map);
 
-			this.listenTo(map.model, 'change', this.syncWithSource);
+			// Check if we already have this mapping in sources
+			var duplicate = false;
+			for(var i=this.sources.length-1; i>=0; i--) {
+				if(this.sources[i].map.destinationField === map.map.destinationField 
+				   && this.sources[i].map.sourceField === map.map.sourceField) {
+					   duplicate = true;
+				   }
+			}
+
+			if(!duplicate) {
+				// If there is already a mapping to this destination field, update it
+				var update = false;
+				for(var i=this.sources.length-1; i>=0; i--) {
+					if(this.sources[i].map.destinationField === map.map.destinationField) {
+						this.sources[i].map.sourceField = map.map.sourceField;
+						update = true;
+					}
+				}
+
+				if(!update) {
+					this.sources.push(map);
+				}
+
+				this.listenTo(map.model, 'change', this.syncWithSource);
+			}
 		},
 		syncWithSource: function(model) {
 			var sourceMappings = _.map(_.where(this.sources, {model: model}), function(source) {
