@@ -18,6 +18,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		events: {
 			'click .inlet .unMap': 'unMapInlet',
 			'click .remove': 'removeWidget',
+			'blur .settings input': 'onChangeSettings',
 		},
 		widgetEvents: {},
 
@@ -132,11 +133,11 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			});
 
 		},
-        /**
-         * attach custom rivets binders for Widget views
-         *
-         * @return
-         */
+		/**
+		 * attach custom rivets binders for Widget views
+		 *
+		 * @return
+		 */
 		setWidgetBinders: function() {
 			var self = this;
 			// TODO: Pull out so this is not redefined everytime you create a widget
@@ -224,14 +225,14 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			$(e.target).addClass('connected');
 		},
-        /**
-         * Remove mapping objects and stop listening to the field. Also remove the cable associated with the inlet
-         *
-         * @param {Event} e
-         * @param {DOM element} ui
-         * @param {DOM element} draggable
-         * @return {void}
-         */
+		/**
+		 * Remove mapping objects and stop listening to the field. Also remove the cable associated with the inlet
+		 *
+		 * @param {Event} e
+		 * @param {DOM element} ui
+		 * @param {DOM element} draggable
+		 * @return {void}
+		 */
 		unMapInlet: function(e, ui, draggable) {
 			var inletField = draggable.dataset.field;
 
@@ -245,22 +246,22 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.cables = _.reject(this.cables, function(item) { return item.map.destinationField === inletField});
 
 		},
-        /**
-         * add a patch cable to this widget so we can update and track it
-         *
-         * @param {Cable} cable
-         * @param {Backbone.Model} fromModel the model that the cable is attached to on the other side
-         * @return {WidgetView} this view
-         */
+		/**
+		 * add a patch cable to this widget so we can update and track it
+		 *
+		 * @param {Cable} cable
+		 * @param {Backbone.Model} fromModel the model that the cable is attached to on the other side
+		 * @return {WidgetView} this view
+		 */
 		addCable: function(cable, fromModel, inletOffsets, mapping) {
 			//this.cables.push({ model: fromModel, cable: cable, offsets: inletOffsets });
 			this.cables.push({ map: mapping, model: fromModel, cable: cable, offsets: inletOffsets });
 		},
-        /**
-         * remove the widget from both the DOM and the controller
-         *
-         * @return {void}
-         */
+		/**
+		 * remove the widget from both the DOM and the controller
+		 *
+		 * @return {void}
+		 */
 		removeWidget: function(e, calledFromLoader) {
 			app.Patcher.Controller.removeWidget(this, calledFromLoader);
 			for(var i=this.cables.length-1; i>=0; i--) {
@@ -272,18 +273,68 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				this.onRemove();
 			}
 		},
+		removeCable: function(cable) {
+
+			// Find and remove the cable from the array
+			this.cables = _.without(this.cables, _.find(
+				this.cables, function(cableMap) {
+					return cableMap.cable == cable;
+				})
+			);
+
+			// Call the remove method on the cable itself
+			cable.remove();
+		},
 		destinationModels: [],
 		onSync: function() {},
-        /**
-         * Takes the attributes from the sourceModel and maps them onto the selected attributes of the Widget's model
-         *
-         * @param model
-         * @return
-         */
-		addInputMap: function(map) {
-			this.sources.push(map);
+		onChangeSettings: function() {
 
-			this.listenTo(map.model, 'change', this.syncWithSource);
+			var inputVal = this.$('.settings input').val();
+
+			this.model.set('inputMapping', inputVal);
+
+			var mappings = this.sources.slice(this.sources.length-1);
+			mappings = JSON.parse(JSON.stringify(this.sources));
+
+			for(var i=mappings.length-1; i >= 0; i--) {
+				mappings[i].model = undefined;
+			}
+
+			window.app.vent.trigger('Widget:updateSourceMappings', this.model.get('wid'), mappings);
+		},
+		/**
+		 * Takes the attributes from the sourceModel and maps them onto the selected attributes of the Widget's model
+		 *
+		 * @param model
+		 * @return
+		 */
+		addInputMap: function(map) {
+
+			// Check if we already have this mapping in sources
+			var duplicate = false;
+			for(var i=this.sources.length-1; i>=0; i--) {
+				if(this.sources[i].map.destinationField === map.map.destinationField 
+				   && this.sources[i].map.sourceField === map.map.sourceField) {
+					   duplicate = true;
+				   }
+			}
+
+			if(!duplicate) {
+				// If there is already a mapping to this destination field, update it
+				var update = false;
+				for(var i=this.sources.length-1; i>=0; i--) {
+					if(this.sources[i].map.destinationField === map.map.destinationField) {
+						this.sources[i].map.sourceField = map.map.sourceField;
+						update = true;
+					}
+				}
+
+				if(!update) {
+					this.sources.push(map);
+				}
+
+				this.listenTo(map.model, 'change', this.syncWithSource);
+			}
 		},
 		syncWithSource: function(model) {
 			var sourceMappings = _.map(_.where(this.sources, {model: model}), function(source) {
@@ -352,13 +403,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		},
 
 
-        /**
-         * Set the attributes of a model based on a passed model
+		/**
+		 * Set the attributes of a model based on a passed model
 		 * (usually from something like a patch loader or something)
-         *
-         * @param {object} model
-         * @return {WidgetMulti} this view
-         */
+		 *
+		 * @param {object} model
+		 * @return {WidgetMulti} this view
+		 */
 		setFromModel: function(model) {
 			this.$el.css({top: model.offsetTop, left: model.offsetLeft});
 			this.model.set(model);

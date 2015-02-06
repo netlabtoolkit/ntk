@@ -9,8 +9,10 @@ module.exports = function(options) {
 	//domain.run(function() {
 
 		var deviceType = options.deviceType || 'arduino';
+
 		var modelMap = {
 			arduino: './ArduinoModel',
+			osc: './OSC',
 		};
 		var sensors = [],
 			outputs = {};

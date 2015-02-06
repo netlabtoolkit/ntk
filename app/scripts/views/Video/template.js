@@ -29,10 +29,12 @@
 </div>
         
 <% if(!server) { %>
-	<video class="detachedEl" id="video" width="300" rv-src="widget:src"
-    rv-style-opacity="widget:opacity"
+	<video class="detachedEl" id="video" width="300" 
+        rv-style-opacity="widget:opacity"
         rv-positionx="widget:left"
         rv-positiony="widget:top">
+        <source rv-src="widget:srcmp4" type="video/mp4">
+        <source rv-src="widget:srcogg" type="video/ogg">
 	Your browser does not support the video element
 	</video>
 <% } %>

@@ -48,7 +48,7 @@
             <label class="narrowLabel">min</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:inputFloor">
             <label class="narrowLabel">max</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:inputCeiling"><br>
             <label class="narrowLabel">ease</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:easingAmount"><br>
-            <label class="narrowLabel">smooth</label> <input id='smoothingAmount' class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:smoothingAmount">
+            <label class="narrowLabel">smooth</label> <input class='smoothingAmount' class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:smoothingAmount">
         </div>
     </div>
 </div>

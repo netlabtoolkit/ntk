@@ -20,7 +20,8 @@ module.exports = function(options) {
 		clients: [],
 		setMaster: function(patch) {
 			this.masterPatch = patch;
-			//this.broadcast('loadPatchFromServer', patch);
+			//self.transport.emit('loadPatchFromServer', patch);
+			self.transport.sockets.emit('loadPatchFromServer', patch);
 		},
 		/**
 		 * Add any changes to the master model reference (with no events emitted from this function)
@@ -37,26 +38,39 @@ module.exports = function(options) {
 				}
 			}
 		},
-        /**
-         * Binds a hardware model to the front-end
+		updateMappings: function(changes, socket) {
+			var currentMap = JSON.parse( changes );
+			console.log('currentMap', currentMap, currentMap.mappings, this.masterPatch.mappings);
+			var masterModel = _.findWhere(this.masterPatch.mappings, {modelWID: currentMap.wid});
+
+			if(masterModel) {
+				//_.extend(masterModel, currentMap);
+				masterModel.map = currentMap.mappings[0].map;
+				console.log('BROADCASTING server:clientMappingUpdate', masterModel);
+				socket.broadcast.emit('server:clientMappingUpdate', JSON.stringify( masterModel ));
+			}
+
+		},
+		/**
+		 * Binds a hardware model to the front-end
 		 * Listends to the model 'change' event and brodcasts that change to all clients
-         *
-         * @param model
-         * @return {void}
-         */
+		 *
+		 * @param model
+		 * @return {void}
+		 */
 		bindModelToTransport: function(model) {
 			// Listen for changes made on the hardware to update the front-end
 			model.on('change', function(options) {
 				self.transport.emit('receivedModelUpdate', {modelType: model.type, field: options.field, value: options.value});
 			});
 		},
-        /**
-         * Loads a patch from a file and sets the patch as our master model reference
-         *
-         * @return {void}
-         */
+		/**
+		 * Loads a patch from a file and sets the patch as our master model reference
+		 *
+		 * @return {void}
+		 */
 		loadPatchFromServer: function() {
-			var patchFileName = __dirname + '/currentPatch.json';
+			var patchFileName = __dirname + '/currentPatch.nlp';
 
 			// Read the currently stored patch file and push it to the client
 			fs.readFile(patchFileName, 'utf8', function (err, data) {
@@ -70,12 +84,12 @@ module.exports = function(options) {
 			});
 
 		},
-        /**
-         * Bind to all events coming from the client
-         *
-         * @param {Socket} socket
-         * @return {void}
-         */
+		/**
+		 * Bind to all events coming from the client
+		 *
+		 * @param {Socket} socket
+		 * @return {void}
+		 */
 		registerClient: function(socket) {
 
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
@@ -105,6 +119,11 @@ module.exports = function(options) {
 				self.updateClients([{wid: wid, changedAttributes: changedAttributes}], this);
 			});
 
+			// When we receive an update to the mappings from the client
+			socket.on('client:sendSourceMappingUpdate', function(options) {
+				self.updateMappings(options, socket);
+			});
+
 			socket.on('client:removeWidget', function(wid) {
 				self.masterPatch.widgets = _.reject(self.masterPatch.widgets, function(view) { return wid === view.wid; });
 				this.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
@@ -114,6 +133,7 @@ module.exports = function(options) {
 				self.masterPatch.widgets.push(JSON.parse(view));
 				this.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			});
+
 			socket.on('client:updateModelMappings', function(mappings) {
 				// We should do the below in the future instead to limit traffic
 				//self.masterPatch.mappings.push(JSON.parse(mappings));
@@ -122,29 +142,31 @@ module.exports = function(options) {
 			});
 
 			socket.on('saveCurrentPatch', function(options) {
-				//var patch = JSON.stringify(options.patch);
-				var patch = options.patch;
-				var patchFileName = __dirname + '/currentPatch.json';
-
-				fs.writeFile(patchFileName, patch, function(err) {
-					if(err) {
-						console.log(err);
-					}
-					else {
-						self.transport.emit('loadPatchFromServer', patch);
-						console.log('file saved');
-					}
-				});
+				self.loadPatch(options);
 			});
 
 		},
-        /**
-         * Update all registered clients with a set of changes
-         *
-         * @param {object} changes
-         * @param {Socket} socket
-         * @return {void}
-         */
+		loadPatch: function(options) {
+			var patch = options.patch;
+			var patchFileName = __dirname + '/currentPatch.nlp';
+
+			fs.writeFile(patchFileName, patch, function(err) {
+				if(err) {
+					console.log(err);
+				}
+				else {
+					self.setMaster(JSON.parse(patch));
+					console.log('file saved');
+				}
+			});
+		},
+		/**
+		 * Update all registered clients with a set of changes
+		 *
+		 * @param {object} changes
+		 * @param {Socket} socket
+		 * @return {void}
+		 */
 		updateClients: function(changes, socket) {
 
 			// Check if there are any changes

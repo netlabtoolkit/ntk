@@ -15,6 +15,7 @@ module.exports = function(attributes) {
 			this.board = five.Board();
 
 			this.board.on("ready", function() {
+				self.connected = true;
 				addDefaultPins.call(self);
 			});
 			this.board.on('error', function(err) {
@@ -42,12 +43,11 @@ module.exports = function(attributes) {
 						self.inputs[input].pin = sensor;
 
 						//board.repl.inject({
-						//sensor: sensor
+							//sensor: sensor
 						//});
 
-						var sensorField = input;
 						sensor.scale([0, 1023]).on("data", function() {
-							self.set(sensorField, Math.floor(this.value));
+							self.set('A'+this.pin, Math.floor(this.value));
 						});
 					}
 					else {
@@ -65,9 +65,10 @@ module.exports = function(attributes) {
 					var pin = parseInt(output.substr(1),10);
 					var outputPin;
 
-					if (pin < 9) {
+					if (pin === 3 || pin === 5 || pin === 6 || pin === 10 || pin === 11) {
 						outputPin = new five.Led(pin);
-					} else {
+					} 
+					else if(pin === 9) {
 						outputPin = new five.Servo({
 							pin: pin,
 							range: [0,180],
@@ -87,26 +88,27 @@ module.exports = function(attributes) {
 			if(this.outputs[field] !== undefined) {
 				if(parseInt(this.outputs[field],10) !== parseInt(value,10)) {
 					this.outputs[field].value = value;
-					//this.emit('change', {field: field, value: this.outputs[field].value});
 					this.setHardwarePin(field, value);
 				}
 			}
 			else if(this.inputs[field] != undefined) {
 				if(parseInt(this.inputs[field], 10) !== parseInt( value, 10 )) {
-					this.inputs[field] = value;
-					this.emit('change', {field: field, value: this.inputs[field]});
+					this.inputs[field].value = value;
+					this.emit('change', {field: field, value: this.inputs[field].value});
 				}
 			}
 			return this;
 		},
 		setHardwarePin: function(field, value) {
 			var outputField = this.outputs[field];
-			if(outputField !== undefined) {
+
+			if(outputField !== undefined && field === 'D3' || field === 'D5' || field === 'D6' || field === 'D9' || field === 'D10' || field === 'D11' || field === 'D11') {
 				var pinMode = outputField.pin.mode;
 
 				// Check which pinmode is set on the pin to detemine which method to call
-				if (pinMode === this.PINMODES.PWM) {
+				if (pinMode === this.PINMODES.PWM || pinMode === this.PINMODES.OUTPUT) {
 					this.outputs[field].pin.brightness(value);
+
 				} else if(pinMode === this.PINMODES.SERVO) {
 					this.outputs[field].pin.to(value);
 				}
@@ -128,42 +130,50 @@ module.exports = function(attributes) {
 			}
 		},
 		setIOMode: function setPinMode(pin, mode) {
-			// Always immediately set an input to a Sensor. If it is already a sensor, then we are resetting it
-			if(mode === 'INPUT') {
-				delete this.outputs[pin].pin;
-				var sensor = five.Sensor({
-					pin: input,
-					//freq: 25,
-					freq: pollFreq,
-				});
+			if(this.connected) {
+				// Always immediately set an input to a Sensor. If it is already a sensor, then we are resetting it
+				if(mode === 'INPUT') {
+					// remove any listeners on the current pin
+					this.inputs[pin] && this.inputs[pin].pin.off('data');
 
-				this.inputs[pin].pin = sensor;
-			}
-			else if(mode === 'OUTPUT') {
-			}
-			else if(mode === 'ANALOG') {
-			}
-			else if(mode === 'PWM') {
-				var hardwarePin = parseInt(pin.substr(1),10);
+					// delete this pin if it exists in the outputs
+					delete this.outputs[pin].pin;
 
-				var outputPin = five.Led(hardwarePin);
-				this.outputs[pin].pin = outputPin;
-			}
-			else if(mode === 'SERVO') {
-				var hardwarePin = parseInt(pin.substr(1),10);
+					var sensor = five.Sensor({
+						pin: input,
+						freq: pollFreq,
+					});
 
-				var outputPin = five.Servo({
-					pin: hardwarePin,
-					range: [0,180],
-				});
+					sensor.scale([0, 1023]).on("data", function() {
+						self.set('A'+this.pin, Math.floor(this.value));
+					});
 
-				this.outputs[pin].pin = outputPin;
-			}
-			else if(mode === 'STEPPER') {
-			}
-			else if(mode === 'I2C') {
-			}
+					this.inputs[pin].pin = sensor;
+				}
+				else if(mode === 'ANALOG') {
+				}
+				else if(mode === 'PWM' || mode === 'OUTPUT') {
+					var hardwarePin = parseInt(pin.substr(1),10);
 
+					var outputPin = five.Led(hardwarePin);
+					this.outputs[pin].pin = outputPin;
+				}
+				else if(mode === 'SERVO') {
+					var hardwarePin = parseInt(pin.substr(1),10);
+
+					var outputPin = five.Servo({
+						pin: hardwarePin,
+						range: [0,180],
+					});
+
+					this.outputs[pin].pin = outputPin;
+				}
+				else if(mode === 'STEPPER') {
+				}
+				else if(mode === 'I2C') {
+				}
+
+			}
 			//SHIFT: 5,
 			//ONEWIRE: 7,
 		},

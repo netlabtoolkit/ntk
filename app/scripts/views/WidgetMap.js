@@ -17,8 +17,9 @@ define([
     'views/Servo/Servo',
     'views/CloudOut/CloudOut',
 
+    'views/OSCIn/OSCIn',
 ],
-function(AnalogIn, CloudIn, Knob, Button, Code, Splitter, Blank, Image, Audio, Video, AnalogOut, Servo, CloudOut){
+function(AnalogIn, CloudIn, Knob, Button, Code, Splitter, Blank, Image, Audio, Video, AnalogOut, Servo, CloudOut, OSCIn){
     'use strict';
 
 	return {
@@ -39,6 +40,7 @@ function(AnalogIn, CloudIn, Knob, Button, Code, Splitter, Blank, Image, Audio, V
         'Servo': Servo,
         'CloudOut': CloudOut,
         
+        'OSCIn': OSCIn,
 
 	};
 });
