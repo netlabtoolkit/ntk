@@ -80,14 +80,17 @@ function( app, Backbone, Template, Widgets ) {
 			window.location.href = "/patch.nlp";
 		},
         hideWidgets: function() {
-            this.widgetsVisible = !this.widgetsVisible;
-            if (this.widgetsVisible) {
-                self.$( ".widgetAuthoring" ).show('fast');
-                self.$( ".patchCableParent" ).show('fast');
-            } else {
-                self.$( ".widgetAuthoring" ).hide('fast');
-                self.$( ".patchCableParent" ).hide('fast');
-            }
+			this.widgetsVisible = !this.widgetsVisible;
+
+			if (this.widgetsVisible) {
+				$( ".widgetAuthoring" ).show('fast');
+				$( "svg" ).show('fast');
+				$( ".patchCableParent" ).show('fast');
+			} else {
+				$( ".widgetAuthoring" ).hide('fast');
+				$( "svg" ).hide('fast');
+				$( ".patchCableParent" ).hide('fast');
+			}
         },
         fullScreen: function() {
             var el = document.getElementById("patcherRegion")
