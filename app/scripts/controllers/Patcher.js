@@ -307,6 +307,10 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 						to: {x: view.model.get('offsetLeft') + inletOffsets.destination.x, y: view.model.get('offsetTop') + inletOffsets.destination.y},
 					});
 					view.addCable(cable, model, inletOffsets, IOMapping);
+
+					model.on('remove destroy', function() {
+						view.removeCable(cable);
+					});
 				}
 
 				var modelWID = mappingObject.model.get('wid');

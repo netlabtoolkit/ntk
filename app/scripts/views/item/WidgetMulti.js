@@ -273,6 +273,18 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				this.onRemove();
 			}
 		},
+		removeCable: function(cable) {
+
+			// Find and remove the cable from the array
+			this.cables = _.without(this.cables, _.find(
+				this.cables, function(cableMap) {
+					return cableMap.cable == cable;
+				})
+			);
+
+			// Call the remove method on the cable itself
+			cable.remove();
+		},
 		destinationModels: [],
 		onSync: function() {},
 		onChangeSettings: function() {
