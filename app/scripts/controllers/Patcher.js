@@ -113,12 +113,15 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 
 					this.addWidgetToStage(newWidget, addedFromLoader);
 
-					this.mapToModel({
-						view: newWidget,
-						modelType: 'ArduinoUno',
-						IOMapping: {sourceField: "A0", destinationField: 'in'},
-						server: serverAddress,
-					}, addedFromLoader);
+			//this.patchLoader.save(this.widgetModels, this.widgetMappings);
+					if(!addedFromLoader) {
+						this.mapToModel({
+							view: newWidget,
+							modelType: 'ArduinoUno',
+							IOMapping: {sourceField: "A0", destinationField: 'in'},
+							server: serverAddress,
+						}, addedFromLoader);
+					}
 
 
 					return newWidget;
@@ -131,12 +134,14 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 
 					this.addWidgetToStage(newWidget, addedFromLoader);
 
-					this.mapToModel({
-						view: newWidget,
-						IOMapping: {sourceField: "out", destinationField: 'D3'},
-						modelType: 'ArduinoUno',
-						server: serverAddress,
-					}, addedFromLoader);
+					if(!addedFromLoader) {
+						this.mapToModel({
+							view: newWidget,
+							IOMapping: {sourceField: "out", destinationField: 'D3'},
+							modelType: 'ArduinoUno',
+							server: serverAddress,
+						}, addedFromLoader);
+					}
 
 					return newWidget;
 				}
@@ -148,12 +153,14 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 
 					this.addWidgetToStage(newWidget, addedFromLoader);
 
-					this.mapToModel({
-						view: newWidget,
-						IOMapping: {sourceField: "out", destinationField: 'D9'},
-						modelType: 'ArduinoUno',
-						server: serverAddress,
-					}, addedFromLoader);
+					if(!addedFromLoader) {
+						this.mapToModel({
+							view: newWidget,
+							IOMapping: {sourceField: "out", destinationField: 'D9'},
+							modelType: 'ArduinoUno',
+							server: serverAddress,
+						}, addedFromLoader);
+					}
 
 					return newWidget;
                 }
@@ -165,12 +172,14 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 
 					this.addWidgetToStage(newWidget, addedFromLoader);
 
-					this.mapToModel({
-						view: newWidget,
-						IOMapping: {sourceField: "ntkReceiveMsg", destinationField: 'in'},
-						modelType: 'OSC',
-						server: serverAddress,
-					}, addedFromLoader);
+					if(!addedFromLoader) {
+						this.mapToModel({
+							view: newWidget,
+							IOMapping: {sourceField: "ntkReceiveMsg", destinationField: 'in'},
+							modelType: 'OSC',
+							server: serverAddress,
+						}, addedFromLoader);
+					}
 
 					return newWidget;
                 }
@@ -337,12 +346,10 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 				});
 			}
 
-			// Pass the mapping to the view. The view will handle the event binding
 			
+			// Pass the mapping to the view. The view will handle the event binding
 			view.addInputMap(mappingObject);
 
-
-			window.OO = this;
 
 			// render the view to reassociate bindings and update any changes
 			view.render();
@@ -390,7 +397,6 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 						}
 					});
 				}
-
 				return newModelInstance;
 			}
 		},
@@ -407,7 +413,6 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 			this.patchLoader.loadJSON(JSONString, save);
 		},
 		savePatch: function() {
-			this.patchLoader.save(this.widgetModels, this.widgetMappings);
 			window.app.vent.trigger('savePatchToServer', {collection: this.widgetModels, mappings: this.widgetMappings});
 		},
 	};
