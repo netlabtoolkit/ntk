@@ -329,6 +329,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					}
 				}
 
+
 				if(!update) {
 					this.sources.push(map);
 				}

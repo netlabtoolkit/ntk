@@ -50,6 +50,7 @@ function(app){
 						IOMapping: mappings[i].map,
 						view: widgetView,
 						inletOffsets: mappings[i].offsets,
+						server: window.location.host
 					}, true);
 				}
 				else {
@@ -58,6 +59,7 @@ function(app){
 						modelType: mappings[i].modelWID,
 						IOMapping: mappings[i].map,
 						view: widgetView,
+						server: window.location.host
 					}, true);
 				}
 			}

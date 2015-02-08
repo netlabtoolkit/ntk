@@ -20,8 +20,7 @@ module.exports = function(options) {
 		clients: [],
 		setMaster: function(patch) {
 			this.masterPatch = patch;
-			//self.transport.emit('loadPatchFromServer', patch);
-			self.transport.sockets.emit('loadPatchFromServer', patch);
+			self.transport.sockets.emit('loadPatchFromServer', JSON.stringify( patch ));
 		},
 		/**
 		 * Add any changes to the master model reference (with no events emitted from this function)
@@ -40,13 +39,11 @@ module.exports = function(options) {
 		},
 		updateMappings: function(changes, socket) {
 			var currentMap = JSON.parse( changes );
-			console.log('currentMap', currentMap, currentMap.mappings, this.masterPatch.mappings);
 			var masterModel = _.findWhere(this.masterPatch.mappings, {modelWID: currentMap.wid});
 
 			if(masterModel) {
 				//_.extend(masterModel, currentMap);
 				masterModel.map = currentMap.mappings[0].map;
-				console.log('BROADCASTING server:clientMappingUpdate', masterModel);
 				socket.broadcast.emit('server:clientMappingUpdate', JSON.stringify( masterModel ));
 			}
 
