@@ -21,7 +21,7 @@
     "node": ">=0.8.0"
   },
   "scripts": {
-    "start": "node server/netlabServer.js",
+    "start": "pkill phantomjs & node server/netlabServer.js",
     "build": "npm run clean && npm run optimizeRequire && npm run compileSCSS",
     "dev": "npm run clean && npm run copyAppToDist && npm run compileSCSS && node ./buildScripts/liveReload.js & open http://localhost:9001 & npm start",
     "copyAppToDist": "cp -r ./app/* ./server/dist",
