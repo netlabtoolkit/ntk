@@ -40,7 +40,7 @@ function(AnalogIn, CloudIn, Knob, Button, Code, Splitter, Blank, Image, Audio, V
         'Servo': Servo,
         'CloudOut': CloudOut,
         
-        'OSCIn': OSCIn,
+        //'OSCIn': OSCIn,
 
 	};
 });
