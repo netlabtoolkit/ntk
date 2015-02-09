@@ -113,7 +113,6 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 
 					this.addWidgetToStage(newWidget, addedFromLoader);
 
-			//this.patchLoader.save(this.widgetModels, this.widgetMappings);
 					if(!addedFromLoader) {
 						this.mapToModel({
 							view: newWidget,
@@ -127,17 +126,26 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 					return newWidget;
 				}
 				else if(widgetType === 'AnalogOut') {
+					var defaultMapping = 'D3';
+
+					// Check if we are already using this output pin, don't use it if we are
+					var existingMapping = _.find(this.widgetMappings, function(map) {
+						return map.map.destinationField === defaultMapping;
+					});
+					var defaultOutputMapping = existingMapping ? '' : defaultMapping;
+
 					var newWidget = new AnalogOutView({
 						model: newModel,
-						outputMapping: 'D3',
+						outputMapping: defaultOutputMapping,
 					});
 
 					this.addWidgetToStage(newWidget, addedFromLoader);
 
 					if(!addedFromLoader) {
+
 						this.mapToModel({
 							view: newWidget,
-							IOMapping: {sourceField: "out", destinationField: 'D3'},
+							IOMapping: {sourceField: "out", destinationField: defaultOutputMapping},
 							modelType: 'ArduinoUno',
 							server: serverAddress,
 						}, addedFromLoader);
@@ -146,9 +154,16 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 					return newWidget;
 				}
                 else if(widgetType === 'Servo') {
+					var defaultMapping = 'D9';
+					// Check if we are already using this output pin, don't use it if we are
+					var existingMapping = _.find(this.widgetMappings, function(map) {
+						return map.map.destinationField === defaultMapping;
+					});
+					var defaultOutputMapping = existingMapping ? '' : defaultMapping;
+
 					var newWidget = new ServoView({
 						model: newModel,
-						outputMapping: 'D9',
+						outputMapping: defaultOutputMapping,
 					});
 
 					this.addWidgetToStage(newWidget, addedFromLoader);

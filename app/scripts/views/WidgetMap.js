@@ -24,23 +24,23 @@ function(AnalogIn, CloudIn, Knob, Button, Code, Splitter, Blank, Image, Audio, V
 
 	return {
 		'AnalogIn': AnalogIn,
-        'CloudIn': CloudIn,
-        'Knob': Knob,
-        'Button': Button,
-        
+		'CloudIn': CloudIn,
+		'Knob': Knob,
+		'Button': Button,
+
 		'Code': Code,
-        'Splitter': Splitter,
-        'Blank': Blank,
-        
+		'Splitter': Splitter,
+		'Blank': Blank,
+
 		'Image': Image,
-        'Audio': Audio,
-        'Video': Video,
-        
-        'AnalogOut': AnalogOut,
-        'Servo': Servo,
-        'CloudOut': CloudOut,
-        
-        //'OSCIn': OSCIn,
+		'Audio': Audio,
+		'Video': Video,
+
+		'AnalogOut': AnalogOut,
+		'Servo': Servo,
+		'CloudOut': CloudOut,
+
+		//'OSCIn': OSCIn,
 
 	};
 });
