@@ -171,7 +171,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 					if(!addedFromLoader) {
 						this.mapToModel({
 							view: newWidget,
-							IOMapping: {sourceField: "out", destinationField: 'D9'},
+							IOMapping: {sourceField: "out", destinationField: defaultMapping},
 							modelType: 'ArduinoUno',
 							server: serverAddress,
 						}, addedFromLoader);
