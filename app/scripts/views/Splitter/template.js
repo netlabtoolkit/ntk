@@ -13,16 +13,16 @@
 
     <div class="widgetBody">
         <div class="widgetBodyLeft">
-            <div class="inletValue"><span rv-text="widget:in">0</span></div>
+            <div class="inletValue"><span rv-text="widget:in | rounded">0</span></div>
         </div>
         <div class="widgetBodyRight">
-            <div class="outletValue"><input class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:outACenter">
+            <div class="outletValue"><input class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:outACenter | rounded">
                 <span class="" rv-text="widget:out1">0</span></div>
-            <div class="outletValue"><input class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:outBCenter">
+            <div class="outletValue"><input class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:outBCenter | rounded">
                 <span class="" rv-text="widget:out2">0</span></div>
-            <div class="outletValue"><input class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:outCCenter">
+            <div class="outletValue"><input class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:outCCenter | rounded">
                 <span class="" rv-text="widget:out3">0</span></div>
-            <div class="outletValue"><input class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:outDCenter">
+            <div class="outletValue"><input class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:outDCenter | rounded">
                 <span class="" rv-text="widget:out4">0</span></div>
         </div>
     </div>
