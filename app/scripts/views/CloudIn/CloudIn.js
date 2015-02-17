@@ -100,34 +100,36 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     this.$('.outvalue').css('color','#ff0000');
                     this.$('.outvalue').animate({color: '#000000' },10000,'swing');
                     var pubKey = this.model.get('publicKey');
-                    var url = 'https://data.sparkfun.com/output/' + pubKey + '.json';
-                    $.ajax({
-                        url: url,
-                        jsonp: 'callback',
-                        cache: true,
-                        dataType: 'jsonp',
-                        data: {
-                            page: 1
-                        },
-                        success: function(response) {
-                            // check for success
-                            if (response.success == false) {
-                                console.log( "Connection to cloud servive failed");
-                                self.model.set('getFromCloud',false);
-                                self.$('.timeLeft').text("Couldn't connect");
-                            } else {
-                                self.model.set('in',Number(response[0].testdata));
-                                self.$('.dial').val(Number(response[0].testdata)).trigger('change');
-                            }
-                        },
-                        
-                        fail: function( jqxhr, textStatus, error ) {
-                            var err = textStatus + ", " + error;
-                            console.log( "Connection to cloud servive failed: " + err );
-                            self.model.set('getFromCloud',false);
-                            self.$('.timeLeft').text("Couldn't connect");
-                        }
-                    });
+					if(window.app.server) {
+						var url = 'https://data.sparkfun.com/output/' + pubKey + '.json';
+						$.ajax({
+							url: url,
+							jsonp: 'callback',
+							cache: true,
+							dataType: 'jsonp',
+							data: {
+								page: 1
+							},
+							success: function(response) {
+								// check for success
+								if (response.success == false) {
+									console.log( "Connection to cloud service failed");
+									self.model.set('getFromCloud',false);
+									self.$('.timeLeft').text("Couldn't connect");
+								} else {
+									self.model.set('in',Number(response[0].testdata));
+									self.$('.dial').val(Number(response[0].testdata)).trigger('change');
+								}
+							},
+
+							fail: function( jqxhr, textStatus, error ) {
+								var err = textStatus + ", " + error;
+								console.log( "Connection to cloud servive failed: " + err );
+								self.model.set('getFromCloud',false);
+								self.$('.timeLeft').text("Couldn't connect");
+							}
+						});
+					}
                     console.log(timeDiff + " msecs");
                     this.startFrame = frameCount;
                 }

@@ -116,24 +116,26 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 var timeDiff = (frameCount - this.startFrame) * (1000/60);
                 var period = this.model.get('sendPeriod');
                 this.$('.timeLeft').text(' Send in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
-                if (timeDiff > period) {
+                if (timeDiff > period ) {
                     this.$('.outvalue').css('color','#ff0000');
                     this.$('.outvalue').animate({color: '#000000' },10000,'swing');
                     //var avg = (this.inputCumulative / this.inputCount).toString();
                     var avg = (this.model.get('out')).toString();
                     var pubKey = this.model.get('publicKey');
                     var priKey = this.model.get('privateKey');
-                    var url = 'https://data.sparkfun.com/input/' + pubKey + '?private_key=' + priKey + '&testdata=' + avg;
-                    $.getJSON(url)
-                      .done(function( json ) {
-                        //console.log( "JSON Data: " + JSON.stringify(json) );
-                      })
-                      .fail(function( jqxhr, textStatus, error ) {
-                        var err = textStatus + ", " + error;
-                        console.log( "Connection to cloud servive failed: " + err );
-                        self.model.set('sendToCloud',false);
-                        self.$('.timeLeft').text("Couldn't connect");
-                    });
+					if(window.app.server) {
+						var url = 'https://data.sparkfun.com/input/' + pubKey + '?private_key=' + priKey + '&testdata=' + avg;
+						$.getJSON(url)
+						.done(function( json ) {
+							//console.log( "JSON Data: " + JSON.stringify(json) );
+						})
+						.fail(function( jqxhr, textStatus, error ) {
+							var err = textStatus + ", " + error;
+							console.log( "Connection to cloud servive failed: " + err );
+							self.model.set('sendToCloud',false);
+							self.$('.timeLeft').text("Couldn't connect");
+						});
+					}
                     console.log(timeDiff + " msecs");
                     this.startFrame = frameCount;
                     this.inputCount = 0;
