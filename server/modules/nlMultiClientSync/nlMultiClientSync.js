@@ -141,6 +141,9 @@ module.exports = function(options) {
 			socket.on('saveCurrentPatch', function(options) {
 				self.loadPatch(options);
 			});
+			socket.on('client:clearPatch', function(options) {
+				self.loadPatchFile(options);
+			});
 
 		},
 		loadPatch: function(options) {
@@ -156,6 +159,11 @@ module.exports = function(options) {
 					console.log('file saved');
 				}
 			});
+		},
+		loadPatchFile: function(options) {
+			var patch = JSON.parse(options).patch;
+
+			self.setMaster(patch);
 		},
 		/**
 		 * Update all registered clients with a set of changes

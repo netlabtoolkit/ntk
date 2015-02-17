@@ -77,6 +77,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 			window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
 			window.app.vent.on('ToolBar:savePatch', this.savePatch, this);
 			window.app.vent.on('ToolBar:loadPatch', this.loadPatch, this);
+			window.app.vent.on('ToolBar:clearPatch', this.clearPatch, this);
 			window.app.vent.on('receivedDeviceModelUpdate', function(data) {
 				var serverAddress = window.location.host;
 				//var hardwareModel = this.getHardwareModelInstance(data.modelType, serverAddress);
@@ -92,6 +93,7 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 
 			window.app.vent.on('updateWidgetModelFromServer', this.updateWidgetModelFromServer, this);
 			window.app.vent.on('updateWidgetMappingFromServer', this.updateWidgetMappingFromServer, this);
+
 		},
 		onExternalAddWidget: function(widgetType, addedFromLoader, wid) {
 			var newWidget,
@@ -429,6 +431,12 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 		},
 		savePatch: function() {
 			window.app.vent.trigger('savePatchToServer', {collection: this.widgetModels, mappings: this.widgetMappings});
+		},
+		clearPatch: function() {
+			var emptyPatch = {"widgets":[],"mappings":[]};
+
+			window.app.vent.trigger('clearPatch', {patch: emptyPatch });
+			//this.loadPatch(JSON.stringify(emptyPatch), false);
 		},
 	};
 

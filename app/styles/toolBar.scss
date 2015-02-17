@@ -18,7 +18,7 @@
 
 	.addWidget,
 	.downloadPatch,
-	.loadPatch, .savePatch, .hideWidgets, .fullScreen {
+	.loadPatch, .savePatch, .hideWidgets, .clearPatch, .fullScreen {
 		float: left;
 		width: 100%;
 		padding: 5px;
@@ -31,7 +31,7 @@
 		cursor: pointer;
 	}
 
-	.loadPatch, .savePatch, .downloadPatch, .hideWidgets, .fullScreen {
+	.loadPatch, .savePatch, .downloadPatch, .hideWidgets, .fullScreen, .clearPatch {
 		background-color: #999;
 		color: #555;
 		border: 1px solid #555;

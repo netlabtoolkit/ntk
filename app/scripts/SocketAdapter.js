@@ -73,6 +73,10 @@ function( Backbone ) {
 				window.app.vent.on('updateModelMappings', function(mappings) {
 					socket.emit('client:updateModelMappings', JSON.stringify( mappings ));
 				});
+
+				window.app.vent.on('clearPatch', function(patch) {
+					socket.emit('client:clearPatch', JSON.stringify( patch ));
+				});
 				window.app.vent.on('Widget:hardwareSwitch', function(portAndMode) {
 					socket.emit('client:changeIOMode', JSON.stringify( portAndMode ));
 				});
@@ -84,6 +88,10 @@ function( Backbone ) {
 					};
 
 					socket.emit('client:sendSourceMappingUpdate', JSON.stringify( options ));
+				});
+
+				window.app.vent.on('loadPatchFileToServer', function(patch) {
+					socket.emit('loadPatchFile', {patch: JSON.stringify(patch)});
 				});
 			}
 

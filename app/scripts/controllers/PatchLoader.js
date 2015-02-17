@@ -29,6 +29,9 @@ function(app){
 			if(save) {
 				window.app.vent.trigger('savePatchToServer', {collection: widgets, mappings: mappings});
 			}
+			else {
+				window.app.vent.trigger('loadPatchFileToServer', {widgets: widgets, mappings: mappings});
+			}
 
 			for(var i=widgets.length-1; i>=0; i--) {
 				var newWidget = this.addFunction(widgets[i].typeID, true, widgets[i].wid);

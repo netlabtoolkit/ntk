@@ -14,6 +14,7 @@ function( app, Backbone, Template, Widgets ) {
 			'click .savePatch': 'savePatch',
 			'click .downloadPatch': 'downloadPatch',
 			'click .loadPatch': 'showUploadFileDialog',
+			'click .clearPatch': 'clearPatch',
             'click .hideWidgets': 'hideWidgets',
             'click .fullScreen': 'fullScreen',
 		},
@@ -74,6 +75,9 @@ function( app, Backbone, Template, Widgets ) {
 		},
 		savePatch: function() {
 			window.app.vent.trigger('ToolBar:savePatch');
+		},
+		clearPatch: function() {
+			window.app.vent.trigger('ToolBar:clearPatch');
 		},
 		downloadPatch: function() {
 			window.app.vent.trigger('ToolBar:savePatch');
