@@ -1,6 +1,8 @@
 define([
 	'application',
 	'backbone',
+	'communicator',
+	'SocketAdapter',
 	'cableManager',
 	'controllers/PatchLoader',
 	'controllers/Timing',
@@ -19,7 +21,7 @@ define([
     'views/OSCIn/OSCIn',
     'views/Splitter/Splitter',
 ],
-function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, AnalogInView, AnalogOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, SplitterView){
+function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, AnalogInView, AnalogOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, SplitterView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -61,6 +63,8 @@ function(app, Backbone, CableManager, PatchLoader, TimingController, WidgetsView
 		attachMainViews: function() {
 			// Create a timing controller for registering frame-based callbacks
 			window.app.timingController = new TimingController();
+			// Bind to a socket server
+			Communicator.socketAdapter = new SocketAdapter();
 
 			if(this.parentRegion) {
 				this.parentRegion.show(this.views.mainCanvas);

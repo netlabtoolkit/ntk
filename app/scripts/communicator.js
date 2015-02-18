@@ -1,7 +1,7 @@
 define([
 	'backbone',
 	'backbone.marionette',
-	'SocketAdapter',
+	//'SocketAdapter',
 	'HubAdapter',
 ],
 function( Backbone, Marionette, SocketAdapter, HubAdapter ) {
@@ -20,12 +20,6 @@ function( Backbone, Marionette, SocketAdapter, HubAdapter ) {
 			// create commands
 			this.command = new Backbone.Wreqr.Commands();
 
-			// Bind to a socket server
-			// TODO: Hack to make sure that window.app.vent is defined before binding. Fix this.
-			window.setTimeout(function() {
-				self.socketAdapter = new SocketAdapter();
-				//self.socketAdapter = new HubAdapter();
-			}, 500);
 		},
 	});
 

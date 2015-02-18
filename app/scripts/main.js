@@ -73,7 +73,6 @@ require([
 function (Backbone, App, rivets ) {
     'use strict';
 
-	window.app = App;
 
 	 //Rivets.js Backbone adapter
 	rivets.adapters[':'] = {

@@ -11,6 +11,7 @@ function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule) {
 
 
 	var App = new Backbone.Marionette.Application();
+	window.app = App;
 
 	// Regions
 	App.addRegions({
