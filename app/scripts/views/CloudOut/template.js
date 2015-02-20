@@ -22,7 +22,7 @@
     </div>
 
     <div class="widgetRight">
-        <div class=rightTab><input type="checkbox" rv-checked="widget:sendToCloud" /></div>
+        <div class=rightTab><input id="sendToCloud" type="checkbox" rv-checked="widget:sendToCloud" /></div>
     </div>
 
 
@@ -31,6 +31,7 @@
         <div class="content">
             <label for="avg">avg inputs</label> <input name="avg" type="checkbox" rv-checked="widget:averageInputs" /> <br>
             <label for="send">send every</label> <input name="send" type="text" rv-value="widget:sendPeriod"><br>
+            <label for="dataField">data field</label> <input name="dataField" class="keys" type="text" rv-value="widget:dataField"><br>
             <label for="pubKey">public key</label> <input name="pubKey" class="keys" type="text" rv-value="widget:publicKey"><br>
             <label for="priKey">private key</label> <input name="priKey" class="keys" type="text" rv-value="widget:privateKey"><br>
         </div>

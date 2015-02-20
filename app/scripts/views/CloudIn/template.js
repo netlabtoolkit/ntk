@@ -6,7 +6,7 @@
     </div>
 
     <div class="widgetLeft">
-        <div class=leftTab><input type="checkbox" rv-checked="widget:getFromCloud" /></div>
+        <div class=leftTab><input id="getFromCloud" type="checkbox" rv-checked="widget:getFromCloud" /></div>
     </div>
 
     <div class="widgetBody">
@@ -30,6 +30,7 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label>get every</label> <input type="text" rv-value="widget:getPeriod"><br>
+            <label for="dataField">data field</label> <input name="dataField" class="keys" type="text" rv-value="widget:dataField"><br>
             <label>public key</label> <input class="keys" type="text" rv-value="widget:publicKey"><br>
         </div>
     </div>
