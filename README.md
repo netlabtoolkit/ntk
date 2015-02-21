@@ -17,10 +17,9 @@ http://www.joyent.com/blog/installing-node-and-npm
 
 If you are on Raspberry Pi, then you probably have an outdated version of Node. Here's a nice & easy upgrade method: https://github.com/DonaldDerek/rPi-cheat-sheet
 
-You will also need to install command-line tools: Ruby, bower, phantomjs, SASS, and the require.js build tool if you do not have them already:
+You will also need to install command-line tools: Ruby, bower, SASS, and the require.js build tool if you do not have them already:
 ```
 npm install -g bower
-npm install -g phantomjs
 npm install -g requirejs
 
 sudo gem update —system
