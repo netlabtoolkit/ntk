@@ -102,6 +102,17 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             }
         },
         
+        onModelChange: function(e) {
+            if(!window.app.server) {
+                var keys = _.keys(e.changedAttributes());;
+                if (keys.indexOf("displayText") >= 0) {
+                    this.$('.timeLeft').text(this.model.get('displayText'));
+                } else if (keys.indexOf("in") >= 0) {
+                    this.$('.dial').val(this.model.get('in')).trigger('change');
+                }
+            } 
+        },
+        
         timeKeeper: function(frameCount) {
             var self = this;
             if (this.model.get('getFromCloud')) {
@@ -171,8 +182,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             } else {
                 this.lastSendToCloud = false;
             }
-            this.$('.timeLeft').text(this.model.get('displayText'));
-            self.$('.dial').val(self.model.get('in')).trigger('change');
+            //this.$('.timeLeft').text(this.model.get('displayText'));
+            //self.$('.dial').val(self.model.get('in')).trigger('change');
         }
 
 	});

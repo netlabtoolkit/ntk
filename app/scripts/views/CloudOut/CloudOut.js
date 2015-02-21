@@ -117,9 +117,21 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
         
         sendToCloud: function(e) {
-            if (!this.model.get('sendToCloud')) {
-                this.model.set('displayText',"Stopped");
+            if(!window.app.server) {
+                if (!this.model.get('sendToCloud')) {
+                    this.model.set('displayText',"Stopped");
+                }
             }
+        },
+        
+        onModelChange: function(e) {
+            if(!window.app.server) {
+                var keys = _.keys(e.changedAttributes());
+                //console.log(test);
+                if (keys.indexOf("displayText") >= 0) {
+                    this.$('.timeLeft').text(this.model.get('displayText'));
+                }
+            } 
         },
                 
         
@@ -170,7 +182,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             } else {
                 this.lastSendToCloud = false;
             }
-            this.$('.timeLeft').text(this.model.get('displayText'));
         }
 
 	});
