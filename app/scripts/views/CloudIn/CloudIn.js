@@ -104,7 +104,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         
         onModelChange: function(e) {
             if(!window.app.server) {
-                var keys = _.keys(e.changedAttributes());;
+                var keys = _.keys(e.changedAttributes());
                 if (keys.indexOf("displayText") >= 0) {
                     this.$('.timeLeft').text(this.model.get('displayText'));
                 } else if (keys.indexOf("in") >= 0) {
