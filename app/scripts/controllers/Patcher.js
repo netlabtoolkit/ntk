@@ -35,6 +35,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			mapFunction: (function(self) { return function() {return self.mapToModel.apply(self, arguments)}; })(this),
 		});
 
+		window.OO = this;
 	};
 
 	PatcherController.prototype = {
@@ -298,6 +299,16 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			this.widgets = _.reject(this.widgets, function(view) { return widgetView === view; });
 			this.widgetModels.remove(widgetView.model);
 
+			// Get any mappings related to this widget
+			var widgetID = widgetView.model.get('wid');
+			var relatedMappings = _.filter(this.widgetMappings, function(mapping) {
+				return (mapping.modelWID == widgetID || mapping.viewWID == widgetID);
+			});
+
+			// Remove each related mapping found
+			for(var i=relatedMappings.length-1; i>=0; i--) {
+				this.removeMapping(relatedMappings[i]);
+			}
 
 			if(!calledFromLoader) {
 				window.app.vent.trigger('removeWidget', widgetView.model.get( 'wid' ));

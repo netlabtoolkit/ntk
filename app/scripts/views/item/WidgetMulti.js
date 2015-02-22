@@ -264,8 +264,20 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 */
 		removeWidget: function(e, calledFromLoader) {
 			app.Patcher.Controller.removeWidget(this, calledFromLoader);
+			var IDsToRemove = [];
 			for(var i=this.cables.length-1; i>=0; i--) {
 				this.cables[i].cable.remove();
+				IDsToRemove.push(i);
+			}
+
+			for(var i=IDsToRemove.length-1; i>=0; i--) {
+				var indexOfID = IDsToRemove.indexOf(
+					_.findWhere(this.cables, function(cable) {
+						return cable.id = IDsToRemove[i];
+					})
+				);
+
+				this.cables.splice(indexOfID, 1);
 			}
 
 			this.remove();
