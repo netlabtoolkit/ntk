@@ -1,9 +1,27 @@
 NTK
 =============
 
-NETLab Toolkit JavaScript version
+NETLab Toolkit JavaScript Version
 
-DISCLAIMER: This is an active development branch and is quite far from being "ready for primetime"
+NTK (the NETLab Toolkit) is an authoring system for designers, developers, makers, researchers and students who want to design and build tangible Internet of Things projects. With a simple drag and drop interface, connect sensors, actuators, media and networks with the smart widgets. Concepts can be prototyped quickly, encouraging iteration, experimentation and testing by sketching in hardware.
+
+NTK works with the original Arduino and newer Linux embedded systems like the Intel Galileo and Arduino Tre. And NTK can be easily adapted to do new things. The Code widget allows users to add custom Javascript. And with a bit more expertise, users can create their own, reusable widgets.
+
+Go ahead, Drag and Drop the Internet of Things.
+
+Installation instructions below. For more information and documentation, please see the project website.
+
+<http://netlabtoolkit.org/>
+
+Sign up for NTK news here:
+
+<http://netlabtoolkit.org/join/>
+
+Alpha Version - February 21st, 2015
+---------------------
+This is our first official release, and we look forward to your comments and bug reports as you try it out. This release includes 13 widgets and works on a computer. We're close to releasing a version that runs on the Intel Galileo and similar embedded Linux systems. Other widgets and improvements are in the near term pipeline, and will be released as they are ready.
+
+We're planning the next major release as a Beta in June, 2015. This will include a complete set of widgets with a new visual design, as well as double click standard application versions of NTK.
 
 Installation
 ---------------------
@@ -32,25 +50,21 @@ git clone https://github.com/netlabtoolkit/ntk.git
 cd ntk
 bower install
 npm install
+npm run build
 ```
 
 Starting the server
 ---------------------
-To run a live-reload development server after installation run grunt in that directory:
-```
-npm run dev
-```
+To run NTK as a **standard application**:
 
-or to run it as a standard application...
-
-To build the production version (you will need to do this at least once if you haven't at some point):
-```
-npm run build
-```
-
-To start the server:
 ```
 npm start
+```
+Note: if you've made any changes, you should rerun npm run build before npm start.
+
+To run NTK as a **live-reload development server**, run grunt by:
+```
+npm run dev
 ```
 
 Creating a New Widget
