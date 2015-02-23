@@ -55,6 +55,7 @@ npm run build
 Note: if you are running Linux, you will have to set proper permissions on your Arduino in order to use it.
 For instance:
 ```
+// Linux users only
 sudo chmod a+rw /dev/ttyUSB0
 ```
 
