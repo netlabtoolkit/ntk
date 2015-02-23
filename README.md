@@ -52,6 +52,11 @@ bower install
 npm install
 npm run build
 ```
+Note: if you are running Linux, you will have to set proper permissions on your Arduino in order to use it.
+For instance:
+```
+sudo chmod a+rw /dev/ttyUSB0
+```
 
 Starting the server
 ---------------------
@@ -60,7 +65,7 @@ To run NTK as a **standard application**:
 ```
 npm start
 ```
-Note: if you've made any changes, you should rerun npm run build before npm start.
+Note: if you've made any changes or this is the first time you are running it, you should rerun npm run build before npm start.
 
 To run NTK as a **live-reload development server**, run grunt by:
 ```
