@@ -20,38 +20,24 @@ function(Backbone, rivets, WidgetView, Template){
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
 
-/*
-			var elementSrc = undefined;
-
-			if(!app.server) {
-				elementSrc = prompt('Please enter the audio URL');
-			}
-
-			if(!elementSrc) {
-				elementSrc = 'assets/audio/slowDrums.mp3';
-			}
-*/
-
 			this.model.set({
-//				src: elementSrc,
                 src: 'assets/audio/slowDrums.mp3',
 				ins: [
-					//{name: 'in', to: 'in'},
 					{title: 'Play', to: 'play'},
-                    //{title: 'Toggle Play', to: 'toggle'},
 					{title: 'Volume', to: 'volume'},
                     {title: 'Speed', to: 'speed'},
 				],
 				title: 'Audio',
 
 				play: 0,
+                playText: "Pause",
 				toggle: 0,
                 volume: 100.0,
 				speed: 100.0,
                 loop: false,
                 continuous: false,
 			});
-                    
+            
             this.playing = false;
                     
             this.domReady = false;
@@ -64,52 +50,61 @@ function(Backbone, rivets, WidgetView, Template){
             if(!app.server) {
                 this.$("#audio")[0].loop = this.model.get('loop');
                 if (this.model.get('continuous')) {
-                    this.$("#audio")[0].play();
                     this.playing = true;
+                    this.$("#audio")[0].play();
+                    this.model.set('playText',"Play");
                 }
+                this.domReady = true;
             }
-            
-            this.domReady = true;
-
 		},
                     
-        onModelChange: function() {
+        onModelChange: function(model) {
             if (this.domReady) {
-                if(!app.server) {
+                if(!app.server && (model.changedAttributes().play || model.changedAttributes().volume || model.changedAttributes().speed)) {
                     var play = parseInt(this.model.get('play'),10);
                     var volume = Math.min(parseFloat(this.model.get('volume')) / 100,1.0);
                     var speed = parseFloat(this.model.get('speed')) / 100;
 
                     var audioEl = this.$("#audio")[0];
 
-                    if (!this.model.get('continuous')) {
-                        if (play >= 500 && !this.playing) {
-                            audioEl.play();
-                            this.playing = true;
-                        } else if (play < 500 && this.playing) {
-                            audioEl.pause();
-                            this.playing = false;
+                    if (model.changedAttributes().play) {
+                        if (!this.model.get('continuous')) {
+                            if (play >= 500 && !this.playing) {
+                                this.playing = true;
+                                audioEl.play();
+                                this.model.set('playText',"Play");
+                            } else if (play < 500 && this.playing) {
+                                this.playing = false;
+                                audioEl.pause();
+                                this.model.set('playText',"Pause");
+                            }
                         }
                     }
+                    
+                    if (model.changedAttributes().volume) {
+                        audioEl.volume = volume;
+                    }
 
-                    audioEl.volume = volume;
-
-                    audioEl.playbackRate = speed;
+                    if (model.changedAttributes().speed) {
+                        audioEl.playbackRate = speed;
+                    }
                 }
             }
             
         },
         
         loopChange: function(e) {
-            this.$("#audio")[0].loop = this.model.get('loop');
+            if(!app.server) {
+                this.$("#audio")[0].loop = this.model.get('loop');
+            }
         },
             
         continuousChange: function(e) {
-            if (this.model.get('continuous')) {
-                if(!app.server) {
-                    this.$("#audio")[0].play();
-                }
+            if (!app.server && this.model.get('continuous')) {
                 this.playing = true;
+                this.$("#audio")[0].play();
+                this.model.set('playText',"Play");
+                
             }
         },
 
