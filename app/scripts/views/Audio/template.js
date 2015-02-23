@@ -12,7 +12,7 @@
     </div>
     <div class="widgetBody">
         <div class="widgetBodyLeft">
-            <div class="inletValue"><span rv-text="widget:play">100</span> Play</div>
+            <div class="inletValue"><span rv-text="widget:play">100</span> <span rv-text="widget:playText">Pause</span></div>
             <div class="inletValue"><span rv-text="widget:volume">100</span> Volume</div>
             <div class="inletValue"><span rv-text="widget:speed">100</span> Speed</div>
             <div class="inletValue"><input id="loop" type="checkbox" rv-checked="widget:loop" /> Loop</div>
