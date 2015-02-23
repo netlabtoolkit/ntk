@@ -347,7 +347,22 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 						from: {x: model.get('offsetLeft') + inletOffsets.source.x, y: model.get('offsetTop') + inletOffsets.source.y},
 						to: {x: view.model.get('offsetLeft') + inletOffsets.destination.x, y: view.model.get('offsetTop') + inletOffsets.destination.y},
 					});
-					view.addCable(cable, model, inletOffsets, IOMapping);
+
+
+					var sourceViewID = undefined;
+
+					for(var i=this.widgets.length-1; i>=0; i--) {
+						if(this.widgets[i].model.cid == model.cid) {
+							sourceViewID = this.widgets[i].cid;
+						}
+					}
+					view.addCable(cable, model, inletOffsets, IOMapping, sourceViewID);
+
+					//console.log(sourceView, this.widgets, model);
+
+					//if(sourceView) {
+						//sourceView.addCable(cable, model, inletOffsets, IOMapping);
+					//}
 
 					model.on('remove destroy', function() {
 						view.removeCable(cable);
@@ -395,6 +410,8 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		removeMapping: function(mapping) {
 			this.widgetMappings.splice(this.widgetMappings.indexOf(mapping), 1);
 			window.app.vent.trigger('updateModelMappings', this.widgetMappings);
+
+			window.app.trigger('Widget:removeMapping', mapping.modelWID);
 		},
         /**
          * Get the singleton model:server instance and if it does not yet exist, create it and return it

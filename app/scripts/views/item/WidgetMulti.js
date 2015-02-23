@@ -48,6 +48,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.model.on('change', this.onModelChange, this);
 			this.model.on('change', this.checkOutputMappingUpdate, this);
 
+			window.app.on('Widget:removeMapping', this.removeMapping, this);
+
 			this.setWidgetBinders();
 		},
 		onRender: function() {
@@ -246,6 +248,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.cables = _.reject(this.cables, function(item) { return item.map.destinationField === inletField});
 
 		},
+		removeMapping: function removeMapping(modelWID) {
+			if(modelWID !== 'ArduinoUno') {
+				this.sources = _.reject(this.sources, function(source) {
+					return source.model.attributes.wid == modelWID;
+				});
+			}
+		},
 		/**
 		 * add a patch cable to this widget so we can update and track it
 		 *
@@ -253,9 +262,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @param {Backbone.Model} fromModel the model that the cable is attached to on the other side
 		 * @return {WidgetView} this view
 		 */
-		addCable: function(cable, fromModel, inletOffsets, mapping) {
+		addCable: function(cable, fromModel, inletOffsets, mapping, sourceViewID) {
 			//this.cables.push({ model: fromModel, cable: cable, offsets: inletOffsets });
-			this.cables.push({ map: mapping, model: fromModel, cable: cable, offsets: inletOffsets });
+			this.cables.push({ map: mapping, model: fromModel, cable: cable, offsets: inletOffsets, sourceViewID: sourceViewID });
 		},
 		/**
 		 * remove the widget from both the DOM and the controller
@@ -263,6 +272,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {void}
 		 */
 		removeWidget: function(e, calledFromLoader) {
+			window.RR = this;
 			app.Patcher.Controller.removeWidget(this, calledFromLoader);
 			var IDsToRemove = [];
 			for(var i=this.cables.length-1; i>=0; i--) {
@@ -278,6 +288,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				);
 
 				this.cables.splice(indexOfID, 1);
+				console.log('calling remove', IDsToRemove[i]);
+				window.app.cableManager.removeConnection(IDsToRemove[i]);
 			}
 
 			this.remove();
@@ -296,6 +308,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			// Call the remove method on the cable itself
 			cable.remove();
+			window.app.cableManager.removeConnection(cable.id);
 		},
 		destinationModels: [],
 		onSync: function() {},
