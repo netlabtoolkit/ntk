@@ -33,6 +33,7 @@ function(Backbone, rivets, WidgetView, Template){
 				title: 'Video',
 
 				play: 0,
+                playText: "Pause",
 				toggle: 0,
                 volume: 100.0,
 				speed: 100.0,
@@ -72,49 +73,60 @@ function(Backbone, rivets, WidgetView, Template){
         onRender: function() {
 			WidgetView.prototype.onRender.call(this);
 			var self = this;
-
-            this.$( '.detachedEl' ).css( 'cursor', 'move' );
-            this.$( '.detachedEl' ).css( 'position', 'fixed' );
-            this.$( '.detachedEl' ).draggable({ cursor: "move" });
-
-            this.domReady = true;
+            if(!app.server) {
+                this.$( '.detachedEl' ).css( 'cursor', 'move' );
+                this.$( '.detachedEl' ).css( 'position', 'fixed' );
+                this.$( '.detachedEl' ).draggable({ cursor: "move" });
+                
+                if (this.model.get('continuous')) {
+                    this.playing = true;
+                    this.$("#video")[0].play();
+                    this.model.set('playText',"Play");
+                }
+                
+                //console.log("vid: " + this.$("#video")[0].currentSrc);
+                this.domReady = true;
+                
+            }
 
             //console.log($("#video")[0].duration);
 
 		},
 
-        onModelChange: function() {
+        onModelChange: function(model) {
             if (this.domReady) {
-				if(!app.server) {
+				if(!app.server  && (model.changedAttributes().play || model.changedAttributes().speed || model.changedAttributes().time)) {
 					var play = parseInt(this.model.get('play'),10);
 					var volume = Math.min(parseFloat(this.model.get('volume')) / 100,1.0);
 					var speed = parseFloat(this.model.get('speed')) / 100;
 					var time = parseFloat(this.model.get('time'));
 					var videoEl = this.$("#video")[0];
-                    videoEl.volume = volume;
-					videoEl.playbackRate = speed;
-                
-                    if (!this.model.get('continuous')) {
-                        if (play >= 500 && !this.playing) {
-                            videoEl.play();
-                            this.playing = true;
-                            //console.log('play');
-                        } else if (play < 500 && this.playing) {
-                            videoEl.pause();
-                            this.playing = false;
-                            //console.log('pause');
-                        }
+                    
+                    if (model.changedAttributes().speed) {
+					   videoEl.playbackRate = speed;
                     }
-
-
-
-					if (time != this.lastTimeIn) {
+                    
+                    if (time != this.lastTimeIn && model.changedAttributes().time) {
 						var timeLimited = Math.min(time, Math.floor(videoEl.duration));
 						timeLimited = Math.max(timeLimited, 0);
 						videoEl.currentTime = timeLimited;
 						//console.log(videoEl.duration);
 						//console.log(timeLimited);
 					}
+                
+                    if (model.changedAttributes().play) {
+                        if (!this.model.get('continuous')) {
+                            if (play >= 500 && !this.playing) {
+                                videoEl.play();
+                                this.playing = true;
+                                this.model.set('playText',"Play");
+                            } else if (play < 500 && this.playing) {
+                                videoEl.pause();
+                                this.playing = false;
+                                this.model.set('playText',"Pause");
+                            }
+                        }
+                    }
 				}
 
                 this.lastTimeIn = time;
@@ -134,6 +146,7 @@ function(Backbone, rivets, WidgetView, Template){
                     this.$("#video")[0].loop = this.model.get('loop');
                     this.$("#video")[0].play();
                     this.playing = true;
+                    this.model.set('playText',"Play");
                 }
             }
         },

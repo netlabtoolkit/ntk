@@ -66,6 +66,14 @@ function(Backbone, rivets, WidgetView, Template){
                     var speed = parseFloat(this.model.get('speed')) / 100;
 
                     var audioEl = this.$("#audio")[0];
+                    
+                    if (model.changedAttributes().volume) {
+                        audioEl.volume = volume;
+                    }
+
+                    if (model.changedAttributes().speed) {
+                        audioEl.playbackRate = speed;
+                    }
 
                     if (model.changedAttributes().play) {
                         if (!this.model.get('continuous')) {
@@ -81,13 +89,7 @@ function(Backbone, rivets, WidgetView, Template){
                         }
                     }
                     
-                    if (model.changedAttributes().volume) {
-                        audioEl.volume = volume;
-                    }
-
-                    if (model.changedAttributes().speed) {
-                        audioEl.playbackRate = speed;
-                    }
+ 
                 }
             }
             
