@@ -21,8 +21,8 @@ function () {
 				outputRange = outputCeiling - outputFloor;
 
 			var scalingFactor = outputRange / inputRange;
-				output = ((parseInt( input, 10) - inputFloor) * scalingFactor) + outputFloor;
-
+				output = ((parseFloat( input, 10) - inputFloor) * scalingFactor) + outputFloor;
+            
 			return output;
 		},
         /**
@@ -32,9 +32,10 @@ function () {
          * @return {number}
          */
 		invert: function(input) {
-			var output = parseInt(input,10);
+			var output = parseFloat(input,10);
 
 			if(this.model.get('invert')) {
+                
 				output = (output - (output * 2)) + parseInt(this.model.get('outputCeiling'),10);
 			}
 
