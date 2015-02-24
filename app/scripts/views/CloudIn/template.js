@@ -13,7 +13,7 @@
         <div class="dialwrapper" style="position:relative;">
             <input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/>
 
-            <div class="display outvalue" rv-text="widget:out">1023</div>
+            <div class="display outvalue" rv-text="widget:out | rounded">1023</div>
         </div>
         <br><div class='timeLeft'>Get in: 10s</div>
 

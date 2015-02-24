@@ -55,6 +55,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.inputLast = 0;
             this.inputCumulative = 0;
             this.inputCount = 0;
+            this.startCountdown = true;
 
 
             // If you want to register your own signal processing function, push them to signalChainFunctions
@@ -124,11 +125,22 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             }
         },
         
-        onModelChange: function(e) {
+        onModelChange: function(model) {
             if(!window.app.server) {
-                var keys = _.keys(e.changedAttributes());
-                if (keys.indexOf("displayText") >= 0) {
-                    this.$('.timeLeft').text(this.model.get('displayText'));
+                if (model.changedAttributes().displayText) {
+                    var displayText = this.model.get('displayText');
+                    this.$('.timeLeft').text(displayText);
+                    
+                    if (parseInt(displayText.substring(9))*1000 >= this.model.get('sendPeriod')) {
+                        if (this.startCountdown) {
+                            console.log("countdown");
+                            this.$('.outvalue').css('color','#ff0000');
+                            this.$('.outvalue').animate({color: '#000000' },this.model.get('sendPeriod') - 500,'swing');
+                            this.startCountdown = false;
+                        }
+                    } else {
+                        this.startCountdown = true;
+                    }
                 }
             } 
         },

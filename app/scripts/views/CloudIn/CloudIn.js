@@ -50,6 +50,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.startTime = 0;
             this.lastSendToCloud = false;
             this.lastTimeDiff = 0;
+            this.startCountdown = true;
 
 			// If you would like to register any function to be called at frame rate (60fps)
 			window.app.timingController.registerFrameCallback(this.timeKeeper, this);
@@ -102,14 +103,30 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             }
         },
         
-        onModelChange: function(e) {
+        onModelChange: function(model) {
             if(!window.app.server) {
-                var keys = _.keys(e.changedAttributes());
-                if (keys.indexOf("displayText") >= 0) {
-                    this.$('.timeLeft').text(this.model.get('displayText'));
-                } else if (keys.indexOf("in") >= 0) {
+                if (model.changedAttributes().displayText) {
+                    var displayText = this.model.get('displayText');
+                    this.$('.timeLeft').text(displayText);
+
+                    if (parseInt(displayText.substring(8))*1000 >= this.model.get('getPeriod')) {
+                        if (this.startCountdown) {
+                            console.log("countdown");
+                            this.$('.outvalue').css('color','#ff0000');
+                            this.$('.outvalue').animate({color: '#000000' },this.model.get('getPeriod') - 500,'swing');
+                            this.startCountdown = false;
+                        }
+                    } else {
+                        this.startCountdown = true;
+                    }
+                } 
+                
+                if (model.changedAttributes().in) {
                     this.$('.dial').val(this.model.get('in')).trigger('change');
-                }
+                }  
+                
+                
+
             } 
         },
         
@@ -170,9 +187,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                         this.startTime = Date.now();
                         this.inputCount = 0;
                         this.inputCumulative = 0;
-                        if (this.model.get('getFromCloud')) {
-                            this.model.set('displayText',' Get in: ' + (period / 1000).toFixed(1) + 's');
-                        }
+                        this.model.set('displayText','Get in: ' + (period / 1000).toFixed(1) + 's');
                         this.lastTimeDiff = 0;
                     } else if (timeDiff - this.lastTimeDiff >= 0.1) {
                         this.model.set('displayText',' Get in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
@@ -182,8 +197,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             } else {
                 this.lastSendToCloud = false;
             }
-            //this.$('.timeLeft').text(this.model.get('displayText'));
-            //self.$('.dial').val(self.model.get('in')).trigger('change');
         }
 
 	});
