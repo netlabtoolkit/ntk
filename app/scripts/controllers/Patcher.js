@@ -277,8 +277,6 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		},
 		updateWidgetMappingFromServer: function updateWidgetMappingFromServer(mapping) {
 			var widgetView = _.find(this.widgets, function(view) {
-				//return view.model.cid == mapping.viewWID;
-				//return view.model.cid == mapping.modelWID;
 				return view.model.get('wid') == mapping.modelWID;
 			});
 
@@ -358,7 +356,6 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					}
 					view.addCable(cable, model, inletOffsets, IOMapping, sourceViewID);
 
-					//console.log(sourceView, this.widgets, model);
 
 					//if(sourceView) {
 						//sourceView.addCable(cable, model, inletOffsets, IOMapping);

@@ -39,12 +39,12 @@ module.exports = function(options) {
 		},
 		updateMappings: function(changes, socket) {
 			var currentMap = JSON.parse( changes );
-			var masterModel = _.findWhere(this.masterPatch.mappings, {modelWID: currentMap.wid});
+			var masterModel = _.findWhere(this.masterPatch.mappings, {viewWID: currentMap.wid});
 
 			if(masterModel) {
-				//_.extend(masterModel, currentMap);
 				masterModel.map = currentMap.mappings[0].map;
-				socket.broadcast.emit('server:clientMappingUpdate', JSON.stringify( masterModel ));
+				socket.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
+				//socket.broadcast.emit('server:clientMappingUpdate', JSON.stringify( masterModel ));
 			}
 
 		},

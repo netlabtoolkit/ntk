@@ -288,7 +288,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				);
 
 				this.cables.splice(indexOfID, 1);
-				console.log('calling remove', IDsToRemove[i]);
 				window.app.cableManager.removeConnection(IDsToRemove[i]);
 			}
 
@@ -318,7 +317,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			this.model.set('inputMapping', inputVal);
 
-			var mappings = this.sources.slice(this.sources.length-1);
+			//var mappings = this.sources.slice(this.sources.length-1);
+			var mappings;
 			mappings = JSON.parse(JSON.stringify(this.sources));
 
 			for(var i=mappings.length-1; i >= 0; i--) {
