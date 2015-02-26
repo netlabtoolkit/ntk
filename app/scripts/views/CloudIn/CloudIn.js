@@ -26,6 +26,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {
 			'change #getFromCloud': 'getFromCloud',
+            'change #cloudService': 'changeCloudService',
 		},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'CloudIn',
@@ -40,8 +41,15 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.model.set({
                 title: 'CloudIn',
                 getPeriod: 10000,
-                publicKey: 'your-public-key',
+                cloudService: 'sparkfun',
+                // sparkfun phant
+                publicKey: '',
                 dataField: 'mydata',
+                // spark.io
+                sparkPin: 'A0',
+                sparkDeviceId: '',
+                sparkAccessToken: '',
+                //
                 getFromCloud: false,
                 displayText: "Stopped",
             });
@@ -52,6 +60,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.lastTimeDiff = 0;
             this.startCountdown = true;
 
+            this.signalChainFunctions.push(SignalChainFunctions.scale);
 			// If you would like to register any function to be called at frame rate (60fps)
 			window.app.timingController.registerFrameCallback(this.timeKeeper, this);
 		},
@@ -88,6 +97,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				$(el).val(value);
 				$(el).trigger('change');
 			};
+            
+            this.changeCloudService();
         },
 
 
@@ -103,6 +114,25 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             }
         },
         
+        changeCloudService: function(e) {
+            if(!window.app.server) {
+                var service = this.model.get('cloudService');
+                switch(service) {
+                    case 'sparkfun':
+                        //
+                        this.$('#sparkfun').show();
+                        this.$('#spark').hide();
+                        break;
+                    case 'spark':
+                        this.$('#sparkfun').hide();
+                        this.$('#spark').show();
+                        break;
+                    default:
+                        //
+                }
+            }
+        },
+        
         onModelChange: function(model) {
             if(!window.app.server) {
                 if (model.changedAttributes().displayText) {
@@ -111,7 +141,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
                     if (parseInt(displayText.substring(8))*1000 >= this.model.get('getPeriod')) {
                         if (this.startCountdown) {
-                            console.log("countdown");
                             this.$('.outvalue').css('color','#ff0000');
                             this.$('.outvalue').animate({color: '#000000' },this.model.get('getPeriod') - 500,'swing');
                             this.startCountdown = false;
@@ -123,10 +152,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 
                 if (model.changedAttributes().in) {
                     this.$('.dial').val(this.model.get('in')).trigger('change');
-                }  
-                
-                
-
+                }
             } 
         },
         
@@ -147,42 +173,74 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     
                     if (timeDiff > period) { // get from cloud
                         //console.log("getting");
-                        var theValue = (this.model.get('out')).toString();
-                        var pubKey = this.model.get('publicKey');
-                        var dataField = this.model.get('dataField');
-                        var url = 'https://data.sparkfun.com/output/' + pubKey + '.json';
-						$.ajax({
-							url: url,
-							jsonp: 'callback',
-							cache: false,
-							dataType: 'jsonp',
-							data: {
-								page: 1
-							},
-							success: function(response) {
-								// check for success
-								if (response.success == false) {
-									console.log( "Connection to cloud service failed");
-									self.model.set('getFromCloud',false);
-									self.model.set('displayText',"Couldn't connect");
-								} else {
-                                    var value = Number(response[0][dataField]);
-                                    if (isNaN(value)) {
-                                        self.model.set('getFromCloud',false);
-                                        self.model.set('displayText',"Bad datafield");
-                                    } else {
-								        self.model.set('in',Number(response[0][dataField]));
-                                    }
-								}
-							},
+                        
+                        switch(this.model.get('cloudService')) {
+                            case 'sparkfun':
+                                // DATA.SPARKFUN.COM
+                                //
+                                var pubKey = this.model.get('publicKey');
+                                var dataField = this.model.get('dataField');
+                                var url = 'https://data.sparkfun.com/output/' + pubKey + '.json';
+                                $.ajax({
+                                    url: url,
+                                    jsonp: 'callback',
+                                    cache: false,
+                                    dataType: 'jsonp',
+                                    data: {
+                                        page: 1
+                                    },
+                                    success: function(response) {
+                                        // check for success
+                                        if (response.success == false) {
+                                            console.log( "Connection to cloud service failed");
+                                            self.model.set('getFromCloud',false);
+                                            self.model.set('displayText',"Couldn't connect");
+                                        } else {
+                                            var value = Number(response[0][dataField]);
+                                            if (isNaN(value)) {
+                                                self.model.set('getFromCloud',false);
+                                                self.model.set('displayText',"Bad datafield");
+                                            } else {
+                                                self.model.set('in',Number(response[0][dataField]));
+                                            }
+                                        }
+                                    },
 
-							fail: function( jqxhr, textStatus, error ) {
-								var err = textStatus + ", " + error;
-								console.log( "Connection to cloud servive failed: " + err );
-								self.model.set('getFromCloud',false);
-								self.model.set('displayText',"Couldn't connect");
-							}
-						});
+                                    fail: function( jqxhr, textStatus, error ) {
+                                        var err = textStatus + ", " + error;
+                                        console.log( "Connection to cloud servive failed: " + err );
+                                        self.model.set('getFromCloud',false);
+                                        self.model.set('displayText',"Couldn't connect");
+                                    }
+                                });
+                                break;
+                            case 'spark':
+                                // SPARK.IO
+                                //
+                                var url = "https://api.spark.io/v1/devices/" + this.model.get('sparkDeviceId') + "/analogread"; 
+                                $.ajax({
+                                    //url: "https://api.spark.io/v1/devices/55ff6d066678505517151667/analogread",
+                                    url: url,
+                                    type: "POST",
+                                    timeout: 2000,
+                                    data: { access_token: this.model.get('sparkAccessToken'), params: this.model.get('sparkPin') }
+                                    })
+                                    .done(function( response ) {
+                                        //console.log(response);
+                                        var value = parseInt(response.return_value,10);
+                                        if (isNaN(value)) {
+                                            self.model.set('getFromCloud',false);
+                                            self.model.set('displayText',"Bad data");
+                                        } else {
+                                            self.model.set('in',value/4);
+                                        }
+                                });
+                                break;
+                            default:
+                                //
+                        }
+                        
+                        
                         
                         this.startTime = Date.now();
                         this.inputCount = 0;

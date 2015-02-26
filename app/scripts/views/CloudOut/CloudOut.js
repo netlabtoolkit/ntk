@@ -26,6 +26,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {
 			'change #sendToCloud': 'sendToCloud',
+            'change #cloudService': 'changeCloudService',
 		},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'CloudOut',
@@ -40,9 +41,16 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.model.set({
                 title: 'CloudOut',
                 sendPeriod: 10000,
-                privateKey: 'your-private-key',
-                publicKey: 'your-public-key',
+                cloudService: 'sparkfun',
+                // sparkfun phant
+                privateKey: '',
+                publicKey: '',
                 dataField: 'mydata',
+                // spark.io
+                sparkPin: 'D0',
+                sparkDeviceId: '',
+                sparkAccessToken: '',
+                //
                 averageInputs: false,
                 sendToCloud: false,
                 displayText: "Stopped",
@@ -97,6 +105,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				$(el).val(value);
 				$(el).trigger('change');
 			};
+            
+            this.changeCloudService();
         },
 
 
@@ -105,6 +115,25 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		onRemove: function() {
 			window.app.timingController.removeFrameCallback(this.timeKeeper);
 		},
+        
+        changeCloudService: function(e) {
+            if(!window.app.server) {
+                var service = this.model.get('cloudService');
+                switch(service) {
+                    case 'sparkfun':
+                        //
+                        this.$('#sparkfun').show();
+                        this.$('#spark').hide();
+                        break;
+                    case 'spark':
+                        this.$('#sparkfun').hide();
+                        this.$('#spark').show();
+                        break;
+                    default:
+                        //
+                }
+            }
+        },
         
         watchData: function(input) {
 			this.inputLast = Number(input);
@@ -133,7 +162,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     
                     if (parseInt(displayText.substring(9))*1000 >= this.model.get('sendPeriod')) {
                         if (this.startCountdown) {
-                            console.log("countdown");
+                            //console.log("countdown");
                             this.$('.outvalue').css('color','#ff0000');
                             this.$('.outvalue').animate({color: '#000000' },this.model.get('sendPeriod') - 500,'swing');
                             this.startCountdown = false;
@@ -164,20 +193,43 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     if (timeDiff > period) { // send to cloud
                         //console.log("sending");
                         var theValue = (this.model.get('out')).toString();
-                        var pubKey = this.model.get('publicKey');
-                        var priKey = this.model.get('privateKey');
-                        var dataField = this.model.get('dataField');
-                        var url = 'https://data.sparkfun.com/input/' + pubKey + '?private_key=' + priKey + '&' + dataField + '=' + theValue;
-						$.getJSON(url)
-                            .done(function( json ) {
-                                //console.log( "JSON Data: " + JSON.stringify(json) );
-                            })
-                            .fail(function( jqxhr, textStatus, error ) {
-                                var err = textStatus + ", " + error;
-                                console.log( "Connection to cloud servive failed: " + err );
-                                self.model.set('sendToCloud',false);
-                                self.model.set('displayText',"Couldn't connect");
-						});
+                        
+                        switch(this.model.get('cloudService')) {
+                            case 'sparkfun':
+                                // DATA.SPARKFUN.COM
+                                //
+                                var pubKey = this.model.get('publicKey');
+                                var priKey = this.model.get('privateKey');
+                                var dataField = this.model.get('dataField');
+                                var url = 'https://data.sparkfun.com/input/' + pubKey + '?private_key=' + priKey + '&' + dataField + '=' + theValue;
+                                $.getJSON(url)
+                                    .done(function( json ) {
+                                        //console.log( "JSON Data: " + JSON.stringify(json) );
+                                    })
+                                    .fail(function( jqxhr, textStatus, error ) {
+                                        var err = textStatus + ", " + error;
+                                        console.log( "Connection to cloud servive failed: " + err );
+                                        self.model.set('sendToCloud',false);
+                                        self.model.set('displayText',"Couldn't connect");
+                                });
+                                break;
+                            case 'spark':
+                                // SPARK.IO
+                                //
+                                var url = "https://api.spark.io/v1/devices/" + this.model.get('sparkDeviceId') + "/analogwrite"; 
+                                $.ajax({
+                                    url: url,
+                                    type: "POST",
+                                    timeout: 2000,
+                                    data: { access_token: this.model.get('sparkAccessToken'), params: this.model.get('sparkPin') + ',' + theValue }
+                                    })
+                                    .done(function( response ) {
+                                        //console.log(response);
+                                });
+                                break;
+                            default:
+                                //
+                        }
                         this.startTime = Date.now();
                         this.inputCount = 0;
                         this.inputCumulative = 0;

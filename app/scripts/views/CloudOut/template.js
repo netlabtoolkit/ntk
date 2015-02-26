@@ -31,9 +31,22 @@
         <div class="content">
             <label for="avg">avg inputs</label> <input name="avg" type="checkbox" rv-checked="widget:averageInputs" /> <br>
             <label for="send">send every</label> <input name="send" type="text" rv-value="widget:sendPeriod"><br>
-            <label for="dataField">data field</label> <input name="dataField" class="keys" type="text" rv-value="widget:dataField"><br>
-            <label for="pubKey">public key</label> <input name="pubKey" class="keys" type="text" rv-value="widget:publicKey"><br>
-            <label for="priKey">private key</label> <input name="priKey" class="keys" type="text" rv-value="widget:privateKey"><br>
+            <hr>
+            <select id="cloudService" rv-value="widget:cloudService">
+              <option value="sparkfun">Sparkfun Phant</option>
+              <option value="spark">Spark.io</option>
+            </select>
+              <br>
+                <div id="sparkfun">
+                    <label for="dataField">data field</label> <input name="dataField" class="keys" type="text" rv-value="widget:dataField"><br>
+                    <label for="pubKey">public key</label> <input name="pubKey" class="keys" type="text" placeholder="Public Key" rv-value="widget:publicKey"><br>
+                    <label for="priKey">private key</label> <input name="priKey" class="keys" type="text" placeholder="Private Key" rv-value="widget:privateKey"><br>
+                </div>
+                <div id="spark">
+                    <label>pin</label> <input class="keys" type="text" rv-value="widget:sparkPin"><br>
+                    <label for="sparkDeviceId">device id</label> <input placeholder="Device ID" name="sparkDeviceId" class="keys" type="text" rv-value="widget:sparkDeviceId"><br>
+                    <label>token</label> <input placeholder="Access Token" class="keys" type="text" rv-value="widget:sparkAccessToken"><br>
+                </div>
         </div>
     </div>
 </div>
