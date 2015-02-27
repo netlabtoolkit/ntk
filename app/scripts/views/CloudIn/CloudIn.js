@@ -43,8 +43,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 getPeriod: 10000,
                 cloudService: 'sparkfun',
                 // sparkfun phant
-                publicKey: '',
-                dataField: 'mydata',
+                phantPublicKey: '',
+                phantDataField: 'mydata',
+                phantUrl: 'https://data.sparkfun.com',
                 // spark.io
                 sparkPin: 'A0',
                 sparkDeviceId: '',
@@ -139,14 +140,17 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     var displayText = this.model.get('displayText');
                     this.$('.timeLeft').text(displayText);
 
-                    if (parseInt(displayText.substring(8))*1000 >= this.model.get('getPeriod')) {
-                        if (this.startCountdown) {
-                            this.$('.outvalue').css('color','#ff0000');
-                            this.$('.outvalue').animate({color: '#000000' },this.model.get('getPeriod') - 500,'swing');
-                            this.startCountdown = false;
+                    if (this.model.get('getPeriod') >= 500) {
+                        var timeLeft = Math.round(parseFloat(displayText.substring(9))*1000);
+                        if (timeLeft >= this.model.get('getPeriod') - 51) {
+                            if (this.startCountdown) {
+                                this.$('.outvalue').css('color','#ff0000');
+                                this.$('.outvalue').animate({color: '#000000' },this.model.get('getPeriod') - 250,'swing');
+                                this.startCountdown = false;
+                            }
+                        } else {
+                            this.startCountdown = true;
                         }
-                    } else {
-                        this.startCountdown = true;
                     }
                 } 
                 
@@ -178,9 +182,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                             case 'sparkfun':
                                 // DATA.SPARKFUN.COM
                                 //
-                                var pubKey = this.model.get('publicKey');
-                                var dataField = this.model.get('dataField');
-                                var url = 'https://data.sparkfun.com/output/' + pubKey + '.json';
+                                var pubKey = this.model.get('phantPublicKey');
+                                var dataField = this.model.get('phantDataField');
+                                var phantUrl = this.model.get('phantUrl');
+                                var url = phantUrl + '/output/' + pubKey + '.json';
+                                //console.log(url);
                                 $.ajax({
                                     url: url,
                                     jsonp: 'callback',
@@ -194,13 +200,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                         if (response.success == false) {
                                             console.log( "Connection to cloud service failed");
                                             self.model.set('getFromCloud',false);
-                                            self.model.set('displayText',"Couldn't connect");
+                                            self.model.set('displayText',"Can't connect");
                                         } else {
                                             var value = Number(response[0][dataField]);
                                             if (isNaN(value)) {
                                                 self.model.set('getFromCloud',false);
                                                 self.model.set('displayText',"Bad datafield");
                                             } else {
+                                                //console.log(response);
                                                 self.model.set('in',Number(response[0][dataField]));
                                             }
                                         }
@@ -210,7 +217,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                         var err = textStatus + ", " + error;
                                         console.log( "Connection to cloud servive failed: " + err );
                                         self.model.set('getFromCloud',false);
-                                        self.model.set('displayText',"Couldn't connect");
+                                        self.model.set('displayText',"Can't connect");
                                     }
                                 });
                                 break;

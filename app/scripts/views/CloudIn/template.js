@@ -44,8 +44,9 @@
             </select>
               <br>
             <div id="sparkfun">
-                <label for="dataField">data field</label> <input name="dataField" class="keys" type="text" rv-value="widget:dataField"><br>
-                <label>public key</label> <input class="keys" type="text" placeholder="Public Key" rv-value="widget:publicKey"><br>
+                <label for="dataField">data field</label> <input name="dataField" class="keys" type="text" rv-value="widget:phantDataField"><br>
+                <label>public key</label> <input class="keys" type="text" placeholder="Public Key" rv-value="widget:phantPublicKey"><br>
+                <label>server url</label> <input class="keys" type="text" placeholder="Server URL" rv-value="widget:phantUrl"><br>
             </div>
             <div id="spark">
                 <label>pin</label> <input class="keys" type="text" rv-value="widget:sparkPin"><br>

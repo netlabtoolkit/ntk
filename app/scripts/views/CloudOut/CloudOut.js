@@ -43,9 +43,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 sendPeriod: 10000,
                 cloudService: 'sparkfun',
                 // sparkfun phant
-                privateKey: '',
-                publicKey: '',
-                dataField: 'mydata',
+                phantPrivateKey: '',
+                phantPublicKey: '',
+                phantDataField: 'mydata',
+                phantUrl: 'https://data.sparkfun.com',
                 // spark.io
                 sparkPin: 'D0',
                 sparkDeviceId: '',
@@ -160,15 +161,19 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     var displayText = this.model.get('displayText');
                     this.$('.timeLeft').text(displayText);
                     
-                    if (parseInt(displayText.substring(9))*1000 >= this.model.get('sendPeriod')) {
-                        if (this.startCountdown) {
-                            //console.log("countdown");
-                            this.$('.outvalue').css('color','#ff0000');
-                            this.$('.outvalue').animate({color: '#000000' },this.model.get('sendPeriod') - 500,'swing');
-                            this.startCountdown = false;
+                    if (this.model.get('sendPeriod') >= 500) {
+                        var timeLeft = Math.round(parseFloat(displayText.substring(9))*1000);
+                        //console.log(timeLeft);
+                        if (timeLeft >= this.model.get('sendPeriod') - 51) {
+                            if (this.startCountdown) {
+                                //console.log("countdown");
+                                this.$('.outvalue').css('color','#ff0000');
+                                this.$('.outvalue').animate({color: '#000000' },this.model.get('sendPeriod') - 250,'swing');
+                                this.startCountdown = false;
+                            }
+                        } else {
+                            this.startCountdown = true;
                         }
-                    } else {
-                        this.startCountdown = true;
                     }
                 }
             } 
@@ -198,10 +203,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                             case 'sparkfun':
                                 // DATA.SPARKFUN.COM
                                 //
-                                var pubKey = this.model.get('publicKey');
-                                var priKey = this.model.get('privateKey');
-                                var dataField = this.model.get('dataField');
-                                var url = 'https://data.sparkfun.com/input/' + pubKey + '?private_key=' + priKey + '&' + dataField + '=' + theValue;
+                                var priKey = this.model.get('phantPrivateKey');
+                                var pubKey = this.model.get('phantPublicKey');
+                                var dataField = this.model.get('phantDataField');
+                                var phantUrl = this.model.get('phantUrl');
+
+                                var url = phantUrl + '/input/' + pubKey + '?private_key=' + priKey + '&' + dataField + '=' + theValue;
                                 $.getJSON(url)
                                     .done(function( json ) {
                                         //console.log( "JSON Data: " + JSON.stringify(json) );
@@ -210,7 +217,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                         var err = textStatus + ", " + error;
                                         console.log( "Connection to cloud servive failed: " + err );
                                         self.model.set('sendToCloud',false);
-                                        self.model.set('displayText',"Couldn't connect");
+                                        self.model.set('displayText',"Can't connect");
                                 });
                                 break;
                             case 'spark':
@@ -234,10 +241,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                         this.inputCount = 0;
                         this.inputCumulative = 0;
                         if (this.model.get('sendToCloud')) {
+                            //this.model.set('displayText',' Send in: ' + (period / 1000).toFixed(1) + 's');
                             this.model.set('displayText',' Send in: ' + (period / 1000).toFixed(1) + 's');
                         }
                         this.lastTimeDiff = 0;
                     } else if (timeDiff - this.lastTimeDiff >= 0.1) {
+                        //this.model.set('displayText',' Send in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
                         this.model.set('displayText',' Send in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
                         this.lastTimeDiff = timeDiff;
                     }
