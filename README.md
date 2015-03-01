@@ -40,7 +40,7 @@ You will also need to install command-line tools: Ruby, bower, SASS, and the req
 npm install -g bower
 npm install -g requirejs
 
-sudo gem update —system
+sudo gem update --system
 sudo gem install sass
 ```
 
