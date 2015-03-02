@@ -139,7 +139,7 @@ module.exports = function(options) {
 			});
 
 			socket.on('saveCurrentPatch', function(options) {
-				self.loadPatch(options);
+				self.loadPatch(JSON.parse(options));
 			});
 			socket.on('client:clearPatch', function(options) {
 				self.loadPatchFile(options);
@@ -150,13 +150,17 @@ module.exports = function(options) {
 			var patch = options.patch;
 			var patchFileName = __dirname + '/currentPatch.nlp';
 
-			fs.writeFile(patchFileName, patch, function(err) {
+
+			self.setMaster(patch);
+
+			fs.writeFile(patchFileName, JSON.stringify(patch), function(err) {
 				if(err) {
 					console.log(err);
 				}
 				else {
-					self.setMaster(JSON.parse(patch));
+					//self.setMaster(JSON.parse(patch));
 					console.log('file saved');
+
 				}
 			});
 		},

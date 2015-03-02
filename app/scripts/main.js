@@ -101,6 +101,9 @@ function (Backbone, App, rivets ) {
 		}
 	};
 
+	rivets.formatters.exists = function exists(value) {
+	  return value !== undefined && value.length > 0;
+	};
 
 	App.start();
 });

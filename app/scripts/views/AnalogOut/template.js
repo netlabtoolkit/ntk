@@ -22,8 +22,8 @@
     <div class="widgetRight">
         <div class=rightTab><input type="checkbox" rv-checked="widget:activeOut" /></div>
         <div class=rightTab>
-            <div class='settings'>
-                <input type='text' rv-value="widget:outputMapping">
+            <div rv-each-source="sources" class="settings">
+                <input type='text' rv-value="source.map.destinationField" rv-show="source.model.attributes.type | exists">
             </div>
         </div>
     </div>

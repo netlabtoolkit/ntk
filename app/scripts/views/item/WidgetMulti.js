@@ -239,11 +239,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			var inletField = draggable.dataset.field;
 
 			// Remove all mappings that match this inlet's field
+			this.sourceToRemove = _.find(this.sources, function(item){ return item.map.destinationField === inletField; });
 			this.sources = _.reject(this.sources, function(item){ return item.map.destinationField === inletField; });
 
 			// Remove the cable and the reference to the cable from the cables array
 			var cableToRemove = _.find(this.cables, function(item) { return item.map.destinationField === inletField});
-			window.app.vent.trigger('Widget:removeMapping', cableToRemove.map );
+			console.log(this.sourceToRemove);
+			window.app.vent.trigger('Widget:removeMapping', cableToRemove.map, this.model.get('wid') );
 			cableToRemove.cable.remove();
 			this.cables = _.reject(this.cables, function(item) { return item.map.destinationField === inletField});
 
@@ -272,7 +274,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {void}
 		 */
 		removeWidget: function(e, calledFromLoader) {
-			window.RR = this;
 			app.Patcher.Controller.removeWidget(this, calledFromLoader);
 			var IDsToRemove = [];
 			for(var i=this.cables.length-1; i>=0; i--) {
@@ -315,7 +316,12 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			var inputVal = this.$('.settings input').val();
 
-			this.model.set('inputMapping', inputVal);
+			if(this.$('.settings input').parents('.rightTab') ) {
+				this.model.set('outputMapping', inputVal);
+			}
+			else {
+				this.model.set('inputMapping', inputVal);
+			}
 
 			//var mappings = this.sources.slice(this.sources.length-1);
 			var mappings;
@@ -362,38 +368,39 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				this.listenTo(map.model, 'change', this.syncWithSource);
 			}
 		},
-		syncWithSource: function(model) {
-			var sourceMappings = _.map(_.where(this.sources, {model: model}), function(source) {
+		syncWithSource: function(externalModel, options) {
+			var thisWidgetModel = this.model;
+
+			var sourceMappings = _.map(_.where(this.sources, {model: externalModel}), function(source) {
 				return source.map;
 			});
 
 			// Map any incoming data to this model's data
 			for(var i=sourceMappings.length-1; i>=0; i--) {
 				var mapping = sourceMappings[i];
-				if(this.model.get('active') && this.model.attributes[mapping.destinationField] !== undefined) {
+				if(thisWidgetModel.get('active') && thisWidgetModel.attributes[mapping.destinationField] !== undefined) {
                     // update the input of the widget
-					this.model.set(mapping.destinationField, model.get(mapping.sourceField));
+					thisWidgetModel.set(mapping.destinationField, externalModel.get(mapping.sourceField));
 				}
-				else if(this.model.get('active') && this.model.get('activeOut') && model.attributes[mapping.destinationField] !== undefined) {
+				else if(thisWidgetModel.get('active') && thisWidgetModel.get('activeOut') && externalModel.attributes[mapping.destinationField] !== undefined) {
                     // update the output of the widget where hardware such as Arduino is involved
-					if(model.attributes[this.model.get('outputMapping')] != this.model.get(mapping.sourceField)) {
+					if(externalModel.attributes[thisWidgetModel.get('outputMapping')] !== thisWidgetModel.get(mapping.sourceField)) {
 						var attributes = {};
-						attributes[this.model.get('outputMapping')] = this.model.get(mapping.sourceField);
+						attributes[thisWidgetModel.get('outputMapping')] = thisWidgetModel.get(mapping.sourceField);
 
-						model.set(attributes, {fromServer:false});
+						externalModel.set(attributes, {fromServer:false});
 					}
-
 
 				}
 			}
 
-			if(model.changedAttributes().offsetLeft || model.changedAttributes().offsetTop ) {
+			if(externalModel.changedAttributes().offsetLeft || externalModel.changedAttributes().offsetTop ) {
 				if(this.cables.length) {
 					for(var i=this.cables.length-1; i>=0; i--) {
 						var cableObj = this.cables[i];
-						if(cableObj.model === model) {
+						if(cableObj.model === externalModel) {
 							cableObj.cable.updateCoordinates( {
-								from: {x: model.get('offsetLeft') + cableObj.offsets.source.x, y: model.get('offsetTop') + cableObj.offsets.source.y},
+								from: {x: externalModel.get('offsetLeft') + cableObj.offsets.source.x, y: externalModel.get('offsetTop') + cableObj.offsets.source.y},
 							});
 						}
 					}

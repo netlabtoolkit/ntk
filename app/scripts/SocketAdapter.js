@@ -101,11 +101,12 @@ function( Backbone ) {
 					mappings = options.mappings;
 
 				var saveConfig = {
-					widgets: collection,
+					widgets: collection.toJSON(),
 					mappings: mappings,
 				};
 
-				socket.emit('saveCurrentPatch', {patch: JSON.stringify(saveConfig)});
+				saveConfig = {patch: saveConfig};
+				socket.emit('saveCurrentPatch', JSON.stringify(saveConfig));
 			});
 		},
 	};
