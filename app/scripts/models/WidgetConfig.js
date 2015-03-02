@@ -16,7 +16,7 @@ function( Backbone ) {
 		defaults: {
 			// widget ID. Unique ID for remapping later
 			wid: undefined,
-			active: true,
+			active: false,
             activeOut: true,
 			smoothing: false,
 			easing: false,
