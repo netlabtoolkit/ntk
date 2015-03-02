@@ -45,16 +45,21 @@ nlWebServer.start()
 			  path.join(__dirname, 'phantomjs/loadClient.js')
 		];
 
+		process.stdin.resume();
+
 		// A helper function to shut down the child.
 		childProcess.shutdown = function () {
-			// Get rid of the exit listener since this is a planned exit.
-			this.removeListener("exit", this.onUnexpectedExit);
-			this.kill("SIGTERM");
+			console.log("...closing phantomjs");
+			childProcess.kill("SIGTERM");
 		};
 
-		process.once("exit", function () {
+		//process.on("exit", function () {
 			//childProcess.shutdown();
-		});
+		//});
+
+		//process.on("SIGINT", function () {
+			//childProcess.shutdown();
+		//});
 
 		childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {
 		});

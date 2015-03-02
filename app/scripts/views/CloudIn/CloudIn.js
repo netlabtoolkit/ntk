@@ -110,6 +110,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
         
         getFromCloud: function(e) {
+
             if (!this.model.get('sendToCloud')) {
                 this.model.set('displayText',"Stopped");
             }
@@ -135,10 +136,19 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
         
         onModelChange: function(model) {
-            if(!window.app.server) {
+			var displayText = this.model.get('displayText');
+			this.$('.timeLeft').text(displayText);
+
+			var displayTimeLeft = Math.round(parseFloat(displayText.substring(9))*1000);
+			if (displayTimeLeft >= this.model.get('getPeriod') - 51) {
+				if (this.startCountdown) {
+					this.$('.outvalue').css('color','#ff0000');
+					this.$('.outvalue').animate({color: '#000000' },this.model.get('getPeriod') - 250,'swing');
+					this.startCountdown = false;
+				}
+			}
+            if(window.app.server) {
                 if (model.changedAttributes().displayText) {
-                    var displayText = this.model.get('displayText');
-                    this.$('.timeLeft').text(displayText);
 
                     if (this.model.get('getPeriod') >= 500) {
                         var timeLeft = Math.round(parseFloat(displayText.substring(9))*1000);
@@ -161,107 +171,109 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
         
         timeKeeper: function(frameCount) {
-            var self = this;
-            if (this.model.get('getFromCloud')) {
-                if(window.app.server) {
-                    var period = this.model.get('getPeriod');
-                    
-                    if (this.lastSendToCloud == false) { // starting to send to cloud
-                        this.startTime = Date.now() - (period + 1) ;
-                        this.lastSendToCloud = true;
-                        //console.log("reset");
-                    }
-                    
-                    var timeDiff = Date.now() - this.startTime;
-                    
-                    
-                    if (timeDiff > period) { // get from cloud
-                        //console.log("getting");
-                        
-                        switch(this.model.get('cloudService')) {
-                            case 'sparkfun':
-                                // DATA.SPARKFUN.COM
-                                //
-                                var pubKey = this.model.get('phantPublicKey');
-                                var dataField = this.model.get('phantDataField');
-                                var phantUrl = this.model.get('phantUrl');
-                                var url = phantUrl + '/output/' + pubKey + '.json';
-                                //console.log(url);
-                                $.ajax({
-                                    url: url,
-                                    jsonp: 'callback',
-                                    cache: false,
-                                    dataType: 'jsonp',
-                                    data: {
-                                        page: 1
-                                    },
-                                    success: function(response) {
-                                        // check for success
-                                        if (response.success == false) {
-                                            console.log( "Connection to cloud service failed");
-                                            self.model.set('getFromCloud',false);
-                                            self.model.set('displayText',"Can't connect");
-                                        } else {
-                                            var value = Number(response[0][dataField]);
-                                            if (isNaN(value)) {
-                                                self.model.set('getFromCloud',false);
-                                                self.model.set('displayText',"Bad datafield");
-                                            } else {
-                                                //console.log(response);
-                                                self.model.set('in',Number(response[0][dataField]));
-                                            }
-                                        }
-                                    },
+			if(window.app.server) {
+				var self = this;
+				if (this.model.get('getFromCloud')) {
+					if(window.app.server) {
+						var period = this.model.get('getPeriod');
+						
+						if (this.lastSendToCloud == false) { // starting to send to cloud
+							this.startTime = Date.now() - (period + 1) ;
+							this.lastSendToCloud = true;
+							//console.log("reset");
+						}
+						
+						var timeDiff = Date.now() - this.startTime;
+						
+						
+						if (timeDiff > period) { // get from cloud
+							//console.log("getting");
+							
+							switch(this.model.get('cloudService')) {
+								case 'sparkfun':
+									// DATA.SPARKFUN.COM
+									//
+									var pubKey = this.model.get('phantPublicKey');
+									var dataField = this.model.get('phantDataField');
+									var phantUrl = this.model.get('phantUrl');
+									var url = phantUrl + '/output/' + pubKey + '.json';
+									//console.log(url);
+									$.ajax({
+										url: url,
+										jsonp: 'callback',
+										cache: false,
+										dataType: 'jsonp',
+										data: {
+											page: 1
+										},
+										success: function(response) {
+											// check for success
+											if (response.success == false) {
+												console.log( "Connection to cloud service failed");
+												self.model.set('getFromCloud',false);
+												self.model.set('displayText',"Can't connect");
+											} else {
+												var value = Number(response[0][dataField]);
+												if (isNaN(value)) {
+													self.model.set('getFromCloud',false);
+													self.model.set('displayText',"Bad datafield");
+												} else {
+													//console.log(response);
+													self.model.set('in',Number(response[0][dataField]));
+												}
+											}
+										},
 
-                                    fail: function( jqxhr, textStatus, error ) {
-                                        var err = textStatus + ", " + error;
-                                        console.log( "Connection to cloud servive failed: " + err );
-                                        self.model.set('getFromCloud',false);
-                                        self.model.set('displayText',"Can't connect");
-                                    }
-                                });
-                                break;
-                            case 'spark':
-                                // SPARK.IO
-                                //
-                                var url = "https://api.spark.io/v1/devices/" + this.model.get('sparkDeviceId') + "/analogread"; 
-                                $.ajax({
-                                    //url: "https://api.spark.io/v1/devices/55ff6d066678505517151667/analogread",
-                                    url: url,
-                                    type: "POST",
-                                    timeout: 2000,
-                                    data: { access_token: this.model.get('sparkAccessToken'), params: this.model.get('sparkPin') }
-                                    })
-                                    .done(function( response ) {
-                                        //console.log(response);
-                                        var value = parseInt(response.return_value,10);
-                                        if (isNaN(value)) {
-                                            self.model.set('getFromCloud',false);
-                                            self.model.set('displayText',"Bad data");
-                                        } else {
-                                            self.model.set('in',value/4);
-                                        }
-                                });
-                                break;
-                            default:
-                                //
-                        }
-                        
-                        
-                        
-                        this.startTime = Date.now();
-                        this.inputCount = 0;
-                        this.inputCumulative = 0;
-                        this.model.set('displayText','Get in: ' + (period / 1000).toFixed(1) + 's');
-                        this.lastTimeDiff = 0;
-                    } else if (timeDiff - this.lastTimeDiff >= 0.1) {
-                        this.model.set('displayText',' Get in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
-                        this.lastTimeDiff = timeDiff;
-                    }
-                } 
-            } else {
-                this.lastSendToCloud = false;
-            }
+										fail: function( jqxhr, textStatus, error ) {
+											var err = textStatus + ", " + error;
+											console.log( "Connection to cloud servive failed: " + err );
+											self.model.set('getFromCloud',false);
+											self.model.set('displayText',"Can't connect");
+										}
+									});
+									break;
+								case 'spark':
+									// SPARK.IO
+									//
+									var url = "https://api.spark.io/v1/devices/" + this.model.get('sparkDeviceId') + "/analogread"; 
+									$.ajax({
+										//url: "https://api.spark.io/v1/devices/55ff6d066678505517151667/analogread",
+										url: url,
+										type: "POST",
+										timeout: 2000,
+										data: { access_token: this.model.get('sparkAccessToken'), params: this.model.get('sparkPin') }
+										})
+										.done(function( response ) {
+											//console.log(response);
+											var value = parseInt(response.return_value,10);
+											if (isNaN(value)) {
+												self.model.set('getFromCloud',false);
+												self.model.set('displayText',"Bad data");
+											} else {
+												self.model.set('in',value/4);
+											}
+									});
+									break;
+								default:
+									//
+							}
+							
+							
+							
+							this.startTime = Date.now();
+							this.inputCount = 0;
+							this.inputCumulative = 0;
+							this.model.set('displayText','Get in: ' + (period / 1000).toFixed(1) + 's');
+							this.lastTimeDiff = 0;
+						} else if (timeDiff - this.lastTimeDiff >= 0.1) {
+							this.model.set('displayText',' Get in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
+							this.lastTimeDiff = timeDiff;
+						}
+					} 
+				} else {
+					this.lastSendToCloud = false;
+				}
+			}
         }
 
 	});

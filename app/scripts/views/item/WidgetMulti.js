@@ -408,6 +408,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 		},
 		processSignalChain: function() {
+			if(window.app.server) {
 			var outputs = this.model.get('outs'),
 				outputsObj = {};
 
@@ -432,6 +433,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					this.model.set(processedOutput, outputsObj[processedOutput]);
 
 				}
+			}
 			}
 		},
 

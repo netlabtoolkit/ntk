@@ -71,7 +71,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this.signalChainFunctions.push(this.watchData);
 
 			// If you would like to register any function to be called at frame rate (60fps)
-			window.app.timingController.registerFrameCallback(this.timeKeeper, this);
+			window.app.server && window.app.timingController.registerFrameCallback(this.timeKeeper, this);
 		},
 
         /**
@@ -148,22 +148,32 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
         
         sendToCloud: function(e) {
-            if(!window.app.server) {
-                if (!this.model.get('sendToCloud')) {
+            if(window.app.server) {
+                if(!this.model.get('sendToCloud')) {
                     this.model.set('displayText',"Stopped");
                 }
             }
         },
         
         onModelChange: function(model) {
-            if(!window.app.server) {
-                if (model.changedAttributes().displayText) {
-                    var displayText = this.model.get('displayText');
-                    this.$('.timeLeft').text(displayText);
+            //if(!window.app.server) {
+			var displayText = this.model.get('displayText');
+			this.$('.timeLeft').text(displayText);
+
+			var displayTimeLeft = Math.round(parseFloat(displayText.substring(9))*1000);
+			if (displayTimeLeft >= this.model.get('sendPeriod') - 51) {
+				if (this.startCountdown) {
+					this.$('.outvalue').css('color','#ff0000');
+					this.$('.outvalue').animate({color: '#000000' },this.model.get('sendPeriod') - 250,'swing');
+					this.startCountdown = false;
+				}
+			}
+
+            if(window.app.server) {
+                if(model.changedAttributes().displayText) {
                     
                     if (this.model.get('sendPeriod') >= 500) {
                         var timeLeft = Math.round(parseFloat(displayText.substring(9))*1000);
-                        //console.log(timeLeft);
                         if (timeLeft >= this.model.get('sendPeriod') - 51) {
                             if (this.startCountdown) {
                                 //console.log("countdown");
@@ -196,8 +206,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     
                     
                     if (timeDiff > period) { // send to cloud
-                        //console.log("sending");
+						console.log("sending", this.model.get('out').toString());
                         var theValue = (this.model.get('out')).toString();
+							console.log(this.model.get('cloudService'));
                         
                         switch(this.model.get('cloudService')) {
                             case 'sparkfun':
