@@ -54,7 +54,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 //
                 averageInputs: false,
                 sendToCloud: false,
+                displayTimerStart: false,
                 displayText: "Stopped",
+
             });
             
             // private variables
@@ -64,7 +66,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.inputLast = 0;
             this.inputCumulative = 0;
             this.inputCount = 0;
-            this.startCountdown = true;
+            this.redPulseCount = 0;
 
 
             // If you want to register your own signal processing function, push them to signalChainFunctions
@@ -114,7 +116,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// Any custom function can be attached to the widget like this "limitServoRange" function
 		// and can be accessed via this.limitServoRange();
 		onRemove: function() {
-			window.app.timingController.removeFrameCallback(this.timeKeeper);
+			if(window.app.server) window.app.timingController.removeFrameCallback(this.timeKeeper);
 		},
         
         changeCloudService: function(e) {
@@ -137,18 +139,19 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
         
         watchData: function(input) {
-			this.inputLast = Number(input);
-            var value = Number(input);
-            this.inputCount++;
-            this.inputCumulative += Number(input);
-            if (this.model.get('averageInputs')) {
-                value = parseInt(this.inputCumulative / this.inputCount);
-            }
-            return value;
+             if(window.app.server) {
+                var value = Number(input);
+                this.inputCount++;
+                this.inputCumulative += Number(input);
+                if (this.model.get('averageInputs')) {
+                    value = parseInt(this.inputCumulative / this.inputCount);
+                }
+                return value;
+             }
         },
         
         sendToCloud: function(e) {
-            if(window.app.server) {
+            if(!window.app.server) {
                 if(!this.model.get('sendToCloud')) {
                     this.model.set('displayText',"Stopped");
                 }
@@ -156,44 +159,41 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
         
         onModelChange: function(model) {
-            //if(!window.app.server) {
-			var displayText = this.model.get('displayText');
-			this.$('.timeLeft').text(displayText);
+            if(!window.app.server) {
 
-			var displayTimeLeft = Math.round(parseFloat(displayText.substring(9))*1000);
-			if (displayTimeLeft >= this.model.get('sendPeriod') - 51) {
-				if (this.startCountdown) {
-					this.$('.outvalue').css('color','#ff0000');
-					this.$('.outvalue').animate({color: '#000000' },this.model.get('sendPeriod') - 250,'swing');
-					this.startCountdown = false;
-				}
-			}
-
-            if(window.app.server) {
                 if(model.changedAttributes().displayText) {
+                    // show the current countdown
+                    var displayText = this.model.get('displayText');
+                    this.$('.timeLeft').text(displayText);
                     
-                    if (this.model.get('sendPeriod') >= 500) {
-                        var timeLeft = Math.round(parseFloat(displayText.substring(9))*1000);
-                        if (timeLeft >= this.model.get('sendPeriod') - 51) {
-                            if (this.startCountdown) {
-                                //console.log("countdown");
-                                this.$('.outvalue').css('color','#ff0000');
-                                this.$('.outvalue').animate({color: '#000000' },this.model.get('sendPeriod') - 250,'swing');
-                                this.startCountdown = false;
-                            }
-                        } else {
-                            this.startCountdown = true;
-                        }
+                    this.redPulseCount++;
+                    if (this.redPulseCount == 3) {
+                        this.$('.outvalue').css('color','#000000');
                     }
+                }
+                
+                if (model.changedAttributes().cloudService) {
+                    this.changeCloudService();
+                }
+                
+                var displayPulse = model.get('displayTimerStart');
+                var period = model.get('sendPeriod');
+                //console.log(displayPulse);
+                if(displayPulse && period >= 400) {
+                    //console.log("pulsing red ");
+                    this.redPulseCount = 0;
+                    this.$('.outvalue').css('color','#ff0000');
+                    this.model.set('displayTimerStart',false);
                 }
             } 
         },
                 
         
         timeKeeper: function(frameCount) {
-            var self = this;
-            if (this.model.get('sendToCloud')) {
-                if(window.app.server) {
+            
+            if(window.app.server) {
+                if (this.model.get('sendToCloud')) {
+                    var self = this;
                     var period = this.model.get('sendPeriod');
                     
                     if (this.lastSendToCloud == false) { // starting to send to cloud
@@ -206,9 +206,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     
                     
                     if (timeDiff > period) { // send to cloud
-						console.log("sending", this.model.get('out').toString());
+						//console.log("sending", this.model.get('out').toString());
+                        
+                        this.startTime = Date.now();
+                        self.model.set('displayTimerStart',true); // trigger the RED pulse
+                        self.model.set('displayText',' Send in: ' + (period / 1000).toFixed(1) + 's');
+                        
+                        this.lastTimeDiff = 0;
                         var theValue = (this.model.get('out')).toString();
-							console.log(this.model.get('cloudService'));
                         
                         switch(this.model.get('cloudService')) {
                             case 'sparkfun':
@@ -246,26 +251,20 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                 });
                                 break;
                             default:
-                                //
                         }
-                        this.startTime = Date.now();
                         this.inputCount = 0;
                         this.inputCumulative = 0;
-                        if (this.model.get('sendToCloud')) {
-                            //this.model.set('displayText',' Send in: ' + (period / 1000).toFixed(1) + 's');
-                            this.model.set('displayText',' Send in: ' + (period / 1000).toFixed(1) + 's');
-                        }
-                        this.lastTimeDiff = 0;
-                    } else if (timeDiff - this.lastTimeDiff >= 0.1) {
-                        //this.model.set('displayText',' Send in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
-                        this.model.set('displayText',' Send in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
+                    } else if (timeDiff - this.lastTimeDiff >= 100) {
+                        self.model.set('displayText',' Send in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
+                        if (timeDiff - this.lastTimeDiff < period - 100) self.model.set('displayTimerStart',false); // stop the RED pulse
+                        //console.log("loop " + self.model.get('displayTimerStart') + ' ' + self.model.get('displayText'));
                         this.lastTimeDiff = timeDiff;
                     }
-                } 
-            } else {
-                this.lastSendToCloud = false;
+                } else {
+                    this.lastSendToCloud = false;
+                }
             }
-        }
+        },
 
 	});
 });

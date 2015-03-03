@@ -26,6 +26,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
+        
+        
 		typeID: 'Servo',
 		deviceMode: 'SERVO',
 		className: 'servo',
@@ -36,7 +38,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			WidgetView.prototype.initialize.call(this, options);
 
             // Call any custom DOM events here
-			this.model.set('title', 'Servo');
+            
+            this.model.set({
+				title: 'Servo',
+                activeOut: false,
+			});
 
             // If you want to register your own signal processing function, push them to signalChainFunctions
 			this.signalChainFunctions.push(this.limitRange);

@@ -27,7 +27,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set({
 				title: 'AnalogOut',
-				outputMapping: options.outputMapping
+				outputMapping: options.outputMapping,
+                activeOut: false,
 			});
 
             this.signalChainFunctions.push(this.limitRange);
