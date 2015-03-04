@@ -139,8 +139,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         imgMoved: function(e) {
             var offset = this.$('.detachedEl').offset();
             this.model.set('left',offset.left);
-            this.model.set('top',offset.top);
-            console.log(offset.left);
+            this.model.set('top',offset.top - 5);
+            console.log(offset.top);
         },
 
 
