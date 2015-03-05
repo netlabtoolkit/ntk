@@ -13,8 +13,8 @@
 
     <div class="widgetBody">
         <div class="dialwrapper" style="position:relative;">
-            <input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/>
             <div class="display outvalue" rv-text="widget:out | rounded">1023</div>
+            <div style="position:relative;"><input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/></div>
         </div>
 
         <table class="rangeTable" border="0" cellspacing="3" cellpadding="0">

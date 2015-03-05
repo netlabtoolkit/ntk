@@ -13,9 +13,9 @@
 
     <div class="widgetBody">
         <div class="dialwrapper" style="position:relative;">
-            <input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/>
             <div class="display invalue" rv-text="widget:in | rounded">100</div>
             <div class="display outvalue" rv-text="widget:out | rounded">1023</div>
+            <div style="position:relative;"><input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/></div>
         </div>
     </div>
 
