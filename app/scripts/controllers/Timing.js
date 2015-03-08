@@ -6,6 +6,7 @@ function(){
 
 	var TimingController = function() {
 		this.frameCallbacks = [];
+		this.originalCallbacks = [];
 		self = this;
 
 		window.requestAnimationFrame(this.tick);
@@ -24,19 +25,24 @@ function(){
 			window.requestAnimationFrame(self.tick);
 		},
 		registerFrameCallback: function(callback, context) {
-			var indexIfExists = this.frameCallbacks.indexOf(callback);
+			var indexIfExists = this.originalCallbacks.indexOf(callback);
+
 			if(indexIfExists >= 0) {
 				this.frameCallbacks[indexIfExists] = $.proxy( callback, context );
+				this.originalCallbacks[indexIfExists] = callback;
 			}
 			else {
 				this.frameCallbacks.push($.proxy( callback, context ));
+				this.originalCallbacks.push(callback);
 			}
 		},
 		removeFrameCallback: function(callback) {
-			var callbackForRemoval = _.findWhere(this.frameCallbacks, function(registeredCallback) {
-				return callback === registeredCallback;
-			});
-			this.frameCallbacks.splice(this.frameCallbacks.indexOf(callback), 1);
+			var callbackIndex = this.originalCallbacks.indexOf(callback);
+
+			if(callbackIndex >= 0) {
+				this.frameCallbacks.splice(callbackIndex, 1);
+				this.originalCallbacks.splice(callbackIndex, 1);
+			}
 		},
 
 

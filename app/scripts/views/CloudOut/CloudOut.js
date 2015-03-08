@@ -116,7 +116,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// Any custom function can be attached to the widget like this "limitServoRange" function
 		// and can be accessed via this.limitServoRange();
 		onRemove: function() {
-			if(window.app.server) window.app.timingController.removeFrameCallback(this.timeKeeper);
+			//if(window.app.server) window.app.timingController.removeFrameCallback(this.timeKeeper);
+			window.app.server && window.app.timingController.removeFrameCallback(this.timeKeeper, this);
 		},
         
         changeCloudService: function(e) {
@@ -231,7 +232,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                     })
                                     .fail(function( jqxhr, textStatus, error ) {
                                         var err = textStatus + ", " + error;
-                                        console.log( "Connection to cloud servive failed: " + err );
+                                        console.log( "Connection to cloud service failed: " + err );
                                         self.model.set('sendToCloud',false);
                                         self.model.set('displayText',"Can't connect");
                                 });
