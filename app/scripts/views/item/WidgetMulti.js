@@ -51,6 +51,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			window.app.on('Widget:removeMapping', this.removeMapping, this);
 
 			this.setWidgetBinders();
+			this.setTopZIndex();
 		},
 		onRender: function() {
 			var self = this;
@@ -193,6 +194,23 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
             rivets.formatters.rounded = function (value){
                 return Number(value).toFixed(0);
             }
+		},
+		/**
+		 * Sets the ZIndex to place the widget at the top of the widget stack
+		 *
+		 * @return {undefined}
+		 */
+		setTopZIndex: function setTopZIndex() {
+			var topZIndex = 0;
+
+			$('.widget').each(function() {
+				var index = parseInt($(this).css('z-index'), 10);
+				if(index > topZIndex) {
+					topZIndex = index;
+				}
+			});
+
+			this.$el.css('z-index', topZIndex);
 		},
 		/**
 		 * Called when you drop onto an inlet. Maps the dropped model w/ parameter to the inlet
