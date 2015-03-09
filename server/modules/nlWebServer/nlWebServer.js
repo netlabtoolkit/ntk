@@ -57,7 +57,7 @@ module.exports = function(options) {
 					}
 
 					var loadedPatch = data;
-					self.emit('loadPatch', { patch: loadedPatch });
+					self.emit('loadPatch', { patch: JSON.parse(loadedPatch) });
 				});
 			res.end();
 			});
