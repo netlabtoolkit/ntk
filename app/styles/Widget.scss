@@ -166,6 +166,10 @@
 	.options li:hover {
 	    color: #FFF;
 	}
+    
+    .operator {
+        width: 44px;
+    }
 
     .widgetTop {
         width: 96px;
@@ -202,6 +206,8 @@
         margin-left: 1px;
         width: 60%;
     }
+    
+    
 
     .widgetBody {
         background-color: #eee;
@@ -226,20 +232,28 @@
             height: 20px;
             
             clear: both;
+            
         }
-        
-        
         
         .outletValue {
             
-            margin-top: 6px;
-            height: 19px;
-            width: 66px;
+            margin-top: 4px;
+            margin-bottom: 0px;
+            height: 22px;
+            width: 64px;
+            margin-right: 0px;
+            margin-left: 0px;
+            padding-left: 0px;
+            padding-right: 0px;
             clear: both;
             
             .outputParam {
                 width: 26px;
-                margin-right: 2px;
+                margin-top: 0px;
+                margin-right: 0px;
+                margin-left: 0px;
+                padding-left: 0px;
+                padding-right: 0px;
             }
         }
         
@@ -259,13 +273,40 @@
             margin-top: 5px;
             margin-left: 5px;
         }
+        
+        #ifFalse {
+            background-color: #f8c885;
+        }
+        
+        #ifStatement {
+            background-color: #c6c6c6;
+            margin-left: 0px;
+            margin-top: 0px;
+            margin-right: 0px;
+            padding: 0px;
+            text-align: right;
+            
+            .outputParam {
+                width: 26px;
+                margin-top: 0px;
+                margin-right: 0px;
+                margin-left: 0px;
+                padding-left: 0px;
+                padding-right: 0px;
+            }
+        }
+    
+        #ifTop {
+            background-color: #c6c6c6;
+        }
+        
     }
 
     .widgetBody input[type='text'] {
         font-family: Arial;
-        font-size: 12px;
+        font-size: 11px;
         margin-left: 1px;
-        width: 80%;
+        width: 26px;
         height: 12px;
     }
     
