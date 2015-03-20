@@ -23,17 +23,34 @@ This is our first official release, and we look forward to your comments and bug
 
 We're planning the next major release as a Beta in June, 2015. This will include a complete set of widgets with a new visual design, as well as double click standard application versions of NTK.
 
+For more information on this release, see this post: 
+
+<http://www.netlabtoolkit.org/ntk-alpha-version-released/>
+
 Installation
 ---------------------
-You must first install node and npm if you have not done so. If you are on a Mac, you need to install the Xcode command line tools by installing Xcode (free from the app store) before you do the following.
 
-https://gist.github.com/isaacs/579814 (we recommend the first example: node-and-npm-in-30-seconds.sh)
+### Node, NPM (one time only)
 
-For more details
+You must first install node and npm if you have not done so. Our recommendation is the following procedure ([from here](https://gist.github.com/isaacs/579814)), which has the least number of permissions issues. If you are on a Mac, you need to install the Xcode command line tools by installing Xcode (free from the app store).
 
-http://www.joyent.com/blog/installing-node-and-npm
+```
+echo 'export PATH=$HOME/local/bin:$PATH' >> ~/.bashrc
+. ~/.bashrc
+mkdir ~/local
+mkdir ~/node-latest-install
+cd ~/node-latest-install
+curl http://nodejs.org/dist/node-latest.tar.gz | tar xz --strip-components=1
+./configure --prefix=~/local
+make install # this step will take a while...
+curl https://www.npmjs.org/install.sh | sh
+```
+
+More details on [Node/NPM here](http://www.joyent.com/blog/installing-node-and-npm).
 
 If you are on Raspberry Pi, then you probably have an outdated version of Node. Here's a nice & easy upgrade method: https://github.com/DonaldDerek/rPi-cheat-sheet
+
+### Dependencies (one time only)
 
 You will also need to install command-line tools: Ruby, bower, SASS, and the require.js build tool if you do not have them already:
 ```
@@ -43,6 +60,7 @@ npm install -g requirejs
 sudo gem update --system
 sudo gem install sass
 ```
+### Current version of NTK
 
 To install this version of NETLab Toolkit:
 ```
@@ -55,7 +73,7 @@ npm run build
 Note: if you are running Linux, you will have to set proper permissions on your Arduino in order to use it.
 For instance:
 ```
-// Linux users only
+# Linux users only
 sudo chmod a+rw /dev/ttyUSB0
 ```
 
