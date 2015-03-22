@@ -44,6 +44,7 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
+            <label>&#126;= range</label> <input class="moreParam" type="text" rv-value="widget:compareRange"><br>
             <label>wait true</label> <input class="moreParam" type="text" rv-value="widget:waitTimeTrue"><br>
             <label>wait false</label> <input class="moreParam" type="text" rv-value="widget:waitTimeFalse">
         </div>

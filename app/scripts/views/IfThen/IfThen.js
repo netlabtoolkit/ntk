@@ -39,7 +39,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 
                 operator: '>',
                 compareValue: 500,
-                compareRange: 50,
+                compareRange: 150,
                 ifFalse: 0,
                 ifTrue: 1023,
                 waitTimeTrue: 0,
@@ -94,7 +94,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             //var output = this.model.get('ifFalse');
             var output = 300;
             var compareValue = this.model.get('compareValue');
-            var compareRange = this.model.get('compareRange');
+            var compareRange = this.model.get('compareRange') / 2;
             var waitTimeTrue = this.model.get('waitTimeTrue');
             var waitTimeFalse = this.model.get('waitTimeFalse'); 
             
