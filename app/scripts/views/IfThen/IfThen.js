@@ -38,7 +38,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 title: 'IfThen',
                 
                 operator: '>',
-                compareValue: 500,
+                compareValue: 512,
                 compareRange: 150,
                 ifFalse: 0,
                 ifTrue: 1023,
@@ -93,10 +93,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             var self = this;
             //var output = this.model.get('ifFalse');
             var output = 300;
-            var compareValue = this.model.get('compareValue');
-            var compareRange = this.model.get('compareRange') / 2;
-            var waitTimeTrue = this.model.get('waitTimeTrue');
-            var waitTimeFalse = this.model.get('waitTimeFalse'); 
+            var compareValue = parseFloat(this.model.get('compareValue'),10);
+            var compareRange = parseFloat(this.model.get('compareRange'),10) / 2;
+            var waitTimeTrue = parseInt(this.model.get('waitTimeTrue'),10);
+            var waitTimeFalse = parseInt(this.model.get('waitTimeFalse'),10);
             
             var comparison = false;
             
