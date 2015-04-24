@@ -47,19 +47,15 @@ nlWebServer.start()
 
 		process.stdin.resume();
 
-		// A helper function to shut down the child.
+		// Shut down the child phantomjs process
 		childProcess.shutdown = function () {
-			console.log("...closing phantomjs");
-			childProcess.kill("SIGTERM");
+			console.log("...closing");
+			process.exit(0);
 		};
 
-		//process.on("exit", function () {
-			//childProcess.shutdown();
-		//});
-
-		//process.on("SIGINT", function () {
-			//childProcess.shutdown();
-		//});
+		process.on("SIGINT", function () {
+			childProcess.shutdown();
+		});
 
 		childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {
 		});

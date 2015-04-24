@@ -12,7 +12,7 @@ module.exports = function(attributes) {
 	// Base HardwareModel class
 	var johnnyFiveHardwareModel = {
 		init: function() {
-			this.board = five.Board();
+			this.board = five.Board({repl:false});
 
 			this.board.on("ready", function() {
 				self.connected = true;
