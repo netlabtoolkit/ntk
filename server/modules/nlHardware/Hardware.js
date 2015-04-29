@@ -13,6 +13,7 @@ module.exports = function(options) {
 		var modelMap = {
 			arduino: './ArduinoModel',
 			osc: './OSC',
+			galileo2: './GalileoGen2',
 		};
 		var sensors = [],
 			outputs = {};
