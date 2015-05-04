@@ -37,18 +37,6 @@ module.exports = function(attributes) {
 
 				(function() {
 					if(!parseInt(input, 10)) {
-						console.log('adding', input);
-						var sensor = five.Sensor({
-							pin: input,
-							freq: pollFreq,
-						});
-						console.log('adding', input, sensor);
-
-						self.inputs[input].pin = sensor;
-
-						//board.repl.inject({
-							//sensor: sensor
-						//});
 
 						(function() {
 							var pinput = input;
