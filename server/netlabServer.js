@@ -57,7 +57,9 @@ nlWebServer.start()
 			childProcess.shutdown();
 		});
 
-		childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {
-		});
+		if(deviceType !== 'galileo') {
+		   childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {
+		   });
+		}
 	});
 

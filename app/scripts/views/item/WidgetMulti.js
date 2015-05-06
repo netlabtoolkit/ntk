@@ -426,6 +426,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 		},
 		processSignalChain: function() {
+			console.log(window.app.server);
 			if(window.app.server) {
 			var outputs = this.model.get('outs'),
 				outputsObj = {};
