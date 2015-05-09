@@ -25,6 +25,7 @@
             <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:outputCeiling"></td>
           </tr>
         </table>
+        <input id="buttonLabel" class="fullWidthInput" type="text" rv-value="widget:buttonLabel">
     </div>
 
     <div class="widgetRight">
@@ -36,7 +37,9 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-
+            <label class="narrowLabel">width</label> <input id="buttonWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:buttonWidth"><br>
+            <label class="narrowLabel">height</label> <input id="buttonHeight" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:buttonHeight"><br>
+            <label class="narrowLabel">size</label> <input id="buttonFontSize" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:buttonFontSize"><br>
         </div>
     </div>
 </div>
@@ -46,7 +49,7 @@
         rv-style-opacity="widget:opacity"
         rv-positionx="widget:left"
         rv-positiony="widget:top">
-        <button id="theButton">Button</button>
+        <button id="theButton"></button>
         <div class="dragKnob widgetAuthoring">Drag</div>
     </div>
 <% } %>
