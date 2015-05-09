@@ -30,6 +30,7 @@ module.exports = function(options) {
 
 
 		app.use(express.static( path.join( __dirname, '../../dist') ));
+		app.use('/server', express.static( path.join( __dirname, '../../dist') ));
 		app.use(express.static( path.join( __dirname, '../../.tmp') ));
 
 		this.server = http.createServer(app);
@@ -64,7 +65,13 @@ module.exports = function(options) {
 		});
 
 		app.get('/devTools', function(req, res){
-			res.sendfile( path.join( __dirname, '../../devTools/cssrefresh.js' ) );
+			res.send('');
+			//res.sendfile( path.join( __dirname, '../../devTools/cssrefresh.js' ) );
+		});
+		app.get('/client', function(req, res){
+			console.log('CLIENTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT');
+			self.emit('clientConnected');
+			res.sendfile( path.join( __dirname, '../../dist/index.html' ) );
 		});
 		app.get('*', function(req, res){
 			res.sendfile( path.join( __dirname, '../../dist/index.html' ) );

@@ -66,7 +66,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.signalChainFunctions.push(SignalChainFunctions.scale);
 			// If you would like to register any function to be called at frame rate (60fps)
 			//console.log('register!');
-			window.app.server && window.app.timingController.registerFrameCallback(this.timeKeeper, this);
+			//window.app.server && 
+			window.app.timingController.registerFrameCallback(this.timeKeeper, this);
 		},
 
         /**
@@ -109,19 +110,20 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// Any custom function can be attached to the widget like this "limitServoRange" function
 		// and can be accessed via this.limitServoRange();
 		onRemove: function() {
-			if(window.app.server) window.app.timingController.removeFrameCallback(this.timeKeeper);
+			//if(window.app.server)
+			window.app.timingController.removeFrameCallback(this.timeKeeper);
 		},
         
         getFromCloud: function(e) {
-            if(!window.app.server) {
+            //if(!window.app.server) {
                 if (!this.model.get('sendToCloud')) {
                     this.model.set('displayText',"Stopped");
                 }
-            }
+            //}
         },
         
         changeCloudService: function(e) {
-            if(!window.app.server) {
+            //if(!window.app.server) {
                 var service = this.model.get('cloudService');
                 switch(service) {
                     case 'sparkfun':
@@ -136,11 +138,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     default:
                         //
                 }
-            }
+            //}
         },
         
         onModelChange: function(model) {
-            if(!window.app.server) {
+            //if(!window.app.server) {
 
                 if(model.changedAttributes().displayText) {
                     // show the current countdown
@@ -169,11 +171,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     this.$('.outvalue').css('color','#ff0000');
                     this.model.set('displayTimerStart',false);
                 }
-            } 
+            //} 
         },
         
         timeKeeper: function(frameCount) {
-			if(window.app.server) {
+			//if(window.app.server) {
 				if (this.model.get('getFromCloud')) {
                     var self = this;
                     var period = this.model.get('getPeriod');
@@ -267,7 +269,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				} else {
 					this.lastSendToCloud = false;
 				}
-			}
+			//}
         },
 
 	});

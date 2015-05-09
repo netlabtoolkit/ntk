@@ -84,14 +84,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
             var self = this;
             
-            if(!app.server) {
+            //if(!app.server) {
                 this.$( '.detachedEl' ).css( 'position', 'fixed' );
                 this.$( '.detachedEl' ).draggable({ 
                     cursor: 'move',
                     handle: '.dragKnob',
                 });
                 this.$( '.dragKnob' ).css( 'cursor', 'move' );
-            }
+            //}
 
 			this.$('.dial').knob({
 				'fgColor':'#000000',

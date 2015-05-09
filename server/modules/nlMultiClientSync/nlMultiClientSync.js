@@ -2,6 +2,7 @@ module.exports = function(options) {
 
 	var fs = require('fs'),
 		_ = require('underscore'),
+		events = require('events'),
 		self;
 
 	var MultiClientSync = function(options) {
@@ -13,6 +14,7 @@ module.exports = function(options) {
 		this.loadPatchFromServer();
 		this.transport.on('connection', this.registerClient);
 		self = this;
+		_.extend(this, events.EventEmitter.prototype);
 
 	};
 
@@ -143,6 +145,10 @@ module.exports = function(options) {
 			});
 			socket.on('client:clearPatch', function(options) {
 				self.loadPatchFile(options);
+			});
+
+			socket.on('disconnect', function() {
+				self.emit('clientDisconnected');
 			});
 
 		},

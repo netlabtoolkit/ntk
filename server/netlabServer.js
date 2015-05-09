@@ -47,9 +47,11 @@ nlWebServer.start()
 
 		process.stdin.resume();
 
-		// Shut down the child phantomjs process
+		// Shut down the child phantomjs process before exit
 		childProcess.shutdown = function () {
 			console.log("...closing");
+
+			//phantomChild.kill()
 			process.exit(0);
 		};
 
@@ -57,9 +59,18 @@ nlWebServer.start()
 			childProcess.shutdown();
 		});
 
-		if(deviceType !== 'galileo') {
-		   childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {
-		   });
-		}
+		var phantomChild;
+			//var phantomChild = childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {});
+
+		nlWebServer.on('clientConnected', function() {
+			console.log('client connects, standalone system stopping');
+			//phantomChild.kill();
+			//deviceController.setPollSpeed('fast');
+		});
+		clientSync.on('clientDisconnected', function() {
+			console.log('client disconnects, standalone system starting');
+			//deviceController.setPollSpeed('slow');
+			//phantomChild = childProcess.execFile(binPath, childArgs);
+		});
 	});
 

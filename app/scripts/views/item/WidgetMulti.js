@@ -42,9 +42,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			//this.model = new WidgetConfigModel(options);
 			this.model.set(options);
 			this.model.set('server', app.server);
-			if(app.server) {
+			//if(app.server) {
 				this.model.on('change', this.processSignalChain, this);
-			}
+			//}
 			this.model.on('change', this.onModelChange, this);
 			this.model.on('change', this.checkOutputMappingUpdate, this);
 
@@ -426,7 +426,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 		},
 		processSignalChain: function() {
-			if(window.app.server) {
+			//if(window.app.server) {
 			var outputs = this.model.get('outs'),
 				outputsObj = {};
 
@@ -452,7 +452,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 				}
 			}
-			}
+			//}
 		},
 
 

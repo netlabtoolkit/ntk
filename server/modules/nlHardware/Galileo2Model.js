@@ -4,10 +4,12 @@ module.exports = function(attributes) {
 	var _ = require('underscore'),
 		five = require("johnny-five"),
 		events = require('events'),
-		self = this;
+		self = this,
+		pollIntervalMod = 30;
 
 	events.EventEmitter.call(this);
 	_.extend(this, events.EventEmitter.prototype);
+
 
 	// Base HardwareModel class
 	var johnnyFiveHardwareModel = {
@@ -26,12 +28,21 @@ module.exports = function(attributes) {
 
 			return this;
 		},
+		setPollSpeed: function(highLow) {
+			if(highLow == 'fast') {
+				console.log('setting fast');
+				pollIntervalMod = 1;
+			}
+			else {
+				console.log('setting slow');
+				pollIntervalMod = 30;
+			}
+		},
 		addDefaultPins: function addDefaultPins() {
 			// Store all pin mode mappings (string -> integer)
 			this.PINMODES = this.board.io.MODES;
 
 			var pollFreq = 100;
-			var pollIntervalMod = 50;
 
 			// Instantiate each sensor listed on the model to the sensors array
 			for(var input in this.inputs) {
@@ -44,15 +55,15 @@ module.exports = function(attributes) {
 								pollInterval = 0;
 
 							this.board.analogRead(input, function(data) {
-								//pollInterval = (++pollInterval) % 10;
-								//if(pollInterval === 0) {
+								pollInterval = (++pollInterval) % pollIntervalMod;
+								if(pollInterval === 0) {
 									if(self.get(pinput) !== Math.floor(data) ) {
 										//if(pinput == "A0") {
 											//console.log(data, self.get(pinput) );
 										//}
 										self.set(pinput, Math.floor(data));
 									}
-								//}
+								}
 							});
 						})();
 

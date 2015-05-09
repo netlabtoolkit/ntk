@@ -73,7 +73,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this.signalChainFunctions.push(this.watchData);
 
 			// If you would like to register any function to be called at frame rate (60fps)
-			window.app.server && window.app.timingController.registerFrameCallback(this.timeKeeper, this);
+			//window.app.server && 
+			window.app.timingController.registerFrameCallback(this.timeKeeper, this);
 		},
 
         /**
@@ -117,11 +118,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// and can be accessed via this.limitServoRange();
 		onRemove: function() {
 			//if(window.app.server) window.app.timingController.removeFrameCallback(this.timeKeeper);
-			window.app.server && window.app.timingController.removeFrameCallback(this.timeKeeper, this);
+			//window.app.server && 
+			window.app.timingController.removeFrameCallback(this.timeKeeper, this);
 		},
         
         changeCloudService: function(e) {
-            if(!window.app.server) {
+            //if(!window.app.server) {
                 var service = this.model.get('cloudService');
                 switch(service) {
                     case 'sparkfun':
@@ -136,11 +138,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     default:
                         //
                 }
-            }
+            //}
         },
         
         watchData: function(input) {
-             if(window.app.server) {
+             //if(window.app.server) {
                 var value = Number(input);
                 this.inputCount++;
                 this.inputCumulative += Number(input);
@@ -148,19 +150,19 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     value = parseInt(this.inputCumulative / this.inputCount);
                 }
                 return value;
-             }
+             //}
         },
         
         sendToCloud: function(e) {
-            if(!window.app.server) {
+            //if(!window.app.server) {
                 if(!this.model.get('sendToCloud')) {
                     this.model.set('displayText',"Stopped");
                 }
-            }
+            //}
         },
         
         onModelChange: function(model) {
-            if(!window.app.server) {
+            //if(!window.app.server) {
 
                 if(model.changedAttributes().displayText) {
                     // show the current countdown
@@ -186,13 +188,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     this.$('.outvalue').css('color','#ff0000');
                     this.model.set('displayTimerStart',false);
                 }
-            } 
+            //} 
         },
                 
         
         timeKeeper: function(frameCount) {
             
-            if(window.app.server) {
+            //if(window.app.server) {
                 if (this.model.get('sendToCloud')) {
                     var self = this;
                     var period = this.model.get('sendPeriod');
@@ -264,7 +266,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 } else {
                     this.lastSendToCloud = false;
                 }
-            }
+            //}
         },
 
 	});

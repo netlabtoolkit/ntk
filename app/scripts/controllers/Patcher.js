@@ -262,7 +262,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				var modelToUpdate = this.widgetModels.where({wid: wid});
 				if(modelToUpdate.length) {
 					var trigger = true;
-					if(window.app.server) { trigger = false;}
+					//if(window.app.server) { trigger = false;}
 					modelToUpdate[0].set(changedAttributes, {updateNoTrigger: trigger});
 				}
 			}
@@ -440,7 +440,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				};
 
 				// Only the server can update hardware
-				if(window.app.server) {
+				//if(window.app.server) {
 					newModelInstance.on('change', function(model) {
 						var changedAttributes = model.changedAttributes();
 						// Check all the changed attributes
@@ -451,7 +451,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 							}
 						}
 					});
-				}
+				//}
 				return newModelInstance;
 			}
 		},

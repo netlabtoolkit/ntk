@@ -24,6 +24,10 @@ module.exports = function(options) {
 
 		Hardware = {
 			model: model,
+			setPollSpeed: function(highLow) {
+				this.model.setPollSpeed(highLow);
+			},
+
 		};
 	//});
 

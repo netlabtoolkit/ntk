@@ -110,8 +110,6 @@ function(Backbone, rivets, WidgetView, Template){
 						var timeLimited = Math.min(time, Math.floor(videoEl.duration));
 						timeLimited = Math.max(timeLimited, 0);
 						videoEl.currentTime = timeLimited;
-						//console.log(videoEl.duration);
-						//console.log(timeLimited);
 					}
                 
                     if (model.changedAttributes().play) {

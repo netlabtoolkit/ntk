@@ -20,8 +20,5 @@ page.onConsoleMessage = function(msg, lineNum, sourceId) {
 	console.log('CONSOLE: ' + msg + ' (from line #' + lineNum + ' in "' + sourceId + '")');
 };
 
-page.open('http://localhost:9001/#server', function() {
-	//window.setTimeout(function() {
-		//page.render('example.png');
-	//}, 10000);
+page.open('http://localhost:9001/server/#server', function() {
 });

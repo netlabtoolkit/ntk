@@ -196,7 +196,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
         
         onModelChange: function(model) {
-            if(!window.app.server) {
+            //if(!window.app.server) {
                 if(model.changedAttributes().ifState) {
                     if (this.model.get('ifState') == 'trueOn') {
                         clearInterval(this.blinkTimer);
@@ -214,7 +214,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                         this.blinkTimer = this.blinkState(this.$('#ifFalse'));
                     } 
                 }
-            }
+            //}
         },
         
         blinkState: function(el) {

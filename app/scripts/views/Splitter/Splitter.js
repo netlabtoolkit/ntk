@@ -79,7 +79,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
 
         onModelChange: function(model) {
-            if(window.app.server) {
+            //if(window.app.server) {
                 if(model.changedAttributes().in || model.changedAttributes().outWidth ||
                    model.changedAttributes().outMin || model.changedAttributes().outMax) {
                     var input = this.model.get('in');
@@ -92,7 +92,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     this.model.set('outC',this.envelope(input,this.model.get('outCCenter'),width,min,max));
                     this.model.set('outD',this.envelope(input,this.model.get('outDCenter'),width,min,max));
                 }
-            }
+            //}
         },
             
         envelope: function(input, center, width, min, max) {
