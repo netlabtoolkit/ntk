@@ -25,6 +25,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {
 			'mouseup .dragKnob': 'imgMoved',
+            'change #buttonLabel': 'setStyle',
+            'change #buttonFontSize': 'setStyle',
+            'change #buttonWidth': 'setStyle',
+            'change #buttonHeight': 'setStyle',
 		},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'Button',
@@ -56,6 +60,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 left: 100,
                 top: 200,
                 opacity: 100,
+                buttonLabel: "Button Label",
+                buttonFontSize: "50px",
+                buttonWidth: 200,
+                buttonHeight: 200,
+                
             });
             
             //this.signalChainFunctions.push(SignalChainFunctions.scale);
@@ -118,17 +127,26 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     handle: '.dragKnob',
                 });
                 this.$( '.dragKnob' ).css( 'cursor', 'move' );
+                
+                this.setStyle();
             }
         },
-
-
-		// Any custom function can be attached to the widget like this "limitServoRange" function
-		// and can be accessed via this.limitServoRange();
 
         imgMoved: function(e) {
             var offset = this.$('.detachedEl').offset();
             this.model.set('left',offset.left);
             this.model.set('top',offset.top);
+        },
+        
+        setStyle: function(e) {
+            var el = this.$("#theButton");
+            el.button({
+                label: this.model.get('buttonLabel'),
+            });
+            this.$( "#theButton.ui-widget" ).css('width',this.model.get('buttonWidth'));
+            this.$( "#theButton.ui-widget" ).css('height',this.model.get('buttonHeight'));
+
+            el.css('font-size', this.model.get('buttonFontSize'));
         },
 
 	});
