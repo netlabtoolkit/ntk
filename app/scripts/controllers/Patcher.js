@@ -27,6 +27,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		this.parentRegion = region;
 		this.views.mainCanvas = new WidgetsView();
 		this.widgetModels = new WidgetsCollection();
+		this.hardwareModelInstances = {};
 
 		// Create a patch loader / saver for reloading in JSON "patches"
 		this.patchLoader = new PatchLoader({
