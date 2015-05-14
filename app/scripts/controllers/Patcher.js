@@ -417,7 +417,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			this.widgetMappings.splice(this.widgetMappings.indexOf(widgetMap), 1);
 			window.app.vent.trigger('updateModelMappings', this.widgetMappings);
 
-			window.app.trigger('Widget:removeMapping', mapping.modelWID);
+			window.app.trigger('Widget:removeMapping', widgetMap.modelWID);
 		},
         /**
          * Get the singleton model:server instance and if it does not yet exist, create it and return it
