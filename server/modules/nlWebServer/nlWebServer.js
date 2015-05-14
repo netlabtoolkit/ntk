@@ -69,7 +69,7 @@ module.exports = function(options) {
 			//res.sendfile( path.join( __dirname, '../../devTools/cssrefresh.js' ) );
 		});
 		app.get('/client', function(req, res){
-			console.log('CLIENTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT');
+			console.log('Client connected');
 			self.emit('clientConnected');
 			res.sendfile( path.join( __dirname, '../../dist/index.html' ) );
 		});
