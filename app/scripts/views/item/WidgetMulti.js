@@ -73,6 +73,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
                 self.$( ".widgetBottom .content" ).toggle();
             });
 
+			// Displays the cid on the widget for debugging purposes
+			//self.$('.remove').append(' ' + this.model.attributes.wid);
+
 		},
 		onModelChange: function(model) {
 		},
