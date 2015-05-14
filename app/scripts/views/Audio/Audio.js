@@ -60,22 +60,23 @@ function(Backbone, rivets, WidgetView, Template){
                     
         onModelChange: function(model) {
             if (this.domReady) {
-                if(!app.server && (model.changedAttributes().play || model.changedAttributes().volume || model.changedAttributes().speed)) {
+                if(!app.server && (model.changedAttributes().play !== undefined || model.changedAttributes().volume !== undefined || model.changedAttributes().speed !== undefined)) {
                     var play = parseInt(this.model.get('play'),10);
                     var volume = Math.min(parseFloat(this.model.get('volume')) / 100,1.0);
                     var speed = parseFloat(this.model.get('speed')) / 100;
 
                     var audioEl = this.$("#audio")[0];
                     
-                    if (model.changedAttributes().volume) {
+                    if (model.changedAttributes().volume !== undefined) {
+						console.log('changing volume');
                         audioEl.volume = volume;
                     }
 
-                    if (model.changedAttributes().speed) {
+                    if (model.changedAttributes().speed !== undefined) {
                         audioEl.playbackRate = speed;
                     }
 
-                    if (model.changedAttributes().play) {
+                    if(model.changedAttributes().play !== undefined) {
                         if (!this.model.get('continuous')) {
                             if (play >= 500 && !this.playing) {
                                 this.playing = true;
@@ -84,7 +85,13 @@ function(Backbone, rivets, WidgetView, Template){
                             } else if (play < 500 && this.playing) {
                                 this.playing = false;
                                 audioEl.pause();
-                                this.model.set('playText',"Pause");
+								if(!this.model.get('loop')) {
+									audioEl.currentTime = 0;
+									this.model.set('playText',"Stop");
+								}
+								else {
+									this.model.set('playText',"Pause");
+								}
                             }
                         }
                     }
