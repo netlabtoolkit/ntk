@@ -147,6 +147,10 @@ module.exports = function(options) {
 				self.loadPatchFile(options);
 			});
 
+			socket.on('client:toggleServer', function() {
+				self.emit('toggleServer');
+			});
+
 			socket.on('disconnect', function() {
 				self.emit('clientDisconnected');
 			});

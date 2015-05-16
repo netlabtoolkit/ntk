@@ -17,6 +17,7 @@ function( app, Backbone, Template, Widgets ) {
 			'click .clearPatch': 'clearPatch',
             'click .hideWidgets': 'hideWidgets',
             'click .fullScreen': 'fullScreen',
+            'click .serverSwitch': 'toggleServer',
 		},
 		subViews: [],
 		template: _.template(Template),
@@ -108,6 +109,14 @@ function( app, Backbone, Template, Widgets ) {
                 el.msRequestFullscreen();
             }
         },
+		/**
+		 * Toggle control between the autonomous server and this web-based client
+		 *
+		 * @return {undefined}
+		 */
+		toggleServer: function() {
+			window.app.vent.trigger('ToolBar:toggleServer');
+		},
 	});
 
 });

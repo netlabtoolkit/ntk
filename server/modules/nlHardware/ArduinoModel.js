@@ -4,7 +4,8 @@ module.exports = function(attributes) {
 	var _ = require('underscore'),
 		five = require("johnny-five"),
 		events = require('events'),
-		self = this;
+		self = this,
+		pollIntervalMod = 1;
 
 	events.EventEmitter.call(this);
 	_.extend(this, events.EventEmitter.prototype);
@@ -176,6 +177,16 @@ module.exports = function(attributes) {
 			}
 			//SHIFT: 5,
 			//ONEWIRE: 7,
+		},
+		setPollSpeed: function(highLow) {
+			if(highLow == 'fast') {
+				console.log('setting fast');
+				pollIntervalMod = 1;
+			}
+			else {
+				console.log('setting slow');
+				pollIntervalMod = 30;
+			}
 		},
 	};
 	_.extend(this, johnnyFiveHardwareModel);

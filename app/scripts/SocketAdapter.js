@@ -13,7 +13,7 @@ function( Backbone ) {
 			var serverAddress = window.location.host,
 				self = this;
 
-				console.log("SERVER ADDRESS", serverAddress);
+			console.log("SERVER ADDRESS", serverAddress);
 			var socket = this.socket = window.io.connect(serverAddress);
 
 			socket.on("loadPatchFromServer", function(data) {
@@ -27,15 +27,19 @@ function( Backbone ) {
 
 
 			socket.on("server:clientModelUpdate", function(data){
-				window.app.vent.trigger('updateWidgetModelFromServer', data);
+				if(!window.app.serverMode) {
+					window.app.vent.trigger('updateWidgetModelFromServer', data);
+				}
 			});
 
 			socket.on('server:clientMappingUpdate', function(data) {
-				window.app.vent.trigger('updateWidgetMappingFromServer', JSON.parse( data ));
+				if(!window.app.serverMode) {
+					window.app.vent.trigger('updateWidgetMappingFromServer', JSON.parse( data ));
+				}
 			});
 
 			socket.on("receivedModelUpdate", function(data){
-				if(window.app && window.app.vent) {
+				if(window.app && window.app.vent && !window.app.serverMode) {
 					window.app.vent.trigger("receivedDeviceModelUpdate", data);
 				}
 			});
@@ -108,6 +112,11 @@ function( Backbone ) {
 
 				saveConfig = {patch: saveConfig};
 				socket.emit('saveCurrentPatch', JSON.stringify(saveConfig));
+			});
+
+			window.app.vent.on('ToolBar:toggleServer', function(options) {
+				socket.emit('client:toggleServer');
+				window.app.serverMode = !window.app.serverMode;
 			});
 		},
 	};

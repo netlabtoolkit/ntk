@@ -25,7 +25,8 @@ var nlWebServer = new require('./modules/nlWebServer/nlWebServer')({port: server
 
 nlWebServer.start()
 	.then(function(server) {
-		var io = socketIO.listen(server);
+		var io = socketIO.listen(server),
+			serverActivated = true;
 
 		// Passing the deviceController model to the clientSync before having the server specific version
 		var clientSync = require('./modules/nlMultiClientSync/nlMultiClientSync')({transport: io, model: deviceController.model});
@@ -51,7 +52,7 @@ nlWebServer.start()
 		childProcess.shutdown = function () {
 			console.log("...closing");
 
-			//phantomChild.kill()
+			phantomChild.kill()
 			process.exit(0);
 		};
 
@@ -59,18 +60,22 @@ nlWebServer.start()
 			childProcess.shutdown();
 		});
 
-		var phantomChild;
-			//var phantomChild = childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {});
+		var phantomChild = childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {});
 
-		nlWebServer.on('clientConnected', function() {
-			console.log('client connects, standalone system stopping');
-			//phantomChild.kill();
-			//deviceController.setPollSpeed('fast');
-		});
-		clientSync.on('clientDisconnected', function() {
-			console.log('client disconnects, standalone system starting');
-			//deviceController.setPollSpeed('slow');
-			//phantomChild = childProcess.execFile(binPath, childArgs);
+		// Toggle the autonomous server off or on depending on whether it is running
+		clientSync.on('toggleServer', function() {
+			if(serverActivated) {
+				console.log('client takes over, standalone system stopping');
+				serverActivated = false;
+				phantomChild.kill();
+				deviceController.setPollSpeed('fast');
+			}
+			else {
+				console.log('client rescinds control, standalone system starting');
+				serverActivated = true;
+				deviceController.setPollSpeed('slow');
+				phantomChild = childProcess.execFile(binPath, childArgs);
+			}
 		});
 	});
 

@@ -7,3 +7,4 @@
 </form>
 <div class="hideWidgets">Show/Hide Widgets</div>
 <div class="fullScreen">Full Screen</div>
+<div class="serverSwitch">Run on Server</div>
