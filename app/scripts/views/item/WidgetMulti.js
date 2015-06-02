@@ -192,7 +192,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
             // rivets formatters
             rivets.formatters.rounded = function (value){
-                return Number(value).toFixed(0);
+                if (isNaN(value)) return '--';
+                else return Number(value).toFixed(0);
             }
 		},
 		/**
