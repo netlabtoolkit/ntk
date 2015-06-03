@@ -5,6 +5,7 @@ function( Backbone ) {
 
 	var SocketAdapter = function() {
 		this.bindToSocketServer();
+		window.app.serverMode = true;
 	};
 
 
@@ -27,19 +28,15 @@ function( Backbone ) {
 
 
 			socket.on("server:clientModelUpdate", function(data){
-				if(!window.app.serverMode) {
-					window.app.vent.trigger('updateWidgetModelFromServer', data);
-				}
+				window.app.vent.trigger('updateWidgetModelFromServer', data);
 			});
 
 			socket.on('server:clientMappingUpdate', function(data) {
-				if(!window.app.serverMode) {
-					window.app.vent.trigger('updateWidgetMappingFromServer', JSON.parse( data ));
-				}
+				window.app.vent.trigger('updateWidgetMappingFromServer', JSON.parse( data ));
 			});
 
 			socket.on("receivedModelUpdate", function(data){
-				if(window.app && window.app.vent && !window.app.serverMode) {
+				if(window.app && window.app.vent) {
 					window.app.vent.trigger("receivedDeviceModelUpdate", data);
 				}
 			});
@@ -64,39 +61,57 @@ function( Backbone ) {
 			//}
 			//else {
 				window.app.vent.on('sendModelUpdate', function(options) {
-					socket.emit('sendModelUpdate', options);
+					if(window.app.server || !window.app.serverMode) {
+						socket.emit('sendModelUpdate', options);
+					}
 				});
 				window.app.vent.on('widgetUpdate', function(options){
-					socket.emit('client:sendModelUpdate', options);
+					if(window.app.server || !window.app.serverMode) {
+						socket.emit('client:sendModelUpdate', options);
+					}
 				});
 				window.app.vent.on('addWidget', function(options) {
-					socket.emit('client:addWidget', JSON.stringify( options ));
+					if(window.app.server || !window.app.serverMode) {
+						socket.emit('client:addWidget', JSON.stringify( options ));
+					}
 				});
 				window.app.vent.on('removeWidget', function(options) {
-					socket.emit('client:removeWidget', options);
+					if(window.app.server || !window.app.serverMode) {
+						socket.emit('client:removeWidget', options);
+					}
 				});
 				window.app.vent.on('updateModelMappings', function(mappings) {
-					socket.emit('client:updateModelMappings', JSON.stringify( mappings ));
+					if(window.app.server || !window.app.serverMode) {
+						socket.emit('client:updateModelMappings', JSON.stringify( mappings ));
+					}
 				});
 
 				window.app.vent.on('clearPatch', function(patch) {
-					socket.emit('client:clearPatch', JSON.stringify( patch ));
+					if(window.app.server || !window.app.serverMode) {
+						socket.emit('client:clearPatch', JSON.stringify( patch ));
+					}
 				});
 				window.app.vent.on('Widget:hardwareSwitch', function(portAndMode) {
-					socket.emit('client:changeIOMode', JSON.stringify( portAndMode ));
+					if(window.app.server || !window.app.serverMode) {
+						socket.emit('client:changeIOMode', JSON.stringify( portAndMode ));
+					}
 				});
 
 				window.app.vent.on('Widget:updateSourceMappings', function(wid, sources) {
-					var options = {
-						wid: wid,
-						mappings: sources
-					};
+					if(window.app.server || !window.app.serverMode) {
+						var options = {
+							wid: wid,
+							mappings: sources
+						};
 
-					socket.emit('client:sendSourceMappingUpdate', JSON.stringify( options ));
+						socket.emit('client:sendSourceMappingUpdate', JSON.stringify( options ));
+					}
 				});
 
 				window.app.vent.on('loadPatchFileToServer', function(patch) {
-					socket.emit('loadPatchFile', {patch: JSON.stringify(patch)});
+					if(window.app.server || !window.app.serverMode) {
+						socket.emit('loadPatchFile', {patch: JSON.stringify(patch)});
+					}
 				});
 			//}
 
@@ -117,6 +132,7 @@ function( Backbone ) {
 			window.app.vent.on('ToolBar:toggleServer', function(options) {
 				socket.emit('client:toggleServer');
 				window.app.serverMode = !window.app.serverMode;
+				console.log('serverMode', window.app.serverMode);
 			});
 		},
 	};
