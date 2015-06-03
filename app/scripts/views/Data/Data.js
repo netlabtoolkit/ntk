@@ -80,11 +80,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// always call the superclass
             WidgetView.prototype.onRender.call(this);
             
-            if(window.app.server) {
-                this.splitDatabase();
-                this.setOrder();
-                this.model.set('dataOut', '');
-            }
+            this.splitDatabase();
+            this.setOrder();
+            this.model.set('dataOut', '');
             
             this.$( '.dataIndex' ).css( 'cursor', 'pointer' );
 
@@ -93,37 +91,35 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
 
         onModelChange: function(model) {
-            if(window.app.server) {
-                if(model.changedAttributes().in !== undefined) {
-                    var input = parseFloat(this.model.get('in'),10);
-                    var min = parseFloat(this.model.get('rangeMin'),10);
-                    var max = parseFloat(this.model.get('rangeMax'),10) + 1;
-                    var segments = parseInt(this.model.get('segments'),10);
-                    var segmentSize = (max-min) / segments;
-                    var segment = Math.floor((input - min)/segmentSize);
-                    
-                    if (segment >= 0 && segment < segments && segment != this.lastSegment) {
-                        this.nextElement();
-                    }
-                    this.lastSegment = segment;
+            if(model.changedAttributes().in !== undefined) {
+                var input = parseFloat(this.model.get('in'),10);
+                var min = parseFloat(this.model.get('rangeMin'),10);
+                var max = parseFloat(this.model.get('rangeMax'),10) + 1;
+                var segments = parseInt(this.model.get('segments'),10);
+                var segmentSize = (max-min) / segments;
+                var segment = Math.floor((input - min)/segmentSize);
+
+                if (segment >= 0 && segment < segments && segment != this.lastSegment) {
+                    this.nextElement();
                 }
-                if(model.changedAttributes().orderType !== undefined) {
-                    if (model.changedAttributes().orderType != this.lastOrderType) {
-                        this.lastOrderType = model.changedAttributes().orderType;
-                        this.setOrder();
-                        this.model.set('dataIndex', "-- of " + this.elements.length);
-                    }
-                }
-                if (model.changedAttributes().database !== undefined || 
-                    model.changedAttributes().delimiter !== undefined) {
-                    this.splitDatabase();
+                this.lastSegment = segment;
+            }
+            if(model.changedAttributes().orderType !== undefined) {
+                if (model.changedAttributes().orderType != this.lastOrderType) {
+                    this.lastOrderType = model.changedAttributes().orderType;
                     this.setOrder();
                     this.model.set('dataIndex', "-- of " + this.elements.length);
                 }
-                if (model.changedAttributes().triggerNextElement === true) {
-                    this.model.set('triggerNextElement',false);
-                    this.nextElement();
-                }
+            }
+            if (model.changedAttributes().database !== undefined || 
+                model.changedAttributes().delimiter !== undefined) {
+                this.splitDatabase();
+                this.setOrder();
+                this.model.set('dataIndex', "-- of " + this.elements.length);
+            }
+            if (model.changedAttributes().triggerNextElement === true) {
+                this.model.set('triggerNextElement',false);
+                this.nextElement();
             }
         },
         

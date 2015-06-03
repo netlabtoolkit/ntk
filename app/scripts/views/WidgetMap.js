@@ -4,9 +4,14 @@ define([
     'views/CloudIn/CloudIn',
     'views/Knob/Knob',
     'views/Button/Button',
+    'views/Keyboard/Keyboard',
 
     'views/Code/Code',
+    'views/Count/Count',
     'views/IfThen/IfThen',
+    'views/Boolean/Boolean',
+    'views/Gate/Gate',
+    'views/Mix/Mix',
     'views/Splitter/Splitter',
     'views/Data/Data',
 	'views/Blank/Blank',
@@ -22,7 +27,7 @@ define([
 
     'views/OSCIn/OSCIn',
 ],
-function(AnalogIn, CloudIn, Knob, Button, Code, IfThen, Splitter, Data, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, OSCIn){
+function(AnalogIn, CloudIn, Knob, Button, Keyboard, Code, Count, IfThen, Boolean, Gate, Mix, Splitter, Data, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, OSCIn){
     'use strict';
 
 	return {
@@ -30,9 +35,14 @@ function(AnalogIn, CloudIn, Knob, Button, Code, IfThen, Splitter, Data, Blank, I
 		'CloudIn': CloudIn,
 		'Knob': Knob,
 		'Button': Button,
+        'Keyboard': Keyboard,
 
 		'Code': Code,
+        'Count': Count,
         'IfThen': IfThen,
+        'Boolean': Boolean,
+        'Gate': Gate,
+        'Mix': Mix,
 		'Splitter': Splitter,
         'Data': Data,
 		'Blank': Blank,

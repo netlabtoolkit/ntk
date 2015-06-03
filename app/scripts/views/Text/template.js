@@ -25,6 +25,7 @@
             <label class="narrowLabel">width</label> <input id="displayWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth"><br>
         <label class="narrowLabel">size</label> <input id="displayFontSize" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayFontSize"><br>
         <label class="narrowLabel">color</label> <input id="displayFontColor" class="moreParam" type="text" rv-value="widget:displayFontColor"><br>
+        <label class="narrowLabel">class</label> <input id="displayFontColor" class="moreParam" type="text" rv-value="widget:displayClass"><br>
         <select id="displayFontFamily" rv-value='widget:displayFont'>
           <option value='Arial, Helvetica, sans-serif'>Arial</option>
           <option value='Tahoma, Geneva, sans-serif'>Tahoma</option>
@@ -43,7 +44,7 @@
 	<div class="detachedEl" rv-style-opacity="widget:opacity"
         rv-positionx="widget:left"
         rv-positiony="widget:top">
-        <span class='displayText' rv-text="widget:displayText">text</span>
+        <span class="displaytext" rv-text="widget:displayText">text</span>
 	</div>
 <% } %>
 
