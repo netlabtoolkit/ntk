@@ -26,9 +26,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         widgetEvents: {
 			'mouseup .dragKnob': 'imgMoved',
             'change #buttonLabel': 'setStyle',
-            'change #buttonFontSize': 'setStyle',
-            'change #buttonWidth': 'setStyle',
-            'change #buttonHeight': 'setStyle',
+            'change .buttonFontSize': 'setStyle',
+            'change .buttonWidth': 'setStyle',
+            'change .buttonHeight': 'setStyle',
 		},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'Button',
@@ -61,11 +61,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 top: 200,
                 opacity: 100,
                 buttonLabel: "Button Label",
-                buttonFontSize: "50px",
+                buttonFontSize: "30px",
                 buttonWidth: 200,
                 buttonHeight: 200,
                 
             });
+            
+            this.stateHighlight = '#f8c885';
             
             //this.signalChainFunctions.push(SignalChainFunctions.scale);
             
@@ -94,33 +96,57 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
             var self = this;
 
-			this.$( "#theButton" ).button({
-              label: "Button"
-            });
-            
-            //this.$( "#theButton" ).css('height','200px');
-            
-            this.$( "#theButton" ).mousedown(function() {
-                self.model.set('in', parseInt(self.model.get('outputCeiling'),10));
-            });
-            this.$( "#theButton" ).mouseup(function() {
-                self.model.set('in', parseInt(self.model.get('outputFloor'),10));
-            });
-
-            this.$( "#theButton" ).on('touchstart',function() {
-                self.model.set('in', parseInt(self.model.get('outputCeiling'),10));
-            });
-            
-            this.$( "#theButton" ).on('touchend',function() {
-                self.model.set('in', parseInt(self.model.get('outputFloor'),10));
-            });
-                
-            this.$( "#theButton" ).on('touchcancel',function() {
-                self.model.set('in', parseInt(self.model.get('outputFloor'),10));
-            });
-            
             
             if(!app.server) {
+                this.$( "#theButton" ).button({
+                  label: "Button"
+                });
+                self.$('#buttonOn').css('background-color','#fff');
+                self.$('#buttonOff').css('background-color',self.stateHighlight);
+
+                //this.$( "#theButton" ).css('height','200px');
+
+                this.$( "#theButton" ).mousedown(function() {
+                    self.model.set('in', parseInt(self.model.get('outputCeiling'),10));
+                    if(!app.server) {
+                        self.$('#buttonOn').css('background-color',self.stateHighlight);
+                        self.$('#buttonOff').css('background-color','#fff');
+                    }
+                });
+                this.$( "#theButton" ).mouseup(function() {
+                    self.model.set('in', parseInt(self.model.get('outputFloor'),10));
+                    if(!app.server) {
+                        self.$('#buttonOn').css('background-color','#fff');
+                        self.$('#buttonOff').css('background-color',self.stateHighlight);
+                    }
+                });
+
+                this.$( "#theButton" ).on('touchstart',function() {
+                    self.model.set('in', parseInt(self.model.get('outputCeiling'),10));
+                    if(!app.server) {
+                        self.$('#buttonOn').css('background-color',self.stateHighlight);
+                        self.$('#buttonOff').css('background-color','#fff');
+                    }
+                });
+
+                this.$( "#theButton" ).on('touchend',function() {
+                    self.model.set('in', parseInt(self.model.get('outputFloor'),10));
+                    if(!app.server) {
+                        self.$('#buttonOn').css('background-color','#fff');
+                        self.$('#buttonOff').css('background-color',self.stateHighlight);
+                    }
+                });
+
+                this.$( "#theButton" ).on('touchcancel',function() {
+                    self.model.set('in', parseInt(self.model.get('outputFloor'),10));
+                    if(!app.server) {
+                        self.$('#buttonOn').css('background-color','#fff');
+                        self.$('#buttonOff').css('background-color',self.stateHighlight);
+                    }
+                });
+            
+            
+            
                 this.$( '.detachedEl' ).css( 'position', 'fixed' );
                 this.$( '.detachedEl' ).draggable({ 
                     cursor: 'move',
@@ -139,14 +165,16 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
         
         setStyle: function(e) {
-            var el = this.$("#theButton");
-            el.button({
-                label: this.model.get('buttonLabel'),
-            });
-            this.$( "#theButton.ui-widget" ).css('width',this.model.get('buttonWidth'));
-            this.$( "#theButton.ui-widget" ).css('height',this.model.get('buttonHeight'));
+            if(!app.server) {
+                var el = this.$("#theButton");
+                el.button({
+                    label: this.model.get('buttonLabel'),
+                });
+                this.$( "#theButton.ui-widget" ).css('width',this.model.get('buttonWidth'));
+                this.$( "#theButton.ui-widget" ).css('height',this.model.get('buttonHeight'));
 
-            el.css('font-size', this.model.get('buttonFontSize'));
+                el.css('font-size', this.model.get('buttonFontSize'));
+            }
         },
 
 	});

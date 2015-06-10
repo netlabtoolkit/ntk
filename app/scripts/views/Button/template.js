@@ -16,16 +16,14 @@
             <div class="inletValue"></div>
         </div>
         <div class="widgetBodyRight">
-            <div class="outletValue"><span class="outputSingle" rv-text="widget:out">0</span></div>
+            <div class="outletValue">
+                <input id="buttonOff" class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:outputFloor | rounded">
+                <input id="buttonOn" class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:outputCeiling | rounded">
+            </div>
         </div>
+        <br><br>
 
-        <table class="rangeTable" border="0" cellspacing="3" cellpadding="0">
-          <tr>
-            <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:outputFloor"></td>
-            <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:outputCeiling"></td>
-          </tr>
-        </table>
-        <input class="buttonLabel" class="fullWidthInput" type="text" rv-value="widget:buttonLabel">
+        <input id="buttonLabel" class="fullWidthInput" type="text" rv-value="widget:buttonLabel">
     </div>
 
     <div class="widgetRight">
