@@ -235,12 +235,26 @@
             
         }
         
+        .inletValueInput {
+            
+            margin-top: 6px;
+            margin-left: 0px;
+            height: 20px;
+            
+            clear: both;
+            
+            input {
+                margin-left: 0px;
+            }
+            
+        }
+        
         .outletValue {
             
             margin-top: 4px;
             margin-bottom: 0px;
             height: 22px;
-            width: 64px;
+            width: 63px;
             margin-right: 0px;
             margin-left: 0px;
             padding-left: 0px;
@@ -248,7 +262,7 @@
             clear: both;
             
             .outputParam {
-                width: 26px;
+                width: 25px;
                 margin-top: 0px;
                 margin-right: 0px;
                 margin-left: 0px;
@@ -264,7 +278,7 @@
         }
         
         .outputSingle {
-            padding-left: 35px; 
+            padding-left: 32px; 
         }
         
         .inletValueTop {
@@ -304,6 +318,11 @@
     
         #ifTop {
             background-color: #c6c6c6;
+        }
+        
+        label {
+            display: inline-block;
+            width: 60px;
         }
         
     }

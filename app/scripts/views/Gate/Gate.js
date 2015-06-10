@@ -37,8 +37,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.model.set({
                 title: 'Gate',
                 inGate: 0,
-				inTrue: '-',
-                inFalse: '-',
+				inTrue: 'T',
+                inFalse: 'F',
 				out1: 0,
                 ifFalse: 0,
                 ifTrue: 1023,

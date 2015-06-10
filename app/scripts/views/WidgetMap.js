@@ -5,8 +5,10 @@ define([
     'views/Knob/Knob',
     'views/Button/Button',
     'views/Keyboard/Keyboard',
+    'views/Pulse/Pulse',
 
     'views/Code/Code',
+    'views/Process/Process',
     'views/Count/Count',
     'views/IfThen/IfThen',
     'views/Boolean/Boolean',
@@ -14,6 +16,7 @@ define([
     'views/Mix/Mix',
     'views/Splitter/Splitter',
     'views/Data/Data',
+    'views/Animate/Animate',
 	'views/Blank/Blank',
     
     'views/Image/Image',
@@ -27,7 +30,7 @@ define([
 
     'views/OSCIn/OSCIn',
 ],
-function(AnalogIn, CloudIn, Knob, Button, Keyboard, Code, Count, IfThen, Boolean, Gate, Mix, Splitter, Data, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, OSCIn){
+function(AnalogIn, CloudIn, Knob, Button, Keyboard, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Mix, Splitter, Data, Animate, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, OSCIn){
     'use strict';
 
 	return {
@@ -36,8 +39,10 @@ function(AnalogIn, CloudIn, Knob, Button, Keyboard, Code, Count, IfThen, Boolean
 		'Knob': Knob,
 		'Button': Button,
         'Keyboard': Keyboard,
+        'Pulse': Pulse,
 
 		'Code': Code,
+        'Process': Process,
         'Count': Count,
         'IfThen': IfThen,
         'Boolean': Boolean,
@@ -45,6 +50,7 @@ function(AnalogIn, CloudIn, Knob, Button, Keyboard, Code, Count, IfThen, Boolean
         'Mix': Mix,
 		'Splitter': Splitter,
         'Data': Data,
+        'Animate': Animate,
 		'Blank': Blank,
 
 		'Image': Image,
