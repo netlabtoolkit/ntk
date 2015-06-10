@@ -80,10 +80,7 @@ function(Backbone, rivets, WidgetView, Template){
                 this.$( '.detachedEl' ).draggable({ cursor: "move" });
                 
                 this.textDiv = this.$('.displaytext');
-                console.log(this.textDiv);
-
                 this.domReady = true;
-                
                 this.updateDisplay();
             }
 		},
@@ -96,12 +93,9 @@ function(Backbone, rivets, WidgetView, Template){
                 if (model.changedAttributes().displayClass !== undefined && this.domReady) {
                     var lastClass = this.model.get('displayClassLast');
                     var newClass = this.model.get('displayClass');
-                    console.log(lastClass + ' ' + newClass);
                     this.textDiv.removeClass(lastClass).addClass(newClass);
                     this.model.set('displayClassLast',newClass)
                 }
-                
-                //console.log(this.model.get('in'));
             }
         },
         
@@ -115,11 +109,6 @@ function(Backbone, rivets, WidgetView, Template){
                 if (this.model.get('displayFontBold')) weight = "bold";
 
                 this.$( '.detachedEl' ).css( 'width', this.model.get('displayWidth'));
-                /*this.$( displayClass ).css( 'font-family', this.model.get('displayFont'));
-                this.$( displayClass ).css( 'font-size', this.model.get('displayFontSize'));
-                this.$( displayClass ).css( 'font-style', style);
-                this.$( displayClass ).css( 'font-weight', weight);
-                this.$( displayClass ).css( 'color', this.model.get('displayFontColor'));*/
                 this.textDiv.css( 'font-family', this.model.get('displayFont'));
                 this.textDiv.css( 'font-size', this.model.get('displayFontSize'));
                 this.textDiv.css( 'font-style', style);
