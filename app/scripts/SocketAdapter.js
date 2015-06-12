@@ -21,6 +21,12 @@ function( Backbone ) {
 				window.app.vent.trigger('ToolBar:loadPatch', data);
 			});
 
+			socket.on("serverActive", function(serverActive) {
+				window.app.serverActive = serverActive;
+				window.app.vent.trigger('serverActive', serverActive);
+				console.log('SERVER ACTIVE', serverActive);
+			});
+
 			socket.on("connect", function() {
 				self.connected = true;
 				window.app.vent.trigger("socket:connected");

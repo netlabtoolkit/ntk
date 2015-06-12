@@ -6,15 +6,23 @@ module.exports = function(options) {
 		self;
 
 	var MultiClientSync = function(options) {
+		_.extend(this, events.EventEmitter.prototype);
+		self = this;
+
 		options.transport ? this.transport = options.transport : undefined;
 		options.model ? this.model = options.model : undefined;
 		this.model && this.bindModelToTransport(this.model);
 		this.masterPatch = [];
+		this.serverActive = true;
 
 		this.loadPatchFromServer();
 		this.transport.on('connection', this.registerClient);
-		self = this;
-		_.extend(this, events.EventEmitter.prototype);
+
+		this.on('notify:serverActive', function(serverActive) {
+			self.serverActive = serverActive;
+			self.transport.emit('serverActive', serverActive);
+		}, this);
+
 
 	};
 
@@ -46,7 +54,6 @@ module.exports = function(options) {
 			if(masterModel) {
 				masterModel.map = currentMap.mappings[0].map;
 				socket.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
-				//socket.broadcast.emit('server:clientMappingUpdate', JSON.stringify( masterModel ));
 			}
 
 		},
@@ -91,6 +98,7 @@ module.exports = function(options) {
 		 */
 		registerClient: function(socket) {
 
+			socket.emit('serverActive', self.serverActive);
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			socket.on('sendModelUpdate', function(options) {
 				for(var field in options.model) {

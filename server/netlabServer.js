@@ -69,12 +69,14 @@ nlWebServer.start()
 				serverActivated = false;
 				phantomChild.kill();
 				deviceController.setPollSpeed('fast');
+				clientSync.emit('notify:serverActive', false);
 			}
 			else {
 				console.log('client rescinds control, standalone system starting');
 				serverActivated = true;
 				deviceController.setPollSpeed('slow');
 				phantomChild = childProcess.execFile(binPath, childArgs);
+				clientSync.emit('notify:serverActive', true);
 			}
 		});
 	});
