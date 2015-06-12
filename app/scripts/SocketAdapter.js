@@ -24,7 +24,6 @@ function( Backbone ) {
 			socket.on("serverActive", function(serverActive) {
 				window.app.serverActive = serverActive;
 				window.app.vent.trigger('serverActive', serverActive);
-				console.log('SERVER ACTIVE', serverActive);
 			});
 
 			socket.on("connect", function() {

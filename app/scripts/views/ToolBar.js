@@ -47,8 +47,7 @@ function( app, Backbone, Template, Widgets ) {
 			var fileInput = this.$('#patchFileUpload')[0];
 			fileInput.addEventListener("change", this.loadPatch);
 
-			//this.indicateServerActive(window.app.serverActive);
-			console.log('checking', window.app.serverActive);
+			this.indicateServerActive(window.app.serverActive);
 		},
 		showUploadFileDialog: function() {
 			this.$('#patchFileUpload').click();
@@ -124,7 +123,6 @@ function( app, Backbone, Template, Widgets ) {
 			window.app.vent.trigger('ToolBar:toggleServer');
 		},
 		indicateServerActive: function indicateServerActive(serverActive) {
-			console.log('got it', serverActive);
 			var $serverSwitchButton = this.$('.serverSwitch');
 			if(serverActive) {
 				$serverSwitchButton.addClass('serverActive');
@@ -134,7 +132,6 @@ function( app, Backbone, Template, Widgets ) {
 				$serverSwitchButton.removeClass('serverActive');
 				$serverSwitchButton.text('Active');
 			}
-			console.log('INDICATE SERVER ACTIVE');
 		},
 	});
 
