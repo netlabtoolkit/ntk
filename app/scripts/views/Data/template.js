@@ -14,22 +14,25 @@
     <div class="widgetBody">
         <div class="widgetBodyTop">
             <div class="widgetBodyLeft">
-                <div class="inletValue"><span rv-text="widget:in | rounded">0</span></div>
+                <div class="inletValue"><span rv-text="widget:inTrigger | rounded">0</span></div>
             </div>
             <div class="widgetBodyRight">
                 <div class="inletValue"><span class="dataIndex" rv-text="widget:dataIndex">0</span></div>
             </div>
 
-            <div class="dataOut"><span rv-text="widget:out"></span></div>
+            
         </div>
+        <div class="dataOut"><span rv-text="widget:out"></span></div>
 
-        <select id="orderType" rv-value='widget:orderType'>
+        <select class="orderType" rv-value='widget:orderType'>
           <option value="ordered">ordered</option>
           <option value="reverse">reverse</option>
           <option value="randomFull">randFull</option>
           <option value="randomNoRepeat">randNoRep</option>
           <option value="randomAny">randAny</option>
-        </select> 
+        </select>
+        <input class="dataTypeText" name="dataType" type="radio" value="text" rv-checked="widget:dataType"> Text Data<br>
+        <input class='dataTypeNum' name="dataType" type="radio" value="number" rv-checked="widget:dataType"> Numeric Data
     </div>
 
     <div class="widgetRight">
@@ -41,18 +44,23 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-        <label>range</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:rangeMin">
-        <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:rangeMax"><br>
-        <label>segments</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:segments"><br>
-        <label>delimiter</label> <input class="moreParam" type="text" rv-value="widget:delimiter"> (use &#92;n for newline)<br>
-        database text<br>
-            <textarea id="database" rv-value="widget:database" rows="4" cols="70">
+            <strong>Text</strong><br>
+            <label>delimiter</label> <input class="delimiter moreParam" type="text" rv-value="widget:delimiter"> (use &#92;n for newline)<br>
+            <textarea class="database" rv-value="widget:database" rows="4" cols="70"></textarea>
+            <hr>
+            <strong>Numeric</strong><br>
+            <label>range</label> <input class="numericMin moreParam" type="text" pattern="[0-9]*" rv-value="widget:numericMin">
+            <input class="numericMax moreParam" type="text" pattern="[0-9]*" rv-value="widget:numericMax">
+            <hr>
+            <strong>Trigger Input Settings</strong><br>
+            <label>range</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:rangeMin">
+            <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:rangeMax"><br>
+            <label>segments</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:segments"><br>
+            <hr>
+            <strong>Ordered Database</strong><br>
+                <textarea rv-value="widget:orderedDatabase" rows="4" cols="70">
 
-            </textarea><br>
-        ordered data<br>
-            <textarea rv-value="widget:orderedDatabase" rows="4" cols="70">
-
-            </textarea>
+                </textarea>
         </div>
     </div>
 </div>

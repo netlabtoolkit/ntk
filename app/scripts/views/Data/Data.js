@@ -17,7 +17,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// Define the inlets
 		ins: [
 			// title is decorative, to: <widget model field being set by inlet>
-			{title: 'in', to: 'in'},
+			{title: 'in', to: 'inTrigger'},
+            {title: 'index', to: 'inIndex'},
 		],
 		outs: [
 			// title is decorative, from: <widget model field>, to: <widget model field being listened to>
@@ -25,8 +26,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		],
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {
-           'click .dataIndex': 'triggerNxtElement',
-           //'change #database': 'setOrder',
+            'click .dataIndex': 'nextElement',
+            'change .orderType': 'setOrder',
+            'change .database': 'resetData',
+            'change .dataTypeNum': 'resetData',
+            'change .dataTypeText': 'resetData',
+            'change .numericMax': 'resetData',
+            'change .numericMin': 'resetData',
+            'change .delimiter': 'resetData',
         },
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'Data',
@@ -40,25 +47,28 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             // Call any custom DOM events here
 			this.model.set({
                 title: 'Data',
-                
-                database: "one,two,three,four,five,six,seven,eight,nine,ten",
+                inTrigger: 0,
+                inIndex: 0,
+                database: "apple,banana,cherry,date,elderberry,fig,grape,huckleberry",
                 orderType: "ordered",
                 rangeMin: 512,
                 rangeMax: 1023,
                 segments: 1,
+                lastSegment: -1,
+                dataType: 'text',
                 delimiter: ',',
-                dataOut: "one",
+                dataOut: "",
                 out: "",
-                dataIndex: "-- of 10",
-                triggerNextElement: false,
-                orderedDatabase: "1) one\n2) two\n3) three\n4) four\n5) five\n6) six\n7) seven\n8) eight\n9) nine\n10) ten\n",
+                dataIndex: "",
+                numericMin: 0,
+                numericMax: 1023,
+                orderedDatabase: "",
+                elements: [],
+                elementIndexes: [],
+                currentElement: 0,
             });
 
-            this.elements = this.splitDatabase();
-            this.elementIndexes = [];
-            this.currentElement = 0;
-            this.lastSegment = -1;
-            this.lastOrderType = '';
+            this.widgetReady = false;
             // If you want to register your own signal processing function, push them to signalChainFunctions
 			//this.signalChainFunctions.push(this.outputText);
 
@@ -80,122 +90,140 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// always call the superclass
             WidgetView.prototype.onRender.call(this);
             
-            this.splitDatabase();
-            this.setOrder();
-            this.model.set('dataOut', '');
-            
             this.$( '.dataIndex' ).css( 'cursor', 'pointer' );
-
+            
+            this.widgetReady = true;
+            
+            this.model.set('dataOut', '');
+            this.buildDatabase();
+            this.setOrder();
+            
             var self = this;
 
         },
 
         onModelChange: function(model) {
-            if(model.changedAttributes().in !== undefined) {
-                var input = parseFloat(this.model.get('in'),10);
-                var min = parseFloat(this.model.get('rangeMin'),10);
-                var max = parseFloat(this.model.get('rangeMax'),10) + 1;
-                var segments = parseInt(this.model.get('segments'),10);
-                var segmentSize = (max-min) / segments;
-                var segment = Math.floor((input - min)/segmentSize);
+            if (this.widgetReady) {
+                if(model.changedAttributes().inTrigger !== undefined) {
+                    var input = parseFloat(this.model.get('inTrigger'),10);
+                    var min = parseFloat(this.model.get('rangeMin'),10);
+                    var max = parseFloat(this.model.get('rangeMax'),10) + 1;
+                    var segments = parseInt(this.model.get('segments'),10);
+                    var segmentSize = (max-min) / segments;
+                    var segment = Math.floor((input - min)/segmentSize);
 
-                if (segment >= 0 && segment < segments && segment != this.lastSegment) {
-                    this.nextElement();
+                    if (segment >= 0 && segment < segments && segment != this.model.get('lastSegment')) {
+                        this.nextElement();
+                    }
+                    this.model.set('lastSegment',segment);
                 }
-                this.lastSegment = segment;
-            }
-            if(model.changedAttributes().orderType !== undefined) {
-                if (model.changedAttributes().orderType != this.lastOrderType) {
-                    this.lastOrderType = model.changedAttributes().orderType;
-                    this.setOrder();
-                    this.model.set('dataIndex', "-- of " + this.elements.length);
+                
+                if(model.changedAttributes().inIndex !== undefined) {
+                    this.indexElement(parseInt(this.model.get('inIndex'),10));
                 }
-            }
-            if (model.changedAttributes().database !== undefined || 
-                model.changedAttributes().delimiter !== undefined) {
-                this.splitDatabase();
-                this.setOrder();
-                this.model.set('dataIndex', "-- of " + this.elements.length);
-            }
-            if (model.changedAttributes().triggerNextElement === true) {
-                this.model.set('triggerNextElement',false);
-                this.nextElement();
+                                      
             }
         },
         
-        setOrder: function(e) {
-            var mode = this.model.get('orderType');
-            
-            if (this.elements === undefined) {
-                this.splitDatabase();
+        resetData: function() {
+            this.buildDatabase();
+            this.setOrder(true);
+        },
+        
+        setOrder: function(resetDisplay) {
+            if (this.widgetReady) {
+                resetDisplay = typeof resetDisplay !== 'undefined' ? resetDisplay : true;
+
+                var mode = this.model.get('orderType');
+                /*
+                if (this.model.get('elements') === undefined) {
+                    this.buildDatabase();
+                }*/
+                this.model.set('elementIndexes',[]);
+                for (var i = 0; i < this.model.get('elements').length; i++) {
+                    this.model.get('elementIndexes').push(i);
+                }
+
+                var arr = this.model.get('elementIndexes');
+
+                switch(mode) {
+                    case 'ordered':
+                        // do nothing
+                        break;
+                    case 'reverse':
+                        arr.reverse();
+                        break;
+                    case 'randomFull':
+                        this.shuffle(arr);
+                        break;
+                    case 'randomNoRepeat':
+                        this.randomize(arr,true);
+                        break;
+                    case 'randomAny':
+                        this.randomize(arr,false);
+                        break;
+                    default:
+                        //
+                }
+
+                this.model.set('currentElement', 0);
+
+                // build output string to show the order in use
+                
+                var orderedData = '';
+                for (var i = 0; i < this.model.get('elementIndexes').length; i++) {
+                    orderedData += (i) + ") " + this.model.get('elements')[this.model.get('elementIndexes')[i]] + "\n";
+                }
+
+                //this.model.set('orderedDatabase',orderedData,{silent : true});
+                this.model.set('orderedDatabase',orderedData);
+                if (resetDisplay) this.model.set('dataIndex', "-- of " + (this.model.get('elements').length - 1));
             }
-            this.elementIndexes = [];
-            for (var i = 0; i < this.elements.length; i++) {
-                this.elementIndexes.push(i);
+        },
+        
+        indexElement: function(index) {
+            if (index >= 0 && index < this.model.get('elementIndexes').length) {
+                var elementIndex = this.model.get('elementIndexes')[index];
+                var element = this.model.get('elements')[elementIndex];
+                this.model.set('dataOut', element);
+                this.model.set('dataIndex', elementIndex + " of " + (this.model.get('elements').length - 1));
             }
-
-            var arr = this.elementIndexes;
-
-            switch(mode) {
-                case 'ordered':
-                    // do nothing
-                    break;
-                case 'reverse':
-                    arr.reverse();
-                    break;
-                case 'randomFull':
-                    this.shuffle(arr);
-                    break;
-                case 'randomNoRepeat':
-                    this.randomize(arr,true);
-                    break;
-                case 'randomAny':
-                    this.randomize(arr,false);
-                    break;
-                default:
-                    //
-            }
-
-            this.currentElement = 0;
-            
-            // build output string to show the order in use
-            var orderedData = '';
-            for (var i = 0; i < this.elementIndexes.length; i++) {
-                orderedData += (i+1) + ") " + this.elements[this.elementIndexes[i]] + "\n";
-            }
-
-            this.model.set('orderedDatabase',orderedData);
-
         },
         
         nextElement: function(e) {
             
-            var elementIndex = this.elementIndexes[this.currentElement];
-            var element = this.elements[elementIndex];
+            var elementIndex = this.model.get('elementIndexes')[this.model.get('currentElement')];
+            var element = this.model.get('elements')[elementIndex];
             this.model.set('dataOut', element);
-            this.model.set('out', element);
-            this.model.set('dataIndex', elementIndex + 1 + " of " + this.elements.length);
+            this.model.set('dataIndex', elementIndex + " of " + (this.model.get('elements').length - 1));
 
-            this.currentElement++;
-            if (this.currentElement >= this.elements.length) {
-                this.setOrder();
-                this.currentElement = 0;
+            this.model.set('currentElement',this.model.get('currentElement') + 1);
+            if (this.model.get('currentElement') >= this.model.get('elements').length) {
+                this.setOrder(false);
+                this.model.set('currentElement',0);
             }
-            this.model.set('triggerNextElement',false);
         },
         
-        triggerNxtElement: function(e) {
-            this.model.set('triggerNextElement',false);
-            this.model.set('triggerNextElement',true);
-        },
-        
-        splitDatabase: function(e) {
-            var delimiter = this.model.get('delimiter');
-            var str = this.model.get('database').replace(/(\r\n|\n|\r)/gm, "\n");
-            if (this.model.get('delimiter') == '\\n') {
-                delimiter = '\n';
+        buildDatabase: function(e) {
+            if (this.widgetReady) {
+                if (this.model.get('dataType') == 'text') {
+                    console.log('buildD');
+                    var delimiter = this.model.get('delimiter');
+                    var str = this.model.get('database');
+                    str = str.replace(/(\r\n|\n|\r)/gm, "\n");
+                    //var str = "one,two,three,four,five,six,seven,eight,nine,ten," + Math.random();
+                    //var str = "one,two,three,four,five,six,seven,eight,nine,ten,wer".replace(/(\r\n|\n|\r)/gm, "\n");
+                    if (this.model.get('delimiter') == '\\n') {
+                        delimiter = '\n';
+                    }
+                    this.model.set('elements',str.split(delimiter));
+                } else if (this.model.get('dataType') == 'number') {
+                    this.model.set('elements',[]);
+                    for (var i=parseInt(this.model.get('numericMin'),10);i<=parseInt(this.model.get('numericMax'),10);i++) {
+                        this.model.get('elements').push(i);
+                    }
+                }
             }
-            this.elements = str.split(delimiter);
         },
         
         shuffle: function (arr) {
