@@ -35,7 +35,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			WidgetView.prototype.initialize.call(this, options);
 
             // Call any custom DOM events here
-			this.model.set('title', 'Blank');
+            this.model.set({
+                title: 'Blank',
+                testIt: false,
+                testAnother: false,
+            });
 
             // If you want to register your own signal processing function, push them to signalChainFunctions
 			this.signalChainFunctions.push(this.limitRange);
@@ -81,9 +85,25 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				$(el).val(value);
 				$(el).trigger('change');
 			};
+            
+            this.lastTestIt = false;
         },
 
-
+        onModelChange: function(model) {
+            var diff = model.changedAttributes();
+            console.log('-------------- CHANGED ATTS');
+            for (var att in diff) {
+                console.log(att + ": " + model.changedAttributes()[att]);
+            }
+            console.log('--------------');
+            
+            if (model.changedAttributes.testAnother === undefined && 
+                    this.lastTestIt != this.model.get('testIt')) { // without the second test, an infinte loop will occur
+                this.model.set('testAnother',!this.model.get('testAnother'));
+                console.log('changing testAnother');
+            }
+            this.lastTestIt = this.model.get('testIt');
+        },
 		// Any custom function can be attached to the widget like this "limitServoRange" function
 		// and can be accessed via this.limitServoRange();
         limitRange: function(input) {
