@@ -15,15 +15,17 @@
         <div class="widgetBodyLeft">
             <div class="inletValue"><span rv-text="widget:in | rounded">0</span></div>
             
-            <div class="inletValueInput"><input type="text" pattern="[0-9]*" rv-value="widget:aniLength | rounded"></div>
-            <div class="inletValueInput"><input type="text" pattern="[0-9]*" rv-value="widget:aniStart | rounded"></div>
-            <div class="inletValueInput"><input type="text" pattern="[0-9]*" rv-value="widget:aniEnd | rounded"></div>
+            
         </div>
         <div class="widgetBodyRight">  
                 <div class="inletValue"><span class="outputSingle" rv-text="widget:out1 | rounded">0</span></div>
         </div>
-
+        <div class="inletValueInput"><input type="text" pattern="[0-9]*" rv-value="widget:aniLength | rounded"> time</div>
+        <div class="inletValueInput"><input type="text" pattern="[0-9]*" rv-value="widget:aniStart | rounded"> start</div>
+        <div class="inletValueInput"><input type="text" pattern="[0-9]*" rv-value="widget:aniEnd | rounded"> end</div>
     </div>
+                
+                
 
     <div class="widgetRight">
         <div class='outlets'>
