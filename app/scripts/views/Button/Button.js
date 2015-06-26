@@ -25,7 +25,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {
 			'mouseup .dragKnob': 'imgMoved',
-            'change #buttonLabel': 'setStyle',
+            'change .buttonLabel': 'setStyle',
             'change .buttonFontSize': 'setStyle',
             'change .buttonWidth': 'setStyle',
             'change .buttonHeight': 'setStyle',
@@ -98,50 +98,48 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
             
             if(!app.server) {
-                this.$( "#theButton" ).button({
+                this.$( ".theButton" ).button({
                   label: "Button"
                 });
-                self.$('#buttonOn').css('background-color','#fff');
-                self.$('#buttonOff').css('background-color',self.stateHighlight);
+                self.$('.buttonOn').css('background-color','#fff');
+                self.$('.buttonOff').css('background-color',self.stateHighlight);
 
-                //this.$( "#theButton" ).css('height','200px');
-
-                this.$( "#theButton" ).mousedown(function() {
+                this.$( ".theButton" ).mousedown(function() {
                     self.model.set('in', parseInt(self.model.get('outputCeiling'),10));
                     if(!app.server) {
-                        self.$('#buttonOn').css('background-color',self.stateHighlight);
-                        self.$('#buttonOff').css('background-color','#fff');
+                        self.$('.buttonOn').css('background-color',self.stateHighlight);
+                        self.$('.buttonOff').css('background-color','#fff');
                     }
                 });
-                this.$( "#theButton" ).mouseup(function() {
+                this.$( ".theButton" ).mouseup(function() {
                     self.model.set('in', parseInt(self.model.get('outputFloor'),10));
                     if(!app.server) {
-                        self.$('#buttonOn').css('background-color','#fff');
-                        self.$('#buttonOff').css('background-color',self.stateHighlight);
+                        self.$('.buttonOn').css('background-color','#fff');
+                        self.$('.buttonOff').css('background-color',self.stateHighlight);
                     }
                 });
 
-                this.$( "#theButton" ).on('touchstart',function() {
+                this.$( ".theButton" ).on('touchstart',function() {
                     self.model.set('in', parseInt(self.model.get('outputCeiling'),10));
                     if(!app.server) {
-                        self.$('#buttonOn').css('background-color',self.stateHighlight);
-                        self.$('#buttonOff').css('background-color','#fff');
+                        self.$('.buttonOn').css('background-color',self.stateHighlight);
+                        self.$('.buttonOff').css('background-color','#fff');
                     }
                 });
 
-                this.$( "#theButton" ).on('touchend',function() {
+                this.$( ".theButton" ).on('touchend',function() {
                     self.model.set('in', parseInt(self.model.get('outputFloor'),10));
                     if(!app.server) {
-                        self.$('#buttonOn').css('background-color','#fff');
-                        self.$('#buttonOff').css('background-color',self.stateHighlight);
+                        self.$('.buttonOn').css('background-color','#fff');
+                        self.$('.buttonOff').css('background-color',self.stateHighlight);
                     }
                 });
 
-                this.$( "#theButton" ).on('touchcancel',function() {
+                this.$( ".theButton" ).on('touchcancel',function() {
                     self.model.set('in', parseInt(self.model.get('outputFloor'),10));
                     if(!app.server) {
-                        self.$('#buttonOn').css('background-color','#fff');
-                        self.$('#buttonOff').css('background-color',self.stateHighlight);
+                        self.$('.buttonOn').css('background-color','#fff');
+                        self.$('.buttonOff').css('background-color',self.stateHighlight);
                     }
                 });
             
@@ -166,12 +164,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         
         setStyle: function(e) {
             if(!app.server) {
-                var el = this.$("#theButton");
+                var el = this.$(".theButton");
                 el.button({
                     label: this.model.get('buttonLabel'),
                 });
-                this.$( "#theButton.ui-widget" ).css('width',this.model.get('buttonWidth'));
-                this.$( "#theButton.ui-widget" ).css('height',this.model.get('buttonHeight'));
+                this.$( ".theButton.ui-widget" ).css('width',this.model.get('buttonWidth'));
+                this.$( ".theButton.ui-widget" ).css('height',this.model.get('buttonHeight'));
 
                 el.css('font-size', this.model.get('buttonFontSize'));
             }

@@ -15,14 +15,14 @@
             <div class="inletValue"><span rv-text="widget:play | rounded">100</span> <span rv-text="widget:playText">Pause</span></div>
             <div class="inletValue"><span rv-text="widget:volume | rounded">100</span> Volume</div>
             <div class="inletValue"><span rv-text="widget:speed | rounded">100</span> Speed</div>
-            <div class="inletValue"><input id="loop" type="checkbox" rv-checked="widget:loop" /> Loop</div>
+            <div class="inletValue"><input class="loop" type="checkbox" rv-checked="widget:loop" /> Loop</div>
         </div>
     </div>
 
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-            <label>continuous</label> <input id="continuous" type="checkbox" rv-checked="widget:continuous" /><br>
+            <label>continuous</label> <input class="continuous" type="checkbox" rv-checked="widget:continuous" /><br>
             <label>audio file</label> <input type="text" rv-value="widget:src"><br>
         </div>
     </div>

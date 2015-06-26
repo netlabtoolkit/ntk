@@ -69,8 +69,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             var self = this;
             
             if(!app.server) {
-                self.$('#pulseHigh').css('background-color','#fff');
-                self.$('#pulseLow').css('background-color',self.stateHighlight);
+                self.$('.pulseHigh').css('background-color','#fff');
+                self.$('.pulseLow').css('background-color',self.stateHighlight);
             }
             
             this.domReady = true;
@@ -134,16 +134,16 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 }
                 self.model.set('output',output);
                 if(!app.server) {
-                    self.$('#pulseHigh').css('background-color',self.stateHighlight);
-                    self.$('#pulseLow').css('background-color','#fff');
+                    self.$('.pulseHigh').css('background-color',self.stateHighlight);
+                    self.$('.pulseLow').css('background-color','#fff');
                 }
                 if (!self.model.get('randOut')) { // only go back to low value if sending a fixed output
                     window.clearTimeout(self.highTimer);
                     self.highTimer = setTimeout(function () {
                         self.model.set('output',parseFloat(self.model.get('pulseLow'),10));
                         if(!app.server) {
-                            self.$('#pulseHigh').css('background-color','#fff');
-                            self.$('#pulseLow').css('background-color',self.stateHighlight);
+                            self.$('.pulseHigh').css('background-color','#fff');
+                            self.$('.pulseLow').css('background-color',self.stateHighlight);
                         }
                     }, self.model.get('timerHighLength'));
                 }

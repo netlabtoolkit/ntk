@@ -12,20 +12,20 @@
     </div>
 
     <div class="widgetBody">
-        <div id="ifTop">
-            <div class="widgetBodyLeft" id="ifInput">
+        <div class="ifTop">
+            <div class="widgetBodyLeft" class="ifInput">
                 <div class="inletValue">
                     <span rv-text="widget:in | rounded">0</span>
                 </div>
             </div>
-            <div class="widgetBodyRight" id="ifOutput">
+            <div class="widgetBodyRight" class="ifOutput">
                 <div class="outletValue">
-                    <input id="ifFalse" class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:ifFalse | rounded">
-                    <input id="ifTrue" class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:ifTrue | rounded">
+                    <input class="ifFalse" class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:ifFalse | rounded">
+                    <input class="ifTrue" class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:ifTrue | rounded">
                 </div>
             </div>
-            <div class="inletValue" id="ifStatement">
-                IF <select class="operator" id="operator" rv-value="widget:operator">
+            <div class="inletValue" class="ifStatement">
+                IF <select class="operator" rv-value="widget:operator">
                   <option value=">">&gt;</option>
                   <option value="<">&lt;</option>
                   <option value="~=">&#126;=</option>

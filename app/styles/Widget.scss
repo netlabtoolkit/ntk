@@ -254,7 +254,7 @@
             margin-top: 4px;
             margin-bottom: 0px;
             height: 22px;
-            width: 63px;
+            width: 64px;
             margin-right: 0px;
             margin-left: 0px;
             padding-left: 0px;
@@ -294,11 +294,11 @@
             margin-left: 5px;
         }
         
-        #ifFalse {
+        .ifFalse {
             background-color: #f8c885;
         }
         
-        #ifStatement {
+        .ifStatement {
             background-color: #c6c6c6;
             margin-left: 0px;
             margin-top: 0px;
@@ -316,7 +316,7 @@
             }
         }
     
-        #ifTop {
+        .ifTop {
             background-color: #c6c6c6;
         }
         
@@ -330,8 +330,9 @@
     .widgetBody input[type='text'] {
         font-family: Arial;
         font-size: 11px;
-        margin-left: 1px;
-        width: 26px;
+        margin-left: 0px;
+        padding: 0px;
+        width: 25px;
         height: 12px;
     }
     

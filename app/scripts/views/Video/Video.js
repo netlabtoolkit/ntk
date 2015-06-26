@@ -13,8 +13,8 @@ function(Backbone, rivets, WidgetView, Template){
 		template: _.template(Template),
 		sources: [],
         widgetEvents: {
-			'change #loop': 'loopChange',
-            'change #continuous': 'continuousChange',
+			'change .loop': 'loopChange',
+            'change .continuous': 'continuousChange',
             'mouseup .detachedEl': 'imgMoved',
 		},
 
@@ -80,16 +80,16 @@ function(Backbone, rivets, WidgetView, Template){
                 
                 if (this.model.get('continuous')) {
                     this.playing = true;
-                    this.$("#video")[0].play();
+                    this.$(".video")[0].play();
                     this.model.set('playText',"Play");
                 }
                 
-                //console.log("vid: " + this.$("#video")[0].currentSrc);
+                //console.log("vid: " + this.$(".video")[0].currentSrc);
                 this.domReady = true;
                 
             }
 
-            //console.log($("#video")[0].duration);
+            //console.log($(".video")[0].duration);
 
 		},
 
@@ -100,7 +100,7 @@ function(Backbone, rivets, WidgetView, Template){
 					var volume = Math.min(parseFloat(this.model.get('volume')) / 100,1.0);
 					var speed = parseFloat(this.model.get('speed')) / 100;
 					var time = parseFloat(this.model.get('time'));
-					var videoEl = this.$("#video")[0];
+					var videoEl = this.$(".video")[0];
                     
                     if (model.changedAttributes().speed) {
 					   videoEl.playbackRate = speed;
@@ -134,15 +134,15 @@ function(Backbone, rivets, WidgetView, Template){
                              
         loopChange: function(e) {
             if(!app.server) {
-                this.$("#video")[0].loop = this.model.get('loop');
+                this.$(".video")[0].loop = this.model.get('loop');
             }
         },
             
         continuousChange: function(e) {
             if(!app.server) {
                 if (this.model.get('continuous')) {
-                    this.$("#video")[0].loop = this.model.get('loop');
-                    this.$("#video")[0].play();
+                    this.$(".video")[0].loop = this.model.get('loop');
+                    this.$(".video")[0].play();
                     this.playing = true;
                     this.model.set('playText',"Play");
                 }

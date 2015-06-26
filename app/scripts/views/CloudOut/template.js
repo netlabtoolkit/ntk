@@ -22,7 +22,7 @@
     </div>
 
     <div class="widgetRight">
-        <div class=rightTab><input id="sendToCloud" type="checkbox" rv-checked="widget:sendToCloud" /></div>
+        <div class=rightTab><input class="sendToCloud" type="checkbox" rv-checked="widget:sendToCloud" /></div>
     </div>
 
 
@@ -32,21 +32,21 @@
             <label for="avg">avg inputs</label> <input name="avg" type="checkbox" rv-checked="widget:averageInputs" /> <br>
             <label for="send">send every</label> <input name="send" type="text" rv-value="widget:sendPeriod"><br>
             <hr>
-            <select id="cloudService" rv-value="widget:cloudService">
-              <option value="sparkfun">Sparkfun Phant</option>
-              <option value="spark">Spark.io</option>
+            <select class="cloudService" rv-value="widget:cloudService">
+              <option value="sparkfun">SparkfunPhant</option>
+              <option value="particle">Particle.io</option>
             </select>
               <br>
-                <div id="sparkfun">
+                <div class="sparkfun">
                     <label for="dataField">data field</label> <input name="dataField" class="keys" type="text" rv-value="widget:phantDataField"><br>
                     <label for="pubKey">public key</label> <input name="pubKey" class="keys" type="text" placeholder="Public Key" rv-value="widget:phantPublicKey"><br>
                     <label for="priKey">private key</label> <input name="priKey" class="keys" type="text" placeholder="Private Key" rv-value="widget:phantPrivateKey"><br>
                     <label>server url</label> <input class="keys" type="text" placeholder="Server URL" rv-value="widget:phantUrl"><br>
                 </div>
-                <div id="spark">
-                    <label>pin</label> <input class="keys" type="text" rv-value="widget:sparkPin"><br>
-                    <label for="sparkDeviceId">device id</label> <input placeholder="Device ID" name="sparkDeviceId" class="keys" type="text" rv-value="widget:sparkDeviceId"><br>
-                    <label>token</label> <input placeholder="Access Token" class="keys" type="text" rv-value="widget:sparkAccessToken"><br>
+                <div class="particle">
+                    <label>pin</label> <input class="keys" type="text" rv-value="widget:particlePin"><br>
+                    <label for="particleDeviceId">device id</label> <input placeholder="Device ID" name="particleDeviceId" class="keys" type="text" rv-value="widget:particleDeviceId"><br>
+                    <label>token</label> <input placeholder="Access Token" class="keys" type="text" rv-value="widget:particleAccessToken"><br>
                 </div>
         </div>
     </div>

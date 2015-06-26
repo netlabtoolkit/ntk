@@ -22,19 +22,19 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-            <label class="narrowLabel">width</label> <input id="displayWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth"><br>
-        <label class="narrowLabel">size</label> <input id="displayFontSize" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayFontSize"><br>
-        <label class="narrowLabel">color</label> <input id="displayFontColor" class="moreParam" type="text" rv-value="widget:displayFontColor"><br>
-        <label class="narrowLabel">class</label> <input id="displayFontColor" class="moreParam" type="text" rv-value="widget:displayClass"><br>
-        <select id="displayFontFamily" rv-value='widget:displayFont'>
+            <label class="narrowLabel">width</label> <input class="displayWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth"><br>
+        <label class="narrowLabel">size</label> <input class="displayFontSize" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayFontSize"><br>
+        <label class="narrowLabel">color</label> <input class="displayFontColor" class="moreParam" type="text" rv-value="widget:displayFontColor"><br>
+        <label class="narrowLabel">class</label> <input class="displayClass" class="moreParam" type="text" rv-value="widget:displayClass"><br>
+        <select class="displayFontFamily" rv-value='widget:displayFont'>
           <option value='Arial, Helvetica, sans-serif'>Arial</option>
           <option value='Tahoma, Geneva, sans-serif'>Tahoma</option>
           <option value='Georgia, serif'>Georgia</option>
           <option value='"Times New Roman", Times, serif'>Times</option>
           <option value='"Courier New", Courier, monospace'>Courier New</option>
         </select> 
-        <div class="inletValue"><input id="displayFontItalic" type="checkbox" rv-checked="widget:displayFontItalic" /> Italic  
-        <input id="displayFontBold" type="checkbox" rv-checked="widget:displayFontBold" /> Bold</div>
+        <div class="inletValue"><input class="displayFontItalic" type="checkbox" rv-checked="widget:displayFontItalic" /> Italic  
+        <input class="displayFontBold" type="checkbox" rv-checked="widget:displayFontBold" /> Bold</div>
         </div>
     </div>
 

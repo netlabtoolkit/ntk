@@ -13,8 +13,8 @@ function(Backbone, rivets, WidgetView, Template){
 		template: _.template(Template),
 		sources: [],
         widgetEvents: {
-			'change #loop': 'loopChange',
-            'change #continuous': 'continuousChange',
+			'change .loop': 'loopChange',
+            'change .continuous': 'continuousChange',
 		},
 
 		initialize: function(options) {

@@ -25,8 +25,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		],
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {
-			'change #sendToCloud': 'sendToCloud',
-            'change #cloudService': 'changeCloudService',
+			'change .sendToCloud': 'sendToCloud',
+            'change .cloudService': 'changeCloudService',
 		},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'CloudOut',
@@ -47,10 +47,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 phantPublicKey: '',
                 phantDataField: 'mydata',
                 phantUrl: 'https://data.sparkfun.com',
-                // spark.io
-                sparkPin: 'D0',
-                sparkDeviceId: '',
-                sparkAccessToken: '',
+                // particle.io
+                particlePin: 'D0',
+                particleDeviceId: '',
+                particleAccessToken: '',
                 //
                 averageInputs: false,
                 sendToCloud: false,
@@ -128,12 +128,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 switch(service) {
                     case 'sparkfun':
                         //
-                        this.$('#sparkfun').show();
-                        this.$('#spark').hide();
+                        this.$('.sparkfun').show();
+                        this.$('.particle').hide();
                         break;
-                    case 'spark':
-                        this.$('#sparkfun').hide();
-                        this.$('#spark').show();
+                    case 'particle':
+                        this.$('.sparkfun').hide();
+                        this.$('.particle').show();
                         break;
                     default:
                         //
@@ -239,15 +239,15 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                         self.model.set('displayText',"Can't connect");
                                 });
                                 break;
-                            case 'spark':
-                                // SPARK.IO
+                            case 'particle':
+                                // PARTICLE.IO
                                 //
-                                var url = "https://api.spark.io/v1/devices/" + this.model.get('sparkDeviceId') + "/analogwrite"; 
+                                var url = "https://api.particle.io/v1/devices/" + this.model.get('particleDeviceId') + "/analogwrite"; 
                                 $.ajax({
                                     url: url,
                                     type: "POST",
                                     timeout: 2000,
-                                    data: { access_token: this.model.get('sparkAccessToken'), params: this.model.get('sparkPin') + ',' + theValue }
+                                    data: { access_token: this.model.get('particleAccessToken'), params: this.model.get('particlePin') + ',' + theValue }
                                     })
                                     .done(function( response ) {
                                         //console.log(response);

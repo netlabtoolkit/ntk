@@ -14,12 +14,12 @@ function(Backbone, rivets, WidgetView, Template){
 		sources: [],
         widgetEvents: {
             'mouseup .detachedEl': 'imgMoved',
-            'change #displayWidth': 'updateDisplay',
-            'change #displayFontFamily': 'updateDisplay',
-            'change #displayFontSize': 'updateDisplay',
-            'change #displayFontColor': 'updateDisplay',
-            'change #displayFontItalic': 'updateDisplay',
-            'change #displayFontBold': 'updateDisplay',
+            'change .displayWidth': 'updateDisplay',
+            'change .displayFontFamily': 'updateDisplay',
+            'change .displayFontSize': 'updateDisplay',
+            'change .displayFontColor': 'updateDisplay',
+            'change .displayFontItalic': 'updateDisplay',
+            'change .displayFontBold': 'updateDisplay',
 		},
 
 		initialize: function(options) {

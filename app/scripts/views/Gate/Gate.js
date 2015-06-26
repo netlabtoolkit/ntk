@@ -80,12 +80,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 var threshold = this.model.get('threshold');
 
                 if (this.model.get('inGate') >= threshold) {
-                    this.$('#ifTrue').css('background-color',this.stateHighlight);
-                    this.$('#ifFalse').css('background-color','#fff');
+                    this.$('.ifTrue').css('background-color',this.stateHighlight);
+                    this.$('.ifFalse').css('background-color','#fff');
                     this.model.set('output',this.model.get('ifTrue'));
                 } else {
-                    this.$('#ifTrue').css('background-color','#fff');
-                    this.$('#ifFalse').css('background-color',this.stateHighlight);
+                    this.$('.ifTrue').css('background-color','#fff');
+                    this.$('.ifFalse').css('background-color',this.stateHighlight);
                     this.model.set('output',this.model.get('ifFalse'));
                 }
             }

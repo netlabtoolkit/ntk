@@ -17,13 +17,13 @@
         </div>
         <div class="widgetBodyRight">
             <div class="outletValue">
-                <input id="buttonOff" class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:outputFloor | rounded">
-                <input id="buttonOn" class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:outputCeiling | rounded">
+                <input class="buttonOff" class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:outputFloor | rounded">
+                <input class="buttonOn" class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:outputCeiling | rounded">
             </div>
         </div>
         <br><br>
 
-        <input id="buttonLabel" class="fullWidthInput" type="text" rv-value="widget:buttonLabel">
+        <input class="buttonLabel" class="fullWidthInput" type="text" rv-value="widget:buttonLabel">
     </div>
 
     <div class="widgetRight">
@@ -47,7 +47,7 @@
         rv-style-opacity="widget:opacity"
         rv-positionx="widget:left"
         rv-positiony="widget:top">
-        <button id="theButton"></button>
+        <button class="theButton"></button>
         <div class="dragKnob widgetAuthoring">Drag</div>
     </div>
 <% } %>

@@ -200,18 +200,18 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 if(model.changedAttributes().ifState) {
                     if (this.model.get('ifState') == 'trueOn') {
                         clearInterval(this.blinkTimer);
-                        this.$('#ifTrue').css('background-color',this.stateHighlight);
-                        this.$('#ifFalse').css('background-color','#fff');
+                        this.$('.ifTrue').css('background-color',this.stateHighlight);
+                        this.$('.ifFalse').css('background-color','#fff');
                     } else if (this.model.get('ifState') == 'trueWaitStart') {
                         clearInterval(this.blinkTimer);
-                        this.blinkTimer = this.blinkState(this.$('#ifTrue'));
+                        this.blinkTimer = this.blinkState(this.$('.ifTrue'));
                     } else if (this.model.get('ifState') == 'falseOn') {
                         clearInterval(this.blinkTimer);
-                        this.$('#ifTrue').css('background-color','#fff');
-                        this.$('#ifFalse').css('background-color',this.stateHighlight);
+                        this.$('.ifTrue').css('background-color','#fff');
+                        this.$('.ifFalse').css('background-color',this.stateHighlight);
                     } else if (this.model.get('ifState') == 'falseWaitStart') {
                         clearInterval(this.blinkTimer);
-                        this.blinkTimer = this.blinkState(this.$('#ifFalse'));
+                        this.blinkTimer = this.blinkState(this.$('.ifFalse'));
                     } 
                 }
             //}

@@ -28,7 +28,7 @@
         </table>
 
         <div class="options">
-              <ul id="menu">
+              <ul>
                 <li title="invert" class='invert' rv-class-active="widget:invert">inv</li>
                 <li title="smoothing" class="smoothing" rv-class-active="widget:smoothing">smo</li>
                 <li title="easing" class="easing" rv-class-active="widget:easing">eas</li>

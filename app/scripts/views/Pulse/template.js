@@ -19,8 +19,8 @@
         </div>
         <div class="widgetBodyRight">
             <div class="outletValue">
-                <input id="pulseLow" class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:pulseLow | rounded">
-                <input id="pulseHigh" class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:pulseHigh | rounded">
+                <input class="pulseLow" class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:pulseLow | rounded">
+                <input class="pulseHigh" class="outputParam" type="text" pattern="[0-9]*" rv-value="widget:pulseHigh | rounded">
             </div>
         </div>
         <br><br><br><br><br>

@@ -37,11 +37,11 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label for="width">range</label>
-            <input id="width" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:outWidth"><br>
+            <input class="width" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:outWidth"><br>
             <label for="min">min</label>
-            <input id="min" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:outMin"><br>
+            <input class="min" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:outMin"><br>
             <label for="max">max</label>
-            <input id="max" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:outMax">
+            <input class="max" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:outMax">
         </div>
     </div>
 </div>
