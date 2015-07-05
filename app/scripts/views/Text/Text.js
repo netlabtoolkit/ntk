@@ -49,7 +49,8 @@ function(Backbone, rivets, WidgetView, Template){
 						parameter: 'opacity',
 					},
 				],
-				left: 250,
+				appendText: false,
+                left: 250,
                 top: 200,
 				opacity: 100,
                 displayWidth: 500,
@@ -67,6 +68,7 @@ function(Backbone, rivets, WidgetView, Template){
 
 
             this.domReady = false;
+            this.lastIn = -1;
             
 
 		},
@@ -87,9 +89,14 @@ function(Backbone, rivets, WidgetView, Template){
 
         onModelChange: function(model) {
             if(!app.server) {
-                if (model.changedAttributes().in !== undefined) {
-                    this.model.set('displayText',this.model.get('in'));
+                if (model.changedAttributes().in !== undefined && model.changedAttributes().in != this.lastIn) {
+                    if (this.model.get('appendText')) {
+                        this.model.set('displayText',this.model.get('displayText') + " " + this.model.get('in'));
+                    } else {
+                        this.model.set('displayText',this.model.get('in'));
+                    }
                 }
+                this.lastIn = model.changedAttributes().in;
                 if (model.changedAttributes().displayClass !== undefined && this.domReady) {
                     var lastClass = this.model.get('displayClassLast');
                     var newClass = this.model.get('displayClass');
