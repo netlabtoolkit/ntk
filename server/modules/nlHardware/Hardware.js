@@ -14,9 +14,11 @@ module.exports = function(options) {
 			arduino: './ArduinoModel',
 			osc: './OSC',
 			galileo: './Galileo2Model',
+			edison: './EdisonModel',
 		};
 		var sensors = [],
 			outputs = {};
+
 
 		var model = require(modelMap[deviceType])();
 		model.init();
