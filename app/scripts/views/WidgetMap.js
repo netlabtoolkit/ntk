@@ -27,10 +27,11 @@ define([
 	'views/AnalogOut/AnalogOut',
     'views/Servo/Servo',
     'views/CloudOut/CloudOut',
+    'views/Webhook/Webhook',
 
     'views/OSCIn/OSCIn',
 ],
-function(AnalogIn, CloudIn, Knob, Button, Keyboard, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Mix, Splitter, Data, Animate, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, OSCIn){
+function(AnalogIn, CloudIn, Knob, Button, Keyboard, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Mix, Splitter, Data, Animate, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn){
     'use strict';
 
 	return {
@@ -61,6 +62,7 @@ function(AnalogIn, CloudIn, Knob, Button, Keyboard, Pulse, Code, Process, Count,
 		'AnalogOut': AnalogOut,
 		'Servo': Servo,
 		'CloudOut': CloudOut,
+        'Webhook': Webhook,
 
 		//'OSCIn': OSCIn,
 
