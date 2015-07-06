@@ -28,8 +28,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			'change .getFromCloud': 'getFromCloud',
             'change .cloudService': 'changeCloudService',
 		},
-		// typeID us the unique ID for this widget. It must be a unique name as these are global.
+
+        
 		typeID: 'CloudIn',
+        categories: ['input', 'internet'],
 		className: 'cloudIn',
 		template: _.template(Template),
 

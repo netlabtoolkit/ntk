@@ -27,6 +27,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		sources: [],
 		typeID: 'Count',
 		className: 'count',
+        categories: ['logic'],
 		template: _.template(Template),
 
 		initialize: function(options) {

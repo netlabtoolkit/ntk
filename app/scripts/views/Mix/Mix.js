@@ -27,6 +27,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		sources: [],
 		typeID: 'Mix',
 		className: 'mix',
+        categories: ['logic'],
 		template: _.template(Template),
 
 		initialize: function(options) {
