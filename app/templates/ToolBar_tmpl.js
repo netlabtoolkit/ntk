@@ -1,4 +1,5 @@
 <div class="settings">
+    <div class="logo"><img src="assets/images/ntk_logo.svg" alt="Netlab Toolkit"></div>
 	<div class="savePatch">Save</div>
 	<div class="downloadPatch">Download</div>
 	<div class="loadPatch">Load</div>

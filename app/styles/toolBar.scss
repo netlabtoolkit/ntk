@@ -40,8 +40,10 @@
 		left: 0px;
 	}
 
+
+    
 	.downloadPatch,
-	.loadPatch, .savePatch, .hideWidgets, .clearPatch, .fullScreen, .serverSwitch {
+	.loadPatch, .savePatch, .hideWidgets, .clearPatch, .fullScreen, .serverSwitch, .logo {
 		float: left;
 		width: calc(75px - 20px);
 		height: auto;
@@ -54,9 +56,9 @@
 		cursor: pointer;
 	}
 
-	.loadPatch, .savePatch, .downloadPatch, .hideWidgets, .fullScreen, .clearPatch, .serverSwitch {
+	.loadPatch, .savePatch, .downloadPatch, .hideWidgets, .fullScreen, .clearPatch, .serverSwitch, .logo {
 		background-color: dimgrey;
-		border-bottom: 1px solid darkgrey;
+		border-bottom: 1px solid grey;
 		margin-bottom: 0;
 	}
 
@@ -99,7 +101,7 @@
 		cursor: pointer;
 
 		text-transform: capitalize;
-		border-bottom: 1px solid #ddd;
+		border-bottom: 1px solid #bbb;
 	}
 	.addWidget {
 		float: left;

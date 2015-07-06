@@ -7,7 +7,14 @@
 
 
 	margin: 0;
-
+    
+    hr {
+        background-color: #eee;
+        border: 0 none;
+        color: #eee;
+        height: 1px;
+    }
+    
 	.remove {
 		float: right;
 		width: 1em;
