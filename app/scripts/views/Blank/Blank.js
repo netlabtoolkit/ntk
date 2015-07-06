@@ -107,10 +107,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// Any custom function can be attached to the widget like this "limitServoRange" function
 		// and can be accessed via this.limitServoRange();
         limitRange: function(input) {
-            var output = input;
+            console.log("signalChain: " + input);
+            /*var output = input;
             output = Math.max(output, 0);
             output = Math.min(output, 500);
-            return Number(output);
+            return Number(output);*/
+            return input;
         },
 
 	});
