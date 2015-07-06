@@ -1,7 +1,7 @@
 .widget {
 	position: relative;
 	top: 50px;
-	left: 100px;
+	left: 120px;
 
 	display: block;
 
@@ -172,12 +172,15 @@
     }
 
     .widgetTop {
-        width: 96px;
+        width: 94px;
         height: 20px;
         margin-left: 25px;
         background-color: #ddd;
         border-top-left-radius: 5px;
         border-top-right-radius: 5px;
+
+		border: 2px solid #98a6ac;
+		border-bottom: 0;
     }
     .widgetLeft {
         margin: 0;
@@ -210,12 +213,14 @@
     
 
     .widgetBody {
-        background-color: #eee;
+        background-color: whitesmoke;
         float:left;
-        width: 96px;
+        width: 94px;
         height: 110px;
         border-bottom-right-radius: 5px;
         border-bottom-left-radius: 5px;
+		border: 2px solid #98a6ac;
+		border-top: 0;
         
         .widgetBodyLeft {
             float: left;   

@@ -26,6 +26,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         widgetEvents: {},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'IfThen',
+		categories: ['logic'],
 		className: 'ifThen',
 		template: _.template(Template),
 

@@ -29,6 +29,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'Knob',
+		categories: ['UI'],
 		className: 'knob',
 		template: _.template(Template),
 

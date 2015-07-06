@@ -1,44 +1,167 @@
 
-#toolBarRegion {
+#toolBarRegion .settings,
+#toolBarRegion .addWidgets
+{
 	position: fixed;
-	top: 0;
-	left: 0;
-
 	display: block;
-	width: 60px;;
+	width: 250px;
 	height: 100%;
 
 	margin: 0;
-	padding: 10px;
+	padding: 0;
 
-	background-color: #999;
 
 	font-family: 'Helvetica Neue', sans-serif;
-	font-size: 12px;
+	font-size: 16px;
 
-	.addWidget,
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+
+	overflow-y: auto;
+	overflow-x: hidden;
+
+
+
+}
+
+#toolBarRegion .settings {
+	top: 0;
+	left: -75px;
+	-webkit-transition: left 0.25s cubic-bezier(0.55, 0, 0.1, 1);
+	transition: left 0.25s cubic-bezier(0.55, 0, 0.1, 1);
+
+	width: 75px;
+
+	background-color: dimgray;
+
+	&.open {
+		left: 0px;
+	}
+
 	.downloadPatch,
 	.loadPatch, .savePatch, .hideWidgets, .clearPatch, .fullScreen, .serverSwitch {
 		float: left;
-		width: 100%;
-		padding: 5px;
-		margin-bottom: 5px;
+		width: calc(75px - 20px);
+		height: auto;
+		padding: 10px;
 
-		background-color: #555;
-		color: #999;
+		font-size: 0.75em;
 
-		border-radius: 4px;
+		color: lightgrey;
+
 		cursor: pointer;
 	}
 
 	.loadPatch, .savePatch, .downloadPatch, .hideWidgets, .fullScreen, .clearPatch, .serverSwitch {
-		background-color: #999;
-		color: #555;
-		border: 1px solid #555;
+		background-color: dimgrey;
+		border-bottom: 1px solid darkgrey;
+		margin-bottom: 0;
 	}
 
 	.serverSwitch.serverActive {
 		background: #F25151;
+	}
+}
+
+#toolBarRegion .addWidgets {
+	right: -250px;
+	left: initial;
+
+	-webkit-transition: right 0.25s cubic-bezier(0.55, 0, 0.1, 1);
+	transition: right 0.25s cubic-bezier(0.55, 0, 0.1, 1);
+
+	background-color: #ddd;
+
+	&.open {
+		right: 0;
+	}
+
+	h1 {
+		font-size: 1.25em;
+		font-weight: normal;
+		padding: 10px;
+		background-color: dimgray;
+		color: whitesmoke;
+		margin: 0;
+	}
+	.category {
+		float: left;
+		width: calc(250px - 20px);
+		height: 15px;
+		padding: 10px;
+
+		background-color: darkgrey;
 		color: #000;
+
+		/*border-radius: 4px;*/
+		cursor: pointer;
+
+		text-transform: capitalize;
+		border-bottom: 1px solid #ddd;
+	}
+	.addWidget {
+		float: left;
+		width: calc(250px - 20px);
+		height: 15px;
+		padding: 10px;
+
+		background-color: #ddd;
+		color: #000;
+
+		/*border-radius: 4px;*/
+		cursor: pointer;
+		border-bottom: 1px solid darkgrey;
+	}
+
+	ul {
+		display: none;
+
+		padding: 0;
+		margin: 0;
+	}
+
+	li {
+		list-style: none;
+	}
+}
+
+#toolBarRegion {
+	.menuBar {
+		position: fixed;
+		right: 0;
+		bottom: 0;
+
+		-webkit-transition: right 0.25s cubic-bezier(0.55, 0, 0.1, 1);
+		transition: right 0.25s cubic-bezier(0.55, 0, 0.1, 1);
+
+		width: 58px;
+		height: 58px * 3;
+
+		-webkit-user-select: none;
+		user-select: none;
+
+		.openAddWidgets, .openSettings {
+			float: left;
+			width: 50px;
+			height: 50px;
+
+			margin-bottom: 15px;
+
+			z-index: 3;
+
+			background-color: whitesmoke;
+			color: darkgrey;
+			text-align: center;
+			font-size: 3em;
+
+			border-radius: 50%;
+			border: 3px solid darkgrey;
+		}
+	}
+
+	.menuBar.open {
+		right: 250px;
 	}
 }

@@ -30,6 +30,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         
 		typeID: 'Servo',
 		deviceMode: 'SERVO',
+		categories: ['hardware', 'output'],
 		className: 'servo',
 		template: _.template(Template),
 

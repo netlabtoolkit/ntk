@@ -9,6 +9,7 @@ function(Backbone, rivets, WidgetView, Template){
 
 	return WidgetView.extend({
 		typeID: 'Video',
+		categories: ['media'],
 		className: 'video',
 		template: _.template(Template),
 		sources: [],

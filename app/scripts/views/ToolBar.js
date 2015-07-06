@@ -18,6 +18,8 @@ function( app, Backbone, Template, Widgets ) {
             'click .hideWidgets': 'hideWidgets',
             'click .fullScreen': 'fullScreen',
             'click .serverSwitch': 'toggleServer',
+            'click .openAddWidgets': 'toggleAddWidgetsPanel',
+            'click .openSettings': 'toggleSettingsPanel',
 		},
 		subViews: [],
 		template: _.template(Template),
@@ -31,23 +33,81 @@ function( app, Backbone, Template, Widgets ) {
 			self = this;
 			this.el.innerHTML = this.template();
 
-			for(var widgetName in Widgets) {
-				var widgetEl = document.createElement('div');
-				$(widgetEl)
-					.addClass('addWidget')
-					.data('widgetType', widgetName)
-					.text(widgetName)
-					.on('click', function(e) {
-						window.app.vent.trigger('ToolBar:addWidget', $(this).data('widgetType'));
-					});
+			var sortedWidgets = this.sortWidgetCategories();
 
-				this.$el.append(widgetEl);
+			for(var categoryName in sortedWidgets) {
+				var categoryEl = document.createElement('div'),
+					categoryUl = document.createElement('ul');
+
+				$(categoryEl)
+					.addClass('category')
+					.text(categoryName)
+					.click(function categoryClick(e) {
+						$(this).next('ul').toggle();
+					})
+
+
+					var categoryWidgets = sortedWidgets[categoryName];
+					categoryWidgets.sort();
+
+					for(var j=0; j <= categoryWidgets.length-1; j++) {
+						var widgetEl = document.createElement('li'),
+							widgetName = categoryWidgets[j]
+						
+						$(widgetEl)
+							.addClass('addWidget')
+							.data('widgetType', widgetName)
+							.text(widgetName)
+							.on('click', function(e) {
+								e.preventDefault();
+								e.stopPropagation();
+
+								window.app.vent.trigger('ToolBar:addWidget', $(this).data('widgetType'));
+							});
+
+						$(categoryUl).append(widgetEl);
+
+					}
+
+					this.$('.addWidgets').append(categoryEl);
+					$(categoryEl).after(categoryUl);
+
 			}
 
 			var fileInput = this.$('#patchFileUpload')[0];
 			fileInput.addEventListener("change", this.loadPatch);
 
 			this.indicateServerActive(window.app.serverActive);
+		},
+		/**
+		 * Sort all widgets into a categories object
+		 *
+		 * @return {object}
+		 */
+		sortWidgetCategories: function sortCategories() {
+			var categories = {all: []};
+
+
+			for(var widgetName in Widgets) {
+				var widget = Widgets[widgetName].prototype;
+
+				if(widget.categories.length > 0) {
+					var widgetCategories = widget.categories;
+					for(var j=widgetCategories.length-1; j>=0; j--) {
+						var category = widgetCategories[j];
+
+						if(categories[category] == undefined) {
+							categories[category] = [];
+						}
+
+						categories[category].push(widgetName);
+					}
+				}
+
+				categories.all.push(widgetName);
+			}
+
+			return categories;
 		},
 		showUploadFileDialog: function() {
 			this.$('#patchFileUpload').click();
@@ -132,6 +192,12 @@ function( app, Backbone, Template, Widgets ) {
 				$serverSwitchButton.removeClass('serverActive');
 				$serverSwitchButton.text('Active');
 			}
+		},
+		toggleAddWidgetsPanel: function toggleAddWidgets() {
+			this.$('.menuBar, .addWidgets').toggleClass('open');
+		},
+		toggleSettingsPanel: function toggleAddWidgets() {
+			this.$('.settings').toggleClass('open');
 		},
 	});
 

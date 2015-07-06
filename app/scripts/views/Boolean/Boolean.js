@@ -26,6 +26,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		],
 		sources: [],
 		typeID: 'Boolean',
+		categories: ['logic'],
 		className: 'boolean',
 		template: _.template(Template),
 

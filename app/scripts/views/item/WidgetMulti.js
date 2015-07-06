@@ -25,6 +25,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		widgetEvents: {},
 
 		className: 'widget',
+		categories: [],
 		template: function(serializedModel) {
 			return _.template( WidgetTmpl, {server: app.server} );
 		},
