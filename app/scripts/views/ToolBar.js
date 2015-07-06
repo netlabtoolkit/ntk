@@ -186,11 +186,11 @@ function( app, Backbone, Template, Widgets ) {
 			var $serverSwitchButton = this.$('.serverSwitch');
 			if(serverActive) {
 				$serverSwitchButton.addClass('serverActive');
-				$serverSwitchButton.text('Inactive');
+				$serverSwitchButton.text('Authoring OFF');
 			}
 			else {
 				$serverSwitchButton.removeClass('serverActive');
-				$serverSwitchButton.text('Active');
+				$serverSwitchButton.text('Authoring ON');
 			}
 		},
 		toggleAddWidgetsPanel: function toggleAddWidgets() {
