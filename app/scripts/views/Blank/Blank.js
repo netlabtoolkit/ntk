@@ -9,8 +9,9 @@ define([
 	'utils/SignalChainClasses',
 	// and any other imported libraries you like should go here
     'jqueryknob',
+	'utils/utils'
 ],
-function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalChainClasses, jqueryknob){
+function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalChainClasses, jqueryknob, utils){
     'use strict';
 
 	return WidgetView.extend({
@@ -93,14 +94,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             var diff = model.changedAttributes();
             console.log('-------------- CHANGED ATTS');
             for (var att in diff) {
-                console.log(att + ": " + model.changedAttributes()[att]);
+                console.log(att + ": " + model.changedAttributes()[att], '----------------');
             }
-            console.log('--------------');
-            
-            if (model.changedAttributes.testAnother === undefined && 
-                    this.lastTestIt != this.model.get('testIt')) { // without the second test, an infinte loop will occur
-                this.model.set('testAnother',!this.model.get('testAnother'));
-                console.log('changing testAnother');
+
+            if (model.changedAttributes().testAnother === undefined) {
+				utils.async(function() {
+					this.model.set('testAnother',!this.model.get('testAnother'));
+				}, this);
             }
             this.lastTestIt = this.model.get('testIt');
         },

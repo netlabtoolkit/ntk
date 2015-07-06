@@ -5,10 +5,8 @@ define([
 	'text!tmpl/item/Widget_tmpl.js',
 	'jqueryui',
 	'jquerytouchpunch',
-
-	'utils/utils',
 ],
-function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouchpunch, utils ) {
+function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouchpunch ) {
     'use strict';
 
     /**
@@ -47,10 +45,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.model.set('server', app.server);
 			this.model.on('change', this.processSignalChain, this);
 
-			this.model.on('change', function(model) {
-				utils.async(this.onModelChange, this, arguments);
-			}, this);
-
+			this.model.on('change', this.onModelChange, this);
 			this.model.on('change', this.checkOutputMappingUpdate, this);
 
 			window.app.on('Widget:removeMapping', this.removeMapping, this);
