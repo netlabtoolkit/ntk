@@ -6,11 +6,10 @@ module.exports = function(attributes) {
 		Edison = require("edison-io"),
 		events = require('events'),
 		self = this,
-		pollIntervalMod = 30;
+		pollIntervalMod = 1;
 
 	events.EventEmitter.call(this);
 	_.extend(this, events.EventEmitter.prototype);
-
 
 	// Base HardwareModel class
 	var johnnyFiveHardwareModel = {
@@ -30,16 +29,6 @@ module.exports = function(attributes) {
 
 			return this;
 		},
-		setPollSpeed: function(highLow) {
-			if(highLow == 'fast') {
-				console.log('setting fast');
-				pollIntervalMod = 1;
-			}
-			else {
-				console.log('setting slow');
-				pollIntervalMod = 1;
-			}
-		},
 		addDefaultPins: function addDefaultPins() {
 			// Store all pin mode mappings (string -> integer)
 			this.PINMODES = this.board.io.MODES;
@@ -51,27 +40,18 @@ module.exports = function(attributes) {
 
 				(function() {
 					if(!parseInt(input, 10)) {
+						var sensor = five.Sensor({
+							pin: input,
+							freq: pollFreq,
+						});
 
-						(function() {
-							var pinput = input,
-								pollInterval = 0;
+						self.inputs[input].pin = sensor;
 
-							this.board.analogRead(input, function(data) {
-								pollInterval = (++pollInterval) % pollIntervalMod;
-								if(pollInterval === 0) {
-									if(self.get(pinput) !== Math.floor(data) ) {
-										//if(pinput == "A0") {
-											//console.log(data, self.get(pinput) );
-										//}
-										self.set(pinput, Math.floor(data));
-									}
-								}
-							});
-						})();
-
+						sensor.scale([0, 1023]).on("data", function() {
+							self.set('A'+this.pin, Math.floor(this.value));
+						});
 					}
 					else {
-						console.log(">>", input);
 						this.board.pinMode(input, five.Pin.INPUT);
 					}
 
@@ -123,7 +103,8 @@ module.exports = function(attributes) {
 		setHardwarePin: function(field, value) {
 			var outputField = this.outputs[field];
 
-			if(outputField !== undefined && field === 'D3' || field === 'D5' || field === 'D6' || field === 'D9' || field === 'D10' || field === 'D11' || field === 'D11') {
+			// PINS 10 and up are currently not supported by libmraa
+			if(outputField !== undefined && field === 'D3' || field === 'D5' || field === 'D6' || field === 'D9') {
 				var pinMode = outputField.pin.mode;
 
 				// Check which pinmode is set on the pin to detemine which method to call
@@ -151,6 +132,7 @@ module.exports = function(attributes) {
 			}
 		},
 		setIOMode: function setPinMode(pin, mode) {
+			console.log('setting pin mode', pin, mode);
 			if(this.connected) {
 				// Always immediately set an input to a Sensor. If it is already a sensor, then we are resetting it
 				if(mode === 'INPUT') {
@@ -197,6 +179,16 @@ module.exports = function(attributes) {
 			}
 			//SHIFT: 5,
 			//ONEWIRE: 7,
+		},
+		setPollSpeed: function(highLow) {
+			if(highLow == 'fast') {
+				console.log('setting fast');
+				pollIntervalMod = 1;
+			}
+			else {
+				console.log('setting slow');
+				pollIntervalMod = 1;
+			}
 		},
 	};
 	_.extend(this, johnnyFiveHardwareModel);

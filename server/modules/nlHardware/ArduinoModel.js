@@ -43,10 +43,6 @@ module.exports = function(attributes) {
 
 						self.inputs[input].pin = sensor;
 
-						//board.repl.inject({
-							//sensor: sensor
-						//});
-
 						sensor.scale([0, 1023]).on("data", function() {
 							self.set('A'+this.pin, Math.floor(this.value));
 						});
