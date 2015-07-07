@@ -208,7 +208,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         buildDatabase: function(e) {
             if (this.widgetReady) {
                 if (this.model.get('dataType') == 'text') {
-                    console.log('buildD');
                     var delimiter = this.model.get('delimiter');
                     var str = this.model.get('database');
                     str = str.replace(/(\r\n|\n|\r)/gm, "\n");
