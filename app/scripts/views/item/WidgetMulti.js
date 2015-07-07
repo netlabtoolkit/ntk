@@ -94,31 +94,40 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 		},
 		makeDraggable: function() {
-			var self = this;
+
+			var updateCables = function updateCables(e, object) {
+				// update our own stored position (for saving the state of this widget and also for triggering change event to inform any listening widgets attached to this widget)
+				if(object !== undefined) {
+					this.model.set({'offsetLeft': object.position.left, 'offsetTop': object.position.top, height: this.$el.height(), width: this.$el.width()});
+				}
+				else {
+					// If we don't have an object (no object is passed when we are referencing the widget that was dragged), then use this widget's position as a reference
+					this.model.set({'offsetLeft': this.$el.position().left, 'offsetTop': this.$el.position().top, height: this.$el.height(), width: this.$el.width()});
+					
+				}
+
+				// update any patch cables that are attached to the inlets on this model with our new coordinates
+				if(this.cables.length) {
+					for(var i=this.cables.length-1; i>=0; i--) {
+						if(this.cables[i].offsets) {
+							this.cables[i].cable.updateCoordinates( {
+								to: {x: this.model.get('offsetLeft') + this.cables[i].offsets.destination.x, y: this.model.get('offsetTop') + this.cables[i].offsets.destination.y},
+							});
+						}
+						else {
+							this.cables[i].cable.updateCoordinates( {
+								to: {x: this.model.get('offsetLeft'), y: this.model.get('offsetTop')},
+							});
+
+						}
+					}
+				}
+			};
+
 			// Make Widget draggable
 			this.$el.draggable({
 				handle: '.dragHandle',
-				drag: function(e, object) {
-					// update our own stored position (for saving the state of this widget and also for triggering change event to inform any listening widgets attached to this widget)
-					self.model.set({'offsetLeft': object.position.left, 'offsetTop': object.position.top, height: self.$el.height(), width: self.$el.width()});
-
-					// update any patch cables that are attached to the inlets on this model with our new coordinates
-					if(self.cables.length) {
-						for(var i=self.cables.length-1; i>=0; i--) {
-							if(self.cables[i].offsets) {
-								self.cables[i].cable.updateCoordinates( {
-									to: {x: self.model.get('offsetLeft') + self.cables[i].offsets.destination.x, y: self.model.get('offsetTop') + self.cables[i].offsets.destination.y},
-								});
-							}
-							else {
-								self.cables[i].cable.updateCoordinates( {
-									to: {x: self.model.get('offsetLeft'), y: self.model.get('offsetTop')},
-								});
-
-							}
-						}
-					}
-				},
+				drag: (updateCables).bind(this),
 				stack: ".widget",
 			});
 
@@ -126,23 +135,26 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			// Set the data model on all outlets and make draggable
 			this.$('.outlet').draggable({
 				revert: true,
+				stop: (function(e, ui) {
+					updateCables.bind(this)(e);
+				}).bind(this),
 			}).data('model', this.model);
 
 			// Make all inlets droppable and bind the onDrop handler when one drops onto it
 			this.$('.inlet').draggable({
 				revert: true,
 				revertDuration: 0,
-				stop: function(e, ui) {
-					self.unMapInlet(e, ui, this);
-				}
+				stop: (function(e, ui) {
+					this.unMapInlet(e, ui, this);
+				}).bind(this),
 			});
 
 			this.$('.inlet').droppable({
 				hoverClass: 'hover',
-				drop: function(e, ui) {
+				drop: (function(e, ui) {
 					var droppedModel = $(ui.draggable).data('model');
-					self.onDrop(e, ui, droppedModel);
-				},
+					this.onDrop(e, ui, droppedModel);
+				}).bind(this),
 			});
 
 		},
@@ -294,7 +306,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {WidgetView} this view
 		 */
 		addCable: function(cable, fromModel, inletOffsets, mapping, sourceViewID) {
-			//this.cables.push({ model: fromModel, cable: cable, offsets: inletOffsets });
 			this.cables.push({ map: mapping, model: fromModel, cable: cable, offsets: inletOffsets, sourceViewID: sourceViewID });
 		},
 		/**
