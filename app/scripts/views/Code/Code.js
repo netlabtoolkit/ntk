@@ -24,6 +24,7 @@ function(Backbone, WidgetView, Template, CodeMirror){
 		sources: [],
 		typeID: 'Code',
 		className: 'code',
+        categories: ['logic'],
 		template: _.template(Template),
 
 		initialize: function(options) {

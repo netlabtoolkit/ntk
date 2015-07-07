@@ -27,6 +27,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		],
 		typeID: 'Process',
 		className: 'process',
+        categories: ['logic'],
 		template: _.template(Template),
 		initialize: function(options) {
 			// Call the superclass constructor

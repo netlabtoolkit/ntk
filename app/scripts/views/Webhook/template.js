@@ -13,10 +13,10 @@
 
     <div class="widgetBody">
         <div class="widgetBodyLeft">
-            <div class="inletValue"><span rv-text="widget:trigger">0</span> <span rv-text="widget:displayText"></span></div>
-            <div class="inletValue"><span rv-text="widget:in1">0</span> &lt;1&gt;</div>
-            <div class="inletValue"><span rv-text="widget:in2">0</span> &lt;2&gt;</div>
-            <div class="inletValue"><span rv-text="widget:in3">0</span> &lt;3&gt;</div>
+            <div class="inletValue"><span rv-text="widget:trigger | rounded">0</span> <span rv-text="widget:displayText"></span></div>
+            <div class="inletValue"><span rv-text="widget:in1 | rounded">0</span> &lt;1&gt;</div>
+            <div class="inletValue"><span rv-text="widget:in2 | rounded">0</span> &lt;2&gt;</div>
+            <div class="inletValue"><span rv-text="widget:in3 | rounded">0</span> &lt;3&gt;</div>
         </div>
     </div>
 

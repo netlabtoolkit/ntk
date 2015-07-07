@@ -38,6 +38,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'Data',
 		className: 'data',
+        categories: ['input'],
 		template: _.template(Template),
 
 		initialize: function(options) {
@@ -207,7 +208,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         buildDatabase: function(e) {
             if (this.widgetReady) {
                 if (this.model.get('dataType') == 'text') {
-                    console.log('buildD');
                     var delimiter = this.model.get('delimiter');
                     var str = this.model.get('database');
                     str = str.replace(/(\r\n|\n|\r)/gm, "\n");
