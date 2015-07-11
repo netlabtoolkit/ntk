@@ -410,15 +410,16 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		removeMapping: function(mapping, wid) {
 
 			var widgetMap = _.find(this.widgetMappings, function(widgetMapping) {
-				return widgetMapping.viewWID == wid
-					&& widgetMapping.map.destinationField == mapping.destinationField
-					&& widgetMapping.map.sourceField == mapping.sourceField
+				return widgetMapping.viewWID == mapping.viewWID
+					&& widgetMapping.map.destinationField == mapping.map.destinationField
+					&& widgetMapping.map.sourceField == mapping.map.sourceField
 			});
 
-			this.widgetMappings.splice(this.widgetMappings.indexOf(widgetMap), 1);
+
 			window.app.vent.trigger('updateModelMappings', this.widgetMappings);
 
 			window.app.trigger('Widget:removeMapping', widgetMap.modelWID);
+			this.widgetMappings.splice(this.widgetMappings.indexOf(widgetMap), 1);
 		},
         /**
          * Get the singleton model:server instance and if it does not yet exist, create it and return it
