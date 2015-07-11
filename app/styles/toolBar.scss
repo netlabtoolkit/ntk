@@ -145,6 +145,7 @@
 		user-select: none;
 
 		.openAddWidgets, .openSettings {
+			position: relative;
 			float: left;
 			width: 50px;
 			height: 50px;
@@ -160,6 +161,12 @@
 
 			border-radius: 50%;
 			border: 3px solid darkgrey;
+
+			.text {
+				position: absolute;
+				left: 26%;
+				top: -12%;
+			}
 		}
 	}
 

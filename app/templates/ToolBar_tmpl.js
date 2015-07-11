@@ -17,6 +17,6 @@
 </div>
 
 <div class="menuBar">
-	<div class="openAddWidgets">+</div>
-	<div class="openSettings">=</div>
+	<div class="openAddWidgets"><span class="text">+</span></div>
+	<div class="openSettings"><span class="text">=</span></div>
 </div>
