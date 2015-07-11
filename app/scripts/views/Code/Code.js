@@ -31,8 +31,17 @@ function(Backbone, WidgetView, Template, CodeMirror){
 			if(!options) {
 				options = {};
 			}
+            
+            var code =  '// Enter your Javascript here to process inputs and return the result\n' +
+            '// the four input values are in an array called "ins" as\n' + 
+            '// ins.in1, ins.in2, ins.in3, ins.in4\n' +
+            '//\n' +
+            'var output = ins.in1 + ins.in2 + ins.in3 + ins.in4;\n' +
+            '\n' +
+            'return output;';
+            
 			_.extend(options, {
-				filter: "return ins.in1 + ins.in2;",
+				filter: code,
 				in1: 0,
 				in2: 0,
                 in3: 0,
@@ -62,7 +71,6 @@ function(Backbone, WidgetView, Template, CodeMirror){
             var self = this;
 
 			this.registerFilters();
-
 
 			var codeEditor = CodeMirror.fromTextArea(this.$('.filterFunction')[0], {
 				lineNumbers: true,
