@@ -306,7 +306,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 			// Remove each related mapping found
 			for(var i=relatedMappings.length-1; i>=0; i--) {
-				this.removeMapping(relatedMappings[i]);
+				this.removeMapping(relatedMappings[i], widgetView.model.get('wid'));
 			}
 
 			if(!calledFromLoader) {
@@ -394,21 +394,20 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			
 			// Pass the mapping to the view. The view will handle the event binding
 			if(view) {
-			view.addInputMap(mappingObject);
+				view.addInputMap(mappingObject);
 
 
-			// render the view to reassociate bindings and update any changes
-			view.render();
-			if(!addedFromLoader) {
-				window.app.vent.trigger('updateModelMappings', this.widgetMappings);
-			}
+				// render the view to reassociate bindings and update any changes
+				view.render();
+				if(!addedFromLoader) {
+					window.app.vent.trigger('updateModelMappings', this.widgetMappings);
+				}
 			}
 
 
 			return this;
 		},
 		removeMapping: function(mapping, wid) {
-
 			var widgetMap = _.find(this.widgetMappings, function(widgetMapping) {
 				return widgetMapping.viewWID == wid
 					&& widgetMapping.map.destinationField == mapping.map.destinationField

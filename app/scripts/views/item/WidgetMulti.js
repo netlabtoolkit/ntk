@@ -316,7 +316,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {void}
 		 */
 		removeWidget: function(e, calledFromLoader) {
+
 			app.Patcher.Controller.removeWidget(this, calledFromLoader);
+
 			var IDsToRemove = [];
 			for(var i=this.cables.length-1; i>=0; i--) {
 				this.cables[i].cable.remove();
@@ -387,7 +389,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			var duplicate = false;
 			for(var i=this.sources.length-1; i>=0; i--) {
 				if(this.sources[i].map.destinationField === map.map.destinationField 
-				   && this.sources[i].map.sourceField === map.map.sourceField) {
+				   && this.sources[i].map.sourceField === map.map.sourceField
+				   && this.sources[i].model.get('wid') === map.model.get('wid') ) {
 					   duplicate = true;
 				   }
 			}
@@ -403,9 +406,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}
 
 
-				if(!update) {
+				// This is good to prevent memory leaks but the update logic needs to be better
+				//if(!update) {
 					this.sources.push(map);
-				}
+				//}
 
 				this.listenTo(map.model, 'change', this.syncWithSource);
 			}
