@@ -82,8 +82,13 @@ function(Backbone, WidgetView, Template, CodeMirror){
 				self.model.set('filter', codeEditor.getValue());
 				self.registerFilters.apply(self);
 			});
-
+            
+            this.$( ".widgetBottom .tab" ).click(function() {
+                // ensure the code is visible
+                codeEditor.refresh();
+            });
 		},
+        
 		registerFilters: function() {
 			this.signalChainFunctions.length = 0;
 			this.signalChainFunctions.push(new Function("var ins = arguments[1]; " + this.model.get('filter')));
