@@ -14,7 +14,7 @@
     "backbone.babysitter": "~0.1.4",
     "rivets": "~0.6.8",
     "jquery-knob": "~1.2.9",
-    "codemirror": "~4.3.0",
+    "codemirror": "~5.4.0",
     "jqueryui": "~1.11.0",
     "jquery-ui-touch-punch-improved": "~0.3.1",
     "cable-manager": "*",
