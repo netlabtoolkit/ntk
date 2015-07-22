@@ -11,17 +11,19 @@
 
     <div class="widgetBody">
         <div class="dialwrapper" style="position:relative;">
-            <div class="display invalue" rv-text="widget:in | rounded">100</div>
+<!--            <div class="display invalue" rv-text="widget:in | rounded">100</div>-->
             <div class="display outvalue" rv-text="widget:out | rounded">1023</div>
             <div style="position:relative;"><input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/></div>
         </div>
         <table class="rangeTable" border="0" cellspacing="3" cellpadding="0">
           <tr>
+<!--
             <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:outputFloor"></td>
             <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:outputCeiling"></td>
+-->
           </tr>
         </table>
-        <div class='timeLeft'>Get in: 10s</div>
+        <br><div class='timeLeft'>Get in: 10s</div>
 
     </div>
 

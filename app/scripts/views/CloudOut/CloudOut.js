@@ -142,53 +142,35 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
         
         watchData: function(input) {
-            var value = Number(input);
-            this.inputCount++;
-            this.inputCumulative += Number(input);
+            var value = input;
             if (this.model.get('averageInputs')) {
+                this.inputCount++;
+                this.inputCumulative += Number(input);
                 value = parseInt(this.inputCumulative / this.inputCount);
             }
             return value;
         },
         
         sendToCloud: function(e) {
-            if(!this.model.get('sendToCloud')) {
-                this.model.set('displayText',"Stopped");
+            //console.log('sendtocloud: ' + this.model.get('sendToCloud'));
+            if(!app.server && !this.model.get('sendToCloud')) {
+                //console.log('stopped');
+                this.setDisplayText("Stopped");
             }
         },
         
-        onModelChange: function(model) {
-            if(model.changedAttributes().displayText !== undefined) {
-                // show the current countdown
-                var displayText = this.model.get('displayText');
-                this.$('.timeLeft').text(displayText);
-
-                this.redPulseCount++;
-                if (this.redPulseCount == 3) {
-                    this.$('.outvalue').css('color','#000000');
-                }
-            }
-
-            if (model.changedAttributes().cloudService !== undefined) {
-                this.changeCloudService();
-            }
-
-            var displayPulse = model.get('displayTimerStart');
-            var period = model.get('sendPeriod');
-            //console.log(displayPulse);
-            if(displayPulse && period >= 400) {
-                //console.log("pulsing red ");
-                this.redPulseCount = 0;
-                this.$('.outvalue').css('color','#ff0000');
-                this.model.set('displayTimerStart',false);
+        setDisplayText: function(text) {
+            if(!app.server) {
+                this.$('.timeLeft').text(text);
             }
         },
-                
-        
+                     
         timeKeeper: function(frameCount) {
+            //console.log('sending: ' + this.model.get('sendToCloud') + this.model.get('phantDataField'));
             if (this.model.get('sendToCloud')) {
                 var self = this;
                 var period = this.model.get('sendPeriod');
+                
 
                 if (this.lastSendToCloud == false) { // starting to send to cloud
                     this.startTime = Date.now() - (period + 1) ;
@@ -200,11 +182,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 
                 if (timeDiff > period) { // send to cloud
-                    //console.log("sending", this.model.get('out').toString());
+                    //console.log("sending", this.model.get('out'));
 
                     this.startTime = Date.now();
-                    self.model.set('displayTimerStart',true); // trigger the RED pulse
-                    self.model.set('displayText',' Send in: ' + (period / 1000).toFixed(1) + 's');
+                    if(!app.server) this.$('.outvalue').css('color','#ff0000'); // start the RED pulse
+                    this.setDisplayText(' Send in: ' + (period / 1000).toFixed(1) + 's');
 
                     this.lastTimeDiff = 0;
                     var theValue = (this.model.get('out')).toString();
@@ -227,7 +209,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                     var err = textStatus + ", " + error;
                                     console.log( "Connection to cloud service failed: " + err );
                                     self.model.set('sendToCloud',false);
-                                    self.model.set('displayText',"Can't connect");
+                                    this.setDisplayText("Can't connect");
                             });
                             break;
                         case 'particle':
@@ -249,9 +231,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     this.inputCount = 0;
                     this.inputCumulative = 0;
                 } else if (timeDiff - this.lastTimeDiff >= 100) {
-                    self.model.set('displayText',' Send in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
-                    if (timeDiff - this.lastTimeDiff < period - 100) self.model.set('displayTimerStart',false); // stop the RED pulse
-                    //console.log("loop " + self.model.get('displayTimerStart') + ' ' + self.model.get('displayText'));
+                    this.setDisplayText(' Send in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
+                    if (!app.server && timeDiff >= 300) this.$('.outvalue').css('color','#000000'); // stop the RED pulse
                     this.lastTimeDiff = timeDiff;
                 }
             } else {

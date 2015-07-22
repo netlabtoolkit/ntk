@@ -65,7 +65,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.startCountdown = true;
             this.redPulseCount = 0;
 
-            this.signalChainFunctions.push(SignalChainFunctions.scale);
+            //this.signalChainFunctions.push(SignalChainFunctions.scale);
 			// If you would like to register any function to be called at frame rate (60fps)
 			//console.log('register!');
 			//window.app.server && 
@@ -112,20 +112,17 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// Any custom function can be attached to the widget like this "limitServoRange" function
 		// and can be accessed via this.limitServoRange();
 		onRemove: function() {
-			//if(window.app.server)
 			window.app.timingController.removeFrameCallback(this.timeKeeper);
 		},
         
         getFromCloud: function(e) {
-            //if(!window.app.server) {
-                if (!this.model.get('sendToCloud')) {
-                    this.model.set('displayText',"Stopped");
-                }
-            //}
+            if (!app.server && !this.model.get('sendToCloud')) {
+                this.setDisplayText("Stopped");
+            }
         },
         
         changeCloudService: function(e) {
-            //if(!window.app.server) {
+            if(!app.server) {
                 var service = this.model.get('cloudService');
                 switch(service) {
                     case 'sparkfun':
@@ -140,138 +137,115 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     default:
                         //
                 }
-            //}
+            }
+        },
+        
+        setDisplayText: function(text) {
+            if(!app.server) {
+                this.$('.timeLeft').text(text);
+            }
         },
         
         onModelChange: function(model) {
-            //if(!window.app.server) {
-
-                if(model.changedAttributes().displayText) {
-                    // show the current countdown
-                    var displayText = this.model.get('displayText');
-                    this.$('.timeLeft').text(displayText);
-                    
-                    this.redPulseCount++;
-                    if (this.redPulseCount == 3) {
-                        this.$('.outvalue').css('color','#000000');
-                    }
-                }
-                
+            if(!app.server) {
                 if (model.changedAttributes().in) {
                     this.$('.dial').val(this.model.get('in')).trigger('change');
                 }
-                
-                if (model.changedAttributes().cloudService) {
-                    this.changeCloudService();
-                }
-                
-                var displayPulse = model.get('displayTimerStart');
-                var period = model.get('getPeriod');
-                if(displayPulse && period >= 400) {
-                    //console.log("pulsing red ");
-                    this.redPulseCount = 0;
-                    this.$('.outvalue').css('color','#ff0000');
-                    this.model.set('displayTimerStart',false);
-                }
-            //} 
+            }
         },
         
         timeKeeper: function(frameCount) {
-			//if(window.app.server) {
-				if (this.model.get('getFromCloud')) {
-                    var self = this;
-                    var period = this.model.get('getPeriod');
-                    if (this.lastSendToCloud == false) { // starting to send to cloud
-                        this.startTime = Date.now() - (period + 1) ;
-                        this.lastSendToCloud = true;
-                        //console.log("reset");
-                    }
-                    var timeDiff = Date.now() - this.startTime;
-                    if (timeDiff > period) { // get from cloud
-                        //console.log("getting");
-                        this.startTime = Date.now();
-                        self.model.set('displayTimerStart',true); // trigger the RED pulse
-                        self.model.set('displayText',' Get in: ' + (period / 1000).toFixed(1) + 's');
+            if (this.model.get('getFromCloud')) {
+                var self = this;
+                var period = this.model.get('getPeriod');
+                if (this.lastSendToCloud == false) { // starting to send to cloud
+                    this.startTime = Date.now() - (period + 1) ;
+                    this.lastSendToCloud = true;
+                    //console.log("reset");
+                }
+                var timeDiff = Date.now() - this.startTime;
+                if (timeDiff > period) { // get from cloud
+                    //console.log("getting");
+                    this.startTime = Date.now();
+                    if(!app.server) this.$('.outvalue').css('color','#ff0000'); // start the RED pulse
+                    this.setDisplayText(' Get in: ' + (period / 1000).toFixed(1) + 's');
 
-                        this.lastTimeDiff = 0;
+                    this.lastTimeDiff = 0;
 
-                        switch(this.model.get('cloudService')) {
-                            case 'sparkfun':
-                                // DATA.SPARKFUN.COM
-                                //
-                                var pubKey = this.model.get('phantPublicKey');
-                                var dataField = this.model.get('phantDataField');
-                                var phantUrl = this.model.get('phantUrl');
-                                var url = phantUrl + '/output/' + pubKey + '.json';
-                                $.ajax({
-                                    url: url,
-                                    jsonp: 'callback',
-                                    cache: false,
-                                    dataType: 'jsonp',
-                                    data: {
-                                        page: 1
-                                    },
-                                    success: function(response) {
-                                        // check for success
-                                        if (response.success == false) {
-                                            console.log( "Connection to cloud service failed");
-                                            self.model.set('getFromCloud',false);
-                                            self.model.set('displayText',"Can't connect");
-                                        } else {
-                                            var value = Number(response[0][dataField]);
-                                            if (isNaN(value)) {
-                                                self.model.set('getFromCloud',false);
-                                                self.model.set('displayText',"Bad datafield");
-                                            } else {
-                                                //console.log(response);
-                                                self.model.set('in',Number(response[0][dataField]));
-                                            }
-                                        }
-                                    },
-                                    fail: function( jqxhr, textStatus, error ) {
-                                        var err = textStatus + ", " + error;
-                                        console.log( "Connection to cloud servive failed: " + err );
+                    switch(this.model.get('cloudService')) {
+                        case 'sparkfun':
+                            // DATA.SPARKFUN.COM
+                            //
+                            var pubKey = this.model.get('phantPublicKey');
+                            var dataField = this.model.get('phantDataField');
+                            var phantUrl = this.model.get('phantUrl');
+                            var url = phantUrl + '/output/' + pubKey + '.json';
+                            $.ajax({
+                                url: url,
+                                jsonp: 'callback',
+                                cache: false,
+                                dataType: 'jsonp',
+                                data: {
+                                    page: 1
+                                },
+                                success: function(response) {
+                                    // check for success
+                                    if (response.success == false) {
+                                        console.log( "Connection to cloud service failed");
                                         self.model.set('getFromCloud',false);
-                                        self.model.set('displayText',"Can't connect");
-                                    }
-                                });
-                                break;
-                            case 'particle':
-                                // PARTICLE.IO
-                                //
-                                var url = "https://api.particle.io/v1/devices/" + this.model.get('particleDeviceId') + "/analogread"; 
-                                $.ajax({
-                                    //url: "https://api.particle.io/v1/devices/55ff6d066678505517151667/analogread",
-                                    url: url,
-                                    type: "POST",
-                                    timeout: 2000,
-                                    data: { access_token: this.model.get('particleAccessToken'), params: this.model.get('particlePin') }
-                                    })
-                                    .done(function( response ) {
-                                        //console.log(response);
-                                        var value = parseInt(response.return_value,10);
-                                        if (isNaN(value)) {
+                                        this.setDisplayText("Can't connect");
+                                    } else {
+                                        if (response[0][dataField] === undefined) {
                                             self.model.set('getFromCloud',false);
-                                            self.model.set('displayText',"Bad data");
+                                            this.setDisplayText("Bad datafield");
                                         } else {
-                                            self.model.set('in',value/4);
+                                            self.model.set('in',response[0][dataField]);
                                         }
-                                });
-                                break;
-                            default:
-                                //
-                        }
-                        this.inputCount = 0;
-                        this.inputCumulative = 0;
-                    } else if (timeDiff - this.lastTimeDiff >= 100) {
-                        this.model.set('displayText',' Get in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
-                        if (timeDiff - this.lastTimeDiff < period - 100) self.model.set('displayTimerStart',false); // stop the RED pulse
-                        this.lastTimeDiff = timeDiff;
+                                    }
+                                },
+                                fail: function( jqxhr, textStatus, error ) {
+                                    var err = textStatus + ", " + error;
+                                    console.log( "Connection to cloud servive failed: " + err );
+                                    self.model.set('getFromCloud',false);
+                                    this.setDisplayText("Can't connect");
+                                }
+                            });
+                            break;
+                        case 'particle':
+                            // PARTICLE.IO
+                            //
+                            var url = "https://api.particle.io/v1/devices/" + this.model.get('particleDeviceId') + "/analogread"; 
+                            $.ajax({
+                                //url: "https://api.particle.io/v1/devices/55ff6d066678505517151667/analogread",
+                                url: url,
+                                type: "POST",
+                                timeout: 2000,
+                                data: { access_token: this.model.get('particleAccessToken'), params: this.model.get('particlePin') }
+                                })
+                                .done(function( response ) {
+                                    //console.log(response);
+                                    var value = parseInt(response.return_value,10);
+                                    if (isNaN(value)) {
+                                        self.model.set('getFromCloud',false);
+                                        this.setDisplayText("Bad data");
+                                    } else {
+                                        self.model.set('in',value/4);
+                                    }
+                            });
+                            break;
+                        default:
+                            //
                     }
-				} else {
-					this.lastSendToCloud = false;
-				}
-			//}
+                    this.inputCount = 0;
+                    this.inputCumulative = 0;
+                } else if (timeDiff - this.lastTimeDiff >= 100) {
+                    this.setDisplayText(' Get in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
+                    if (!app.server && timeDiff >= 300) this.$('.outvalue').css('color','#000000'); // stop the RED pulse
+                    this.lastTimeDiff = timeDiff;
+                }
+            } else {
+                this.lastSendToCloud = false;
+            }
         },
 
 	});
