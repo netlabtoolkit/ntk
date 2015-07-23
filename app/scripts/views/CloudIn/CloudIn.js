@@ -191,13 +191,17 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                 success: function(response) {
                                     // check for success
                                     if (response.success == false) {
-                                        console.log( "Connection to cloud service failed");
+                                        console.log( "Connection to cloud service failed: " + response.message);
                                         self.model.set('getFromCloud',false);
-                                        this.setDisplayText("Can't connect");
+                                        if (response.message == 'stream not found') {
+                                            self.setDisplayText("Invalid key");
+                                        } else {
+                                            self.setDisplayText("Can't connect");
+                                        }
                                     } else {
                                         if (response[0][dataField] === undefined) {
                                             self.model.set('getFromCloud',false);
-                                            this.setDisplayText("Bad datafield");
+                                            self.setDisplayText("Bad datafield");
                                         } else {
                                             self.model.set('in',response[0][dataField]);
                                         }

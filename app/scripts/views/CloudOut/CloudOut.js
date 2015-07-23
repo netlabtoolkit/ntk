@@ -203,13 +203,20 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                             var url = phantUrl + '/input/' + pubKey + '?private_key=' + priKey + '&' + dataField + '=' + theValue;
                             $.getJSON(url)
                                 .done(function( json ) {
-                                    //console.log( "JSON Data: " + JSON.stringify(json) );
+                                    console.log( "JSON Data: " + JSON.stringify(json) );
                                 })
                                 .fail(function( jqxhr, textStatus, error ) {
-                                    var err = textStatus + ", " + error;
+                                    var response = JSON.parse(jqxhr.responseText);
+                                    var err = textStatus + ", " + error + ', ' + response.message;
                                     console.log( "Connection to cloud service failed: " + err );
                                     self.model.set('sendToCloud',false);
-                                    this.setDisplayText("Can't connect");
+                                    if (response.message.indexOf('is not a valid field') >= 0) {
+                                        self.setDisplayText("Invalid datafield");
+                                    } else if (error == "Unauthorized") {
+                                        self.setDisplayText("Invalid key");
+                                    } else {
+                                        self.setDisplayText("Can't connect");
+                                    }
                             });
                             break;
                         case 'particle':
