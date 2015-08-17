@@ -64,7 +64,17 @@ function(Backbone, rivets, WidgetView, Template){
             var offset = this.$('.detachedEl').offset();
             this.model.set('left',offset.left);
             this.model.set('top',offset.top);
+            this.sendToFront();
         },
+        
+        sendToFront: function() {
+            var index_highest = 0;
+            $(".widget").each(function () {
+                index_highest = Math.max(parseInt($(this).zIndex()), index_highest);
+            });
+            
+            this.$el.zIndex(index_highest + 1);
+        }
 
 	});
 });

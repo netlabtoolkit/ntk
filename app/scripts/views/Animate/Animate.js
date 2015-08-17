@@ -27,6 +27,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		sources: [],
 		typeID: 'Animate',
 		className: 'animate',
+        categories: ['logic'],
 		template: _.template(Template),
 
 		initialize: function(options) {

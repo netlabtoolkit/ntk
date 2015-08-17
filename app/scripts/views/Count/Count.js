@@ -86,7 +86,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 var increaseBy = 0;
                 var threshold = this.model.get('threshold');
                 
-                console.log(this.model.get('lastIns')[0]);
+                //console.log(this.model.get('lastIns')[0]);
                 
                 //for (var i=0;i<ins.length;i++) {
                 if (model.changedAttributes().in1 !== undefined) {
@@ -106,7 +106,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     this.model.get('lastIns')[3] = ins[3];
                 }
                         
-                console.log(increaseBy);
+                //console.log(increaseBy);
                 increaseBy *= this.model.get('increment');
                 result += increaseBy;
                 if (result > this.model.get('outputCeiling')) result = this.model.get('outputFloor');
