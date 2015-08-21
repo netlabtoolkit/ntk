@@ -41,6 +41,7 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
+            <label>timer high</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:timerHighLength"><br>
             <hr>
             Random Settings<br>
             <label>out range</label> <input class="moreParam" type="text" rv-value="widget:randLow">
