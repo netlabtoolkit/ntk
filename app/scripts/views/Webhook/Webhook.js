@@ -141,19 +141,22 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     // that happened at the same time as the request to send
                     self.model.set('lastSent',Date.now())
                     self.computeUrl();
-                    var url = self.model.get('urlComputed')
-                    console.log('sending: ' + url);
-                    $.getJSON(url)
-                        .done(function( json ) {
-                            self.model.set('displayText',"Sent");
-                            console.log( "JSON Data: " + JSON.stringify(json) );
-                        })
-                        .fail(function( jqxhr, textStatus, error ) {
-                            var err = textStatus + ", " + error;
-                            console.log( "Connection to webhook failed: " + err );
-                            self.model.set('sendToCloud',false);
-                            self.model.set('displayText',"Can't connect");
-                    });
+                    var url = self.model.get('urlComputed');
+                    if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) { 
+                        // only send if we're the server and in server mode, or the browser and in authoring mode
+                        console.log('sending: ' + url);
+                        $.getJSON(url)
+                            .done(function( json ) {
+                                self.model.set('displayText',"Sent");
+                                console.log( "JSON Data: " + JSON.stringify(json) );
+                            })
+                            .fail(function( jqxhr, textStatus, error ) {
+                                var err = textStatus + ", " + error;
+                                console.log( "Connection to webhook failed: " + err );
+                                self.model.set('sendToCloud',false);
+                                self.model.set('displayText',"Can't connect");
+                        });
+                    }
                 }, 10);
             }
         },

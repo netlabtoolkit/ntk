@@ -43,7 +43,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 threshold: 512,
                 timerFiring: true,
                 timerLength: 1000,
-                timerHighLength: 90,
+                timerHighLength: 200,
                 randOut: false,
                 randLow: 0,
                 randHigh: 1023,
@@ -139,6 +139,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     self.$('.pulseLow').css('background-color','#fff');
                 }
                 if (!self.model.get('randOut')) { // only go back to low value if sending a fixed output
+                    var timerHighLength = self.model.get('timerHighLength');
+                    if (this.model.get('timerLength') <= timerHighLength) timerHighLength = Math.round(this.model.get('timerLength') / 2);
                     window.clearTimeout(self.highTimer);
                     self.highTimer = setTimeout(function () {
                         self.model.set('output',parseFloat(self.model.get('pulseLow'),10));
@@ -146,7 +148,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                             self.$('.pulseHigh').css('background-color','#fff');
                             self.$('.pulseLow').css('background-color',self.stateHighlight);
                         }
-                    }, self.model.get('timerHighLength'));
+                    }, timerHighLength);
                 }
             }
             if (this.model.get('randTime')) {

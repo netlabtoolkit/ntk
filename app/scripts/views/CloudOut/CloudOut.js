@@ -184,7 +184,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 
                 if (timeDiff > period) { // send to cloud
-                    //console.log("sending", this.model.get('out'));
+                    //console.log("sending", app.serverMode);
 
                     this.startTime = Date.now();
                     if(!app.server) this.$('.outvalue').css('color','#ff0000'); // start the RED pulse
@@ -193,51 +193,54 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     this.lastTimeDiff = 0;
                     var theValue = (this.model.get('out')).toString();
                     
-                    if (this.model.get('lastValueSentToCloud') != theValue) { // 
+                    if (this.model.get('lastValueSentToCloud') != theValue) { // only send changed values
+                        if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) { 
+                            // only send if we're the server and in server mode, or the browser and in authoring mode
+                            //console.log("sending to cloud service, app.serverMode: " + app.serverMode);
+                            switch(this.model.get('cloudService')) {
+                                case 'sparkfun':
+                                    // DATA.SPARKFUN.COM
+                                    //
+                                    var priKey = this.model.get('phantPrivateKey');
+                                    var pubKey = this.model.get('phantPublicKey');
+                                    var dataField = this.model.get('phantDataField');
+                                    var phantUrl = this.model.get('phantUrl');
 
-                        switch(this.model.get('cloudService')) {
-                            case 'sparkfun':
-                                // DATA.SPARKFUN.COM
-                                //
-                                var priKey = this.model.get('phantPrivateKey');
-                                var pubKey = this.model.get('phantPublicKey');
-                                var dataField = this.model.get('phantDataField');
-                                var phantUrl = this.model.get('phantUrl');
-
-                                var url = phantUrl + '/input/' + pubKey + '?private_key=' + priKey + '&' + dataField + '=' + theValue;
-                                $.getJSON(url)
-                                    .done(function( json ) {
-                                        console.log( "JSON Data: " + JSON.stringify(json) );
-                                    })
-                                    .fail(function( jqxhr, textStatus, error ) {
-                                        var response = JSON.parse(jqxhr.responseText);
-                                        var err = textStatus + ", " + error + ', ' + response.message;
-                                        console.log( "Connection to cloud service failed: " + err );
-                                        self.model.set('sendToCloud',false);
-                                        if (response.message.indexOf('is not a valid field') >= 0) {
-                                            self.setDisplayText("Invalid datafield");
-                                        } else if (error == "Unauthorized") {
-                                            self.setDisplayText("Invalid key");
-                                        } else {
-                                            self.setDisplayText("Can't connect");
-                                        }
-                                });
-                                break;
-                            case 'particle':
-                                // PARTICLE.IO
-                                //
-                                var url = "https://api.particle.io/v1/devices/" + this.model.get('particleDeviceId') + "/analogwrite"; 
-                                $.ajax({
-                                    url: url,
-                                    type: "POST",
-                                    timeout: 2000,
-                                    data: { access_token: this.model.get('particleAccessToken'), params: this.model.get('particlePin') + ',' + theValue }
-                                    })
-                                    .done(function( response ) {
-                                        //console.log(response);
-                                });
-                                break;
-                            default:
+                                    var url = phantUrl + '/input/' + pubKey + '?private_key=' + priKey + '&' + dataField + '=' + theValue;
+                                    $.getJSON(url)
+                                        .done(function( json ) {
+                                            console.log( "JSON Data: " + JSON.stringify(json) );
+                                        })
+                                        .fail(function( jqxhr, textStatus, error ) {
+                                            var response = JSON.parse(jqxhr.responseText);
+                                            var err = textStatus + ", " + error + ', ' + response.message;
+                                            console.log( "Connection to cloud service failed: " + err );
+                                            self.model.set('sendToCloud',false);
+                                            if (response.message.indexOf('is not a valid field') >= 0) {
+                                                self.setDisplayText("Invalid datafield");
+                                            } else if (error == "Unauthorized") {
+                                                self.setDisplayText("Invalid key");
+                                            } else {
+                                                self.setDisplayText("Can't connect");
+                                            }
+                                    });
+                                    break;
+                                case 'particle':
+                                    // PARTICLE.IO
+                                    //
+                                    var url = "https://api.particle.io/v1/devices/" + this.model.get('particleDeviceId') + "/analogwrite"; 
+                                    $.ajax({
+                                        url: url,
+                                        type: "POST",
+                                        timeout: 2000,
+                                        data: { access_token: this.model.get('particleAccessToken'), params: this.model.get('particlePin') + ',' + theValue }
+                                        })
+                                        .done(function( response ) {
+                                            //console.log(response);
+                                    });
+                                    break;
+                                default:
+                            }
                         }
                     }
                     this.model.set('lastValueSentToCloud',theValue);
