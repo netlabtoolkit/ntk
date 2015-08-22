@@ -17,6 +17,11 @@ function( Backbone ) {
 			console.log("SERVER ADDRESS", serverAddress);
 			var socket = this.socket = window.io.connect(serverAddress);
 
+			this.registerInboundServerEvents(socket);
+			this.registerOutboundClientEvents(socket);
+
+		},
+		registerInboundServerEvents: function registerInboundServerEvents(socket) {
 			socket.on("loadPatchFromServer", function(data) {
 				window.app.vent.trigger('ToolBar:loadPatch', data);
 			});
@@ -31,99 +36,111 @@ function( Backbone ) {
 				window.app.vent.trigger("socket:connected");
 			});
 
+			socket.on("error", function(err){
+				console.log("ERROR: ", err);
+			});
 
+			// MODEL AND PATCH UPDATES
+			
+			// MODEL UPDATE
 			socket.on("server:clientModelUpdate", function(data){
 				window.app.vent.trigger('updateWidgetModelFromServer', data);
 			});
 
+			// MAPPING UPDATE
 			socket.on('server:clientMappingUpdate', function(data) {
 				window.app.vent.trigger('updateWidgetMappingFromServer', JSON.parse( data ));
 			});
 
+			// DEVICE UPDATE
 			socket.on("receivedModelUpdate", function(data){
 				if(window.app && window.app.vent) {
 					window.app.vent.trigger("receivedDeviceModelUpdate", data);
 				}
 			});
+			//END MODEL AND PATCH UPDATES
 
 			socket.on("disconnect", function() {
 				self.connected = false;
 			});
 
-			socket.on("error", function(err){
-				console.log("ERROR: ", err);
+		},
+		registerOutboundClientEvents: function registerClientEvents(socket) {
+			// MODEL AND PATCH UPDATES
+
+			// MODEL
+			window.app.vent.on('widgetUpdate', function(options){
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('client:sendModelUpdate', options);
+				}
+			});
+			// DEVICE MODEL
+			window.app.vent.on('sendDeviceModelUpdate', function(options) {
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('sendModelUpdate', options);
+				}
 			});
 
-			//if(window.app.server) {
-				//window.app.vent.on('sendModelUpdate', function(options) {
-					//socket.emit('sendModelUpdate', options);
-				//});
 
 
-				//window.app.vent.on('widgetUpdate', function(options){
-					//socket.emit('client:sendModelUpdate', options);
-				//});
-			//}
-			//else {
-				window.app.vent.on('sendModelUpdate', function(options) {
-					if(window.app.server || !window.app.serverMode) {
-						socket.emit('sendModelUpdate', options);
-					}
-				});
-				window.app.vent.on('widgetUpdate', function(options){
-					if(window.app.server || !window.app.serverMode) {
-						socket.emit('client:sendModelUpdate', options);
-					}
-				});
-				window.app.vent.on('addWidget', function(options) {
-					if(window.app.server || !window.app.serverMode) {
-						socket.emit('client:addWidget', JSON.stringify( options ));
-					}
-				});
-				window.app.vent.on('removeWidget', function(options) {
-					if(window.app.server || !window.app.serverMode) {
-						socket.emit('client:removeWidget', options);
-					}
-				});
-				window.app.vent.on('updateModelMappings', function(mappings) {
-					if(window.app.server || !window.app.serverMode) {
-						socket.emit('client:updateModelMappings', JSON.stringify( mappings ));
-					}
-				});
+			// MAPPING
+			// Takes the current mappings and pushes them ALL to the server
+			window.app.vent.on('updateModelMappings', function(mappings) {
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('client:updateModelMappings', JSON.stringify( mappings ));
+				}
+			});
 
-				window.app.vent.on('clearPatch', function(patch) {
-					if(window.app.server || !window.app.serverMode) {
-						socket.emit('client:clearPatch', JSON.stringify( patch ));
-					}
-				});
-				window.app.vent.on('Widget:hardwareSwitch', function(portAndMode) {
-					if(window.app.server || !window.app.serverMode) {
-						socket.emit('client:changeIOMode', JSON.stringify( portAndMode ));
-					}
-				});
+			// Updates the source mappings directly from the model, MERGING changes for that model only
+			window.app.vent.on('Widget:updateSourceMappings', function(wid, sources) {
+				if(window.app.server || !window.app.serverMode) {
+					var options = {
+						wid: wid,
+						mappings: sources
+					};
 
-				window.app.vent.on('Widget:updateSourceMappings', function(wid, sources) {
-					if(window.app.server || !window.app.serverMode) {
-						var options = {
-							wid: wid,
-							mappings: sources
-						};
+					socket.emit('client:sendSourceMappingUpdate', JSON.stringify( options ));
+				}
+			});
 
-						socket.emit('client:sendSourceMappingUpdate', JSON.stringify( options ));
-					}
-				});
 
-				window.app.vent.on('loadPatchFileToServer', function(patch) {
-					if(window.app.server || !window.app.serverMode) {
-						socket.emit('loadPatchFile', {patch: JSON.stringify(patch)});
-					}
-				});
-			//}
+
+			// Options here are the wid of the model
+			window.app.vent.on('addWidget', function(widgetModel) {
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('client:addWidget', JSON.stringify( widgetModel ));
+				}
+			});
+			window.app.vent.on('removeWidget', function(widgetWID) {
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('client:removeWidget', widgetWID);
+				}
+			});
+
+			// END MODEL AND PATCH UPDATES
+
+
+			window.app.vent.on('clearPatch', function(patch) {
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('client:clearPatch', JSON.stringify( patch ));
+				}
+			});
+			window.app.vent.on('Widget:hardwareSwitch', function(portAndMode) {
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('client:changeIOMode', JSON.stringify( portAndMode ));
+				}
+			});
+
+			window.app.vent.on('loadPatchFileToServer', function(patch) {
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('loadPatchFile', {patch: JSON.stringify(patch)});
+				}
+			});
 
 			window.app.vent.on('savePatchToServer', function(options) {
 
 				var collection = options.collection,
-					mappings = options.mappings;
+				mappings = options.mappings;
 
 				var saveConfig = {
 					widgets: collection.toJSON(),

@@ -33,6 +33,7 @@ function(app){
 				window.app.vent.trigger('loadPatchFileToServer', {widgets: widgets, mappings: mappings});
 			}
 
+			// Add all widgets
 			for(var i=widgets.length-1; i>=0; i--) {
 				var newWidget = this.addFunction(widgets[i].typeID, true, widgets[i].wid);
 				// after adding the widget, duplicate the settings by passing them to the widget's own method for doing that
@@ -41,11 +42,13 @@ function(app){
 				widgetViews.push(newWidget);
 			}
 
+			// Add all mappings
 			for(var i=mappings.length-1; i>=0; i--) {
 				// Find the actual model that matches the widget ID (wid)
 				var modelSourceView = _.find(widgetViews, function(view) {return mappings[i].modelWID == view.model.get('wid')} ),
 					widgetView = _.find(widgetViews, function(view) {return mappings[i].viewWID == view.model.get('wid')} )
 
+				// If we have both it means that we are looking at a widget to widget mapping (not a device model)
 				if(modelSourceView && widgetView) {
 
 					this.mapFunction({
@@ -56,12 +59,13 @@ function(app){
 						server: window.location.host
 					}, true);
 				}
+				// Otherwise we must be mapping a widget to a device model
 				else {
 
 					this.mapFunction({
-						modelType: mappings[i].modelWID,
-						IOMapping: mappings[i].map,
 						view: widgetView,
+						modelType: mappings[i].modelWID, // Expectin modeWID to be a descriptive string in this case
+						IOMapping: mappings[i].map,
 						server: window.location.host
 					}, true);
 				}

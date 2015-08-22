@@ -19,8 +19,8 @@ module.exports = function(options) {
 		this.transport.on('connection', this.registerClient);
 
 		this.on('notify:serverActive', function(serverActive) {
-			self.serverActive = serverActive;
-			self.transport.emit('serverActive', serverActive);
+			this.serverActive = serverActive;
+			this.transport.emit('serverActive', serverActive);
 		}, this);
 
 

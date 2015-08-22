@@ -32,8 +32,10 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		// Create a patch loader / saver for reloading in JSON "patches"
 		this.patchLoader = new PatchLoader({
 			serverAddress: 'localhost',
-			addFunction: (function(self) { return function() {return self.onExternalAddWidget.apply(self, arguments)}; })(this),
-			mapFunction: (function(self) { return function() {return self.mapToModel.apply(self, arguments)}; })(this),
+			//addFunction: (function(self) { return function() {return self.onExternalAddWidget.apply(self, arguments)}; })(this),
+			addFunction: this.onExternalAddWidget.bind(this),
+			//mapFunction: (function(self) { return function() {return self.mapToModel.apply(self, arguments)}; })(this),
+			mapFunction: this.mapToModel.bind(this),
 		});
 
 		window.OO = this;
@@ -357,16 +359,12 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					}
 					view.addCable(cable, model, inletOffsets, IOMapping, sourceViewID);
 
-
-					//if(sourceView) {
-						//sourceView.addCable(cable, model, inletOffsets, IOMapping);
-					//}
-
 					model.on('remove destroy', function() {
 						view.removeCable(cable);
 					});
 				}
 
+				// ViewWID listens to ModelWID
 				var modelWID = mappingObject.model.get('wid');
 				this.widgetMappings.push({
 					viewWID: viewWID,
@@ -446,7 +444,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 						for(attribute in changedAttributes) {
 							// and see if the attribute exists in the outputs section of this model
 							if(newModelInstance.attributes.outputs[attribute] !== undefined) {
-								window.app.vent.trigger('sendModelUpdate', {modelType: modelType, model: model});
+								window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: model});
 							}
 						}
 					});
@@ -457,13 +455,15 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 
 		loadPatch: function(JSONString, save) {
+			// Remove all previous mappings and widgets
 			this.widgetMappings.length = 0;
 			for(var i=this.widgets.length-1; i>=0; i--) {
 				// (event, calledFromLoader)
 				this.widgets[i].removeWidget(null, true);
 			}
-
 			this.widgets.length = 0;
+
+			// Call patchloader to handle creating new widgets/mappings
 			this.patchLoader.loadJSON(JSONString, save);
 		},
 		savePatch: function() {
