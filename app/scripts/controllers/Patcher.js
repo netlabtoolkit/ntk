@@ -96,7 +96,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 			window.app.cableManager = new CableManager();
 			$(window.app.cableManager.parentEl).css({top: 0, left: 0, position: 'absolute', width: '100%', height: '100%'});
-			window.app.vent.on('Widget:removeMapping', this.removeMapping, this);
+			window.app.vent.on('Widget:removeMapping', this.removeMappingFromWidget, this);
 
 
 			window.app.vent.on('updateWidgetModelFromServer', this.updateWidgetModelFromServer, this);
@@ -405,15 +405,30 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 			return this;
 		},
-		removeMapping: function(mapping, wid) {
+		/**
+		 * Remove a mapping when it is triggered by a widget. Widgets have less access to the info we need to accurately remove a mapping so we search
+		 *
+		 * @param {object} mapping the mapping passed from the widget
+		 * @param {string} wid the WID of the widget which is being unmapped
+		 * @return {undefined}
+		 */
+		removeMappingFromWidget: function removeMappingFromWidget(mapping, wid) {
 			var widgetMap = _.find(this.widgetMappings, function(widgetMapping) {
 				return widgetMapping.viewWID == wid
 					&& widgetMapping.map.destinationField == mapping.map.destinationField
 					&& widgetMapping.map.sourceField == mapping.map.sourceField
 			});
 
-			//window.app.trigger('Widget:removeMapping', widgetMap.modelWID);
-			this.widgetMappings.splice(this.widgetMappings.indexOf(widgetMap), 1);
+			this.removeMapping(widgetMap);
+		},
+		/**
+		 * Remove a mapping from the widgetMappings array
+		 *
+		 * @param {object} mapping the mapping to remove
+		 * @return {undefined}
+		 */
+		removeMapping: function(mapping) {
+			this.widgetMappings.splice(this.widgetMappings.indexOf(mapping), 1);
 			window.app.vent.trigger('updateModelMappings', this.widgetMappings);
 		},
         /**
