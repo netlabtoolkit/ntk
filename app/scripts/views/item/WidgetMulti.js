@@ -453,8 +453,12 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}
 			}
 		},
+		/**
+		 * Process any inputs through custom filters
+		 *
+		 * @return {undefined}
+		 */
 		processSignalChain: function() {
-			//if(window.app.server) {
 			var outputs = this.model.get('outs'),
 				outputsObj = {};
 
@@ -480,7 +484,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 				}
 			}
-			//}
 		},
 
 

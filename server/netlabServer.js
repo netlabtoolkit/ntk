@@ -21,7 +21,7 @@ var deviceController = new nlHardware({deviceType: deviceType});
 //var NLWebServer = require('./modules/nlWebServer/nlWebServer');
 
 
-var nlWebServer = new require('./modules/nlWebServer/nlWebServer')({port: serverPort, device: deviceController});
+var nlWebServer = new require('./modules/nlWebServer/nlWebServer')({port: serverPort});
 
 nlWebServer.start()
 	.then(function(server) {

@@ -16,8 +16,7 @@ module.exports = function(options) {
 	events.EventEmitter.call(this);
 	_.extend(this, events.EventEmitter.prototype);
 
-		var port = options.port || '9001',
-			device = options.device;
+		var port = options.port || '9001';
 		this.port = port;
 
 
