@@ -35,7 +35,7 @@ function(){
 				this.originalCallbacks.push(boundCallback);
 			}
 		},
-		removeFrameCallback: function(callback) {
+		removeFrameCallback: function(callback, context) {
 			var boundCallback = callback.bind(context);
 			var callbackIndex = this.originalCallbacks.indexOf(boundCallback);
 

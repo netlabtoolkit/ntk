@@ -27,7 +27,7 @@ function( Backbone ) {
 			});
 
 			socket.on("serverActive", function(serverActive) {
-				window.app.serverActive = serverActive;
+				window.app.serverMode = serverActive;
 				window.app.vent.trigger('serverActive', serverActive);
 			});
 

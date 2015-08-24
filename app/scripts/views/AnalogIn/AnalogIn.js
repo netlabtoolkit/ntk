@@ -96,8 +96,8 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		 * @return {void}
 		 */
 		onRemove: function() {
-			window.app.timingController.removeFrameCallback(this.processSignalChain);
-            window.app.timingController.removeFrameCallback(this.timeKeeper);
+			window.app.timingController.removeFrameCallback(this.processSignalChain, this);
+            window.app.timingController.removeFrameCallback(this.timeKeeper, this);
 		},
 		toggleInvert: function(e) {
 			e.preventDefault();
