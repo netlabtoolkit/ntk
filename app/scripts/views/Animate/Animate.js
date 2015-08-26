@@ -7,8 +7,10 @@ define([
 	// If you would like signal processing classes and functions include them here
 	'utils/SignalChainFunctions',
 	'utils/SignalChainClasses',
+    'velocity',
+    'velocity-ui',
 ],
-function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalChainClasses){
+function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalChainClasses, velocity, Velocity){
     'use strict';
 
 	return WidgetView.extend({
@@ -43,8 +45,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 aniLength: 2000,
                 aniStart: 0,
                 aniEnd: 1023,
+                aniLoop: false,
+                playSequence: false,
                 threshold: 512,
                 animationRunning: false,
+                lastInput: -1,
+                userSequence: "0,500,500\n500,100,1000\n100,1000,500\n1000,0,500",
+                sequencePosition: 0,
+                
             });
             
             this.stateHighlight = '#f8c885';
@@ -58,30 +66,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
          */
 		onRender: function() {
 			WidgetView.prototype.onRender.call(this);
-
-            /*this.$('.widgetBody').getScript( "velocity.min.js", function( data, textStatus, jqxhr ) {
-              console.log( data ); // Data returned
-              console.log( textStatus ); // Success
-              console.log( jqxhr.status ); // 200
-              console.log( "Velocity was loaded." );
-            });
-            
-            this.$('.widgetBody').getScript( "velocity.ui.js", function( data, textStatus, jqxhr ) {
-              console.log( data ); // Data returned
-              console.log( textStatus ); // Success
-              console.log( jqxhr.status ); // 200
-              console.log( "VelocityUI was loaded." );
-            });
-            
-            $('.widgetBody').velocity({
-                tween: [ 500, 1000 ]
-            }, { 
-                easing: "easeOutCubic",
-                duration: 2000,
-                progress: function(elements, c, r, s, t) {
-                    console.log("The current tween value is " + t)
-                }
-            });*/
             
             this.$(".animateDiv").css('visibility','hidden');
             this.$(".animateDiv").css('position','absolute');
@@ -94,23 +78,20 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             if(model.changedAttributes().in !== undefined) {
                 
                 var input = parseFloat(this.model.get('in'));
+                var lastInput = this.model.get('lastInput');
                 var length = parseFloat(this.model.get('aniLength'));
                 var start = parseFloat(this.model.get('aniStart'));
                 var end = parseFloat(this.model.get('aniEnd'));
                 var threshold = parseFloat(this.model.get('threshold'));
 
-                if (input >= threshold) {
-                    //this.$('#ifTrue').css('background-color',this.stateHighlight);
-                    //this.$('#ifFalse').css('background-color','#fff');
+                if (input >= threshold && lastInput < threshold) {
                     this.runAnimation(start,end,length);
                     
-                } else {
-                    //this.$('#ifTrue').css('background-color','#fff');
-                    //this.$('#ifFalse').css('background-color',this.stateHighlight);
-                    //this.model.set('output',this.model.get('ifFalse'));
-                    this.$(".animateDiv").stop();
+                } else if (input < threshold  && lastInput >= threshold) {
+                    this.$(".animateDiv").velocity("stop");
                     this.model.set('animationRunning',false);
                 }
+                this.model.set('lastInput',input);
             }
         },
         
@@ -120,22 +101,71 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             var animateDiv = this.$(".animateDiv");
             
             if (!this.model.get('animationRunning')) {
-                animateDiv.css('left',start + "px");
-                console.log("start: " + start);
+
+                if (this.model.get('playSequence')) {
+                    // build a sequence from the text field in the widget
+                    var userSequence = [];
+                    var velocitySequence = [];
+                    
+                    // get the string and parse it into an array
+                    // the format for each move in the sequence is start, end, duration, one move to a line
+                    var str = this.model.get('userSequence');
+                    str = str.replace(/(\r\n|\n|\r)/gm, "\n");
+                    str.split('\n').forEach( function(item) {
+                        var move = item.split(',');
+                        userSequence.push(move);
+                        //console.log(move);
+                    } );
+                    
+                    var sequenceLen = userSequence.length;
+                    self.model.set('sequencePosition',0);
+                    // build the Velocity sequence http://julian.com/research/velocity/#uiPack
+                    userSequence.forEach( function(item) { 
+                         var obj = {
+                              e: animateDiv,
+                              p: { tween: [ item[1], item[0] ] },
+                              o: { 
+                                  duration: item[2],
+                                  progress: function(elements, c, r, s, t) {
+                                      self.model.set('output',t);
+                                  },
+                                  complete: function() {
+                                      var currentPosition = 1 + self.model.get('sequencePosition');
+                                      if (currentPosition >= sequenceLen) {
+                                          if (self.model.get('aniLoop')) {
+                                              self.model.set('sequencePosition',0);
+                                              $.Velocity.RunSequence(velocitySequence);
+                                          } else {
+                                              self.model.set('animationRunning',false);
+                                          }
+                                      } else {
+                                          self.model.set('sequencePosition',currentPosition);
+                                      }
+                                  },
+                              },
+                         }
+                         velocitySequence.push(obj);
+                    } );
+                    
+                    // execute the sequence
+                    $.Velocity.RunSequence(velocitySequence);
+                } else {
+                    animateDiv.velocity({
+                        tween: [ end, start ]
+                    }, {
+                        duration: length,
+                        progress: function(elements, c, r, s, t) {
+                            //console.log("The current tween value is " + t);
+                            self.model.set('output',t);
+                        },
+                        loop: this.model.get('aniLoop'),
+                        complete: function() {
+                            self.model.set('animationRunning',false);
+                        },
+                    });
                 
-                animateDiv.animate({
-                    left: end,
-                }, {
-                    duration: length,
-                    step: function( now, tween ) {
-                        console.log(now);
-                        self.model.set('output',now);
-                    },
-                    complete: function() {
-                        self.model.set('animationRunning',false);
-                    },
-                });
-                this.model.set('animationRunning', true);
+                    this.model.set('animationRunning', true);
+                }
             }
         },
 	});

@@ -18,7 +18,8 @@
     "jqueryui": "~1.11.0",
     "jquery-ui-touch-punch-improved": "~0.3.1",
     "cable-manager": "*",
-    "almond": "~0.3.0"
+    "almond": "~0.3.0",
+    "velocity": "~1.2.2"
   },
   "devDependencies": {},
   "directory": "bower_components"

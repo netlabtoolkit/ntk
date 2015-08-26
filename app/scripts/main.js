@@ -37,6 +37,14 @@ require.config({
                 'jquery'
             ],
         },
+        velocity: {
+            exports: 'velocity',
+            deps: [ "jquery" ]
+        },
+        "velocity-ui": {
+            exports: 'velocity-ui',
+            deps: [ "velocity" ]
+        },
     },
 
     paths: {
@@ -44,6 +52,8 @@ require.config({
         jqueryui: '../bower_components/jqueryui/jquery-ui',
         jquerytouchpunch: '../bower_components/jquery-ui-touch-punch-improved/jquery.ui.touch-punch-improved',
         jqueryknob: '../bower_components/jquery-knob/js/jquery.knob',
+        velocity: '../bower_components/velocity/velocity',
+        'velocity-ui': '../bower_components/velocity/velocity.ui',
         backbone: '../bower_components/backbone-amd/backbone',
         underscore: '../bower_components/underscore-amd/underscore',
         codemirror: '../bower_components/codemirror/lib/codemirror',

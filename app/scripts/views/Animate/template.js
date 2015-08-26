@@ -19,6 +19,7 @@
         </div>
         <div class="widgetBodyRight">  
                 <div class="inletValue"><span class="outputSingle" rv-text="widget:out1 | rounded">0</span></div>
+                
         </div>
         <div class="inletValueInput"><input type="text" pattern="[0-9]*" rv-value="widget:aniLength | rounded"> time</div>
         <div class="inletValueInput"><input type="text" pattern="[0-9]*" rv-value="widget:aniStart | rounded"> start</div>
@@ -36,8 +37,13 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-            <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold">
+            <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
+            <input class="loop" type="checkbox" rv-checked="widget:aniLoop" /> Loop<br>
+            <input class="sequence" type="checkbox" rv-checked="widget:playSequence" /> Use Sequence<br>
+            <hr>
+            Sequence - in format &quot;start, end, duration&quot; one per line<br>
+            <textarea class="database" rv-value="widget:userSequence" rows="4" cols="70"></textarea>
         </div>
-        <div class="animateDiv">asdf</div>
+        <div class="animateDiv"></div>
     </div>
 </div>
