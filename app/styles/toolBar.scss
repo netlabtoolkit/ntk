@@ -61,6 +61,14 @@
 		border-bottom: 1px solid grey;
 		margin-bottom: 0;
 	}
+    
+    .serverSwitch {
+        background-color: LightSlateGray;
+    }
+    
+    .logo {
+        cursor: auto;
+    }
 
 	.serverSwitch.serverActive {
 		background: #F25151;
