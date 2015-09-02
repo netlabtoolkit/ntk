@@ -38,7 +38,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'Data',
 		className: 'data',
-        categories: ['input'],
+        categories: ['data-feed'],
 		template: _.template(Template),
 
 		initialize: function(options) {

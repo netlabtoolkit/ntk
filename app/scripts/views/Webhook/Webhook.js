@@ -14,7 +14,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 	return WidgetView.extend({
         typeID: 'Webhook',
-		categories: ['output', 'internet'],
+		categories: ['network'],
 		className: 'webhook',
 		template: _.template(Template),
 		sources: [],

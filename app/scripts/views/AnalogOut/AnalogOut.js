@@ -12,7 +12,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 	return WidgetView.extend({
 		typeID: 'AnalogOut',
 		deviceMode: 'PWM',
-		categories: ['hardware', 'output'],
+		categories: ['input-output'],
 		className: 'analogOut',
 		template: _.template(Template),
 

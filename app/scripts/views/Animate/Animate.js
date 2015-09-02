@@ -29,7 +29,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		sources: [],
 		typeID: 'Animate',
 		className: 'animate',
-        categories: ['logic'],
+        categories: ['data-feed'],
 		template: _.template(Template),
 
 		initialize: function(options) {

@@ -85,7 +85,8 @@ function( app, Backbone, Template, Widgets ) {
 		 * @return {object}
 		 */
 		sortWidgetCategories: function sortCategories() {
-			var categories = {all: []};
+			//var categories = {all: []};
+            var categories = {};
 
 
 			for(var widgetName in Widgets) {
@@ -104,7 +105,7 @@ function( app, Backbone, Template, Widgets ) {
 					}
 				}
 
-				categories.all.push(widgetName);
+				//categories.all.push(widgetName);
 			}
 
 			return categories;

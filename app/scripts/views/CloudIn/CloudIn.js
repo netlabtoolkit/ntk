@@ -31,7 +31,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
         
 		typeID: 'CloudIn',
-        categories: ['input', 'internet'],
+        categories: ['network'],
 		className: 'cloudIn',
 		template: _.template(Template),
 

@@ -29,7 +29,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'Keyboard',
 		className: 'keyboard',
-        categories: ['input', 'UI'],
+        categories: ['UI'],
 		template: _.template(Template),
 
 		initialize: function(options) {
