@@ -43,7 +43,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 threshold: 512,
                 timerFiring: true,
                 timerLength: 1000,
-                timerHighLength: 200,
+                timerHighPercentage: 50,
                 randOut: false,
                 randLow: 0,
                 randHigh: 1023,
@@ -139,8 +139,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     self.$('.pulseLow').css('background-color','#fff');
                 }
                 if (!self.model.get('randOut')) { // only go back to low value if sending a fixed output
-                    var timerHighLength = self.model.get('timerHighLength');
-                    if (this.model.get('timerLength') <= timerHighLength) timerHighLength = Math.round(this.model.get('timerLength') / 2);
+                    // use the percentage in timerHighPercentage to calculate how long to output the high value
+                    var timerHighLength = Math.round(this.model.get('timerLength') * (self.model.get('timerHighPercentage')/100));
                     window.clearTimeout(self.highTimer);
                     self.highTimer = setTimeout(function () {
                         self.model.set('output',parseFloat(self.model.get('pulseLow'),10));
