@@ -18,18 +18,18 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		ins: [
 			// title: decorative, to: <widget model field>
 			{title: 'in', to: 'in'},
-            {title: 'Length', to: 'aniLength'},
-            {title: 'Start', to: 'aniStart'},
-            {title: 'End', to: 'aniEnd'},
+            {title: 'Duration', to: 'duration'},
+            {title: 'Start', to: 'start'},
+            {title: 'End', to: 'end'},
 		],
 		outs: [
 			// title: decorative, from: <widget model field>, to: <widget model field being listened to>
 			{title: 'out1', from: 'output', to: 'out1'},
 		],
 		sources: [],
-		typeID: 'Animate',
-		className: 'animate',
-        categories: ['data-feed'],
+		typeID: 'Tween',
+		className: 'tween',
+        categories: ['generator'],
 		template: _.template(Template),
 
 		initialize: function(options) {
@@ -39,13 +39,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             
             // Call any custom DOM events here
             this.model.set({
-                title: 'Animate',
-                in: 0,
+                title: 'Tween',
+                in: '--',
 				output: 0,
-                aniLength: 2000,
-                aniStart: 0,
-                aniEnd: 1023,
-                aniLoop: false,
+                duration: 2000,
+                start: 0,
+                end: 1023,
+                loop: false,
                 playSequence: false,
                 threshold: 512,
                 animationRunning: false,
@@ -69,9 +69,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             
             this.$(".animateDiv").css('visibility','hidden');
             this.$(".animateDiv").css('position','absolute');
+            this.model.set('animationRunning',false); // in case it was true from last invocation
             
-            var self = this;
-
+            if (this.model.get('loop') && this.model.get('in') == '--') {
+                this.runAnimation();
+            }
 		},
         
         onModelChange: function(model) {
@@ -79,13 +81,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 
                 var input = parseFloat(this.model.get('in'));
                 var lastInput = this.model.get('lastInput');
-                var length = parseFloat(this.model.get('aniLength'));
-                var start = parseFloat(this.model.get('aniStart'));
-                var end = parseFloat(this.model.get('aniEnd'));
                 var threshold = parseFloat(this.model.get('threshold'));
 
                 if (input >= threshold && lastInput < threshold) {
-                    this.runAnimation(start,end,length);
+                    this.runAnimation();
                     
                 } else if (input < threshold  && lastInput >= threshold) {
                     this.$(".animateDiv").velocity("stop");
@@ -93,9 +92,21 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 }
                 this.model.set('lastInput',input);
             }
+            if(model.changedAttributes().loop !== undefined) {
+                if (this.model.get('loop') && this.model.get('in') == '--') {
+                    this.runAnimation();
+                } else if (!this.model.get('loop')) {
+                    this.$(".animateDiv").velocity("stop");
+                    this.model.set('animationRunning',false);
+                }
+            }
         },
         
-        runAnimation: function(start, end, length) {
+        
+        runAnimation: function() {
+            var duration = parseFloat(this.model.get('duration'));
+            var start = parseFloat(this.model.get('start'));
+            var end = parseFloat(this.model.get('end'));
             
             var self = this;
             var animateDiv = this.$(".animateDiv");
@@ -117,7 +128,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                         //console.log(move);
                     } );
                     
-                    var sequenceLen = userSequence.length;
+                    var sequenceLen = userSequence.duration;
                     self.model.set('sequencePosition',0);
                     // build the Velocity sequence http://julian.com/research/velocity/#uiPack
                     userSequence.forEach( function(item) { 
@@ -132,7 +143,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                   complete: function() {
                                       var currentPosition = 1 + self.model.get('sequencePosition');
                                       if (currentPosition >= sequenceLen) {
-                                          if (self.model.get('aniLoop')) {
+                                          if (self.model.get('loop')) {
                                               self.model.set('sequencePosition',0);
                                               $.Velocity.RunSequence(velocitySequence);
                                           } else {
@@ -153,12 +164,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     animateDiv.velocity({
                         tween: [ end, start ]
                     }, {
-                        duration: length,
+                        duration: duration,
                         progress: function(elements, c, r, s, t) {
                             //console.log("The current tween value is " + t);
                             self.model.set('output',t);
                         },
-                        loop: this.model.get('aniLoop'),
+                        loop: this.model.get('loop'),
                         complete: function() {
                             self.model.set('animationRunning',false);
                         },

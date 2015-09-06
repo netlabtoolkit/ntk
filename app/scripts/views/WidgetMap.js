@@ -16,7 +16,7 @@ define([
     'views/Mix/Mix',
     'views/Splitter/Splitter',
     'views/Data/Data',
-    'views/Animate/Animate',
+    'views/Tween/Tween',
 	'views/Blank/Blank',
     
     'views/Image/Image',
@@ -31,7 +31,7 @@ define([
 
     'views/OSCIn/OSCIn',
 ],
-function(AnalogIn, CloudIn, Knob, Button, Keyboard, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Mix, Splitter, Data, Animate, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn){
+function(AnalogIn, CloudIn, Knob, Button, Keyboard, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Mix, Splitter, Data, Tween, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn){
     'use strict';
 
 	return {
@@ -51,7 +51,7 @@ function(AnalogIn, CloudIn, Knob, Button, Keyboard, Pulse, Code, Process, Count,
         'Mix': Mix,
 		'Splitter': Splitter,
         'Data': Data,
-        'Animate': Animate,
+        'Tween': Tween,
 		'Blank': Blank,
 
 		'Image': Image,

@@ -21,9 +21,9 @@
                 <div class="inletValue"><span class="outputSingle" rv-text="widget:out1 | rounded">0</span></div>
                 
         </div>
-        <div class="inletValueInput"><input type="text" pattern="[0-9]*" rv-value="widget:aniLength | rounded"> time</div>
-        <div class="inletValueInput"><input type="text" pattern="[0-9]*" rv-value="widget:aniStart | rounded"> start</div>
-        <div class="inletValueInput"><input type="text" pattern="[0-9]*" rv-value="widget:aniEnd | rounded"> end</div>
+        <div class="inletValueInput"><input type="text" pattern="[0-9]*" rv-value="widget:duration | rounded"> time</div>
+        <div class="inletValueInput"><input type="text" pattern="[0-9]*" rv-value="widget:start | rounded"> start</div>
+        <div class="inletValueInput"><input type="text" pattern="[0-9]*" rv-value="widget:end | rounded"> end</div>
     </div>
                 
                 
@@ -38,7 +38,7 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
-            <input class="loop" type="checkbox" rv-checked="widget:aniLoop" /> Loop<br>
+            <input class="loop" type="checkbox" rv-checked="widget:loop" /> Loop<br>
             <input class="sequence" type="checkbox" rv-checked="widget:playSequence" /> Use Sequence<br>
             <hr>
             Sequence - in format &quot;start, end, duration&quot; one per line<br>
