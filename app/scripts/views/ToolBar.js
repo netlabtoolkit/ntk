@@ -60,6 +60,12 @@ function( app, Backbone, Template, Widgets ) {
 								e.preventDefault();
 								e.stopPropagation();
 
+								if(window.app.serverMode) {
+									window.app.trigger('RestrictiveOverlay:showMessage', e);
+
+									return false;
+								}
+
 								window.app.vent.trigger('ToolBar:addWidget', $(this).data('widgetType'));
 							});
 
@@ -112,6 +118,10 @@ function( app, Backbone, Template, Widgets ) {
 			this.$('#patchFileUpload').click();
 		},
 		loadPatch: function(e) {
+			if(window.app.serverMode) {
+				window.app.trigger('RestrictiveOverlay:showMessage', e);
+				return false;
+			}
 			//var JSONString = prompt('Paste your JSON here');
 			//window.app.vent.trigger('ToolBar:loadPatch', JSONString, true);
 			
@@ -142,7 +152,12 @@ function( app, Backbone, Template, Widgets ) {
 			window.app.vent.trigger('ToolBar:savePatch');
 		},
 		clearPatch: function() {
-			window.app.vent.trigger('ToolBar:clearPatch');
+			if(window.app.serverMode) {
+				window.app.vent.trigger('ToolBar:clearPatch');
+			}
+			else {
+				window.app.trigger('RestrictiveOverlay:showMessage', e);
+			}
 		},
 		downloadPatch: function() {
 			window.app.vent.trigger('ToolBar:savePatch');

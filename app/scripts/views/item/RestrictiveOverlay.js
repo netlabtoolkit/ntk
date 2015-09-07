@@ -7,7 +7,7 @@ function( Backbone, Template  ) {
 
 	return Backbone.View.extend({
 		events: {
-			'click': 'showMessage',
+			'mousedown': 'showMessage',
 		},
 		subViews: [],
     	template: _.template(Template),
@@ -24,6 +24,7 @@ function( Backbone, Template  ) {
 		addEventListeners: function addEventListeners() {
 			window.app.on('RestrictiveOverlay:hide', this.hide, this);
 			window.app.on('RestrictiveOverlay:show', this.show, this);
+			window.app.on('RestrictiveOverlay:showMessage', this.showMessage, this);
 		},
 		show: function show() {
 			this.setTopZIndex();
