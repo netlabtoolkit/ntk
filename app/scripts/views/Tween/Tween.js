@@ -45,6 +45,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 duration: 2000,
                 start: 0,
                 end: 1023,
+                returnToStart: true,
                 loop: false,
                 playSequence: false,
                 threshold: 512,
@@ -89,6 +90,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 } else if (input < threshold  && lastInput >= threshold) {
                     this.$(".animateDiv").velocity("stop");
                     this.model.set('animationRunning',false);
+                    if (this.model.get('returnToStart')) {
+                        this.returnAnimation();
+                    }
                 }
                 this.model.set('lastInput',input);
             }
@@ -125,10 +129,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     str.split('\n').forEach( function(item) {
                         var move = item.split(',');
                         userSequence.push(move);
-                        //console.log(move);
                     } );
                     
-                    var sequenceLen = userSequence.duration;
+                    var sequenceLen = userSequence.length;
                     self.model.set('sequencePosition',0);
                     // build the Velocity sequence http://julian.com/research/velocity/#uiPack
                     userSequence.forEach( function(item) { 
@@ -178,6 +181,31 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     this.model.set('animationRunning', true);
                 }
             }
+        },
+        
+        returnAnimation: function() {
+            
+            var duration = parseFloat(this.model.get('duration'));
+            var end = parseFloat(this.model.get('start'));
+            var start = this.model.get('output');
+            
+            var self = this;
+            var animateDiv = this.$(".animateDiv");
+            
+            animateDiv.velocity({
+                tween: [ end, start ]
+            }, {
+                duration: duration,
+                progress: function(elements, c, r, s, t) {
+                    //console.log("The current tween value is " + t);
+                    self.model.set('output',t);
+                },
+                complete: function() {
+                    self.model.set('animationRunning',false);
+                },
+            });
+
+            this.model.set('animationRunning', true);
         },
 	});
 });
