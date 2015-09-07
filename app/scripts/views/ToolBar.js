@@ -167,15 +167,15 @@ function( app, Backbone, Template, Widgets ) {
 			this.widgetsVisible = !this.widgetsVisible;
 
 			if (this.widgetsVisible) {
-				if(window.app.serverMode) {
-					window.app.trigger('RestrictiveOverlay:show');
-				}
+				//if(window.app.serverMode) {
+					//window.app.trigger('RestrictiveOverlay:show');
+				//}
 
 				$( ".widgetAuthoring" ).show('fast');
 				$( "svg" ).show('fast');
 				$( ".patchCableParent" ).show('fast');
 			} else {
-				window.app.trigger('RestrictiveOverlay:hide');
+				//window.app.trigger('RestrictiveOverlay:hide');
 
 				$( ".widgetAuthoring" ).hide('fast');
 				$( "svg" ).hide('fast');
