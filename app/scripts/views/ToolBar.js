@@ -153,14 +153,14 @@ function( app, Backbone, Template, Widgets ) {
 
 			if (this.widgetsVisible) {
 				if(window.app.serverMode) {
-					$('.restrictiveOverlay').show();
+					window.app.trigger('RestrictiveOverlay:show');
 				}
 
 				$( ".widgetAuthoring" ).show('fast');
 				$( "svg" ).show('fast');
 				$( ".patchCableParent" ).show('fast');
 			} else {
-				$('.restrictiveOverlay').hide();
+				window.app.trigger('RestrictiveOverlay:hide');
 
 				$( ".widgetAuthoring" ).hide('fast');
 				$( "svg" ).hide('fast');
@@ -192,12 +192,12 @@ function( app, Backbone, Template, Widgets ) {
 			if(serverActive) {
 				$serverSwitchButton.addClass('serverActive');
 				$serverSwitchButton.text('Edit OFF');
-				$('.restrictiveOverlay').show();
+				window.app.trigger('RestrictiveOverlay:show');
 			}
 			else {
 				$serverSwitchButton.removeClass('serverActive');
 				$serverSwitchButton.text('Edit ON');
-				$('.restrictiveOverlay').hide();
+				window.app.trigger('RestrictiveOverlay:hide');
 			}
 		},
 		toggleAddWidgetsPanel: function toggleAddWidgets() {

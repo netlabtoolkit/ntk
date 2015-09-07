@@ -13,10 +13,24 @@ function( Backbone, Template  ) {
     	template: _.template(Template),
 		className: 'restrictiveOverlay',
 
+		initialize: function() {
+			this.addEventListeners();
+		},
 		render: function() {
 			this.el.innerHTML = this.template();
 
 			return this;
+		},
+		addEventListeners: function addEventListeners() {
+			window.app.on('RestrictiveOverlay:hide', this.hide, this);
+			window.app.on('RestrictiveOverlay:show', this.show, this);
+		},
+		show: function show() {
+			this.setTopZIndex();
+			this.$el.show();
+		},
+		hide: function hide() {
+			this.$el.hide();
 		},
 		showMessage: function showMessage(e) {
 			e.stopPropagation();
@@ -30,6 +44,18 @@ function( Backbone, Template  ) {
 					$(this).animate({opacity: 0}, 500);
 				}
 			});
+		},
+		setTopZIndex: function setTopZIndex() {
+			var topZIndex = 0;
+
+			$('.widget').each(function() {
+				var index = parseInt($(this).css('z-index'), 10);
+				if(index > topZIndex) {
+					topZIndex = index;
+				}
+			});
+
+			this.$el.css('z-index', topZIndex);
 		},
 	});
 
