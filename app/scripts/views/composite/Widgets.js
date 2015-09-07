@@ -37,7 +37,7 @@ function( Backbone, Widget, Template  ) {
          * add a sub view to this element and store it in the subViews array
          *
          * @param {Backbone.View} view
-         * @return {Backbone.View} this view
+         * @return {this} this view
          */
 		addView: function(view) {
 			this.subViews.push(view);

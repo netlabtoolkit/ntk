@@ -19,6 +19,7 @@ function(app, Backbone, ToolBarView){
 		 */
 		attachMainViews: function() {
 			this.parentRegion.show(this.views.main);
+			console.log('adding toolbar');
 		},
 	};
 

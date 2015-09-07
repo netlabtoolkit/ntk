@@ -12,3 +12,29 @@
 	font-family: 'Helvetica Neue', sans-serif;
 	font-size: 12px;
 }
+
+.restrictiveOverlay {
+	position: fixed;
+	top:0;
+	left:0;
+
+	width:100%;
+	height:100%;
+
+	/*background-color: rgba(0,0,0,0.2);*/
+	background-color: rgba(0,0,0,0);
+
+	.message {
+		display: block;
+		position: absolute;
+
+		top: 48%;
+		left: 40%;
+
+		color: #000;
+		opacity: 0;
+
+		font-size: 24px;
+
+	}
+}

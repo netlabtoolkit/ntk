@@ -7,7 +7,6 @@ define([
 function( app, Backbone, Template, Widgets ) {
     'use strict';
 
-	var self;
 
 	return Backbone.View.extend({
 		events: {
@@ -30,7 +29,6 @@ function( app, Backbone, Template, Widgets ) {
 			window.app.vent.on('serverActive', this.indicateServerActive, this);
 		},
 		render: function() {
-			self = this;
 			this.el.innerHTML = this.template();
 
 			var sortedWidgets = this.sortWidgetCategories();
@@ -138,7 +136,7 @@ function( app, Backbone, Template, Widgets ) {
 			$('.inputForm').empty();
 			$('.inputForm').append('<input type="file" name="images" id="patchFileUpload" style="display:none" />');
 			var fileInput = $('#patchFileUpload')[0];
-			fileInput.addEventListener("change", self.loadPatch);
+			fileInput.addEventListener("change", this.loadPatch);
 		},
 		savePatch: function() {
 			window.app.vent.trigger('ToolBar:savePatch');
@@ -154,10 +152,16 @@ function( app, Backbone, Template, Widgets ) {
 			this.widgetsVisible = !this.widgetsVisible;
 
 			if (this.widgetsVisible) {
+				if(window.app.serverMode) {
+					$('.restrictiveOverlay').show();
+				}
+
 				$( ".widgetAuthoring" ).show('fast');
 				$( "svg" ).show('fast');
 				$( ".patchCableParent" ).show('fast');
 			} else {
+				$('.restrictiveOverlay').hide();
+
 				$( ".widgetAuthoring" ).hide('fast');
 				$( "svg" ).hide('fast');
 				$( ".patchCableParent" ).hide('fast');
@@ -188,10 +192,12 @@ function( app, Backbone, Template, Widgets ) {
 			if(serverActive) {
 				$serverSwitchButton.addClass('serverActive');
 				$serverSwitchButton.text('Edit OFF');
+				$('.restrictiveOverlay').show();
 			}
 			else {
 				$serverSwitchButton.removeClass('serverActive');
 				$serverSwitchButton.text('Edit ON');
+				$('.restrictiveOverlay').hide();
 			}
 		},
 		toggleAddWidgetsPanel: function toggleAddWidgets() {

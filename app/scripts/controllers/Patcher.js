@@ -20,8 +20,9 @@ define([
     'views/Servo/Servo',
     'views/OSCIn/OSCIn',
     'views/Splitter/Splitter',
+    'views/item/RestrictiveOverlay',
 ],
-function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, AnalogInView, AnalogOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, SplitterView){
+function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, AnalogInView, AnalogOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, SplitterView, RestrictiveOverlayView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -72,6 +73,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 			if(this.parentRegion) {
 				this.parentRegion.show(this.views.mainCanvas);
+				$('#patcherRegion').append(new RestrictiveOverlayView().render().el);
 			}
 
 			this.addEventListeners();
