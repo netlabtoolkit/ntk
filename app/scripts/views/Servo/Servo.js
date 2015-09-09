@@ -42,7 +42,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             
             this.model.set({
 				title: 'Servo',
-                activeOut: false,
+                activeOut: true,
 			});
 
             // If you want to register your own signal processing function, push them to signalChainFunctions
