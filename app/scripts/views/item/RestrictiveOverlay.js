@@ -57,6 +57,7 @@ function( Backbone, Template  ) {
 			});
 
 			this.$el.css('z-index', topZIndex);
+			$('#toolBarRegion').css('z-index', topZIndex+10);
 		},
 	});
 

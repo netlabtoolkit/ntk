@@ -114,8 +114,13 @@ function( app, Backbone, Template, Widgets ) {
 
 			return categories;
 		},
-		showUploadFileDialog: function() {
-			this.$('#patchFileUpload').click();
+		showUploadFileDialog: function(e) {
+			if(!window.app.serverMode) {
+				this.$('#patchFileUpload').click();
+			}
+			else {
+				window.app.trigger('RestrictiveOverlay:showMessage', e);
+			}
 		},
 		loadPatch: function(e) {
 			if(window.app.serverMode) {
@@ -151,8 +156,8 @@ function( app, Backbone, Template, Widgets ) {
 		savePatch: function() {
 			window.app.vent.trigger('ToolBar:savePatch');
 		},
-		clearPatch: function() {
-			if(window.app.serverMode) {
+		clearPatch: function(e) {
+			if(!window.app.serverMode) {
 				window.app.vent.trigger('ToolBar:clearPatch');
 			}
 			else {

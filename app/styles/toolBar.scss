@@ -1,4 +1,5 @@
 
+
 #toolBarRegion .settings,
 #toolBarRegion .addWidgets
 {
@@ -139,6 +140,8 @@
 }
 
 #toolBarRegion {
+	position: absolute;
+	
 	.menuBar {
 		position: fixed;
 		right: 0;
