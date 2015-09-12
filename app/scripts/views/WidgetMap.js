@@ -5,6 +5,7 @@ define([
     'views/Knob/Knob',
     'views/Button/Button',
     'views/Keyboard/Keyboard',
+    'views/HTML/HTML',
     'views/Pulse/Pulse',
 
     'views/Code/Code',
@@ -31,7 +32,7 @@ define([
 
     'views/OSCIn/OSCIn',
 ],
-function(AnalogIn, CloudIn, Knob, Button, Keyboard, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Mix, Splitter, Data, Tween, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn){
+function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Mix, Splitter, Data, Tween, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn){
     'use strict';
 
 	return {
@@ -40,6 +41,7 @@ function(AnalogIn, CloudIn, Knob, Button, Keyboard, Pulse, Code, Process, Count,
 		'Knob': Knob,
 		'Button': Button,
         'Keyboard': Keyboard,
+        'HTML': HTML,
         'Pulse': Pulse,
 
 		'Code': Code,
