@@ -50,7 +50,7 @@ function(Backbone, rivets, WidgetView, Template){
                 top: 200,
 				opacity: 100,
                 userHtml: "<div>\n   <div class='input-element'>temp</div>\n   <div class='another-element'>humidity</div>\n</div>",
-                userCss: ".input-element {background-color: gray; width: 60px;}\n.another-element {background-color: lighgray; width: 60px;}",
+                userCss: ".input-element {background-color: rosybrown; width: 60px;}\n.another-element {background-color: slategray; width: 60px;}",
                 displayClass: 'displayhtml',
                 displayClassLast: 'displayhtml',
                 inputElementClass: 'input-element',
@@ -76,7 +76,6 @@ function(Backbone, rivets, WidgetView, Template){
                 
                 this.textDiv = this.$('.displaytext');
                 this.domReady = true;
-                this.updateDisplay();
             }
 		},
 
