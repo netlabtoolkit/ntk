@@ -32,21 +32,16 @@ Installation
 
 ### Node, NPM (one time only)
 
-You must first install node and npm if you have not done so. Our recommendation is the following procedure ([from here](https://gist.github.com/isaacs/579814)), which has the least number of permissions issues. If you are on a Mac, you need to install the Xcode command line tools by installing Xcode (free from the app store).
+You must first install node and npm if you have not already done so. 
 
-```
-echo 'export PATH=$HOME/local/bin:$PATH' >> ~/.bashrc
-. ~/.bashrc
-mkdir ~/local
-mkdir ~/node-latest-install
-cd ~/node-latest-install
-curl http://nodejs.org/dist/node-latest.tar.gz | tar xz --strip-components=1
-./configure --prefix=~/local
-make install # this step will take a while...
-curl https://www.npmjs.org/install.sh | sh
-```
+**NOTE**: Due to a library conflict (node-serialport) NTK is not yet compatible with the current version of Nodejs. You must use Node v0.12.7 or earlier, or io.js v2.5.0 or earlier.
 
-More details on [Node/NPM here](http://www.joyent.com/blog/installing-node-and-npm).
+* Mac or Windows - Install Node and NPM from the official [Node.js website](http://nodejs.org/en/blog/release/v0.12.7/), using their standard installer for version 0.12.7.
+* Linux – You most likely have Node/NPM already installed. If you are on Raspberry Pi, then you may have an outdated version of Node. Here’s a nice & easy upgrade method: https://github.com/DonaldDerek/rPi-cheat-sheet
+
+Alternate approaches for installation are here: https://gist.github.com/isaacs/579814
+
+If you are on a Mac, you may need to install the Xcode command line tools by installing Xcode (free from the Mac app store).
 
 If you are on Raspberry Pi, then you probably have an outdated version of Node. Here's a nice & easy upgrade method: https://github.com/DonaldDerek/rPi-cheat-sheet
 
