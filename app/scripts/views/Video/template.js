@@ -23,13 +23,14 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label>continuous</label> <input class="continuous" type="checkbox" rv-checked="widget:continuous" /><br>
-            <label>video file</label> <input type="text" rv-value="widget:srcmp4"><br>
+            <label>video file</label> <input class="videosrc" type="text" rv-value="widget:srcmp4"><br>
+            <label class="narrowLabel">width</label> <input class="displayWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth"><br>
         </div>
     </div>
 </div>
         
 <% if(!server) { %>
-	<video class="detachedEl video" width="300" 
+	<video class="detachedEl video" width="500" 
         rv-style-opacity="widget:opacity"
         rv-positionx="widget:left"
         rv-positiony="widget:top">

@@ -16,6 +16,8 @@ function(Backbone, rivets, WidgetView, Template){
         widgetEvents: {
 			'change .loop': 'loopChange',
             'change .continuous': 'continuousChange',
+            'change .displayWidth': 'setVideoDimensions',
+            'change .videosrc': 'loopChange',
             'mouseup .detachedEl': 'imgMoved',
 		},
 
@@ -57,7 +59,8 @@ function(Backbone, rivets, WidgetView, Template){
 						parameter: 'opacity',
 					},
 				],
-				left: 100,
+				displayWidth: 500,
+                left: 100,
                 top: 200,
 				opacity: 100,
 
@@ -78,12 +81,14 @@ function(Backbone, rivets, WidgetView, Template){
                 this.$( '.detachedEl' ).css( 'cursor', 'move' );
                 this.$( '.detachedEl' ).css( 'position', 'fixed' );
                 this.$( '.detachedEl' ).draggable({ cursor: "move" });
+                this.$(".video")[0].loop = this.model.get('loop');
                 
                 if (this.model.get('continuous')) {
                     this.playing = true;
                     this.$(".video")[0].play();
                     this.model.set('playText',"Play");
                 }
+                
                 
                 //console.log("vid: " + this.$(".video")[0].currentSrc);
                 this.domReady = true;
@@ -137,6 +142,10 @@ function(Backbone, rivets, WidgetView, Template){
             if(!app.server) {
                 this.$(".video")[0].loop = this.model.get('loop');
             }
+        },
+        
+        setVideoDimensions: function() {
+            this.$( '.detachedEl' ).css( 'width', this.model.get('displayWidth'));
         },
             
         continuousChange: function(e) {
