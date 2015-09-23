@@ -42,6 +42,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 pulseHigh: 1023,
                 threshold: 512,
                 timerFiring: true,
+                timerState: 'off',
+                timerStart: Date.now(),
                 timerLength: 1000,
                 timerHighPercentage: 50,
                 randOut: false,
@@ -50,16 +52,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 randTime: false,
                 randTimeLow: 750,
                 randTimeHigh: 2000,
-                mainTimer: 0,
-                highTimer: 0,
             });
             
             this.stateHighlight = '#f8c885';
-            //this.mainTimer = 0;
-            //this.highTimer = 0;
             this.domReady = false;
             this.lastTimeLength = this.model.get('timerLength');
 
+            window.app.timingController.registerFrameCallback(this.timeKeeper, this);
 
 		},
         /**
@@ -73,28 +72,38 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             var self = this;
             
             if(!app.server) {
-                self.$('.pulseHigh').css('background-color','#fff');
-                self.$('.pulseLow').css('background-color',self.stateHighlight);
+                this.$('.pulseHigh').css('background-color','#fff');
+                this.$('.pulseLow').css('background-color',this.stateHighlight);
             }
             
             this.domReady = true;
             
-            this.setTimer();
-            
-            
 		},
         
         onRemove: function() {
-			window.clearTimeout(this.model.get('mainTimer'));
-            window.clearTimeout(this.model.get('highTimer'));
+			window.app.timingController.removeFrameCallback(this.timeKeeper, this);
 		},
         
         onModelChange: function(model) {
             if(model.changedAttributes().in !== undefined && !isNaN(model.changedAttributes().in)) {
                 if (this.model.get('in') >= this.model.get('threshold')) {
-                    this.model.set('timerFiring',true);
-                } else {
+                    if (!this.model.get('timerFiring')) {
+                        this.model.set('timerFiring',true);
+                        if (!app.server) {
+                            this.$('.pulseHigh').css('background-color','#fff');
+                            this.$('.pulseLow').css('background-color',this.stateHighlight);
+                        }
+                        this.initTimer();
+                    }
+                } else if (this.model.get('timerFiring')) {
                     this.model.set('timerFiring',false);
+                    if (!this.model.get('randOut')) {
+                        this.model.set('output',parseFloat(this.model.get('pulseLow'),10));
+                        if (!app.server) {
+                            this.$('.pulseHigh').css('background-color','#fff');
+                            this.$('.pulseLow').css('background-color',this.stateHighlight);
+                        }
+                    }
                 }
             }
             
@@ -102,89 +111,58 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 if (this.lastTimeLength != this.model.get('timerLength')) {
                     if (!this.model.get('randTime')) {
                         if (this.model.get('timerLength') < 150) this.model.set('timerLength',150);
-                        this.setTimer();
                     }
                 }
                 this.lastTimeLength = this.model.get('timerLength');
-            }  
-                
-            
-            if(model.changedAttributes().randTime !== undefined) {
-                this.setTimer();
             }
         },
         
-        setTimer: function() {
-            if (this.domReady) {
-                self = this;
-                //window.cleartnterval(this.model.get('mainTimer'));
-                window.clearTimeout(this.model.get('mainTimer'));
-                window.clearTimeout(this.model.get('highTimer'));
-                if (!this.model.get('randTime')) {
-                    //var mainTimer = setInterval(function () {
-                    var mainTimer = setTimeout(function () {
-                        self.timerFire(self);
-                    }, this.model.get('timerLength'));
-                    this.model.set('mainTimer',mainTimer);
-                } else {
-                    this.setRandomTime(self);
-                }
-            }
-            
-        },
-        
-        timerFire: function(self) {
-            console.log('timerfire: ' + this.model.get('timerLength'));
-            if (self.model.get('timerFiring')) {
-                var output = parseFloat(self.model.get('pulseHigh'),10);
-                if (self.model.get('randOut')) {
-                    var min = parseFloat(self.model.get('randLow'),10);
-                    var max = parseFloat(self.model.get('randHigh'),10)
-                    output = Math.floor(Math.random() * (max - min)) + min;
-                    self.model.set('pulseHigh',output);
-                }
-                self.model.set('output',output);
-                if(!app.server) {
-                    self.$('.pulseHigh').css('background-color',self.stateHighlight);
-                    self.$('.pulseLow').css('background-color','#fff');
-                }
-                if (!self.model.get('randOut')) { // only go back to low value if sending a fixed output
-                    // use the percentage in timerHighPercentage to calculate how long to output the high value
-                    var timerHighLength = Math.round(this.model.get('timerLength') * (self.model.get('timerHighPercentage')/100));
-                    window.clearTimeout(this.model.get('highTimer'));
-                    var highTimer = setTimeout(function () {
-                        self.model.set('output',parseFloat(self.model.get('pulseLow'),10));
-                        if(!app.server) {
-                            self.$('.pulseHigh').css('background-color','#fff');
-                            self.$('.pulseLow').css('background-color',self.stateHighlight);
+        timeKeeper: function() {
+            if (this.domReady && this.model.get('timerFiring')) {
+                var timerDiff = Date.now() - this.model.get('timerStart');
+
+                if (!this.model.get('randOut')) {
+                    // if non-random output, check for timerHighPercentage to turn off high output
+                    var timerHighLength = Math.round(this.model.get('timerLength') * (this.model.get('timerHighPercentage')/100));
+                    if (Date.now() - this.model.get('timerStart') > timerHighLength) {
+                        this.model.set('output',parseFloat(this.model.get('pulseLow'),10));
+                        if (!app.server) {
+                            this.$('.pulseHigh').css('background-color','#fff');
+                            this.$('.pulseLow').css('background-color',this.stateHighlight);
                         }
-                    }, timerHighLength);
-                    this.model.set('highTimer',highTimer);
+                    }
                 }
-            }
-            if (this.model.get('randTime')) {
-                self.setRandomTime(self);
-            } else {
-                console.log('restart: ' + self.model.get('timerLength'));
-                var mainTimer = setTimeout(function () {
-                    self.timerFire(self);
-                }, self.model.get('timerLength'));
-                self.model.set('mainTimer',mainTimer);
+
+                if (Date.now() - this.model.get('timerStart') > this.model.get('timerLength')) {
+                    this.model.set('output',parseFloat(this.model.get('pulseHigh'),10));
+                    if (!app.server) {
+                        this.$('.pulseHigh').css('background-color',this.stateHighlight);
+                        this.$('.pulseLow').css('background-color','#fff');
+                    }
+                    this.initTimer();
+                }
             }
         },
         
-        setRandomTime: function(self) {
-            window.clearInterval(this.model.get('mainTimer'));
-            //window.clearTimeout(self.highTimer);
-            var min = parseFloat(self.model.get('randTimeLow'),10);
-            var max = parseFloat(self.model.get('randTimeHigh'),10)
+        initTimer: function() {
+            this.model.set('timerStart',Date.now());
+            if (this.model.get('randTime')) this.setRandomTime();
+            if (this.model.get('randOut')) this.setRandomOut();
+        },
+        
+        setRandomTime: function() {
+            var min = parseFloat(this.model.get('randTimeLow'),10);
+            var max = parseFloat(this.model.get('randTimeHigh'),10)
             var randomTime = Math.floor(Math.random() * (max - min)) + min;
-            self.model.set('timerLength',randomTime);
-            var mainTimer = setTimeout(function () {
-                self.timerFire(self);
-            }, randomTime);
-            this.model.set('mainTimer',mainTimer);
-        }
+            this.model.set('timerLength',randomTime);
+        },
+            
+        setRandomOut: function() {
+            var min = parseFloat(this.model.get('randLow'),10);
+            var max = parseFloat(this.model.get('randHigh'),10)
+            var output = Math.floor(Math.random() * (max - min)) + min;
+            this.model.set('pulseHigh',output);
+        },
 
 	});
 });
