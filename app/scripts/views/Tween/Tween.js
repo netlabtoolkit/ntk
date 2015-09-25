@@ -85,6 +85,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 var threshold = parseFloat(this.model.get('threshold'));
 
                 if (input >= threshold && lastInput < threshold) {
+                    this.$(".animateDiv").velocity("stop");
+                    this.model.set('animationRunning',false);
                     this.runAnimation();
                     
                 } else if (input < threshold  && lastInput >= threshold) {
@@ -108,104 +110,119 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         
         
         runAnimation: function() {
-            var duration = parseFloat(this.model.get('duration'));
-            var start = parseFloat(this.model.get('start'));
-            var end = parseFloat(this.model.get('end'));
-            
-            var self = this;
-            var animateDiv = this.$(".animateDiv");
-            
-            if (!this.model.get('animationRunning')) {
+            if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
+                var duration = parseFloat(this.model.get('duration'));
+                var start = parseFloat(this.model.get('start'));
+                var end = parseFloat(this.model.get('end'));
+                if (isNaN(duration)) {
+                    duration = 2000;
+                    this.model.set('duration',duration);
+                }
+                if (isNaN(start)) {
+                    start = 0;
+                    this.model.set('start',start);
+                }
+                if (isNaN(end)) {
+                    end = 1023;
+                    this.model.set('end',end);
+                }
 
-                if (this.model.get('playSequence')) {
-                    // build a sequence from the text field in the widget
-                    var userSequence = [];
-                    var velocitySequence = [];
-                    
-                    // get the string and parse it into an array
-                    // the format for each move in the sequence is start, end, duration, one move to a line
-                    var str = this.model.get('userSequence');
-                    str = str.replace(/(\r\n|\n|\r)/gm, "\n");
-                    str.split('\n').forEach( function(item) {
-                        var move = item.split(',');
-                        userSequence.push(move);
-                    } );
-                    
-                    var sequenceLen = userSequence.length;
-                    self.model.set('sequencePosition',0);
-                    // build the Velocity sequence http://julian.com/research/velocity/#uiPack
-                    userSequence.forEach( function(item) { 
-                         var obj = {
-                              e: animateDiv,
-                              p: { tween: [ item[1], item[0] ] },
-                              o: { 
-                                  duration: item[2],
-                                  progress: function(elements, c, r, s, t) {
-                                      self.model.set('output',t);
-                                  },
-                                  complete: function() {
-                                      var currentPosition = 1 + self.model.get('sequencePosition');
-                                      if (currentPosition >= sequenceLen) {
-                                          if (self.model.get('loop')) {
-                                              self.model.set('sequencePosition',0);
-                                              $.Velocity.RunSequence(velocitySequence);
+                var self = this;
+                var animateDiv = this.$(".animateDiv");
+
+                if (!this.model.get('animationRunning')) {
+
+                    if (this.model.get('playSequence')) {
+                        // build a sequence from the text field in the widget
+                        var userSequence = [];
+                        var velocitySequence = [];
+
+                        // get the string and parse it into an array
+                        // the format for each move in the sequence is start, end, duration, one move to a line
+                        var str = this.model.get('userSequence');
+                        str = str.replace(/(\r\n|\n|\r)/gm, "\n");
+                        str.split('\n').forEach( function(item) {
+                            var move = item.split(',');
+                            userSequence.push(move);
+                        } );
+
+                        var sequenceLen = userSequence.length;
+                        self.model.set('sequencePosition',0);
+                        // build the Velocity sequence http://julian.com/research/velocity/#uiPack
+                        userSequence.forEach( function(item) { 
+                             var obj = {
+                                  e: animateDiv,
+                                  p: { tween: [ item[1], item[0] ] },
+                                  o: { 
+                                      duration: item[2],
+                                      progress: function(elements, c, r, s, t) {
+                                          self.model.set('output',t);
+                                      },
+                                      complete: function() {
+                                          var currentPosition = 1 + self.model.get('sequencePosition');
+                                          if (currentPosition >= sequenceLen) {
+                                              if (self.model.get('loop')) {
+                                                  self.model.set('sequencePosition',0);
+                                                  $.Velocity.RunSequence(velocitySequence);
+                                              } else {
+                                                  self.model.set('animationRunning',false);
+                                              }
                                           } else {
-                                              self.model.set('animationRunning',false);
+                                              self.model.set('sequencePosition',currentPosition);
                                           }
-                                      } else {
-                                          self.model.set('sequencePosition',currentPosition);
-                                      }
+                                      },
                                   },
-                              },
-                         }
-                         velocitySequence.push(obj);
-                    } );
-                    
-                    // execute the sequence
-                    $.Velocity.RunSequence(velocitySequence);
-                } else {
-                    animateDiv.velocity({
-                        tween: [ end, start ]
-                    }, {
-                        duration: duration,
-                        progress: function(elements, c, r, s, t) {
-                            //console.log("The current tween value is " + t);
-                            self.model.set('output',t);
-                        },
-                        loop: this.model.get('loop'),
-                        complete: function() {
-                            self.model.set('animationRunning',false);
-                        },
-                    });
-                
-                    this.model.set('animationRunning', true);
+                             }
+                             velocitySequence.push(obj);
+                        } );
+
+                        // execute the sequence
+                        $.Velocity.RunSequence(velocitySequence);
+                    } else {
+                        animateDiv.velocity({
+                            tween: [ end, start ]
+                        }, {
+                            duration: duration,
+                            progress: function(elements, c, r, s, t) {
+                                //console.log("The current tween value is " + t);
+                                self.model.set('output',t);
+                            },
+                            loop: this.model.get('loop'),
+                            complete: function() {
+                                self.model.set('animationRunning',false);
+                            },
+                        });
+
+                        this.model.set('animationRunning', true);
+                    }
                 }
             }
         },
         
         returnAnimation: function() {
-            
-            var duration = parseFloat(this.model.get('duration'));
-            var end = parseFloat(this.model.get('start'));
-            var start = this.model.get('output');
-            
-            var self = this;
-            var animateDiv = this.$(".animateDiv");
-            
-            animateDiv.velocity({
-                tween: [ end, start ]
-            }, {
-                duration: duration,
-                progress: function(elements, c, r, s, t) {
-                    //console.log("The current tween value is " + t);
-                    self.model.set('output',t);
-                },
-                complete: function() {
-                    self.model.set('animationRunning',false);
-                },
-            });
+            if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
+                var duration = parseFloat(this.model.get('duration'));
+                var end = parseFloat(this.model.get('start'));
+                var start = this.model.get('output');
 
-            this.model.set('animationRunning', true);
+                var self = this;
+                var animateDiv = this.$(".animateDiv");
+
+                animateDiv.velocity({
+                    tween: [ end, start ]
+                }, {
+                    duration: duration,
+                    progress: function(elements, c, r, s, t) {
+                        //console.log("The current tween value is " + t);
+                        self.model.set('output',t);
+                    },
+                    complete: function() {
+                        self.model.set('animationRunning',false);
+                    },
+                });
+
+                this.model.set('animationRunning', true);
+            }
         },
 	});
 });
