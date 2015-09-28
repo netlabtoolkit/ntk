@@ -32,6 +32,7 @@ function(Backbone, rivets, WidgetView, Template){
 /*					{title: 'Volume', to: 'volume'},*/
                     {title: 'Speed', to: 'speed'},
                     {title: 'Time', to: 'time'},
+                    {title: 'opacity', to: 'opacity'},
 				],
 				title: 'Video',
 
@@ -43,6 +44,7 @@ function(Backbone, rivets, WidgetView, Template){
                 time: 0,
                 loop: false,
                 continuous: false,
+                threshold: 512,
                 
                 activeControlParameter: 'left',
 				controlParameters: [
@@ -101,30 +103,31 @@ function(Backbone, rivets, WidgetView, Template){
 
         onModelChange: function(model) {
             if (this.domReady) {
-				if(!app.server  && (model.changedAttributes().play || model.changedAttributes().speed || model.changedAttributes().time)) {
+				if(!app.server  && (model.changedAttributes().play != undefined || model.changedAttributes().speed != undefined || model.changedAttributes().time != undefined)) {
 					var play = parseInt(this.model.get('play'),10);
 					var volume = Math.min(parseFloat(this.model.get('volume')) / 100,1.0);
 					var speed = parseFloat(this.model.get('speed')) / 100;
 					var time = parseFloat(this.model.get('time'));
+                    var threshold = parseInt(this.model.get('threshold'));
 					var videoEl = this.$(".video")[0];
                     
-                    if (model.changedAttributes().speed) {
+                    if (model.changedAttributes().speed != undefined) {
 					   videoEl.playbackRate = speed;
                     }
                     
-                    if (time != this.lastTimeIn && model.changedAttributes().time) {
+                    if (time != this.lastTimeIn && model.changedAttributes().time != undefined) {
 						var timeLimited = Math.min(time, Math.floor(videoEl.duration));
 						timeLimited = Math.max(timeLimited, 0);
 						videoEl.currentTime = timeLimited;
 					}
-                
-                    if (model.changedAttributes().play) {
+                    if (model.changedAttributes().play != undefined) {
+                        
                         if (!this.model.get('continuous')) {
-                            if (play >= 500 && !this.playing) {
+                            if (play >= threshold && !this.playing) {
                                 videoEl.play();
                                 this.playing = true;
                                 this.model.set('playText',"Play");
-                            } else if (play < 500 && this.playing) {
+                            } else if (play < threshold && this.playing) {
                                 videoEl.pause();
                                 this.playing = false;
                                 this.model.set('playText',"Pause");

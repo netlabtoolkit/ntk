@@ -15,14 +15,17 @@
             <div class="inletValue"><span rv-text="widget:play | rounded">100</span> <span rv-text="widget:playText">Pause</span></div>
             <div class="inletValue"><span rv-text="widget:speed | rounded">100</span> Speed</div>
             <div class="inletValue"><span rv-text="widget:time | rounded">100</span> Time</div>
-            <div class="inletValue"><input class="loop" type="checkbox" rv-checked="widget:loop" /> Loop</div>
+            <div class="inletValue"><span rv-text="widget:opacity | rounded">100</span> Opacity</div>
+            
         </div>
     </div>
 
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
+            <label>loop</label> <input class="continuous" type="checkbox" rv-checked="widget:loop" /><br>
             <label>continuous</label> <input class="continuous" type="checkbox" rv-checked="widget:continuous" /><br>
+            <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
             <label>video file</label> <input class="videosrc" type="text" rv-value="widget:srcmp4"><br>
             <label class="narrowLabel">width</label> <input class="displayWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth"><br>
         </div>
