@@ -47,6 +47,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 timerLength: 1000,
                 timerHighPercentage: 50,
                 randOut: false,
+                randOutPulse: true,
                 randLow: 0,
                 randHigh: 1023,
                 randTime: false,
@@ -97,7 +98,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     }
                 } else if (this.model.get('timerFiring')) {
                     this.model.set('timerFiring',false);
-                    if (!this.model.get('randOut')) {
+                    if (!this.model.get('randOut') || this.model.get('randOutPulse')) {
                         this.model.set('output',parseFloat(this.model.get('pulseLow'),10));
                         if (!app.server) {
                             this.$('.pulseHigh').css('background-color','#fff');
@@ -121,8 +122,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             if (this.domReady && this.model.get('timerFiring')) {
                 var timerDiff = Date.now() - this.model.get('timerStart');
 
-                if (!this.model.get('randOut')) {
-                    // if non-random output, check for timerHighPercentage to turn off high output
+                if (!this.model.get('randOut') || this.model.get('randOutPulse')) {
+                    // check for timerHighPercentage to turn off high output
                     var timerHighLength = Math.round(this.model.get('timerLength') * (this.model.get('timerHighPercentage')/100));
                     if (Date.now() - this.model.get('timerStart') > timerHighLength) {
                         this.model.set('output',parseFloat(this.model.get('pulseLow'),10));
@@ -134,6 +135,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 }
 
                 if (Date.now() - this.model.get('timerStart') > this.model.get('timerLength')) {
+                    // next pulse
                     this.model.set('output',parseFloat(this.model.get('pulseHigh'),10));
                     if (!app.server) {
                         this.$('.pulseHigh').css('background-color',this.stateHighlight);
@@ -160,7 +162,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         setRandomOut: function() {
             var min = parseFloat(this.model.get('randLow'),10);
             var max = parseFloat(this.model.get('randHigh'),10)
-            var output = Math.floor(Math.random() * (max - min)) + min;
+            var output = Math.floor(Math.random() * (max - min + 1)) + min;
             this.model.set('pulseHigh',output);
         },
 

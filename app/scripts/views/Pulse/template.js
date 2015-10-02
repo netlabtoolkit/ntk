@@ -44,6 +44,7 @@
             <label>% time on</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:timerHighPercentage"><br>
             <hr>
             Random Settings<br>
+            <label>out pulse</label><input type="checkbox" rv-checked="widget:randOutPulse" /><br>
             <label>out range</label> <input class="moreParam" type="text" rv-value="widget:randLow">
             <input class="moreParam" type="text" rv-value="widget:randHigh"><br>
             
