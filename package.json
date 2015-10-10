@@ -27,6 +27,7 @@
     "copyAppToDist": "cp -r ./app/* ./server/dist",
     "clean": "./buildScripts/clean.sh",
     "optimizeRequire": "./buildScripts/optimizeRequire.sh",
-    "compileSCSS": "./buildScripts/buildSCSS.sh"
+    "compileSCSS": "./buildScripts/buildSCSS.sh",
+    "reset": "./buildScripts/resetPatch.sh"
   }
 }
