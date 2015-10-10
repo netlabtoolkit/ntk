@@ -76,7 +76,7 @@ module.exports = function(options) {
 		 * @return {void}
 		 */
 		loadPatchFromServer: function() {
-			var patchFileName = __dirname + '/currentPatch.nlp';
+			var patchFileName = __dirname + '/currentPatch.ntk';
 
 			// Read the currently stored patch file and push it to the client
 			fs.readFile(patchFileName, 'utf8', function (err, data) {
@@ -166,7 +166,7 @@ module.exports = function(options) {
 		},
 		loadPatch: function(options) {
 			var patch = options.patch;
-			var patchFileName = __dirname + '/currentPatch.nlp';
+			var patchFileName = __dirname + '/currentPatch.ntk';
 
 
 			self.setMaster(patch);

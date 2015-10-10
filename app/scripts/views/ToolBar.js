@@ -166,7 +166,7 @@ function( app, Backbone, Template, Widgets ) {
 		},
 		downloadPatch: function() {
 			window.app.vent.trigger('ToolBar:savePatch');
-			window.location.href = "/patch.nlp";
+			window.location.href = "/patch.ntk";
 		},
         hideWidgets: function() {
 			this.widgetsVisible = !this.widgetsVisible;

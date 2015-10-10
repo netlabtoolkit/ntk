@@ -34,8 +34,8 @@ module.exports = function(options) {
 
 		this.server = http.createServer(app);
 
-		app.get('/patch.nlp', function(req, res){
-			res.sendfile( path.join( __dirname, '../nlMultiClientSync/currentPatch.nlp' ) );
+		app.get('/patch.ntk', function(req, res){
+			res.sendfile( path.join( __dirname, '../nlMultiClientSync/currentPatch.ntk' ) );
 		});
 
 		var self = this;
