@@ -79,6 +79,21 @@ module.exports = function(options) {
 			var patchFileName = __dirname + '/currentPatch.ntk';
 
 			// Read the currently stored patch file and push it to the client
+			fs.exists(patchFileName, function(exists) {
+				if(exists) {
+					self.loadFileIntoMasterPatch(patchFileName);
+				}
+				else {
+					// Creat the file then load it
+					fs.writeFile(patchFileName, '{"widgets":[],"mappings":[]}', function(err) {
+						self.loadFileIntoMasterPatch(patchFileName);
+					});
+				}
+			});
+			
+
+		},
+		loadFileIntoMasterPatch: function loadFileIntoMasterPatch(patchFileName) {
 			fs.readFile(patchFileName, 'utf8', function (err, data) {
 
 				if (err) {
@@ -88,7 +103,6 @@ module.exports = function(options) {
 
 				self.setMaster(JSON.parse(data));
 			});
-
 		},
 		/**
 		 * Bind to all events coming from the client
