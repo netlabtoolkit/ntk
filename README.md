@@ -17,18 +17,15 @@ Sign up for NTK news here:
 
 <http://netlabtoolkit.org/join/>
 
-Alpha Version - February 21st, 2015
----------------------
-This is our first official release, and we look forward to your comments and bug reports as you try it out. This release includes 13 widgets and works on a computer. We're close to releasing a version that runs on the Intel Galileo and similar embedded Linux systems. Other widgets and improvements are in the near term pipeline, and will be released as they are ready.
-
-We're planning the next major release as a Beta in June, 2015. This will include a complete set of widgets with a new visual design, as well as double click standard application versions of NTK.
-
-For more information on this release, see this post: 
-
-<http://www.netlabtoolkit.org/ntk-alpha-version-released/>
-
 Installation
 ---------------------
+
+If you only want to run NTK, there is a simple installation procedure:
+
+<http://netlabtoolkit.org/download/>
+<http://www.netlabtoolkit.org/install-ntk/>
+
+For development purposes, use the below installation process:
 
 ### Node, NPM (one time only)
 
@@ -54,6 +51,11 @@ npm install -g requirejs
 
 sudo gem update --system
 sudo gem install sass
+```
+NOTE: On Mac OS X El Capitan v10.11, there's an issue with installing gems. For the above use:
+```
+sudo gem update --system -n /usr/local/bin
+sudo gem install -n /usr/local/bin sass
 ```
 ### Current version of NTK
 
