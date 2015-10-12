@@ -64,6 +64,7 @@ function(Backbone, rivets, WidgetView, Template){
                 if(!app.server && (model.changedAttributes().play !== undefined || model.changedAttributes().volume !== undefined || model.changedAttributes().speed !== undefined)) {
                     var play = parseInt(this.model.get('play'),10);
                     var volume = Math.min(parseFloat(this.model.get('volume')) / 100,1.0);
+                    volume = Math.max(volume,0.0);
                     var speed = parseFloat(this.model.get('speed')) / 100;
 
                     var audioEl = this.$("#audio")[0];
