@@ -57,6 +57,7 @@ NOTE: On Mac OS X El Capitan v10.11, there's an issue with installing gems. For 
 sudo gem update --system -n /usr/local/bin
 sudo gem install -n /usr/local/bin sass
 ```
+Ref: <https://github.com/sass/sass/issues/1768>
 ### Current version of NTK
 
 To install this version of NETLab Toolkit:
