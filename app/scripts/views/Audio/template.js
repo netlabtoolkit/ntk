@@ -23,6 +23,7 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label>continuous</label> <input class="continuous" type="checkbox" rv-checked="widget:continuous" /><br>
+            <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
             <label>audio file</label> <input type="text" rv-value="widget:src"><br>
         </div>
     </div>

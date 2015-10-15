@@ -37,6 +37,7 @@ function(Backbone, rivets, WidgetView, Template){
 				speed: 100.0,
                 loop: false,
                 continuous: false,
+                threshold: 512,
 			});
             
             this.playing = false;
@@ -80,11 +81,12 @@ function(Backbone, rivets, WidgetView, Template){
 
                     if(model.changedAttributes().play !== undefined) {
                         if (!this.model.get('continuous')) {
-                            if (play >= 500 && !this.playing) {
+                            var threshold = parseInt(this.model.get('threshold'));
+                            if (play >= threshold && !this.playing) {
                                 this.playing = true;
                                 audioEl.play();
                                 this.model.set('playText',"Play");
-                            } else if (play < 500 && this.playing) {
+                            } else if (play < threshold && this.playing) {
                                 this.playing = false;
                                 audioEl.pause();
 								if(!this.model.get('loop')) {
