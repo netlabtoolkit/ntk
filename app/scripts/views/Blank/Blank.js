@@ -39,8 +39,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             // Call any custom DOM events here
             this.model.set({
                 title: 'Blank',
-                testIt: false,
-                testAnother: false,
+                limit: true,
             });
 
             // If you want to register your own signal processing function, push them to signalChainFunctions
@@ -77,7 +76,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				'font':"'Helvetica Neue', sans-serif",
 				'displayInput':false,
 				'min': 0,
-				'max': 500,
+				'max': 1023,
 				'change' : function (v) { self.model.set('in', parseInt(v)); }
 			});
 
@@ -87,33 +86,26 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				$(el).val(value);
 				$(el).trigger('change');
 			};
-            
-            this.lastTestIt = false;
         },
 
         onModelChange: function(model) {
             var diff = model.changedAttributes();
-            console.log('-------------- CHANGED ATTS');
-            for (var att in diff) {
-                console.log(att + ": " + model.changedAttributes()[att], '----------------');
-            }
 
             if (model.changedAttributes().testAnother === undefined) {
 				utils.async(function() {
 					this.model.set('testAnother',!this.model.get('testAnother'));
 				}, this);
             }
-            this.lastTestIt = this.model.get('testIt');
         },
 		// Any custom function can be attached to the widget like this "limitServoRange" function
 		// and can be accessed via this.limitServoRange();
         limitRange: function(input) {
-            console.log("signalChain: " + input);
-            /*var output = input;
+            var output = input;
             output = Math.max(output, 0);
-            output = Math.min(output, 500);
-            return Number(output);*/
-            return input;
+            if (this.model.get('limit')) {
+                output = Math.min(output, 512);
+            }
+            return Number(output);
         },
 
 	});

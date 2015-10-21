@@ -17,7 +17,7 @@
             <div class="display outvalue" rv-text="widget:out | rounded">1023</div>
             <div style="position:relative;"><input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/></div>
         </div>
-        Test <input type="checkbox" rv-checked="widget:testIt" /> 
+        Limit <input type="checkbox" rv-checked="widget:limit" /> 
     </div>
 
     <div class="widgetRight">
