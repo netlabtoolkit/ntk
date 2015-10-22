@@ -108,6 +108,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 }
             }
             
+            /*
             if(model.changedAttributes().timerLength !== undefined && !isNaN(model.changedAttributes().timerLength)) {
                 if (this.lastTimeLength != this.model.get('timerLength')) {
                     if (!this.model.get('randTime')) {
@@ -116,6 +117,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 }
                 this.lastTimeLength = this.model.get('timerLength');
             }
+            */
         },
         
         timeKeeper: function() {
