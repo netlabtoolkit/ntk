@@ -126,6 +126,50 @@
 		cursor: pointer;
 		border-bottom: 1px solid darkgrey;
 	}
+    
+    .catI-O {
+    	border-left: 7px solid #E53935; 
+    }
+    .catNETWORK {
+    	border-left: 7px solid #F4511E; 
+    }
+    .catMEDIA {
+    	border-left: 7px solid #00897B; 
+    }
+    .catGENERATOR {
+    	border-left: 7px solid #7CB342; 
+    }
+    .catLOGIC {
+    	border-left: 7px solid #1E88E5;
+    }
+    .catUI {
+    	border-left: 7px solid #8E24AA;
+    }   
+    .catNETWORK {
+        border-left: 7px solid #F4511E;
+    }
+    
+    .widgetI-O {
+    	color: #E53935; 
+    }
+    .widgetNETWORK {
+    	color: #F4511E; 
+    }
+    .widgetMEDIA {
+    	color: #00897B; 
+    }
+    .widgetGENERATOR {
+    	color: #7CB342; 
+    }
+    .widgetLOGIC {
+    	color: #1E88E5;
+    }
+    .widgetUI {
+    	color: #8E24AA;
+    }   
+    .widgetNETWORK {
+        color: #F4511E;
+    }
 
 	ul {
 		display: none;

@@ -30,7 +30,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		],
 		typeID: 'AnalogIn',
 		className: 'analogIn',
-		categories: ['input-output'],
+		categories: ['I/O'],
 		template: _.template(Template),
 		initialize: function(options) {
 			// Call the superclass constructor

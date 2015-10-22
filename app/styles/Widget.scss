@@ -438,19 +438,24 @@
         
     }
 
-    .typeIn {
-    	background-color: #FFCC80; 
+    .typeIO {
+    	background-color: #E53935; 
     }
-    .typeProcess {
-    	background-color: #A1887F;
-    }
-    .typeOut {
-    	background-color: #81D4FA;
+    .typeNetwork {
+    	background-color: #F4511E; 
     }
     .typeMedia {
-    	background-color: #90A4AE;
+    	background-color: #00897B; 
     }
-
+    .typeGenerator {
+    	background-color: #7CB342; 
+    }
+    .typeLogic {
+    	background-color: #1E88E5;
+    }
+    .typeUI {
+    	background-color: #8E24AA;
+    }
 }
 
 .detachedEl {

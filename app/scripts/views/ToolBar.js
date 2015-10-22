@@ -35,10 +35,11 @@ function( app, Backbone, Template, Widgets ) {
 
 			for(var categoryName in sortedWidgets) {
 				var categoryEl = document.createElement('div'),
-					categoryUl = document.createElement('ul');
+					categoryUl = document.createElement('ul'),
+                    categoryClasses = 'category cat' + categoryName.replace('/','-');
 
 				$(categoryEl)
-					.addClass('category')
+					.addClass(categoryClasses)
 					.text(categoryName)
 					.click(function categoryClick(e) {
 						$(this).next('ul').toggle();
@@ -50,10 +51,11 @@ function( app, Backbone, Template, Widgets ) {
 
 					for(var j=0; j <= categoryWidgets.length-1; j++) {
 						var widgetEl = document.createElement('li'),
-							widgetName = categoryWidgets[j]
-						
+							widgetName = categoryWidgets[j],
+                            widgetClasses = 'addWidget widget' + categoryName.replace('/','-');
+                        
 						$(widgetEl)
-							.addClass('addWidget')
+							.addClass(widgetClasses)
 							.data('widgetType', widgetName)
 							.text(widgetName)
 							.on('click', function(e) {
@@ -99,7 +101,7 @@ function( app, Backbone, Template, Widgets ) {
 				if(widget.categories.length > 0) {
 					var widgetCategories = widget.categories;
 					for(var j=widgetCategories.length-1; j>=0; j--) {
-						var category = widgetCategories[j];
+						var category = widgetCategories[j].toUpperCase();
 
 						if(categories[category] == undefined) {
 							categories[category] = [];

@@ -1,5 +1,5 @@
 <div class="widgetAuthoring">
-    <div class="widgetTop typeProcess">
+    <div class="widgetTop typeLogic">
         <div class="title dragHandle">
         { widget:title } <div class="remove">×</div>
         </div>
