@@ -22,6 +22,12 @@ function(){
 
 			window.requestAnimationFrame( this.tick.bind(this) );
 		},
+		/**
+		 * Register a callback that will be called on each frame
+		 *
+		 * @param {function} callback
+		 * @param {object} context
+		 */
 		registerFrameCallback: function(callback, context) {
 			var boundCallback = callback.bind(context);
 			var indexIfExists = this.originalCallbacks.indexOf(boundCallback);

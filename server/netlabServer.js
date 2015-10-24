@@ -7,7 +7,7 @@
 /////////////////////////////////
 
 // Create a hardware device
-var deviceType = process.argv[2] || 'arduino',
+var deviceType = process.argv[2] || 'ArduinoUno',
 	nlHardware = require('./modules/nlHardware/Hardware'),
 	socketIO = require('socket.io');
 
@@ -15,7 +15,9 @@ var deviceType = process.argv[2] || 'arduino',
 var serverPort = 9001;
 
 // The currently selected/attached hardware device
-var deviceController = new nlHardware({deviceType: deviceType});
+var deviceControllers = {};
+deviceControllers[deviceType] = new nlHardware({deviceType: deviceType}).model;
+//deviceControllers['osc'] = new nlHardware({deviceType: 'osc'}).model;
 
 // Create a WEB SERVER then create a transport tied to the webserver
 //var NLWebServer = require('./modules/nlWebServer/nlWebServer');
@@ -28,8 +30,8 @@ nlWebServer.start()
 		var io = socketIO.listen(server),
 			serverActivated = true;
 
-		// Passing the deviceController model to the clientSync before having the server specific version
-		var clientSync = require('./modules/nlMultiClientSync/nlMultiClientSync')({transport: io, model: deviceController.model});
+		// Passing the deviceControllers model to the clientSync before having the server specific version
+		var clientSync = require('./modules/nlMultiClientSync/nlMultiClientSync')({transport: io, model: deviceControllers });
 
 		// Bind loading a new file directly from the client
 		nlWebServer.on('loadPatch', function(options) {
@@ -68,13 +70,13 @@ nlWebServer.start()
 				console.log('client takes over, standalone system stopping');
 				serverActivated = false;
 				phantomChild.kill();
-				deviceController.setPollSpeed('fast');
+				deviceControllers['ArduinoUno'].setPollSpeed('fast');
 				clientSync.emit('notify:serverActive', false);
 			}
 			else {
 				console.log('client rescinds control, standalone system starting');
 				serverActivated = true;
-				deviceController.setPollSpeed('slow');
+				deviceControllers['ArduinoUno'].setPollSpeed('slow');
 				phantomChild = childProcess.execFile(binPath, childArgs);
 				clientSync.emit('notify:serverActive', true);
 			}

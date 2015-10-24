@@ -8,10 +8,10 @@ module.exports = function(options) {
 
 	//domain.run(function() {
 
-		var deviceType = options.deviceType || 'arduino';
+		var deviceType = options.deviceType || 'ArduinoUno';
 
 		var modelMap = {
-			arduino: './ArduinoModel',
+			ArduinoUno: './ArduinoModel',
 			osc: './OSC',
 			galileo: './Galileo2Model',
 			edison: './EdisonModel',
@@ -26,6 +26,7 @@ module.exports = function(options) {
 
 		Hardware = {
 			model: model,
+			modelType: deviceType,
 			setPollSpeed: function(highLow) {
 				this.model.setPollSpeed(highLow);
 			},
