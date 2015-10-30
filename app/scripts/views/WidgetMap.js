@@ -68,7 +68,7 @@ function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, 
 		'CloudOut': CloudOut,
         'Webhook': Webhook,
 
-		//'OSCIn': OSCIn,
+		'OSCIn': OSCIn,
 
 	};
 });

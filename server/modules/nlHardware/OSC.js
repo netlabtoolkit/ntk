@@ -6,30 +6,25 @@ module.exports = function(attributes) {
 		events = require('events');
 		es6 = require('es6-shim');
 
-	events.EventEmitter.call(this);
-	_.extend(this, events.EventEmitter.prototype);
+	var constructor = function() {
+		this.OSCClient = new osc.Client('127.0.0.1', 57120);
+		var OSCServer = new osc.Server(57120, '0.0.0.0');
+
+		OSCServer.on("message", function (msg, rinfo) {
+			var field = msg[0],
+			value = msg[1];
+
+			this.set(field, value);
+		}.bind(this));
+
+
+		this.OSCServer = OSCServer;
+
+		return this;
+	};
 
 	// Base HardwareModel class
 	var OSCHardwareModel = {
-		init: function() {
-			this.OSCClient = new osc.Client('127.0.0.1', 57120);
-			var OSCServer = new osc.Server(57120, '0.0.0.0'),
-				self = this;
-
-			OSCServer.on("message", function (msg, rinfo) {
-				var field = msg[0],
-					value = msg[1];
-
-				console.log('message!', msg, self.receiving, self.receiving[field]);
-
-				self.set(field, value);
-			});
-
-
-			this.OSCServer = OSCServer;
-
-			return this;
-		},
 		get: function(field) {
 			return this.receiving[field];
 		},
@@ -41,7 +36,6 @@ module.exports = function(attributes) {
 				}
 			}
 			else if(this.receiving[field] !== undefined) {
-				console.log('received', field, value, parseInt(this.receiving[field], 10), parseInt( value, 10) );
 				if(parseInt(this.receiving[field], 10) !== parseInt( value, 10 )) {
 					this.receiving[field] = value;
 					this.emit('change', {field: field, value: this.receiving[field]});
@@ -49,11 +43,17 @@ module.exports = function(attributes) {
 			}
 			return this;
 		},
+		setPollSpeed: function(highLow) {
+		},
 	};
-	_.extend(this, OSCHardwareModel);
+	_.extend(constructor.prototype, OSCHardwareModel);
 
+	// EVENTS
+	events.EventEmitter.call(constructor.prototype);
+	_.extend(constructor.prototype, events.EventEmitter.prototype);
 
-	_.extend(this, {
+	// MODEL PROPERTIES
+	_.extend(constructor.prototype, {
 		type: 'OSC',
 		receiving: {
 			'ntkReceiveMsg': 0,
@@ -63,7 +63,7 @@ module.exports = function(attributes) {
 		},
 	});
 
-	_.extend(this, attributes);
+	_.extend(constructor.prototype, attributes);
 
-	return this;
+	return new constructor();
 };

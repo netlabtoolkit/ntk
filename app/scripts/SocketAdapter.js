@@ -154,7 +154,6 @@ function( Backbone ) {
 			window.app.vent.on('ToolBar:toggleServer', function(options) {
 				socket.emit('client:toggleServer');
 				window.app.serverMode = !window.app.serverMode;
-				console.log('serverMode', window.app.serverMode);
 			});
 		},
 	};

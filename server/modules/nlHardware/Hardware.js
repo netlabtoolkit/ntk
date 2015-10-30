@@ -20,11 +20,10 @@ module.exports = function(options) {
 			outputs = {};
 
 
-		var model = require(modelMap[deviceType])();
-		model.init();
+		var model = new require(modelMap[deviceType])();
 		this.model = model;
 
-		Hardware = {
+		var Hardware = {
 			model: model,
 			modelType: deviceType,
 			setPollSpeed: function(highLow) {

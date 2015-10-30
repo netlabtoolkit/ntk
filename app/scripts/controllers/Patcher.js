@@ -12,6 +12,7 @@ define([
 	'models/ModelMap',
 	'views/WidgetMap',
 	'models/WidgetConfig',
+	'models/OSC',
 	'views/AnalogIn/AnalogIn',
 	'views/AnalogOut/AnalogOut',
 	'views/Image/Image',
@@ -22,7 +23,7 @@ define([
     'views/Splitter/Splitter',
     'views/item/RestrictiveOverlay',
 ],
-function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, AnalogInView, AnalogOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, SplitterView, RestrictiveOverlayView){
+function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, SplitterView, RestrictiveOverlayView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -89,6 +90,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			window.app.vent.on('ToolBar:loadPatch', this.loadPatch, this);
 			window.app.vent.on('ToolBar:clearPatch', this.clearPatch, this);
 			window.app.vent.on('receivedDeviceModelUpdate', function(data) {
+				data = JSON.parse(data);
 				var serverAddress = window.location.host;
 				//var hardwareModel = this.getHardwareModelInstance(data.modelType, serverAddress);
 				var hardwareModel = this.hardwareModelInstances[data.modelType + ':' + serverAddress];
@@ -194,7 +196,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
                 else if(widgetType === 'OSCIn') {
 					var newWidget = new OSCInView({
 						model: newModel,
-						outputMapping: 'D9',
+						inputMapping: 'ntkReceiveMsg',
 					});
 
 					this.addWidgetToStage(newWidget, addedFromLoader);
@@ -202,8 +204,8 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					if(!addedFromLoader) {
 						this.mapToModel({
 							view: newWidget,
-							IOMapping: {sourceField: "ntkReceiveMsg", destinationField: 'in'},
 							modelType: 'OSC',
+							IOMapping: {sourceField: "ntkReceiveMsg", destinationField: 'in'},
 							server: serverAddress,
 						}, addedFromLoader);
 					}

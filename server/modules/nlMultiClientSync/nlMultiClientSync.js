@@ -10,15 +10,14 @@ module.exports = function(options) {
 		self = this;
 
 		options.transport ? this.transport = options.transport : undefined;
-		// THIS IS WHAT WE WILL SPLIT APART
-		//options.model ? this.model = options.model : undefined;
-		options.model ? this.model = options.model : undefined;
-		//this.model && this.bindModelToTransport(this.model);
+		options.models ? this.hardwareModels = options.models : undefined;
 
 		// Loop through all devices and bind them
-		for(var deviceType in this.model) {
-			this.bindModelToTransport(this.model[deviceType]);
+		for(var deviceType in this.hardwareModels) {
+			this.bindModelToTransport(this.hardwareModels[deviceType]);
 		}
+
+
 		this.masterPatch = [];
 		this.serverActive = true;
 
@@ -74,8 +73,8 @@ module.exports = function(options) {
 		bindModelToTransport: function(model) {
 			// Listen for changes made on the hardware to update the front-end
 			model.on('change', function(options) {
-				self.transport.emit('receivedModelUpdate', {modelType: model.type, field: options.field, value: options.value});
-			});
+				this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: model.type, field: options.field, value: options.value}));
+			}.bind(this));
 		},
 		/**
 		 * Loads a patch from a file and sets the patch as our master model reference
@@ -123,11 +122,9 @@ module.exports = function(options) {
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			socket.on('sendModelUpdate', function(options) {
 				var modelType = options.modelType;
-				console.log('modelType', modelType);
 
 				for(var field in options.model) {
-					var selectedModel = self.model[modelType];
-					console.log('selected', selectedModel);
+					var selectedModel = self.hardwareModels[modelType];
 
 					if(selectedModel.outputs[field] !== undefined) {
 						selectedModel.set(field, parseInt(options.model[field], 10));
@@ -138,10 +135,10 @@ module.exports = function(options) {
 			// Allow the front-end to switch IO modes on the device
 			socket.on('client:changeIOMode', function(options) {
 				var options = JSON.parse(options),
-					modelType = options.modelType;
+					modelType = options.deviceType;
 
 				if(options.port && options.mode) {
-					self.model[modelType].setIOMode(options.port, options.mode);
+					self.hardwareModels[modelType].setIOMode(options.port, options.mode);
 				}
 
 			});

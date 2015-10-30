@@ -90,7 +90,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			if(outputMapping) {
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
-				window.app.vent.trigger('Widget:hardwareSwitch', {port: outputMapping, mode: this.deviceMode} );
+				// Do this for all sources and include the address of the source
+				for(var i=this.sources.length-1; i>=0; i--) {
+					window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: this.sources[i].model.get('type'), port: outputMapping, mode: this.deviceMode} );
+				}
 			}
 		},
 		makeDraggable: function() {

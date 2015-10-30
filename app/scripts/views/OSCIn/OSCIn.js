@@ -23,6 +23,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'OSCIn',
 		className: 'oscIn',
+		categories: ['Network'],
 		template: _.template(Template),
 
 		initialize: function(options) {
@@ -31,12 +32,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
             // Call any custom DOM events here
 			this.model.set('title', 'OSCIn');
-
-			// This is here because this widget effectively does not output (only outputs to hardware and then, only on server)
-			// So we go ahead and process so the output can be shown in the widget
-			//if(!app.server) {
-				this.model.on('change', this.processSignalChain, this);
-			//}
 		},
 
 	});

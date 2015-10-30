@@ -15,6 +15,12 @@ function( Backbone, HardwareModel ) {
 		// Need to update for separated inputs/outputs
 		defaults: {
 			type: "OSC",
+			inputs: {
+				ntkReceiveMsg: 0,
+			},
+			outputs: {
+				ntkSendMsg: 0,
+			},
 			ntkReceiveMsg: 0,
 			ntkSendMsg: 0,
 		},

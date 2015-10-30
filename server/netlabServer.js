@@ -6,7 +6,7 @@
 //});
 /////////////////////////////////
 
-// Create a hardware device
+// Create hardware device factory
 var deviceType = process.argv[2] || 'ArduinoUno',
 	nlHardware = require('./modules/nlHardware/Hardware'),
 	socketIO = require('socket.io');
@@ -14,15 +14,12 @@ var deviceType = process.argv[2] || 'ArduinoUno',
 // Some options
 var serverPort = 9001;
 
-// The currently selected/attached hardware device
+// The currently selected/attached hardware devices
 var deviceControllers = {};
 deviceControllers[deviceType] = new nlHardware({deviceType: deviceType}).model;
-//deviceControllers['osc'] = new nlHardware({deviceType: 'osc'}).model;
+deviceControllers['osc'] = new nlHardware({deviceType: 'osc'}).model;
 
 // Create a WEB SERVER then create a transport tied to the webserver
-//var NLWebServer = require('./modules/nlWebServer/nlWebServer');
-
-
 var nlWebServer = new require('./modules/nlWebServer/nlWebServer')({port: serverPort});
 
 nlWebServer.start()
@@ -31,7 +28,7 @@ nlWebServer.start()
 			serverActivated = true;
 
 		// Passing the deviceControllers model to the clientSync before having the server specific version
-		var clientSync = require('./modules/nlMultiClientSync/nlMultiClientSync')({transport: io, model: deviceControllers });
+		var clientSync = require('./modules/nlMultiClientSync/nlMultiClientSync')({transport: io, models: deviceControllers });
 
 		// Bind loading a new file directly from the client
 		nlWebServer.on('loadPatch', function(options) {
@@ -70,13 +67,17 @@ nlWebServer.start()
 				console.log('client takes over, standalone system stopping');
 				serverActivated = false;
 				phantomChild.kill();
-				deviceControllers['ArduinoUno'].setPollSpeed('fast');
+				for(var deviceType in deviceControllers) {
+					deviceControllers[deviceType].setPollSpeed('fast');
+				}
 				clientSync.emit('notify:serverActive', false);
 			}
 			else {
 				console.log('client rescinds control, standalone system starting');
 				serverActivated = true;
-				deviceControllers['ArduinoUno'].setPollSpeed('slow');
+				for(var deviceType in deviceControllers) {
+					deviceControllers[deviceType].setPollSpeed('slow');
+				}
 				phantomChild = childProcess.execFile(binPath, childArgs);
 				clientSync.emit('notify:serverActive', true);
 			}
