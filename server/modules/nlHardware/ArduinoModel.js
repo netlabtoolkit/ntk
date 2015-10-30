@@ -101,7 +101,12 @@ module.exports = function(attributes) {
 		setHardwarePin: function(field, value) {
 			var outputField = this.outputs[field];
 
-			if(outputField !== undefined && field === 'D3' || field === 'D5' || field === 'D6' || field === 'D9' || field === 'D10' || field === 'D11' || field === 'D11') {
+			if(outputField !== undefined && field === 'D3' 
+			|| field === 'D5'
+			|| field === 'D6'
+			|| field === 'D9'
+			|| field === 'D10'
+			|| field === 'D11') {
 				var pinMode = outputField.pin.mode;
 
 				// Check which pinmode is set on the pin to detemine which method to call
