@@ -126,9 +126,7 @@ module.exports = function(options) {
 				for(var field in options.model) {
 					var selectedModel = self.hardwareModels[modelType];
 
-					if(selectedModel.outputs[field] !== undefined) {
-						selectedModel.set(field, parseInt(options.model[field], 10));
-					}
+					selectedModel.set(field, parseInt(options.model[field], 10));
 				}
 			});
 

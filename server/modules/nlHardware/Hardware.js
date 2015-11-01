@@ -12,7 +12,7 @@ module.exports = function(options) {
 
 		var modelMap = {
 			ArduinoUno: './ArduinoModel',
-			osc: './OSC',
+			OSC: './OSC',
 			galileo: './Galileo2Model',
 			edison: './EdisonModel',
 		};

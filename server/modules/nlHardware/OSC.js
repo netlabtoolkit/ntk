@@ -8,7 +8,7 @@ module.exports = function(attributes) {
 
 	var constructor = function() {
 		this.OSCClient = new osc.Client('127.0.0.1', 57120);
-		var OSCServer = new osc.Server(57120, '0.0.0.0');
+		var OSCServer = new osc.Server(57190, '0.0.0.0');
 
 		OSCServer.on("message", function (msg, rinfo) {
 			var field = msg[0],
@@ -32,7 +32,7 @@ module.exports = function(attributes) {
 			if(this.sending[field] !== undefined) {
 				if(parseInt(this.sending[field],10) !== parseInt(value,10)) {
 					this.sending[field] = value;
-					OSCClient.send(field, value);
+					this.OSCClient.send("/"+field, value);
 				}
 			}
 			else if(this.receiving[field] !== undefined) {

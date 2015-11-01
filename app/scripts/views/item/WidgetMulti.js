@@ -503,6 +503,14 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			return this;
 		},
+		setAsHardwareOutput: function setAsHardwareOutput() {
+			this.onModelChange = function(model) {
+				for(var i=this.sources.length-1; i>=0; i--) {
+					this.syncWithSource(this.sources[i].model);
+				}
+			};
+			console.log('setting', this.onModelChange);
+		},
 	});
 
 });

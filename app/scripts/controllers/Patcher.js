@@ -20,10 +20,11 @@ define([
 	'views/Blank/Blank',
     'views/Servo/Servo',
     'views/OSCIn/OSCIn',
+    'views/OSCOut/OSCOut',
     'views/Splitter/Splitter',
     'views/item/RestrictiveOverlay',
 ],
-function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, SplitterView, RestrictiveOverlayView){
+function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, SplitterView, RestrictiveOverlayView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -206,6 +207,25 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 							view: newWidget,
 							modelType: 'OSC',
 							IOMapping: {sourceField: "ntkReceiveMsg", destinationField: 'in'},
+							server: serverAddress,
+						}, addedFromLoader);
+					}
+
+					return newWidget;
+                }
+                else if(widgetType === 'OSCOut') {
+					var newWidget = new OSCOutView({
+						model: newModel,
+						outputMapping: 'ntkSendMsg',
+					});
+
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
+					if(!addedFromLoader) {
+						this.mapToModel({
+							view: newWidget,
+							IOMapping: {sourceField: "out", destinationField: "ntkSendMsg"},
+							modelType: 'OSC',
 							server: serverAddress,
 						}, addedFromLoader);
 					}
