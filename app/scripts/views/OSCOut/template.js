@@ -9,6 +9,7 @@
         <div class='inlets'>
             <div rv-each-inlet="widget:ins" rv-title="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
         </div>
+    </div>
 
 
     <div class="widgetBody">
