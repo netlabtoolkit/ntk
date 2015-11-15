@@ -431,12 +431,14 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
                     // update the input of the widget
 					thisWidgetModel.set(mapping.destinationField, externalModel.get(mapping.sourceField));
 				}
-				else if(thisWidgetModel.get('active') && thisWidgetModel.get('activeOut') && externalModel.attributes[mapping.destinationField] !== undefined) {
+				//else if(thisWidgetModel.get('active') && thisWidgetModel.get('activeOut') && externalModel.attributes[mapping.destinationField] !== undefined) {
+				else if(thisWidgetModel.get('active') && thisWidgetModel.get('activeOut')) {
                     // update the output of the widget where hardware such as Arduino is involved
 					if(externalModel.attributes[thisWidgetModel.get('outputMapping')] !== thisWidgetModel.get(mapping.sourceField)) {
 						var attributes = {};
 						attributes[thisWidgetModel.get('outputMapping')] = thisWidgetModel.get(mapping.sourceField);
 
+						console.log('att', attributes, externalModel);
 						externalModel.set(attributes, {fromServer:false});
 					}
 

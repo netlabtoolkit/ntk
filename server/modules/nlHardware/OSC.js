@@ -45,6 +45,10 @@ module.exports = function(attributes) {
 		},
 		setPollSpeed: function(highLow) {
 		},
+		setIOMode: function setPinMode(pin, mode) {
+			this.sending[pin] = 0;
+			this.receiving[pin] = 0;
+		},
 	};
 	_.extend(constructor.prototype, OSCHardwareModel);
 

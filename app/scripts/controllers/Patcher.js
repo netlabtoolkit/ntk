@@ -482,9 +482,9 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 						// Check all the changed attributes
 						for(attribute in changedAttributes) {
 							// and see if the attribute exists in the outputs section of this model
-							if(newModelInstance.attributes.outputs[attribute] !== undefined) {
+							//if(newModelInstance.attributes.outputs[attribute] !== undefined) {
 								window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: model});
-							}
+							//}
 						}
 					});
 				//}

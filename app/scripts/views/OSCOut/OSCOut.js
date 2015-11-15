@@ -3,42 +3,49 @@ define([
     'rivets',
 	'views/item/WidgetMulti',
 	'text!./template.js',
+    'jqueryknob',
 
-	'utils/SignalChainFunctions',
-	'utils/SignalChainClasses',
 ],
-function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalChainClasses){
-    'use strict';
+function(Backbone, rivets, WidgetView, Template, jqueryknob){
+	'use strict';
 
 	return WidgetView.extend({
-		// Define the inlets
+		typeID: 'OSCOut',
+		deviceMode: 'PWM',
+		categories: ['Network'],
+		className: 'oscOut',
+		template: _.template(Template),
+
 		ins: [
 			{title: 'input', to: 'in'},
 		],
 		outs: [
 			{title: 'output', from: 'in', to: 'out'},
 		],
-        // Any custom DOM events should go here (Backbone style)
-        widgetEvents: {},
-		// typeID us the unique ID for this widget. It must be a unique name as these are global.
-		typeID: 'OSCOut',
-		className: 'oscOut',
-		categories: ['Network'],
-		template: _.template(Template),
-
+		sources: [],
 		initialize: function(options) {
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
-
-			console.log(options.outputMapping);
-            // Call any custom DOM events here
 			this.model.set({
 				title: 'OSCOut',
 				outputMapping: options.outputMapping,
                 activeOut: true,
 			});
 
-			this.model.on('change', this.processSignalChain, this);
+            this.signalChainFunctions.push(this.limitRange);
+
+			// This is here because this widget effectively does not output (only outputs to hardware and then, only on server)
+			// So we go ahead and process so the output can be shown in the widget
+			//if(!app.server) {
+				this.model.on('change', this.processSignalChain, this);
+			//}
+
+		},
+
+		onModelChange: function(model) {
+			for(var i=this.sources.length-1; i>=0; i--) {
+				this.syncWithSource(this.sources[i].model);
+			}
 		},
         onRender: function() {
 			// always call the superclass
@@ -55,7 +62,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				'font':"'Helvetica Neue', sans-serif",
 				'displayInput':false,
 				'min': 0,
-				'max': 255,
+				'max': 1023,
 				'change' : function (v) { this.model.set('in', parseInt(v)); }.bind(this)
 			});
 
@@ -66,11 +73,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			};
         },
 
-		onModelChange: function(model) {
-			for(var i=this.sources.length-1; i>=0; i--) {
-				this.syncWithSource(this.sources[i].model);
-			}
-		},
-
+        limitRange: function(input) {
+            var output = input;
+            output = Math.max(output, 0);
+            output = Math.min(output, 1023);
+            return Number(output);
+        },
 	});
 });
