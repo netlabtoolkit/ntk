@@ -247,6 +247,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {void}
 		 */
 		onDrop: function(e, ui, model) {
+
+			// REMOVE ANY CURRENTLY MAPPED INLETS
+			this.unMapInlet(e, ui);
+
 			var sourceField = ui.draggable[0].dataset.field,
 				destinationField = e.target.dataset.field;
 
@@ -286,14 +290,16 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.sourceToRemove = _.find(this.sources, function(item){ return item.map.destinationField === inletField; });
 			this.sources = _.reject(this.sources, function(item){ return item.map.destinationField === inletField; });
 
-			// Remove the cable and the reference to the cable from the cables array
-			var cableToRemove = _.find(this.cables, function(item) { return item.map.destinationField === inletField});
+			if(this.sourceToRemove) {
+				// Remove the cable and the reference to the cable from the cables array
+				var cableToRemove = _.find(this.cables, function(item) { return item.map.destinationField === inletField});
 
-			//window.app.vent.trigger('Widget:removeMapping', cableToRemove.map, this.model.get('wid') );
-			window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
+				//window.app.vent.trigger('Widget:removeMapping', cableToRemove.map, this.model.get('wid') );
+				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
 
-			cableToRemove.cable.remove();
-			this.cables = _.reject(this.cables, function(item) { return item.map.destinationField === inletField});
+				cableToRemove.cable.remove();
+				this.cables = _.reject(this.cables, function(item) { return item.map.destinationField === inletField});
+			}
 
 		},
 		removeMapping: function removeMapping(modelWID) {
