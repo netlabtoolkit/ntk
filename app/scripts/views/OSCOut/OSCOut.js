@@ -36,10 +36,12 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 			// This is here because this widget effectively does not output (only outputs to hardware and then, only on server)
 			// So we go ahead and process so the output can be shown in the widget
-			//if(!app.server) {
-				this.model.on('change', this.processSignalChain, this);
-			//}
+			this.model.on('change', this.processSignalChain, this);
 
+			// SGC: OK, small hack for async issues
+			window.setTimeout(function() {
+				window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: 'OSC', port: this.model.get('outputMapping') });
+			}.bind(this), 200);
 		},
 
 		onModelChange: function(model) {

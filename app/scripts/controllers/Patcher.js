@@ -214,9 +214,17 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					return newWidget;
                 }
                 else if(widgetType === 'OSCOut') {
+					var defaultMapping = 'ntkSendMsg';
+
+					// Check if we are already using this output pin, don't use it if we are
+					var existingMapping = _.find(this.widgetMappings, function(map) {
+						return map.map.destinationField === defaultMapping;
+					});
+					var defaultOutputMapping = existingMapping ? '' : defaultMapping;
+
 					var newWidget = new OSCOutView({
 						model: newModel,
-						outputMapping: 'ntkSendMsg',
+						outputMapping: defaultOutputMapping,
 					});
 
 					this.addWidgetToStage(newWidget, addedFromLoader);
@@ -224,7 +232,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					if(!addedFromLoader) {
 						this.mapToModel({
 							view: newWidget,
-							IOMapping: {sourceField: "out", destinationField: "ntkSendMsg"},
+							IOMapping: {sourceField: "out", destinationField: defaultOutputMapping},
 							modelType: 'OSC',
 							server: serverAddress,
 						}, addedFromLoader);
@@ -482,9 +490,9 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 						// Check all the changed attributes
 						for(attribute in changedAttributes) {
 							// and see if the attribute exists in the outputs section of this model
-							//if(newModelInstance.attributes.outputs[attribute] !== undefined) {
+							if(newModelInstance.attributes.outputs[attribute] !== undefined) {
 								window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: model});
-							//}
+							}
 						}
 					});
 				//}

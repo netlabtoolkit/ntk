@@ -438,7 +438,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 						var attributes = {};
 						attributes[thisWidgetModel.get('outputMapping')] = thisWidgetModel.get(mapping.sourceField);
 
-						console.log('att', attributes, externalModel);
 						externalModel.set(attributes, {fromServer:false});
 					}
 
@@ -511,7 +510,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					this.syncWithSource(this.sources[i].model);
 				}
 			};
-			console.log('setting', this.onModelChange);
 		},
 	});
 

@@ -12,7 +12,15 @@ function( Backbone, HardwareModel ) {
      */
 	var OSC = HardwareModel.extend({
 
-		// Need to update for separated inputs/outputs
+		initialize: function initialize() {
+			window.app.vent.on('Widget:hardwareSwitch', function(options) {
+				if(options.deviceType == this.get('type') ) {
+					if(this.get('outputs')[options.port] == undefined) {
+						this.get('outputs')[options.port] = 0;
+					}
+				}
+			}.bind(this));
+		},
 		defaults: {
 			type: "OSC",
 			inputs: {
