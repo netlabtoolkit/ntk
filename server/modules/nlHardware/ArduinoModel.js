@@ -87,7 +87,9 @@ module.exports = function(attributes) {
 			if(this.outputs[field] !== undefined) {
 				if(parseInt(this.outputs[field],10) !== parseInt(value,10)) {
 					this.outputs[field].value = value;
-					this.setHardwarePin(field, value);
+					if(this.connected) {
+						this.setHardwarePin(field, value);
+					}
 				}
 			}
 			else if(this.inputs[field] != undefined) {
