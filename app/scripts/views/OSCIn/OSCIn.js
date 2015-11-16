@@ -33,6 +33,46 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             // Call any custom DOM events here
 			this.model.set('title', 'OSCIn');
 		},
+		onRender: function() {
+			WidgetView.prototype.onRender.call(this);
+			var self = this;
+
+			this.$('.dial').knob({
+				'fgColor':'#000000',
+				'bgColor':'#ffffff',
+				'inputColor' : '#000000',
+				'angleOffset':-125,
+				'angleArc':250,
+				'width':80,
+				'height':62,
+				'font':"'Helvetica Neue', sans-serif",
+				'displayInput':false,
+				'min': 0,
+				'max': 1023,
+				'change' : function (v) { this.model.set('in', parseInt(v)); }.bind(this)
+			});
+
+
+			rivets.binders.knob = function(el, value) {
+				el.value = value;
+				$(el).val(value);
+				$(el).trigger('change');
+			};
+
+
+		},
+		onModelChange: function onModelChange(model) {
+			console.log(model.changedAttributes() );
+			var outputMapping = model.changedAttributes().outputMapping;
+
+			if(outputMapping) {
+				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
+				// Do this for all sources and include the address of the source
+				for(var i=this.sources.length-1; i>=0; i--) {
+					window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: this.sources[i].model.get('type'), port: outputMapping, mode: this.deviceMode} );
+				}
+			}
+		},
 
 	});
 });
