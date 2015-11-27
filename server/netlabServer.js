@@ -1,10 +1,6 @@
-'use strict';
 
-// stop gap to handle when no board is plugged in. Will switch to domain when we setup a proper server
-//process.on('uncaughtException', function(err) {
-	  //console.log('Caught exception on MAIN THREAD: ' + err);
-//});
-/////////////////////////////////
+module.exports = function(options) {
+'use strict';
 
 // Create hardware device factory
 var deviceType = process.argv[2] || 'ArduinoUno',
@@ -16,7 +12,7 @@ var serverPort = 9001;
 
 // The currently selected/attached hardware devices
 var deviceControllers = {};
-deviceControllers[deviceType] = new nlHardware({deviceType: deviceType}).model;
+//deviceControllers[deviceType] = new nlHardware({deviceType: deviceType}).model;
 deviceControllers['OSC'] = new nlHardware({deviceType: 'OSC'}).model;
 
 // Create a WEB SERVER then create a transport tied to the webserver
@@ -84,3 +80,4 @@ nlWebServer.start()
 		});
 	});
 
+};
