@@ -12,7 +12,7 @@ var serverPort = 9001;
 
 // The currently selected/attached hardware devices
 var deviceControllers = {};
-//deviceControllers[deviceType] = new nlHardware({deviceType: deviceType}).model;
+deviceControllers[deviceType] = new nlHardware({deviceType: deviceType}).model;
 deviceControllers['OSC'] = new nlHardware({deviceType: 'OSC'}).model;
 
 // Create a WEB SERVER then create a transport tied to the webserver
