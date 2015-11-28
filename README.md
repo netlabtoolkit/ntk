@@ -22,10 +22,12 @@ Installation
 
 If you only want to run NTK, there is a simple installation procedure:
 
-<http://netlabtoolkit.org/download/>
+<http://netlabtoolkit.org/download/>  
 <http://www.netlabtoolkit.org/install-ntk/>
 
+
 For development purposes, use the below installation process:
+---------------------
 
 ### Node, NPM (one time only)
 
@@ -56,9 +58,9 @@ sudo gem update --system -n /usr/local/bin
 sudo gem install -n /usr/local/bin sass
 ```
 Ref: <https://github.com/sass/sass/issues/1768>
-### Current version of NTK
+### Current Build System for NTK
 
-To install this version of NETLab Toolkit:
+To install the build system and source for this version of NETLab Toolkit:
 ```
 git clone https://github.com/netlabtoolkit/ntk.git
 cd ntk
@@ -69,7 +71,7 @@ npm run build
 Note: if you are running Linux, you will have to set proper permissions on your Arduino in order to use it.
 For instance:
 ```
-# Linux users only. After inserting an Arduino you will need to set permissions so NTK can access it.
+# Linux users only
 sudo chmod a+rw /dev/ttyUSB0
 ```
 
