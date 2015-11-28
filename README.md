@@ -29,14 +29,12 @@ For development purposes, use the below installation process:
 
 ### Node, NPM (one time only)
 
-You must first install node and npm if you have not already done so. 
+You must first install node and npm if you have not already done so.
 
-**NOTE**: Due to a library conflict (node-serialport) NTK is not yet compatible with the current version of Nodejs. You must use Node v0.12.7 or earlier, or io.js v2.5.0 or earlier.
+**NOTE**: Due to a library conflict (node-serialport) NTK is not yet compatible with the current version of Nodejs. You must use Node v4.2.2.
 
 * Mac or Windows - Install Node and NPM from the official [Node.js website](http://nodejs.org/en/blog/release/v0.12.7/), using their standard installer for version 0.12.7.
-* Linux – You most likely have Node/NPM already installed. If you are on Raspberry Pi, then you may have an outdated version of Node. Here’s a nice & easy upgrade method: https://github.com/DonaldDerek/rPi-cheat-sheet
-
-Alternate approaches for installation are here: https://gist.github.com/isaacs/579814
+* Linux – You most likely have Node/NPM already installed but can also install via your distribution's [https://nodejs.org/en/download/package-manager/](package manager).
 
 If you are on a Mac, you may need to install the Xcode command line tools by installing Xcode (free from the Mac app store).
 
@@ -71,23 +69,33 @@ npm run build
 Note: if you are running Linux, you will have to set proper permissions on your Arduino in order to use it.
 For instance:
 ```
-# Linux users only
+# Linux users only. After inserting an Arduino you will need to set permissions so NTK can access it.
 sudo chmod a+rw /dev/ttyUSB0
 ```
 
 Starting the server
 ---------------------
-To run NTK as a **standard application**:
+To run NTK as a **standard command-line application**:
 
 ```
 npm start
 ```
-Note: if you've made any changes or this is the first time you are running it, you should rerun npm run build before npm start.
+Note: if you've made any changes or this is the first time you are running it, you should rerun "npm run build" before "npm start".
 
 To run NTK as a **live-reload development server**, run grunt by:
 ```
 npm run dev
 ```
+
+To Build a Distributable Application
+---------------------
+After installing bower, SASS, requirejs build tool, etc. as noted above, run these commands to build:
+```
+npm run package
+```
+
+This will place the distributable builds in a folder named "packaged" in the main NTK directory.
+
 
 Creating a New Widget
 ---------------------
