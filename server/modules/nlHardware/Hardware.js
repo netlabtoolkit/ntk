@@ -20,7 +20,7 @@ module.exports = function(options) {
 			outputs = {};
 
 
-		var model = new require(modelMap[deviceType])();
+		var model = new require(modelMap[deviceType])(options);
 		this.model = model;
 
 		var Hardware = {

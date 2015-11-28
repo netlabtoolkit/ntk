@@ -28,6 +28,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set({
 				title: 'OSCOut',
+                port: 57120,
 				outputMapping: options.outputMapping,
                 activeOut: true,
 			});

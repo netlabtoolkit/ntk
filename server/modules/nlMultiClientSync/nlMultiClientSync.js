@@ -3,6 +3,7 @@ module.exports = function(options) {
 	var fs = require('fs'),
 		_ = require('underscore'),
 		events = require('events'),
+		nlHardware = require('../nlHardware/Hardware'),
 		self;
 
 	var MultiClientSync = function(options) {
@@ -121,12 +122,21 @@ module.exports = function(options) {
 			socket.emit('serverActive', self.serverActive);
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			socket.on('sendModelUpdate', function(options) {
-				var modelType = options.modelType;
+				var typeAddressPort = options.modelType.split(':');
+				var modelType = typeAddressPort[0];
 
 				for(var field in options.model) {
 					var selectedModel = self.hardwareModels[modelType];
 
-					selectedModel.set(field, parseInt(options.model[field], 10));
+					//if(selectedModel == undefined) {
+						//self.hardwareModels[modelType] = new nlHardware({deviceType: typeAddressPort[0], address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+
+						//self.bindModelToTransport(self.hardwareModels[modelType]);
+						//self.hardwareModels[modelType].set(field, parseInt(options.model[field], 10));
+					//}
+					//else {
+						selectedModel.set(field, parseInt(options.model[field], 10));
+					//}
 				}
 			});
 
@@ -136,7 +146,16 @@ module.exports = function(options) {
 					modelType = options.deviceType;
 
 				if(options.port && options.mode) {
-					self.hardwareModels[modelType].setIOMode(options.port, options.mode);
+					//if(self.hardwareModels[modelType] == undefined) {
+						//var typeAndAddress = modelType.split(':');
+						//self.hardwareModels[modelType] = new nlHardware({deviceType: typeAndAddress[0], address: typeAndAddress[1] }).model;
+						//self.bindModelToTransport(self.hardwareModels[modelType]);
+
+						//self.hardwareModels[modelType].setIOMode(options.port, options.mode);
+					//}
+					//else {
+						self.hardwareModels[modelType].setIOMode(options.port, options.mode);
+					//}
 				}
 
 			});

@@ -3,12 +3,15 @@ module.exports = function(attributes) {
 
 	var _ = require('underscore'),
 		osc = require('node-osc'),
-		events = require('events');
-		es6 = require('es6-shim');
+		events = require('events'),
+		es6 = require('es6-shim'),
+		address = attributes.address;
 
 	var constructor = function() {
-		this.OSCClient = new osc.Client('127.0.0.1', 57120);
-		var OSCServer = new osc.Server(57190, '0.0.0.0');
+		var options = attributes;
+
+		this.OSCClients = {};
+		var OSCServer = new osc.Server(57190, '127.0.0.1');
 
 		OSCServer.on("message", function (msg, rinfo) {
 			var field = msg[0],
@@ -32,7 +35,15 @@ module.exports = function(attributes) {
 			if(this.sending[field] !== undefined) {
 				if(parseInt(this.sending[field],10) !== parseInt(value,10)) {
 					this.sending[field] = value;
-					this.OSCClient.send("/"+field, value);
+					var port = 57120;
+					var client = this.OSCClients[""+port];
+
+					if(client == undefined) {
+						this.OSCClients[""+port] = new osc.Client(address, port);
+						client = this.OSCClients[""+port];
+					}
+
+					client.send("/"+field, value);
 				}
 			}
 			else if(this.receiving[field] !== undefined) {

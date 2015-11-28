@@ -18,6 +18,9 @@ function( Backbone, HardwareModel ) {
 					if(this.get('outputs')[options.port] == undefined) {
 						this.get('outputs')[options.port] = 0;
 					}
+					if(this.get('inputs')[options.port] == undefined) {
+						this.get('inputs')[options.port] = 0;
+					}
 				}
 			}.bind(this));
 		},

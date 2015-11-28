@@ -35,9 +35,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		// Create a patch loader / saver for reloading in JSON "patches"
 		this.patchLoader = new PatchLoader({
 			serverAddress: 'localhost',
-			//addFunction: (function(self) { return function() {return self.onExternalAddWidget.apply(self, arguments)}; })(this),
 			addFunction: this.onExternalAddWidget.bind(this),
-			//mapFunction: (function(self) { return function() {return self.mapToModel.apply(self, arguments)}; })(this),
 			mapFunction: this.mapToModel.bind(this),
 		});
 
@@ -463,13 +461,13 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			this.widgetMappings.splice(this.widgetMappings.indexOf(mapping), 1);
 			window.app.vent.trigger('updateModelMappings', this.widgetMappings);
 		},
-        /**
-         * Get the singleton model:server instance and if it does not yet exist, create it and return it
-         *
-         * @param {string} modelType
-         * @param {string} server
-         * @return {HardwareModel}
-         */
+		/**
+		 * Get the singleton model:server instance and if it does not yet exist, create it and return it
+		 *
+		 * @param {string} modelType
+		 * @param {string} server
+		 * @return {HardwareModel}
+		 */
 		getHardwareModelInstance: function(modelType, server) {
 			var modelServerQuery = modelType + ":" + server;
 
@@ -487,11 +485,13 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				//if(window.app.server) {
 					newModelInstance.on('change', function(model) {
 						var changedAttributes = model.changedAttributes();
+
 						// Check all the changed attributes
 						for(attribute in changedAttributes) {
 							// and see if the attribute exists in the outputs section of this model
 							if(newModelInstance.attributes.outputs[attribute] !== undefined) {
 								window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: model});
+								//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelServerQuery, model: model});
 							}
 						}
 					});

@@ -27,4 +27,11 @@
             </div>
         </div>
     </div>
+    <div class="widgetBottom">
+        <div class="tab"><p>more</p></div>
+        <div class="content">
+            <label for="port">port</label> <input name="port" type="text" rv-value="widget:port">
+        </div>
+    </div>
+
 </div>
