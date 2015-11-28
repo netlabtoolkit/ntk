@@ -7,16 +7,19 @@
     "es6-shim": "^0.22.2",
     "express": "~4.4.5",
     "formidable": "^1.0.16",
-    "johnny-five": "~0.8.78",
+    "johnny-five": "~0.9.11",
     "node-osc": "^1.1.0",
     "phantomjs": "^1.9.13",
     "socket.io": "~1.0.0",
     "underscore": "~1.4.4"
   },
   "engines": {
-    "node": ">=0.8.0"
+    "node": "4.2.2"
   },
   "scripts": {
-    "start": "node netlabServer.js"
+    "start": "node cli.js"
+  },
+  "devDependencies": {
+    "electron-prebuilt": "^0.35.1"
   }
 }
