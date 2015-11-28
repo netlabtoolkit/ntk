@@ -18,8 +18,5 @@
   },
   "scripts": {
     "start": "node cli.js"
-  },
-  "devDependencies": {
-    "electron-prebuilt": "^0.35.1"
   }
 }

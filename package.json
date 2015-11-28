@@ -5,24 +5,24 @@
     "es6-shim": "^0.22.2",
     "express": "~4.4.5",
     "formidable": "^1.0.16",
-    "johnny-five": "~0.8.78",
-    "node-osc": "^0.3.0",
-    "phantomjs": "^1.9.13",
     "request": "~2.21.0",
     "socket.io": "~1.0.0",
     "underscore": "~1.4.4"
   },
   "devDependencies": {
+    "electron-prebuilt": "^0.35.1",
+    "electron-packager": "^5.1.1",
+    "gaze": "~0.5.2",
     "matchdep": "~0.1.2",
-    "uglify-js": "~2.4.16",
-    "gaze": "~0.5.0"
+    "uglify-js": "~2.4.16"
   },
   "engines": {
-    "node": ">=0.8.0"
+    "node": "4.2.2"
   },
   "scripts": {
-    "start": "pkill phantomjs & node server/netlabServer.js",
+    "start": "pkill phantomjs & node server/cli.js",
     "build": "npm run clean && npm run optimizeRequire && npm run compileSCSS",
+    "package": "npm run build && ./buildScripts/packageElectron.sh",
     "dev": "npm run clean && npm run copyAppToDist && npm run compileSCSS && node ./buildScripts/liveReload.js & open http://localhost:9001 & npm start",
     "copyAppToDist": "cp -r ./app/* ./server/dist",
     "clean": "./buildScripts/clean.sh",

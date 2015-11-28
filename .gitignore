@@ -10,3 +10,4 @@ server/modules/nlHardware/currentPatch.json
 npm-debug.log
 .sync
 *.vim
+packaged/*
