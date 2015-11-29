@@ -33,7 +33,7 @@ function( Backbone, HardwareModel ) {
 				'ntkSendMsg:127.0.0.1:57120': 0,
 			},
 			ntkReceiveMsg: 0,
-			ntkSendMsg: 0,
+			'ntkSendMsg:127.0.0.1:57120': 0,
 		},
 
     });
