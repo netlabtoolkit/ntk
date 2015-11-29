@@ -27,8 +27,10 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
 			this.model.set({
-				title: 'OSCOut',
+				title: "OSCOut",
+                server: "127.0.0.1",
                 port: 57120,
+				messageName: "ntkSendMsg",
 				outputMapping: options.outputMapping,
                 activeOut: true,
 			});
@@ -38,6 +40,20 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			// This is here because this widget effectively does not output (only outputs to hardware and then, only on server)
 			// So we go ahead and process so the output can be shown in the widget
 			this.model.on('change', this.processSignalChain, this);
+			this.model.on('change', function(model) {
+				var changed = model.changedAttributes();
+
+				if(changed.server !== undefined
+				   || changed.port !== undefined
+				   || changed.messageName !== undefined) {
+
+					   for(var i=this.sources.length-1; i>=0; i--) {
+						   var destination = model.get('messageName') + ":" + model.get( 'server' ) + ":" + model.get( 'port' );
+						   this.sources[i].destinationField = destination;
+						   model.set('outputMapping', destination);
+					   }
+			   }
+			}, this);
 
 			// SGC: OK, small hack for async issues
 			window.setTimeout(function() {

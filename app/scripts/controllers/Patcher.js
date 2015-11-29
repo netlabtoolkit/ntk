@@ -212,7 +212,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					return newWidget;
                 }
                 else if(widgetType === 'OSCOut') {
-					var defaultMapping = 'ntkSendMsg';
+					var defaultMapping = 'ntkSendMsg:127.0.0.1:57120';
 
 					// Check if we are already using this output pin, don't use it if we are
 					var existingMapping = _.find(this.widgetMappings, function(map) {
@@ -491,7 +491,6 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 							// and see if the attribute exists in the outputs section of this model
 							if(newModelInstance.attributes.outputs[attribute] !== undefined) {
 								window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: model});
-								//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelServerQuery, model: model});
 							}
 						}
 					});

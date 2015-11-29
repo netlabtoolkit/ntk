@@ -62,7 +62,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 		},
 		onModelChange: function onModelChange(model) {
-			console.log(model.changedAttributes() );
 			var outputMapping = model.changedAttributes().outputMapping;
 
 			if(outputMapping) {

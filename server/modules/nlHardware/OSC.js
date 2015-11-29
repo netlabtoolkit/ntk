@@ -34,16 +34,18 @@ module.exports = function(attributes) {
 		set: function(field, value) {
 			if(this.sending[field] !== undefined) {
 				if(parseInt(this.sending[field],10) !== parseInt(value,10)) {
+					var messageServerPort = field.split(':');
+					var serverPort = messageServerPort[1] + ":" + messageServerPort[2];
 					this.sending[field] = value;
-					var port = 57120;
-					var client = this.OSCClients[""+port];
+
+					var client = this.OSCClients[ serverPort ];
 
 					if(client == undefined) {
-						this.OSCClients[""+port] = new osc.Client(address, port);
-						client = this.OSCClients[""+port];
+						this.OSCClients[serverPort] = new osc.Client(messageServerPort[1], messageServerPort[2]);
+						client = this.OSCClients[serverPort];
 					}
 
-					client.send("/"+field, value);
+					client.send(messageServerPort[0], value);
 				}
 			}
 			else if(this.receiving[field] !== undefined) {

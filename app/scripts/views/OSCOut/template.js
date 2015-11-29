@@ -21,17 +21,14 @@
 
     <div class="widgetRight">
         <div class=rightTab><input type="checkbox" rv-checked="widget:activeOut" /></div>
-        <div class=rightTab>
-            <div rv-each-source="sources" class="settings">
-                <input type='text' rv-value="source.map.destinationField" rv-show="source.model.attributes.type | exists">
-            </div>
-        </div>
     </div>
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
+            <label for="messageName">message</label> <input name="messageName" type="text" rv-value="widget:messageName"><br>
+            <label for="server">server</label> <input name="server" type="text" rv-value="widget:server"><br>
             <label for="port">port</label> <input name="port" type="text" rv-value="widget:port">
-        </div>
+				</div>
     </div>
 
 </div>
