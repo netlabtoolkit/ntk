@@ -34,6 +34,7 @@ module.exports = function(attributes) {
 		set: function(field, value) {
 			if(this.sending[field] !== undefined) {
 				if(parseInt(this.sending[field],10) !== parseInt(value,10)) {
+
 					var messageServerPort = field.split(':');
 					var serverPort = messageServerPort[1] + ":" + messageServerPort[2];
 					this.sending[field] = value;
@@ -76,7 +77,7 @@ module.exports = function(attributes) {
 			'ntkReceiveMsg': 0,
 		},
 		sending: {
-			'ntkSendMsg': 0,
+			'ntkSendMsg:127.0.0.1:57120': 0,
 		},
 	});
 
