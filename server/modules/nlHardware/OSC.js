@@ -11,7 +11,7 @@ module.exports = function(attributes) {
 		var options = attributes;
 
 		this.OSCClients = {};
-		var OSCServer = new osc.Server(57190, '127.0.0.1');
+		var OSCServer = new osc.Server(57190);
 
 		OSCServer.on("message", function (msg, rinfo) {
 			var field = msg[0],
@@ -60,8 +60,13 @@ module.exports = function(attributes) {
 		setPollSpeed: function(highLow) {
 		},
 		setIOMode: function setPinMode(pin, mode) {
-			this.sending[pin] = 0;
-			this.receiving[pin] = 0;
+
+			if(mode == 'in') {
+				this.receiving[pin] = 0;
+			}
+			else if(mode == 'out') {
+				this.sending[pin] = 0;
+			}
 		},
 	};
 	_.extend(constructor.prototype, OSCHardwareModel);

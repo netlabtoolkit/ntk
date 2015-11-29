@@ -459,7 +459,12 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 						var attributes = {};
 						attributes[thisWidgetModel.get('outputMapping')] = thisWidgetModel.get(mapping.sourceField);
 
-						externalModel.set(attributes, {fromServer:false});
+						var trigger = true;
+						if(this.deviceMode == 'in') {
+							trigger = false;
+						}
+
+						externalModel.set(attributes, {fromServer: false, trigger: trigger});
 					}
 
 				}
