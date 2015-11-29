@@ -5,7 +5,8 @@ module.exports = function(attributes) {
 		osc = require('node-osc'),
 		events = require('events'),
 		es6 = require('es6-shim'),
-		address = attributes.address;
+		address = attributes.address,
+		setThrottlerID;
 
 	var constructor = function() {
 		var options = attributes;
@@ -32,29 +33,39 @@ module.exports = function(attributes) {
 			return this.receiving[field];
 		},
 		set: function(field, value) {
-			if(this.sending[field] !== undefined) {
-				if(parseInt(this.sending[field],10) !== parseInt(value,10)) {
+			// If data is coming in TOO fast then we need to throttle it to avoid overloading NTK's network
+			if(setThrottlerID !== undefined) {
+				clearTimeout(setThrottlerID);
+			}
 
-					var messageServerPort = field.split(':');
-					var serverPort = messageServerPort[1] + ":" + messageServerPort[2];
-					this.sending[field] = value;
+			setThrottlerID = setTimeout(function() {
+				if(this.sending[field] !== undefined) {
+					if(parseInt(this.sending[field],10) !== parseInt(value,10)) {
 
-					var client = this.OSCClients[ serverPort ];
+						var messageServerPort = field.split(':');
+						var serverPort = messageServerPort[1] + ":" + messageServerPort[2];
+						this.sending[field] = value;
 
-					if(client == undefined) {
-						this.OSCClients[serverPort] = new osc.Client(messageServerPort[1], messageServerPort[2]);
-						client = this.OSCClients[serverPort];
+						var client = this.OSCClients[ serverPort ];
+
+						if(client == undefined) {
+							this.OSCClients[serverPort] = new osc.Client(messageServerPort[1], messageServerPort[2]);
+							client = this.OSCClients[serverPort];
+						}
+
+						client.send(messageServerPort[0], value);
 					}
+				}
+				else if(this.receiving[field] !== undefined) {
+					if(parseInt(this.receiving[field], 10) !== parseInt( value, 10 )) {
+						this.receiving[field] = value;
+						this.emit('change', {field: field, value: this.receiving[field]});
+					}
+				}
 
-					client.send(messageServerPort[0], value);
-				}
-			}
-			else if(this.receiving[field] !== undefined) {
-				if(parseInt(this.receiving[field], 10) !== parseInt( value, 10 )) {
-					this.receiving[field] = value;
-					this.emit('change', {field: field, value: this.receiving[field]});
-				}
-			}
+				setThrottlerID = undefined;
+			}.bind(this), 10);
+
 			return this;
 		},
 		setPollSpeed: function(highLow) {
