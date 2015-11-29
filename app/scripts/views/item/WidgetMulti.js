@@ -93,12 +93,15 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
 				// Do this for all sources and include the address of the source
 				for(var i=this.sources.length-1; i>=0; i--) {
-					window.app.vent.trigger('Widget:hardwareSwitch', {
-						deviceType: this.sources[i].model.get('type'),
-						port: outputMapping,
-						mode: this.deviceMode,
-						hasInput: hasInput
-					});
+					var deviceType = this.sources[i].model.get('type');
+					if(deviceType !== undefined) {
+						window.app.vent.trigger('Widget:hardwareSwitch', {
+							deviceType: deviceType,
+							port: outputMapping,
+							mode: this.deviceMode,
+							hasInput: hasInput
+						});
+					}
 				}
 			}
 
@@ -449,8 +452,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			for(var i=sourceMappings.length-1; i>=0; i--) {
 				var mapping = sourceMappings[i];
 				if(thisWidgetModel.get('active') && thisWidgetModel.attributes[mapping.destinationField] !== undefined) {
+					var attributes = {};
+					attributes[mapping.destinationField] = externalModel.get(mapping.sourceField);
                     // update the input of the widget
-					thisWidgetModel.set(mapping.destinationField, externalModel.get(mapping.sourceField));
+					thisWidgetModel.set(attributes, {updateNoTrigger: true});
 				}
 				//else if(thisWidgetModel.get('active') && thisWidgetModel.get('activeOut') && externalModel.attributes[mapping.destinationField] !== undefined) {
 				else if(thisWidgetModel.get('active') && thisWidgetModel.get('activeOut')) {
