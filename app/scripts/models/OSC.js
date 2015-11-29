@@ -15,11 +15,15 @@ function( Backbone, HardwareModel ) {
 		initialize: function initialize() {
 			window.app.vent.on('Widget:hardwareSwitch', function(options) {
 				if(options.deviceType == this.get('type') ) {
-					if(this.get('outputs')[options.port] == undefined) {
-						this.get('outputs')[options.port] = 0;
+					if(options.hasInput === false) {
+						if(this.get('outputs')[options.port] == undefined) {
+							this.get('outputs')[options.port] = 0;
+						}
 					}
-					if(this.get('inputs')[options.port] == undefined) {
-						this.get('inputs')[options.port] = 0;
+					else if(options.hasInput === true) {
+						if(this.get('inputs')[options.port] == undefined) {
+							this.get('inputs')[options.port] = 0;
+						}
 					}
 				}
 			}.bind(this));

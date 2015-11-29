@@ -86,13 +86,28 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {undefined}
 		 */
 		checkOutputMappingUpdate: function checkOutputMappingUpdate(model) {
-			var outputMapping = model.changedAttributes().outputMapping;
+			var outputMapping = model.changedAttributes().outputMapping,
+				hasInput = model.get('deviceMode') == 'in';
 
 			if(outputMapping) {
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
 				// Do this for all sources and include the address of the source
 				for(var i=this.sources.length-1; i>=0; i--) {
-					window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: this.sources[i].model.get('type'), port: outputMapping, mode: this.deviceMode} );
+					window.app.vent.trigger('Widget:hardwareSwitch', {
+						deviceType: this.sources[i].model.get('type'),
+						port: outputMapping,
+						mode: this.deviceMode,
+						hasInput: hasInput
+					});
+				}
+			}
+
+			var inputMapping = model.changedAttributes().inputMapping;
+			if(inputMapping) {
+				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
+				// Do this for all sources and include the address of the source
+				for(var i=this.sources.length-1; i>=0; i--) {
+					window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: this.sources[i].model.get('type'), port: inputMapping, mode: this.deviceMode} );
 				}
 			}
 		},

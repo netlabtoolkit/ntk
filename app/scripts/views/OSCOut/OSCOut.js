@@ -11,7 +11,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 	return WidgetView.extend({
 		typeID: 'OSCOut',
-		deviceMode: 'PWM',
+		deviceMode: 'out',
 		categories: ['Network'],
 		className: 'oscOut',
 		template: _.template(Template),

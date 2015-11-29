@@ -22,6 +22,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         widgetEvents: {},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'OSCIn',
+		deviceMode: 'in',
 		className: 'oscIn',
 		categories: ['Network'],
 		template: _.template(Template),
