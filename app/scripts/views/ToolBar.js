@@ -81,7 +81,7 @@ function( app, Backbone, Template, Widgets ) {
 			}
 
 			var fileInput = this.$('#patchFileUpload')[0];
-			fileInput.addEventListener("change", this.loadPatch);
+			fileInput.addEventListener("change", this.loadPatch.bind(this) );
 
 			this.indicateServerActive(window.app.serverActive);
 		},
@@ -152,8 +152,8 @@ function( app, Backbone, Template, Widgets ) {
 			// Reset the form so you can re-upload the same file
 			$('.inputForm').empty();
 			$('.inputForm').append('<input type="file" name="images" id="patchFileUpload" style="display:none" />');
-			var fileInput = $('#patchFileUpload')[0];
-			fileInput.addEventListener("change", this.loadPatch);
+			var fileInput = this.$('#patchFileUpload')[0];
+			fileInput.addEventListener("change", this.loadPatch.bind(this) );
 		},
 		savePatch: function() {
 			window.app.vent.trigger('ToolBar:savePatch');
