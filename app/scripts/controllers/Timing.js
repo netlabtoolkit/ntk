@@ -5,6 +5,7 @@ function(){
 
 	var TimingController = function() {
 		this.frameCallbacks = [];
+		this.frameContexts = [];
 		this.originalCallbacks = [];
 
 		window.requestAnimationFrame(this.tick.bind(this));
@@ -15,7 +16,7 @@ function(){
 			var callbacks = this.frameCallbacks;
 
 			for(var i=callbacks.length-1; i>=0; i--) {
-				callbacks[i](frameCount, timeStamp);
+				callbacks[i].call(this.frameContexts[i], frameCount, timeStamp);
 			}
 
 			frameCount++;
@@ -29,26 +30,29 @@ function(){
 		 * @param {object} context
 		 */
 		registerFrameCallback: function(callback, context) {
-			var boundCallback = callback.bind(context);
-			var indexIfExists = this.originalCallbacks.indexOf(boundCallback);
+			var indexIfExists = this.originalCallbacks.indexOf(callback);
 
 			if(indexIfExists >= 0) {
-				this.frameCallbacks[indexIfExists] = boundCallback;
-				this.originalCallbacks[indexIfExists] = boundCallback;
+				this.frameCallbacks[indexIfExists] = callback;
+				this.frameContexts[indexIfExists] = context;
+				this.originalCallbacks[indexIfExists] = callback;
 			}
 			else {
-				this.frameCallbacks.push(boundCallback);
-				this.originalCallbacks.push(boundCallback);
+				this.frameCallbacks.push(callback);
+				this.frameContexts.push(context);
+				this.originalCallbacks.push(callback);
 			}
+
 		},
 		removeFrameCallback: function(callback, context) {
-			var boundCallback = callback.bind(context);
-			var callbackIndex = this.originalCallbacks.indexOf(boundCallback);
+			var callbackIndex = this.originalCallbacks.indexOf(callback);
 
 			if(callbackIndex >= 0) {
 				this.frameCallbacks.splice(callbackIndex, 1);
 				this.originalCallbacks.splice(callbackIndex, 1);
+				this.frameContexts.splice(callbackIndex, 1);
 			}
+
 		},
 
 
