@@ -315,7 +315,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				//window.app.vent.trigger('Widget:removeMapping', cableToRemove.map, this.model.get('wid') );
 				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
 
-				cableToRemove.cable.remove();
+				cableToRemove !== undefined && cableToRemove.cable.remove();
 				this.cables = _.reject(this.cables, function(item) { return item.map.destinationField === inletField});
 			}
 
