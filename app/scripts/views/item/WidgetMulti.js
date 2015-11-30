@@ -119,11 +119,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			var updateCables = function updateCables(e, object) {
 				// update our own stored position (for saving the state of this widget and also for triggering change event to inform any listening widgets attached to this widget)
 				if(object !== undefined) {
-					this.model.set({'offsetLeft': object.position.left, 'offsetTop': object.position.top, height: this.$el.height(), width: this.$el.width()});
+					//this.model.set({'offsetLeft': object.position.left, 'offsetTop': object.position.top, height: this.$el.height(), width: this.$el.width()});
+					this.model.set({'offsetLeft': object.position.left, 'offsetTop': object.position.top, height: this.$el.height(), width: 148});
 				}
 				else {
 					// If we don't have an object (no object is passed when we are referencing the widget that was dragged), then use this widget's position as a reference
-					this.model.set({'offsetLeft': this.$el.position().left, 'offsetTop': this.$el.position().top, height: this.$el.height(), width: this.$el.width()});
+					//this.model.set({'offsetLeft': this.$el.position().left, 'offsetTop': this.$el.position().top, height: this.$el.height(), width: this.$el.width()});
+					this.model.set({'offsetLeft': this.$el.position().left, 'offsetTop': this.$el.position().top, height: this.$el.height(), width: 148});
 					
 				}
 
@@ -274,11 +276,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			// If the offsets have not been set from dragging, set them manually
 			if(!this.model.get('offsetLeft') && !this.model.get('offsetTop')) {
-				this.model.set({'offsetLeft': this.$el.position().left, 'offsetTop': this.$el.position().top, height: this.$el.height(), width: this.$el.width()});
+				//this.model.set({'offsetLeft': this.$el.position().left, 'offsetTop': this.$el.position().top, height: this.$el.height(), width: this.$el.width()});
+				this.model.set({'offsetLeft': this.$el.position().left, 'offsetTop': this.$el.position().top, height: this.$el.height(), width: 148});
 			}
 
 			if(!model.get('offsetLeft') && !model.get('offsetTop')) {
-				model.set({'offsetLeft': $(ui.draggable[0].parentNode.parentNode).position().left, 'offsetTop': $(ui.draggable[0].parentNode.parentNode).position().top, height: this.$el.height(), width: this.$el.width()});
+				//model.set({'offsetLeft': $(ui.draggable[0].parentNode.parentNode).position().left, 'offsetTop': $(ui.draggable[0].parentNode.parentNode).position().top, height: this.$el.height(), width: this.$el.width()});
+				model.set({'offsetLeft': $(ui.draggable[0].parentNode.parentNode).position().left, 'offsetTop': $(ui.draggable[0].parentNode.parentNode).position().top, height: this.$el.height(), width: 148});
 			}
 
 			// Map the dropped model to this inlet
