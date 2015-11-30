@@ -137,34 +137,44 @@ module.exports = function(attributes) {
 		},
 		setIOMode: function setPinMode(pin, mode) {
 			if(this.connected) {
+					console.log("set pinmode", pin, this.inputs[pin], this.inputs);
 				// Always immediately set an input to a Sensor. If it is already a sensor, then we are resetting it
 				if(mode === 'INPUT') {
-					// remove any listeners on the current pin
-					this.inputs[pin] && this.inputs[pin].pin.off('data');
+					var pinExists = this.inputs[pin] !== undefined;
 
-					// delete this pin if it exists in the outputs
-					delete this.outputs[pin].pin;
+					if(pinExists) {
+						// remove any listeners on the current pin
+						this.inputs[pin] && this.inputs[pin].pin.off('data');
 
-					var sensor = five.Sensor({
-						pin: input,
-						freq: pollFreq,
-					});
+						// delete this pin if it exists in the outputs
+						delete this.outputs[pin].pin;
 
-					sensor.scale([0, 1023]).on("data", function() {
-						self.set('A'+this.pin, Math.floor(this.value));
-					});
+						var sensor = five.Sensor({
+							pin: input,
+							freq: pollFreq,
+						});
 
-					this.inputs[pin].pin = sensor;
+						sensor.scale([0, 1023]).on("data", function() {
+							self.set('A'+this.pin, Math.floor(this.value));
+						});
+
+						this.inputs[pin].pin = sensor;
+					}
 				}
 				else if(mode === 'ANALOG') {
 				}
 				else if(mode === 'PWM' || mode === 'OUTPUT') {
-					var hardwarePin = parseInt(pin.substr(1),10);
+					var pinExists = this.outputs[pin] !== undefined;
+					if(pinExists) {
+						var hardwarePin = parseInt(pin.substr(1),10);
 
-					var outputPin = five.Led(hardwarePin);
-					this.outputs[pin].pin = outputPin;
+						var outputPin = five.Led(hardwarePin);
+						this.outputs[pin].pin = outputPin;
+					}
 				}
 				else if(mode === 'SERVO') {
+					var pinExists = this.outputs[pin] !== undefined;
+					if(pinExists) {
 					var hardwarePin = parseInt(pin.substr(1),10);
 
 					var outputPin = five.Servo({
@@ -173,6 +183,7 @@ module.exports = function(attributes) {
 					});
 
 					this.outputs[pin].pin = outputPin;
+					}
 				}
 				else if(mode === 'STEPPER') {
 				}
