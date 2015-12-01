@@ -35,16 +35,18 @@ function(Backbone, WidgetView, Template, CodeMirror){
 				options = {};
 			}
             
-            var code =  '// Enter your Javascript here to process inputs and return the result\n' +
-            '// the four input values are in an array called "ins" as\n' + 
+            var code =  '// Enter your Javascript here to process inputs and return the outputs\n' +
+            '// The four input values are in an array called "ins" as\n' + 
             '// ins.in1, ins.in2, ins.in3, ins.in4\n' +
             '//\n' +
-            'var output1 = ins.in1 + ins.in2 + ins.in3 + ins.in4;\n' +
-            'var output2 = 0;\n' +
-            'var output3 = 0;\n' +
-            'var output4 = 0;\n' +
+            '// The four output values are returned as an array with four elements\n' +
+            '//\n' +
+            'var out1 = ins.in1 + ins.in2;\n' +
+            'var out2 = ins.in2;\n' +
+            'var out3 = ins.in3;\n' +
+            'var out4 = ins.in4;\n' +
             '\n' +
-            'return [ output1, output2, output3, output4 ];';
+            'return [ out1, out2, out3, out4 ];';
             
 			_.extend(options, {
 				filter: code,

@@ -19,7 +19,10 @@
             <div class="inletValue"><span rv-text="widget:in4 | rounded">0</span></div>
         </div>
         <div class="widgetBodyRight">
-            <div class="inletValue"><span class="" rv-text="widget:out1 | rounded">0</span></div>
+            <div class="inletValue"><span rv-text="widget:out1 | rounded">0</span></div>
+            <div class="inletValue"><span rv-text="widget:out2 | rounded">0</span></div>
+            <div class="inletValue"><span rv-text="widget:out3 | rounded">0</span></div>
+            <div class="inletValue"><span rv-text="widget:out4 | rounded">0</span></div>
         </div>
 
     </div>
