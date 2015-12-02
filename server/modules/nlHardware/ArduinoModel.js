@@ -103,12 +103,16 @@ module.exports = function(attributes) {
 		setHardwarePin: function(field, value) {
 			var outputField = this.outputs[field];
 
-			if(outputField !== undefined && field === 'D3' 
+			if(outputField && outputField.pin) {
+				var pinMode = outputField.pin.mode;
+			}
+
+			if(outputField !== undefined && (field === 'D3' 
 			|| field === 'D5'
 			|| field === 'D6'
 			|| field === 'D9'
 			|| field === 'D10'
-			|| field === 'D11') {
+			|| field === 'D11') ) {
 				var pinMode = outputField.pin.mode;
 
 				// Check which pinmode is set on the pin to detemine which method to call
@@ -134,10 +138,18 @@ module.exports = function(attributes) {
 				//UNKOWN: 16 },
 
 			}
+			else if(pinMode == this.PINMODES.OUTPUT) {
+				var pinMode = outputField.pin.mode;
+				if(value >= 255) {
+					this.outputs[field].pin.on();
+				}
+				else {
+					this.outputs[field].pin.off();
+				}
+			}
 		},
 		setIOMode: function setPinMode(pin, mode) {
 			if(this.connected) {
-					console.log("set pinmode", pin, this.inputs[pin], this.inputs);
 				// Always immediately set an input to a Sensor. If it is already a sensor, then we are resetting it
 				if(mode === 'INPUT') {
 					var pinExists = this.inputs[pin] !== undefined;
@@ -196,11 +208,9 @@ module.exports = function(attributes) {
 		},
 		setPollSpeed: function(highLow) {
 			if(highLow == 'fast') {
-				console.log('setting fast');
 				pollIntervalMod = 1;
 			}
 			else {
-				console.log('setting slow');
 				pollIntervalMod = 30;
 			}
 		},
