@@ -69,7 +69,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
 				// Do this for all sources and include the address of the source
 				for(var i=this.sources.length-1; i>=0; i--) {
-					window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: this.sources[i].model.get('type'), port: outputMapping, mode: this.deviceMode} );
+					for(var port in outputMapping) {
+						window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: this.sources[i].model.get('type'), port: port, mode: this.deviceMode} );
+					}
 				}
 			}
 		},

@@ -23,6 +23,7 @@ function( Backbone, HardwareModel ) {
 					else if(options.hasInput === true) {
 						if(this.get('inputs')[options.port] == undefined) {
 							this.get('inputs')[options.port] = 0;
+							this.set(options.port, 0);
 						}
 					}
 				}

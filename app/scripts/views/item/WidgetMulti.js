@@ -87,7 +87,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 */
 		checkOutputMappingUpdate: function checkOutputMappingUpdate(model) {
 			var outputMapping = model.changedAttributes().outputMapping,
-				hasInput = model.get('deviceMode') == 'in';
+				hasInput = this.deviceMode == 'in';
 
 			if(outputMapping) {
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
