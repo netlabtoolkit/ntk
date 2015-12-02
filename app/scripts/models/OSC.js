@@ -32,13 +32,13 @@ function( Backbone, HardwareModel ) {
 		defaults: {
 			type: "OSC",
 			inputs: {
-				ntkReceiveMsg: 0,
+				'/ntk/in/1': 0,
 			},
 			outputs: {
-				'ntkSendMsg:127.0.0.1:57120': 0,
+				'/ntk/out/1:127.0.0.1:57120': 0,
 			},
-			ntkReceiveMsg: 0,
-			'ntkSendMsg:127.0.0.1:57120': 0,
+			'/ntk/in/1': 0,
+			'/ntk/out/1:127.0.0.1:57120': 0,
 		},
 
     });
