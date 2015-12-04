@@ -33,8 +33,10 @@ define([
 
     'views/OSCIn/OSCIn',
     'views/OSCOut/OSCOut',
+    'views/DigitalIn/DigitalIn',
+    'views/DigitalOut/DigitalOut',
 ],
-function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Mix, Splitter, Data, Tween, Sequence, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn, OSCOut){
+function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Mix, Splitter, Data, Tween, Sequence, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn, OSCOut, DigitalIn, DigitalOut){
     'use strict';
 
 	return {
@@ -71,6 +73,8 @@ function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, 
 
 		'OSCIn': OSCIn,
 		'OSCOut': OSCOut,
+		'DigitalIn': DigitalIn,
+		'DigitalOut': DigitalOut,
 
 	};
 });

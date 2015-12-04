@@ -4,7 +4,8 @@ module.exports = function(attributes) {
 	var _ = require('underscore'),
 		five = require("johnny-five"),
 		events = require('events'),
-		pollIntervalMod = 1;
+		pollIntervalMod = 1,
+		self;
 
 
 		var constructor = function() {
@@ -27,7 +28,7 @@ module.exports = function(attributes) {
 	// Base HardwareModel class
 	var johnnyFiveHardwareModel = {
 		addDefaultPins: function addDefaultPins() {
-			var self = this;
+			self = this;
 			// Store all pin mode mappings (string -> integer)
 			this.PINMODES = this.board.io.MODES;
 
@@ -84,18 +85,25 @@ module.exports = function(attributes) {
 			return this.inputs[field].value;
 		},
 		set: function(field, value) {
-			if(this.outputs[field] !== undefined) {
-				if(parseInt(this.outputs[field],10) !== parseInt(value,10)) {
+			if(field == 'D8') {
+			}
+
+			if(this.inputs[field] != undefined) {
+
+					if(field == 'D8') {
+						console.log(field, value, parseInt(this.inputs[field].value, 10), parseInt( value, 10 ));
+					}
+				if(parseInt(this.inputs[field].value, 10) !== parseInt( value, 10 )) {
+					this.inputs[field].value = value;
+					this.emit('change', {field: field, value: this.inputs[field].value});
+				}
+			}
+			else if(this.outputs[field] !== undefined) {
+				if(parseInt(this.outputs[field].value,10) !== parseInt(value,10)) {
 					this.outputs[field].value = value;
 					if(this.connected) {
 						this.setHardwarePin(field, value);
 					}
-				}
-			}
-			else if(this.inputs[field] != undefined) {
-				if(parseInt(this.inputs[field], 10) !== parseInt( value, 10 )) {
-					this.inputs[field].value = value;
-					this.emit('change', {field: field, value: this.inputs[field].value});
 				}
 			}
 			return this;
@@ -151,26 +159,29 @@ module.exports = function(attributes) {
 		setIOMode: function setPinMode(pin, mode) {
 			if(this.connected) {
 				// Always immediately set an input to a Sensor. If it is already a sensor, then we are resetting it
-				if(mode === 'INPUT') {
-					var pinExists = this.inputs[pin] !== undefined;
+				if(mode == 'INPUT') {
+					var pinExists = (this.inputs[pin] !== undefined || this.outputs[pin] !== undefined);
 
 					if(pinExists) {
+						var hardwarePinNumber = pin.split('D')[1];
 						// remove any listeners on the current pin
-						this.inputs[pin] && this.inputs[pin].pin.off('data');
+						//this.inputs[pin] && this.inputs[pin].pin.off('data');
 
 						// delete this pin if it exists in the outputs
 						delete this.outputs[pin].pin;
 
-						var sensor = five.Sensor({
-							pin: input,
-							freq: pollFreq,
-						});
+						var button = five.Button(hardwarePinNumber);
 
-						sensor.scale([0, 1023]).on("data", function() {
-							self.set('A'+this.pin, Math.floor(this.value));
-						});
+						button.on("press", function() {
+							self.set(pin, 1023);
+							console.log('PRESS');
+						}.bind(this) );
+						button.on("release", function() {
+							self.set(pin, 0);
+							console.log('release');
+						}.bind(this) );
 
-						this.inputs[pin].pin = sensor;
+						this.inputs[pin] = {pin: button, value: 0};
 					}
 				}
 				else if(mode === 'ANALOG') {

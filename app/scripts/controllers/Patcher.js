@@ -15,6 +15,8 @@ define([
 	'models/OSC',
 	'views/AnalogIn/AnalogIn',
 	'views/AnalogOut/AnalogOut',
+	'views/DigitalIn/DigitalIn',
+	'views/DigitalOut/DigitalOut',
 	'views/Image/Image',
 	'views/Code/Code',
 	'views/Blank/Blank',
@@ -24,7 +26,7 @@ define([
     'views/Splitter/Splitter',
     'views/item/RestrictiveOverlay',
 ],
-function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, SplitterView, RestrictiveOverlayView){
+function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, SplitterView, RestrictiveOverlayView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -148,6 +150,54 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					var defaultOutputMapping = existingMapping ? '' : defaultMapping;
 
 					var newWidget = new AnalogOutView({
+						model: newModel,
+						outputMapping: defaultOutputMapping,
+					});
+
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
+					if(!addedFromLoader) {
+
+						this.mapToModel({
+							view: newWidget,
+							IOMapping: {sourceField: "out", destinationField: defaultOutputMapping},
+							modelType: 'ArduinoUno',
+							server: serverAddress,
+						}, addedFromLoader);
+					}
+
+					return newWidget;
+				}
+				if(widgetType === 'DigitalIn') {
+					var newWidget = new DigitalInView({
+						model: newModel,
+						inputMapping: 'D12',
+					});
+
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
+					if(!addedFromLoader) {
+						this.mapToModel({
+							view: newWidget,
+							modelType: 'ArduinoUno',
+							IOMapping: {sourceField: "D12", destinationField: 'in'},
+							server: serverAddress,
+						}, addedFromLoader);
+					}
+
+
+					return newWidget;
+				}
+				else if(widgetType === 'DigitalOut') {
+					var defaultMapping = 'D3';
+
+					// Check if we are already using this output pin, don't use it if we are
+					var existingMapping = _.find(this.widgetMappings, function(map) {
+						return map.map.destinationField === defaultMapping;
+					});
+					var defaultOutputMapping = existingMapping ? '' : defaultMapping;
+
+					var newWidget = new DigitalOutView({
 						model: newModel,
 						outputMapping: defaultOutputMapping,
 					});
