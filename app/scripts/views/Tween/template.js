@@ -40,9 +40,6 @@
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
             <input class="return" type="checkbox" rv-checked="widget:returnToStart" /> Return to start value<br>
             <input class="loop" type="checkbox" rv-checked="widget:loop" /> Loop<br>
-            <hr>
-            <input class="sequence" type="checkbox" rv-checked="widget:playSequence" /> Use Sequence - in format &quot;start, end, duration&quot; one per line<br>
-            <textarea class="database" rv-value="widget:userSequence" rows="4" cols="70"></textarea>
         </div>
         <div class="animateDiv"></div>
     </div>
