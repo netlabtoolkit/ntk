@@ -70,7 +70,7 @@ module.exports = function(attributes) {
 		},
 		setPollSpeed: function(highLow) {
 		},
-		setIOMode: function setPinMode(pin, mode) {
+		setIOMode: function setIOMode(pin, mode) {
 
 			if(mode == 'in') {
 				this.receiving[pin] = 0;

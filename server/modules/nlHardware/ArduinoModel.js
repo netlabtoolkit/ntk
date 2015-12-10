@@ -85,14 +85,9 @@ module.exports = function(attributes) {
 			return this.inputs[field].value;
 		},
 		set: function(field, value) {
-			if(field == 'D8') {
-			}
 
 			if(this.inputs[field] != undefined) {
 
-					if(field == 'D8') {
-						console.log(field, value, parseInt(this.inputs[field].value, 10), parseInt( value, 10 ));
-					}
 				if(parseInt(this.inputs[field].value, 10) !== parseInt( value, 10 )) {
 					this.inputs[field].value = value;
 					this.emit('change', {field: field, value: this.inputs[field].value});

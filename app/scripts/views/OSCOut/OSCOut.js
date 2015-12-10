@@ -54,11 +54,6 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 					   }
 			   }
 			}, this);
-
-			// SGC: OK, small hack for async issues
-			window.setTimeout(function() {
-				window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: 'OSC', port: this.model.get('outputMapping') });
-			}.bind(this), 200);
 		},
 
 		onModelChange: function(model) {
@@ -90,6 +85,11 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				$(el).val(value);
 				$(el).trigger('change');
 			};
+
+			// SGC: OK, small hack for async issues
+			window.setTimeout(function() {
+			   window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: 'OSC', mode: 'out', port: this.model.get('outputMapping'), hasInput: false });
+			}.bind(this), 200);
         },
 
         limitRange: function(input) {
