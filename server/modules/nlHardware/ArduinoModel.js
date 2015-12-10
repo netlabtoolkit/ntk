@@ -169,11 +169,9 @@ module.exports = function(attributes) {
 
 						button.on("press", function() {
 							self.set(pin, 1023);
-							console.log('PRESS');
 						}.bind(this) );
 						button.on("release", function() {
 							self.set(pin, 0);
-							console.log('release');
 						}.bind(this) );
 
 						this.inputs[pin] = {pin: button, value: 0};
