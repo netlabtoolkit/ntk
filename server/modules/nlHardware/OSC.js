@@ -90,7 +90,7 @@ module.exports = function(attributes) {
 	_.extend(constructor.prototype, {
 		type: 'OSC',
 		receiving: {
-			'ntkReceiveMsg': 0,
+			'/ntk/in/1': 0,
 		},
 		sending: {
 			'ntkSendMsg:127.0.0.1:57120': 0,

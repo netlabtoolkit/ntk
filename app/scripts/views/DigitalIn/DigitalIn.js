@@ -61,6 +61,11 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
             // If you would like to register any function to be called at frame rate (60fps)
 			window.app.timingController.registerFrameCallback(this.timeKeeper, this);
+
+			window.setTimeout(function() {
+			   window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: 'ArduinoUno', mode: 'INPUT', port: this.model.get('outputMapping'), hasInput: true });
+			}.bind(this), 3000);
+
 		},
 
 		onRender: function() {
@@ -88,6 +93,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				$(el).val(value);
 				$(el).trigger('change');
 			};
+
 
 
 		},
