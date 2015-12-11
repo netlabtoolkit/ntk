@@ -63,7 +63,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			window.app.timingController.registerFrameCallback(this.timeKeeper, this);
 
 			window.setTimeout(function() {
-			   window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: 'ArduinoUno', mode: 'INPUT', port: this.model.get('outputMapping'), hasInput: true });
+			   window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: 'ArduinoUno', mode: 'INPUT', port: this.model.get('inputMapping'), hasInput: true });
 			}.bind(this), 3000);
 
 		},
