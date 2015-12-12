@@ -167,11 +167,30 @@ module.exports = function(attributes) {
 
 						var button = five.Button(hardwarePinNumber);
 
+						var withinThrottleRange = false;
 						button.on("press", function() {
-							self.set(pin, 1023);
+							// Debounce and throttle button presses
+							if(!withinThrottleRange) {
+								withinThrottleRange = true;
+
+								setTimeout(function() {
+									withinThrottleRange = false;
+								}, 25);
+
+								self.set(pin, 1023);
+							}
+
 						}.bind(this) );
 						button.on("release", function() {
-							self.set(pin, 0);
+							if(!withinThrottleRange) {
+								withinThrottleRange = true;
+
+								setTimeout(function() {
+									withinThrottleRange = false;
+								}, 25);
+
+								self.set(pin, 0);
+							}
 						}.bind(this) );
 
 						this.inputs[pin] = {pin: button, value: 0};
