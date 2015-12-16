@@ -1,6 +1,6 @@
 {
   "name": "netlab",
-  "version": "0.6.0",
+  "version": "1.0.0",
   "dependencies": {
     "es6-shim": "^0.22.2",
     "express": "~4.4.5",
@@ -21,10 +21,10 @@
   },
   "scripts": {
     "start": "pkill phantomjs & node server/cli.js",
-    "build": "npm run clean && npm run optimizeRequire && npm run compileSCSS",
+    "build": "npm run clean && npm run optimizeRequire && npm run compileSCSS && cp ./package.json ./server/dist",
     "package": "npm run build && ./buildScripts/packageElectron.sh",
     "dev": "npm run clean && npm run copyAppToDist && npm run compileSCSS && node ./buildScripts/liveReload.js & open http://localhost:9001 & npm start",
-    "copyAppToDist": "cp -r ./app/* ./server/dist",
+    "copyAppToDist": "cp -r ./app/* ./server/dist && cp ./package.json ./server/dist",
     "clean": "./buildScripts/clean.sh",
     "optimizeRequire": "./buildScripts/optimizeRequire.sh",
     "compileSCSS": "./buildScripts/buildSCSS.sh",

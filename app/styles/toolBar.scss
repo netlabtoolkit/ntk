@@ -74,6 +74,18 @@
 	.serverSwitch.serverActive {
 		background: #F25151;
 	}
+	.version {
+		position: absolute;
+		bottom: 0;
+		color: #fff;
+		font-size: smaller;
+
+		a {
+			color: #F25151;
+			text-decoration: none;
+			font-weight: bold;
+		}
+	}
 }
 
 #toolBarRegion .addWidgets {
