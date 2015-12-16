@@ -135,7 +135,7 @@ module.exports = function(options) {
 						//self.hardwareModels[modelType].set(field, parseInt(options.model[field], 10));
 					//}
 					//else {
-						selectedModel.set(field, parseInt(options.model[field], 10));
+						selectedModel.set(field, parseFloat(options.model[field], 10));
 					//}
 				}
 			});

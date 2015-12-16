@@ -85,6 +85,7 @@ module.exports = function(attributes) {
 			return this.inputs[field].value;
 		},
 		set: function(field, value) {
+			value = parseInt(value);
 
 			if(this.inputs[field] != undefined) {
 

@@ -39,6 +39,7 @@ module.exports = function(attributes) {
 			}
 
 			setThrottlerID = setTimeout(function() {
+
 				if(this.sending[field] !== undefined) {
 					if(parseFloat(this.sending[field],10) !== parseFloat(value,10)) {
 
