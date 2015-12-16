@@ -40,7 +40,7 @@ module.exports = function(attributes) {
 
 			setThrottlerID = setTimeout(function() {
 				if(this.sending[field] !== undefined) {
-					if(parseInt(this.sending[field],10) !== parseInt(value,10)) {
+					if(parseFloat(this.sending[field],10) !== parseFloat(value,10)) {
 
 						var messageServerPort = field.split(':');
 						var serverPort = messageServerPort[1] + ":" + messageServerPort[2];
@@ -57,7 +57,7 @@ module.exports = function(attributes) {
 					}
 				}
 				else if(this.receiving[field] !== undefined) {
-					if(parseInt(this.receiving[field], 10) !== parseInt( value, 10 )) {
+					if(parseFloat(this.receiving[field], 10) !== parseFloat( value, 10 )) {
 						this.receiving[field] = value;
 						this.emit('change', {field: field, value: this.receiving[field]});
 					}
