@@ -33,6 +33,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
             // Call any custom DOM events here
 			this.model.set('title', 'OSCIn');
+            
+            this.signalChainFunctions.push(SignalChainFunctions.scale);
+            
+            // Register the signal chain to be updated at frame rate
+			window.app.timingController.registerFrameCallback(this.processSignalChain, this);
 
 			window.setTimeout(function() {
 				window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: 'OSC', mode: 'in', port: this.model.get('outputMapping') });

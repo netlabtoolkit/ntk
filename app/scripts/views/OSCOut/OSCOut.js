@@ -35,7 +35,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
                 activeOut: true,
 			});
 
-            this.signalChainFunctions.push(this.limitRange);
+            //this.signalChainFunctions.push(this.limitRange);
 
 			// This is here because this widget effectively does not output (only outputs to hardware and then, only on server)
 			// So we go ahead and process so the output can be shown in the widget
@@ -77,7 +77,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				'displayInput':false,
 				'min': 0,
 				'max': 1023,
-				'change' : function (v) { this.model.set('in', parseInt(v)); }.bind(this)
+				'change' : function (v) { this.model.set('in', parseFloat(v)); }.bind(this)
 			});
 
 			rivets.binders.knob = function(el, value) {
@@ -92,11 +92,5 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			}.bind(this), 200);
         },
 
-        limitRange: function(input) {
-            var output = input;
-            output = Math.max(output, 0);
-            output = Math.min(output, 1023);
-            return Number(output);
-        },
 	});
 });

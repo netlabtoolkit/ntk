@@ -240,6 +240,17 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
                 if (isNaN(value)) return '--';
                 else return Number(value).toFixed(0);
             }
+            rivets.formatters.twodecimals = function (value){
+                var output = Number(value);
+                if (isNaN(value)) return '--';
+                else if (output >= 100) {
+                    return output.toFixed(0);
+                } else if (output >= 10 && output < 100) {
+                    return output.toFixed(1);
+                } else {
+                    return output.toFixed(2);
+                }
+            }
 		},
 		/**
 		 * Sets the ZIndex to place the widget at the top of the widget stack

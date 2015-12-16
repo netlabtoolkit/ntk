@@ -17,9 +17,20 @@
     <div class="widgetBody">
         <div class="dialwrapper" style="position:relative;">
             <input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/>
-            <div class="display invalue" rv-text="widget:in | rounded">0</div>
-            <div class="display outvalue" rv-text="widget:out | rounded">180</div>
+            <div class="display invalue" rv-text="widget:in | twodecimals">0</div>
+            <div class="display outvalue" rv-text="widget:out | twodecimals">180</div>
         </div>
+            
+        <table class="rangeTable" border="0" cellspacing="3" cellpadding="0">
+          <tr>
+            <td>in <input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:inputFloor"></td>
+            <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:inputCeiling"></td>
+          </tr>
+          <tr>
+            <td>out <input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:outputFloor"></td>
+            <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:outputCeiling"></td>
+          </tr>
+        </table>
     </div>
 
     <div class="widgetRight">
