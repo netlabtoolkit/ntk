@@ -1,7 +1,8 @@
 <div class="widgetAuthoring">
     <div class="widgetTop typeMedia">
         <div class="title dragHandle">
-        {widget:title} <div class="remove">×</div>
+        <!--<input type="text" spellcheck="false" class="typeMedia" rv-value="widget:title"><div class="remove">×</div>-->
+            {widget:title} <div class="remove">×</div>
         </div>
     </div>
 
@@ -26,8 +27,10 @@
             <label>loop</label> <input class="continuous" type="checkbox" rv-checked="widget:loop" /><br>
             <label>continuous</label> <input class="continuous" type="checkbox" rv-checked="widget:continuous" /><br>
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
-            <label>video file</label> <input class="videosrc" type="text" rv-value="widget:srcmp4"><br>
-            <label class="narrowLabel">width</label> <input class="displayWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth"><br>
+            <label>width</label> <input class="displayWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth"><br>
+            <label>video file</label> <input class="videosrc" type="text" rv-value="widget:srcmp4">
+<!--            <label>{widget:typeID} label</label> <input type="text" class="displayWidth" rv-value="widget:title"><br>-->
+            <br>
         </div>
     </div>
 </div>

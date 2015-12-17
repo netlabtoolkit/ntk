@@ -25,8 +25,13 @@
         padding-left: 5px;
         font-size: 16px;
         color: white;
-
 	}
+    .title input[type=text] {
+        border: 0px;
+        margin: 0px;
+        padding: 0px;
+        width: 68px;
+    }
 
 	input[type='range'] {
 		width: 80px;
