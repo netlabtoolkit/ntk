@@ -91,13 +91,17 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// always call the superclass
             WidgetView.prototype.onRender.call(this);
             
-            this.$( '.dataIndex' ).css( 'cursor', 'pointer' );
+            if(!app.server) {
+                this.$( '.dataIndex' ).css( 'cursor', 'pointer' );
+            }
+            
             
             this.widgetReady = true;
             
             this.model.set('dataOut', '');
             this.buildDatabase();
             this.setOrder();
+            
             
             var self = this;
 
@@ -185,6 +189,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         indexElement: function(index) {
             if (index >= 0 && index < this.model.get('elementIndexes').length) {
                 var elementIndex = this.model.get('elementIndexes')[index];
+                if (elementIndex === undefined) elementIndex = 0;
                 var element = this.model.get('elements')[elementIndex];
                 this.model.set('dataOut', element);
                 this.model.set('dataIndex', elementIndex + " of " + (this.model.get('elements').length - 1));
@@ -192,16 +197,19 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
         
         nextElement: function(e) {
-            
-            var elementIndex = this.model.get('elementIndexes')[this.model.get('currentElement')];
+            var currentElement = this.model.get('currentElement');
+            var elementIndex = this.model.get('elementIndexes')[currentElement];
+            if (elementIndex === undefined) elementIndex = 0;
             var element = this.model.get('elements')[elementIndex];
             this.model.set('dataOut', element);
             this.model.set('dataIndex', elementIndex + " of " + (this.model.get('elements').length - 1));
 
-            this.model.set('currentElement',this.model.get('currentElement') + 1);
-            if (this.model.get('currentElement') >= this.model.get('elements').length) {
+            currentElement += 1;
+            if (currentElement >= this.model.get('elements').length) {
                 this.setOrder(false);
                 this.model.set('currentElement',0);
+            } else {
+                this.model.set('currentElement',currentElement);
             }
         },
         
