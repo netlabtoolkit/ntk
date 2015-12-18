@@ -30,7 +30,6 @@
                 <option value="bgcolor">bgcolor</option>
                 <option value="text">text</option>
                 <option value="html">html</option>
-                <option value="rotate">rotate</option>
             </select><br>
             <label class='wide-label'>Input element class</label><input  type="text" rv-value="widget:inputElementClass"><br>
             <label class='wide-label'>HTML wrapper class</label><input type="text" rv-value="widget:displayClass"><br>

@@ -49,11 +49,11 @@ function(Backbone, rivets, WidgetView, Template){
                 left: 250,
                 top: 200,
 				opacity: 100,
-                userHtml: "<div>\n   <div class='input-element'>temp</div>\n   <div class='another-element'>humidity</div>\n</div>",
-                userCss: ".input-element {background-color: rosybrown; width: 60px;}\n.another-element {background-color: slategray; width: 60px;}",
+                userHtml: "<div>\n   <div class='elementa'>temp</div>\n   <div class='elementb'>humidity</div>\n</div>",
+                userCss: ".elementa {background-color: lightgray; width: 60px;}\n.elementb {background-color: #a3a3a3; width: 60px;}",
                 displayClass: 'displayhtml',
                 displayClassLast: 'displayhtml',
-                inputElementClass: 'input-element',
+                inputElementClass: 'elementa',
                 inputProperty: 'width',
                 
 
