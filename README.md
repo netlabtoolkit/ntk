@@ -3,9 +3,9 @@ NTK
 
 NETLab Toolkit JavaScript Version
 
-NTK (the NETLab Toolkit) is an authoring system for designers, developers, makers, researchers and students who want to design and build tangible Internet of Things projects. With a simple drag and drop interface, connect sensors, actuators, media and networks with the smart widgets. Concepts can be prototyped quickly, encouraging iteration, experimentation and testing by sketching in hardware.
+NTK (the NETLab Toolkit) is a visual authoring system for designers, developers, makers, researchers and students who want to design and build tangible Internet of Things projects. With a simple drag and drop interface, connect sensors, actuators, media and networks with the smart widgets. Concepts can be prototyped quickly, encouraging iteration, experimentation and testing by sketching in hardware.
 
-NTK works with the original Arduino and newer Linux embedded systems like the Intel Galileo and Arduino Tre. And NTK can be easily adapted to do new things. The Code widget allows users to add custom Javascript. And with a bit more expertise, users can create their own, reusable widgets.
+NTK works with the original Arduino and newer Linux embedded systems like the Intel Edison. And NTK can be easily adapted to do new things. The Code widget allows users to add custom Javascript. And with a bit more expertise, users can create their own, reusable widgets.
 
 Go ahead, Drag and Drop the Internet of Things.
 
@@ -20,7 +20,7 @@ Sign up for NTK news here:
 Installation
 ---------------------
 
-If you only want to run NTK, there is a simple installation procedure:
+If you only want to run NTK, there are double-clickable app and command line versions, and there is a simple installation procedure:
 
 <http://netlabtoolkit.org/download/>  
 <http://www.netlabtoolkit.org/install-ntk/>
@@ -33,9 +33,7 @@ For development purposes, use the below installation process:
 
 You must first install node and npm if you have not already done so.
 
-**NOTE**: Due to a library conflict (node-serialport) NTK is not yet compatible with the current version of Nodejs. You must use Node v4.2.2.
-
-* Mac or Windows - Install Node and NPM from the official [Node.js website](http://nodejs.org/en/blog/release/v0.12.7/), using their standard installer for version 0.12.7.
+* Mac or Windows - Install Node and NPM from the official [Node.js website](http://nodejs.org/), using their standard installer (we've tested up to v4.2.2)
 * Linux – You most likely have Node/NPM already installed but can also install via your distribution's [https://nodejs.org/en/download/package-manager/](package manager).
 
 If you are on a Mac, you may need to install the Xcode command line tools by installing Xcode (free from the Mac app store).
