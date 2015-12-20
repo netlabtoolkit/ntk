@@ -32,12 +32,28 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			WidgetView.prototype.initialize.call(this, options);
 
             // Call any custom DOM events here
-			this.model.set('title', 'OSCIn');
+			this.model.set({
+				title: 'OSCIn',
+				messageName: '/ntk/in/1',
+			});
             
             this.signalChainFunctions.push(SignalChainFunctions.scale);
             
             // Register the signal chain to be updated at frame rate
 			window.app.timingController.registerFrameCallback(this.processSignalChain, this);
+
+			this.model.on('change', function(model) {
+				var changed = model.changedAttributes();
+
+				if(changed.messageName !== undefined) {
+
+					   for(var i=this.sources.length-1; i>=0; i--) {
+						   var source = model.get('messageName');
+						   this.sources[i].map.sourceField = source;
+						   model.set('outputMapping', source);
+					   }
+			   }
+			}, this);
 
 			window.setTimeout(function() {
 				window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: 'OSC', mode: 'in', port: this.model.get('outputMapping') });
@@ -73,6 +89,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
 		onModelChange: function onModelChange(model) {
 			var outputMapping = model.changedAttributes().outputMapping;
+
+			for(var i=this.sources.length-1; i>=0; i--) {
+				this.syncWithSource(this.sources[i].model);
+			}
 
 			if(outputMapping) {
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed

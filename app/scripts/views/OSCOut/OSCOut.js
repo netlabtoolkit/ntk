@@ -63,9 +63,9 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 		},
         onRender: function() {
 			// always call the superclass
-            WidgetView.prototype.onRender.call(this);
+			WidgetView.prototype.onRender.call(this);
 
-            this.$('.dial').knob({
+			this.$('.dial').knob({
 				'fgColor':'#000000',
 				'bgColor':'#ffffff',
 				'inputColor' : '#000000',

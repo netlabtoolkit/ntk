@@ -7,11 +7,6 @@
 
     <div class="widgetLeft">
         <div class=leftTab><input type="checkbox" rv-checked="widget:active" /></div>
-        <div class=leftTab>
-            <div rv-each-source="sources" class="settings">
-                <input type='text' rv-value="source.map.sourceField">
-            </div>
-        </div>
     </div>
 
     <div class="widgetBody">
@@ -20,7 +15,7 @@
             <div class="display invalue" rv-text="widget:in | twodecimals">0</div>
             <div class="display outvalue" rv-text="widget:out | twodecimals">180</div>
         </div>
-            
+
         <table class="rangeTable" border="0" cellspacing="3" cellpadding="0">
           <tr>
             <td>in <input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:inputFloor"></td>
@@ -37,5 +32,11 @@
         <div class='outlets'>
             <div class="outlet" rv-each-outlet="widget:outs" rv-title="outlet.title" rv-data-field="outlet.to"><div class="dot">&middot;</div></div>
         </div>
+    </div>
+    <div class="widgetBottom">
+        <div class="tab"><p>more</p></div>
+        <div class="content">
+            <label for="messageName">message</label> <input name="messageName" type="text" rv-value="widget:messageName">
+		</div>
     </div>
 </div>

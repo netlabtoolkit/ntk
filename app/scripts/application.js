@@ -34,8 +34,6 @@ function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule) {
 	$.getJSON('package.json', function(localData) {
 		currentVersion = localData.version.split('.');
 
-		console.log('current', currentVersion);
-
 		$.getJSON('https://raw.githubusercontent.com/netlabtoolkit/ntk/master/package.json', function(data) {
 			var latestVersion = data.version.split('.');
 
@@ -56,7 +54,6 @@ function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule) {
 				i++;
 			}
 
-			console.log('versionIsCurrent', versionIsCurrent);
 			if(versionIsCurrent) {
 				$('.settings').append('<div class="version">v'+localData.version+'</div>');
 			}
