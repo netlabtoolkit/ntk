@@ -55,10 +55,10 @@ function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule) {
 			}
 
 			if(versionIsCurrent) {
-				$('.settings').append('<div class="version">v'+localData.version+'</div>');
+				$('#toolBarRegion .settings').append('<div class="version">v'+localData.version+'</div>');
 			}
 			else {
-				$('.settings').append('<div class="version"><a href="http://www.netlabtoolkit.org/download/" TARGET="_BLANK">UPDATE AVAILABLE</a></div>');
+				$('#toolBarRegion .settings').append('<div class="version"><a href="http://www.netlabtoolkit.org/download/" TARGET="_BLANK">UPDATE AVAILABLE</a></div>');
 			}
 		});
 	});

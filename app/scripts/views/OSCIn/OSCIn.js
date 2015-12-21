@@ -36,9 +36,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				title: 'OSCIn',
 				messageName: '/ntk/in/1',
 			});
-            
+
             this.signalChainFunctions.push(SignalChainFunctions.scale);
-            
+
             // Register the signal chain to be updated at frame rate
 			window.app.timingController.registerFrameCallback(this.processSignalChain, this);
 

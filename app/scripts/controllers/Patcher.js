@@ -143,10 +143,13 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				else if(widgetType === 'AnalogOut') {
 					var defaultMapping = 'D3';
 
+					var existingMapping = this.existingMappingExists(defaultMapping);
+
 					// Check if we are already using this output pin, don't use it if we are
-					var existingMapping = _.find(this.widgetMappings, function(map) {
-						return map.map.destinationField === defaultMapping;
-					});
+					//var existingMapping = _.find(this.widgetMappings, function(map) {
+						//return map.map.destinationField === defaultMapping;
+					//});
+
 					var defaultOutputMapping = existingMapping ? '' : defaultMapping;
 
 					var newWidget = new AnalogOutView({
@@ -191,10 +194,12 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				else if(widgetType === 'DigitalOut') {
 					var defaultMapping = 'D3';
 
+					var existingMapping = this.existingMappingExists(defaultMapping);
+
 					// Check if we are already using this output pin, don't use it if we are
-					var existingMapping = _.find(this.widgetMappings, function(map) {
-						return map.map.destinationField === defaultMapping;
-					});
+					//var existingMapping = _.find(this.widgetMappings, function(map) {
+						//return map.map.destinationField === defaultMapping;
+					//});
 					var defaultOutputMapping = existingMapping ? '' : defaultMapping;
 
 					var newWidget = new DigitalOutView({
@@ -301,6 +306,14 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			}
 
 			return false;
+		},
+		existingMappingExists: function existingMappingExists(port) {
+			// Check if we are already using this output pin, don't use it if we are
+			var existingMapping = _.find(this.widgetMappings, function(map) {
+				return map.map.destinationField === port;
+			});
+
+			return existingMapping;
 		},
 		/**
 		 * Render a view to the appropriate Canvas DOM element
