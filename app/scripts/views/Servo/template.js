@@ -23,7 +23,7 @@
         <div class=rightTab><input type="checkbox" rv-checked="widget:activeOut" /></div>
         <div class=rightTab>
             <div rv-each-source="sources" class="settings">
-                <input type='text' rv-value="source.map.destinationField" rv-show="source.model.attributes.type | exists">
+                <input type='text' rv-value="source.map.destinationField | hardwareOutput" rv-show="source.model.attributes.type | exists">
             </div>
         </div>
     </div>

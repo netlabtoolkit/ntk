@@ -43,8 +43,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			//this.model = new WidgetConfigModel(options);
 			this.model.set(options);
 			this.model.set('server', app.server);
-			this.model.on('change', this.processSignalChain, this);
 
+			this.model.on('change', this.processSignalChain, this);
 			this.model.on('change', this.onModelChange, this);
 			this.model.on('change', this.checkOutputMappingUpdate, this);
 
@@ -86,6 +86,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {undefined}
 		 */
 		checkOutputMappingUpdate: function checkOutputMappingUpdate(model) {
+
 			var outputMapping = model.changedAttributes().outputMapping,
 				hasInput = this.deviceMode == 'in';
 

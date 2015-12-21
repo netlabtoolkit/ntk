@@ -115,5 +115,38 @@ function (Backbone, App, rivets ) {
 	  return value !== undefined && value.length > 0;
 	};
 
+	rivets.formatters.hardwareOutput = {
+		read: function(outputMapping) {
+			if(outputMapping !== undefined && outputMapping.length !== 0) {
+
+				var existingMappings = _.filter(window.app.Patcher.Controller.widgetMappings, function(map) {
+					return map.map.destinationField === outputMapping;
+				});
+
+				if(existingMappings.length > 1) {
+					alert('This port cannot be used as it is already in use by another widget.');
+
+					return "";
+				}
+			}
+
+			return outputMapping;
+		},
+		publish: function(outputMapping) {
+			if(outputMapping !== undefined && outputMapping.length !== 0) {
+
+				var existingMappings = _.filter(window.app.Patcher.Controller.widgetMappings, function(map) {
+					return map.map.destinationField === outputMapping;
+				});
+
+				if(existingMappings.length > 1) {
+					//return "";
+					return false;
+				}
+			}
+
+			return outputMapping;
+		}
+	}
 	App.start();
 });

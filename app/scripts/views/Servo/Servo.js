@@ -64,24 +64,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
 
 		onModelChange: function(model) {
-			var changedAttributes = model.changedAttributes(),
-				outputMapping = changedAttributes.outputMapping;
-
-			if(outputMapping !== undefined && outputMapping.length !== 0) {
-
-				var existingMappings = _.filter(window.app.Patcher.Controller.widgetMappings, function(map) {
-					return map.map.destinationField.trim() === outputMapping.trim();
-				});
-
-				if(existingMappings.length > 1) {
-					alert('This port cannot be used as it is already in use by another widget.');
-
-					this.sources[0].map.destinationField = "";
-					this.model.set('outputMapping', "");
-
-					return false;
-				}
-			}
 			for(var i=this.sources.length-1; i>=0; i--) {
 				this.syncWithSource(this.sources[i].model);
 			}
