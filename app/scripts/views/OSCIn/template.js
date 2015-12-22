@@ -6,7 +6,12 @@
     </div>
 
     <div class="widgetLeft">
-        <div class=leftTab><input type="checkbox" rv-checked="widget:active" /></div>
+        <div class=leftTab>
+			<input type="checkbox" rv-checked="widget:active" />
+            <div rv-each-source="sources" class="settings">
+                <input type='text' rv-value="source.map.sourceField">
+            </div>
+		</div>
     </div>
 
     <div class="widgetBody">

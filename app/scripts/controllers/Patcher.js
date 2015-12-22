@@ -93,7 +93,6 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			window.app.vent.on('receivedDeviceModelUpdate', function(data) {
 				data = JSON.parse(data);
 				var serverAddress = window.location.host;
-				//var hardwareModel = this.getHardwareModelInstance(data.modelType, serverAddress);
 				var hardwareModel = this.hardwareModelInstances[data.modelType + ':' + serverAddress];
 
 				hardwareModel && hardwareModel.model.set(data.field, data.value);

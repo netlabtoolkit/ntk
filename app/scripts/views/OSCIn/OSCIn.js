@@ -47,11 +47,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 				if(changed.messageName !== undefined) {
 
-					   for(var i=this.sources.length-1; i>=0; i--) {
-						   var source = model.get('messageName');
-						   this.sources[i].map.sourceField = source;
-						   model.set('outputMapping', source);
-					   }
+					for(var i=this.sources.length-1; i>=0; i--) {
+						console.log('changing output');
+						var source = model.get('messageName');
+						this.sources[i].map.sourceField = source;
+						this.model.set('outputMapping', source);
+					}
+
+					window.app.vent.trigger('updateModelMappings', window.app.Patcher.Controller.widgetMappings);
 			   }
 			}, this);
 
