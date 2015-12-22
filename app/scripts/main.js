@@ -140,8 +140,7 @@ function (Backbone, App, rivets ) {
 				});
 
 				if(existingMappings.length > 1) {
-					//return "";
-					return false;
+					return "";
 				}
 			}
 

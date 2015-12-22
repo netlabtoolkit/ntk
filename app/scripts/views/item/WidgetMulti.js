@@ -403,6 +403,25 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			var inputVal = this.$('.settings input').val();
 
+			if(inputVal !== undefined && inputVal.length !== 0) {
+
+				var allMappingsOtherThanThis = _.reject(window.app.Patcher.Controller.widgetMappings, function(map) {
+					return map.viewWID == this.model.get('wid');
+				}, this);
+
+				var existingMappings = _.filter(allMappingsOtherThanThis, function(map) {
+					return map.map.destinationField === inputVal;
+				});
+
+				if(existingMappings.length > 0) {
+					this.sources[0].map.destinationField = "";
+					this.model.set('outputMapping', "");
+					alert('This port cannot be used as it is already in use by another widget.');
+
+					return false;
+				}
+			}
+
 			if(this.$('.settings input').parents('.rightTab') ) {
 				this.model.set('outputMapping', inputVal);
 			}

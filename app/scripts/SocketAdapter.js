@@ -67,6 +67,7 @@ function( Backbone ) {
 		},
 		registerOutboundClientEvents: function registerClientEvents(socket) {
 			// MODEL AND PATCH UPDATES
+			var deviceUpdateThrottleID = undefined;
 
 			// MODEL
 			window.app.vent.on('widgetUpdate', function(options){
@@ -77,7 +78,15 @@ function( Backbone ) {
 			// DEVICE MODEL
 			window.app.vent.on('sendDeviceModelUpdate', function(options) {
 				if(window.app.server || !window.app.serverMode) {
-					socket.emit('sendModelUpdate', options);
+					// THROTTLE THESE
+					if(deviceUpdateThrottleID !== undefined) {
+						clearTimeout(deviceUpdateThrottleID);
+					}
+
+					deviceUpdateThrottleID = setTimeout(function() {
+						socket.emit('sendModelUpdate', options);
+						deviceUpdateThrottleID = undefined;
+					}.bind(this), 10);
 				}
 			});
 
