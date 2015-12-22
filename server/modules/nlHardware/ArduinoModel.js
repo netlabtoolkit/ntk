@@ -10,7 +10,9 @@ module.exports = function(attributes) {
 
 		var constructor = function() {
 			var self = this;
-			this.board = five.Board({repl:false});
+			this.board = five.Board({
+				repl:false
+			});
 
 
 			this.board.on("ready", function() {
@@ -65,15 +67,15 @@ module.exports = function(attributes) {
 					var pin = parseInt(output.substr(1),10);
 					var outputPin;
 
-					if (pin === 3 || pin === 5 || pin === 6 || pin === 10 || pin === 11) {
+					if (pin === 3 || pin === 5 || pin === 6 || pin === 10 || pin === 11 || pin === 9) {
 						outputPin = new five.Led(pin);
-					} 
-					else if(pin === 9) {
-						outputPin = new five.Servo({
-							pin: pin,
-							range: [0,180],
-						});
 					}
+					//else if(pin === 9) {
+						//outputPin = new five.Servo({
+							//pin: pin,
+							//range: [0,180],
+						//});
+					//}
 
 					this.outputs[output].pin = outputPin;
 

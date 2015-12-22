@@ -221,7 +221,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					return newWidget;
 				}
                 else if(widgetType === 'Servo') {
-					var defaultMapping = 'D9';
+					var defaultMapping = '';
 					// Check if we are already using this output pin, don't use it if we are
 					var existingMapping = _.find(this.widgetMappings, function(map) {
 						return map.map.destinationField === defaultMapping;
