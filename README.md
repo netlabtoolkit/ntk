@@ -35,10 +35,10 @@ You must first install node and npm if you have not already done so.
 
 * Mac or Windows - Install Node and NPM from the official [Node.js website](http://nodejs.org/), using their standard installer (we've tested up to v4.2.2)
 * Linux – You most likely have Node/NPM already installed but can also install via your distribution's [https://nodejs.org/en/download/package-manager/](package manager).
+* If you are on Raspberry Pi, then you probably have an outdated version of Node. Here's a nice & easy upgrade method: https://github.com/DonaldDerek/rPi-cheat-sheet
 
 If you are on a Mac, you may need to install the Xcode command line tools by installing Xcode (free from the Mac app store).
 
-If you are on Raspberry Pi, then you probably have an outdated version of Node. Here's a nice & easy upgrade method: https://github.com/DonaldDerek/rPi-cheat-sheet
 
 ### Dependencies (one time only)
 
@@ -99,74 +99,4 @@ This will place the distributable builds in a folder named "packaged" in the mai
 
 Creating a New Widget
 ---------------------
-Copy the Blank Widget folder located in the /app/scripts/views directory and name this new folder with the name of your widget. This folder has three files needed for each widget
-
-*   **MyWidget.js** - the javascript view for the widget - must be named with widget name
-*   **template.js** - the HTML template for the widget - keep this name
-*   **styles.scss** - the css in SASS format - keep this name
-
-Rename the view file to your widget name (e.g. from Blank.js to MyWidget.js).
-
-Open the view file to see comments on building out a custom view in Javascript. In this file, be sure to change names of the **typeID**, **className** and **title** to your new widget name (paying close attention to capitalization).
-
-Adding Your Custom Widget to WidgetMap.js
-------------------------
-When you are ready to test and run your widget you will need to add it into the system by opening the WidgetMap.js file located in the same directory (/app/scripts/views). There are three changes that need to be made to this file.
-
-1) Look at the top of the file in the define section:
-```
-define([
-	'views/Blank/Blank',
-	'views/AnalogIn/AnalogIn',
-	'views/AnalogOut/AnalogOut',
-	'views/Code/Code',
-	'views/Image/Image',
-],
-```
-and add your widget like so:
-```
-define([
-	'views/Blank/Blank',
-	'views/AnalogIn/AnalogIn',
-	'views/AnalogOut/AnalogOut',
-	'views/Code/Code',
-	'views/Image/Image',
-	'views/MyWidget/MyWidget',
-],
-```
-Note that the ".js" at the end of the file is unnecessary.
-
-2) Then pass the widget into the function call as a parameter (order is very important. Always add to the end):
-```
-function(Blank, AnalogIn, AnalogOut, Code, Image){
-
-...
-
-function(Blank, AnalogIn, AnalogOut, Code, Image, MyWidget){
-```
-
-3) Add your widget to the map like so:
-```
-	return {
-		'Blank': Blank,
-		'AnalogIn': AnalogIn,
-		'AnalogOut': AnalogOut,
-		'Code': Code,
-		'Image': Image,
-	};
-
-...
-
-	return {
-		'Blank': Blank,
-		'AnalogIn': AnalogIn,
-		'AnalogOut': AnalogOut,
-		'Code': Code,
-		'Image': Image,
-		'The typeID of My Custom Widget View': MyWidget,
-	};
-```
-
-This will both add the widget to the lefthand toolbar and allow your widget to be loaded from the GUI.
-
-That's it!
+See this page for details: <http://www.netlabtoolkit.org/documentation/create-your-own-widget/>
