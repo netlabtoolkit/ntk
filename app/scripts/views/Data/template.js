@@ -31,8 +31,8 @@
           <option value="randomNoRepeat">randNoRep</option>
           <option value="randomAny">randAny</option>
         </select>
-        <input class="dataTypeText" name="dataType" type="radio" value="text" rv-checked="widget:dataType"> Text Data<br>
-        <input class='dataTypeNum' name="dataType" type="radio" value="number" rv-checked="widget:dataType"> Numeric Data
+        <input class="dataTypeText" type="radio" value="text" rv-checked="widget:dataType"> Text Data<br>
+        <input class="dataTypeNum" type="radio" value="number" rv-checked="widget:dataType"> Numeric Data
     </div>
 
     <div class="widgetRight">
