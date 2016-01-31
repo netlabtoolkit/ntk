@@ -30,6 +30,7 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label for="avg">avg inputs</label> <input name="avg" type="checkbox" rv-checked="widget:averageInputs" /> <br>
+<!--            <label for="round">rnd output</label> <input name="avg" type="checkbox" rv-checked="widget:roundOutput" /> <br>-->
             <label for="send">send every</label> <input name="send" type="text" rv-value="widget:sendPeriod"><br>
             <hr>
             <select class="cloudService" rv-value="widget:cloudService">

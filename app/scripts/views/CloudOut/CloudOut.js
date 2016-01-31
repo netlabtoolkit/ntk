@@ -54,11 +54,15 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 particleAccessToken: '',
                 //
                 averageInputs: false,
+                roundOutput: true,
                 sendToCloud: false,
                 displayTimerStart: false,
                 displayText: "Stopped",
                 //
                 lastValueSentToCloud: "-1000",
+                lastTimeSentToCloud: 0,
+                repeatSameCount: 0,
+                resendRepeatSameInterval: 5,
 
             });
             
@@ -113,7 +117,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				$(el).trigger('change');
 			};
             
-            this.changeCloudService();
+            this.init = false; // set up to do changeCloudService to make sure interface is correct
         },
 
 
@@ -145,11 +149,17 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         
         watchData: function(input) {
             var value = input;
+            
             if (this.model.get('averageInputs')) {
                 this.inputCount++;
                 this.inputCumulative += Number(input);
-                value = parseInt(this.inputCumulative / this.inputCount);
+                value = this.inputCumulative / this.inputCount;
             }
+            
+            if (this.model.get('roundOutput')) {
+                value = Math.round(value);
+            }
+
             return value;
         },
         
@@ -169,6 +179,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                      
         timeKeeper: function(frameCount) {
             //console.log('sending: ' + this.model.get('sendToCloud') + this.model.get('phantDataField'));
+            
+            if (this.init == false) {
+                this.changeCloudService();
+                this.init = true;
+            }
             if (this.model.get('sendToCloud')) {
                 var self = this;
                 var period = this.model.get('sendPeriod');
@@ -181,20 +196,28 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 }
 
                 var timeDiff = Date.now() - this.startTime;
+                var lastTimeSentTimeDiff = Date.now() - this.model.get('lastTimeSentToCloud');
+                var theValue = (this.model.get('out')).toString();
 
-
-                if (timeDiff > period) { // send to cloud
-                    //console.log("sending", app.serverMode);
+                if (timeDiff >= period ||
+                    (this.model.get('lastValueSentToCloud') != theValue && lastTimeSentTimeDiff >= period)) { 
+                    // send to cloud
 
                     this.startTime = Date.now();
                     if(!app.server) this.$('.outvalue').css('color','#ff0000'); // start the RED pulse
                     this.setDisplayText(' Send in: ' + (period / 1000).toFixed(1) + 's');
 
                     this.lastTimeDiff = 0;
-                    var theValue = (this.model.get('out')).toString();
                     
-                    if (this.model.get('lastValueSentToCloud') != theValue) { // only send changed values
-                        if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) { 
+                    
+                    if (this.model.get('lastValueSentToCloud') != theValue ||
+                        this.model.get('repeatSameCount') >= this.model.get('resendRepeatSameInterval') - 1) { 
+                        // only send changed values
+                        console.log('actually sending: ' + theValue);
+                        
+                        if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
+                            this.model.set('lastTimeSentToCloud', Date.now());
+                            this.model.set('repeatSameCount',0);
                             // only send if we're the server and in server mode, or the browser and in authoring mode
                             //console.log("sending to cloud service, app.serverMode: " + app.serverMode);
                             switch(this.model.get('cloudService')) {
@@ -241,6 +264,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                     break;
                                 default:
                             }
+                        }
+                    } else {
+                        if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
+                            console.log('not sending due to repeat: '  + this.model.get('repeatSameCount'));
+                            this.model.set('repeatSameCount',this.model.get('repeatSameCount') + 1);
                         }
                     }
                     this.model.set('lastValueSentToCloud',theValue);
