@@ -65,7 +65,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.startCountdown = true;
             this.redPulseCount = 0;
 
-            //this.signalChainFunctions.push(SignalChainFunctions.scale);
+            this.signalChainFunctions.push(SignalChainFunctions.scale);
 			// If you would like to register any function to be called at frame rate (60fps)
 			//console.log('register!');
 			//window.app.server && 
@@ -105,7 +105,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				$(el).trigger('change');
 			};
             
-            this.changeCloudService();
+            this.init = false; // set up to do changeCloudService to make sure interface is correct
         },
 
 
@@ -155,6 +155,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
         
         timeKeeper: function(frameCount) {
+            if (this.init == false) {
+                this.changeCloudService();
+                this.init = true;
+            }
+            //console.log(frameCount);
             if (this.model.get('getFromCloud')) {
                 var self = this;
                 var period = this.model.get('getPeriod');
