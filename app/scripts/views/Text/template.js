@@ -25,20 +25,22 @@
             <strong>Text Box</strong><br>
             <div class="inletValue"><input class="appendText" type="checkbox" rv-checked="widget:appendText" /> Append new text</div>
             <label class="narrowLabel">width</label> <input class="displayWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth"><br>
-        <label class="narrowLabel">class</label> <input class="displayClass" class="moreParam" type="text" rv-value="widget:displayClass"><br>
-        <hr><strong>Font</strong><br>
-        <label class="narrowLabel">size</label> <input class="displayFontSize" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayFontSize"><br>
-        <label class="narrowLabel">color</label> <input class="displayFontColor" class="moreParam" type="text" rv-value="widget:displayFontColor"><br>
-        <div class="inletValue"><input class="displayFontItalic" type="checkbox" rv-checked="widget:displayFontItalic" /> Italic  
-        <input class="displayFontBold" type="checkbox" rv-checked="widget:displayFontBold" /> Bold</div>
-        <select class="displayFontFamily" rv-value='widget:displayFont'>
-          <option value='Arial, Helvetica, sans-serif'>Arial</option>
-          <option value='Tahoma, Geneva, sans-serif'>Tahoma</option>
-          <option value='Georgia, serif'>Georgia</option>
-          <option value='"Times New Roman", Times, serif'>Times</option>
-          <option value='"Courier New", Courier, monospace'>Courier New</option>
-        </select> 
-        
+            <label class="narrowLabel">class</label> <input class="displayClass" class="moreParam" type="text" rv-value="widget:displayClass"><br>
+            <hr><strong>Font</strong><br>
+            <label class="narrowLabel">size</label> <input class="displayFontSize" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayFontSize"><br>
+            <label class="narrowLabel">color</label> <input class="displayFontColor" class="moreParam" type="text" rv-value="widget:displayFontColor"><br>
+            <div class="inletValue"><input class="displayFontItalic" type="checkbox" rv-checked="widget:displayFontItalic" /> Italic  
+            <input class="displayFontBold" type="checkbox" rv-checked="widget:displayFontBold" /> Bold</div>
+            <select class="displayFontFamily" rv-value='widget:displayFont'>
+              <option value='Arial, Helvetica, sans-serif'>Arial</option>
+              <option value='Tahoma, Geneva, sans-serif'>Tahoma</option>
+              <option value='Georgia, serif'>Georgia</option>
+              <option value='"Times New Roman", Times, serif'>Times</option>
+              <option value='"Courier New", Courier, monospace'>Courier New</option>
+            </select> 
+            <hr>
+            <strong>Displayed Text</strong><br>
+            <textarea class="database" rv-value="widget:in" rows="4" cols="70"></textarea>
         </div>
     </div>
 
