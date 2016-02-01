@@ -104,7 +104,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
         
         onModelChange: function(model) {
+
             if(!app.server && this.model.get('domReady')) {
+                if (!this.voiceSelect.value) {
+                    this.loadVoices();
+                    this.voiceSelect.value = this.model.get('voice');
+                }
                 if(model.changedAttributes().in1 !== undefined) {
 
                     var input = parseFloat(this.model.get('in1'));  

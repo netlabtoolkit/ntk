@@ -65,6 +65,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			WidgetView.prototype.onRender.call(this);
 
             var self = this;
+            self.model.set('output','');
+            self.model.set('final_transcript','');
             
             // setup speach recognition
             if (!('webkitSpeechRecognition' in window)) {
@@ -109,17 +111,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
                 this.recognition.onend = function() {
                     self.model.set('recognizing',false);
-                    self.$('.transcript').css({ 'background-color': '' });
+                    //self.$('.transcript').css({ 'background-color': '' });
                     self.$('.title').css({ 'color': 'white' });
-                    if (self.model.get('ignore_onend')) {
-                      return;
-                    }
+
                     if (!self.model.get('final_transcript')) {
-                      //showInfo('info_start');
                       return;
                     }
-                    //showInfo('');
-                    self.model.set('output',self.model.get('final_transcript'));
+                    //self.model.set('output',self.model.get('final_transcript'));
 
                 };
 
@@ -138,11 +136,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                           if (!self.model.get('continuous') && self.model.get('recognizing')) {
                               // stop recognition
                               self.recognition.stop();
-                          } else {
-                              // send phrase and start recognizing again
-                              self.model.set('output',self.model.get('final_transcript'));
-                          }
+                          } // else continue recognizing
+                          self.model.set('output',self.model.get('final_transcript'));
                       } else {
+                          self.model.set('output','');
                           self.$('.transcript').css({ 'background-color': 'yellow' });
                           interim_transcript += event.results[i][0].transcript;
                       }

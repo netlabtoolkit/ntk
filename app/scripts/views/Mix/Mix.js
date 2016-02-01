@@ -72,7 +72,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 
                 for (var i=(ins.length - 1);i>=0;i--) {
                     if (isNaN(ins[i])) ins.splice(i, 1);
-                    
                 }
                 
                 var result = 0;
