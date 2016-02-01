@@ -29,7 +29,7 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-            <label for="voice">voice</label><select name="voice" class="voice" rv-value="widget:voice"></select><br>
+            <label for="voice">voice</label><select name="voice" class="voice" rv-value="widget:voice"></select> <span class="voiceLang" rv-text="widget:lang"></span><br>
             <label for="select_language">language</label><select name="select_language" class="select_language" rv-value="widget:language"></select>&nbsp;&nbsp;
             <select class="select_dialect" rv-value="widget:dialect"></select><br>
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>

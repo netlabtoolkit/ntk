@@ -25,6 +25,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         
         widgetEvents: {
             'change .select_language': 'updateCountry',
+            'change .voice': 'updateLang',
         },
 		sources: [],
 		typeID: 'SpeechOut',
@@ -45,6 +46,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 voice: 'Samantha',
                 language: 6,
                 dialect: 'en-US',
+                lang: 'en-US',
                 threshold: 512,
                 autoPlay: false,
                 autoCancel: false,
@@ -74,9 +76,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 this.voiceSelect = this.$( '.voice' ).get(0);
                 this.select_language = this.$( '.select_language' ).get(0);
                 this.select_dialect = this.$( '.select_dialect' ).get(0);
-                this.loadVoices();
+                this.voiceDialects = {};
+                //this.loadVoices();
                 this.setLanguages();
-                this.voiceSelect.value = this.model.get('voice');
+                //this.voiceSelect.value = this.model.get('voice');
+                //this.updateLang();
                 
                 this.msg = new SpeechSynthesisUtterance();
                 //this.voices = window.speechSynthesis.getVoices();
@@ -90,6 +94,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     if (!self.voiceSelect.value) {
                         self.loadVoices();
                         self.voiceSelect.value = self.model.get('voice');
+                        self.updateLang();
                     }
                 };
                 this.msg.onend = function(e) {
@@ -109,6 +114,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 if (!this.voiceSelect.value) {
                     this.loadVoices();
                     this.voiceSelect.value = this.model.get('voice');
+                    this.updateLang();
                 }
                 if(model.changedAttributes().in1 !== undefined) {
 
@@ -162,6 +168,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 // Set the options value and text.
                 option.value = voice.name;
                 option.innerHTML = voice.name;
+                self.voiceDialects[voice.name] = voice.lang;
+                //console.log(voice.name + ' ' + voice.lang)
 
                 // Add the option to the voice selector.
                 self.voiceSelect.appendChild(option);
@@ -253,6 +261,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     this.select_dialect.options.add(new Option(list[i][1], list[i][0]));
                 }
                 this.select_dialect.style.visibility = list[1].length == 1 ? 'hidden' : 'visible';
+            },
+            
+            updateLang: function() {
+                //var voiceLang = this.voiceDialects[this.voiceSelect.selectedIndex];
+                //this.$('.voiceLang').text(this.voiceDialects[this.model.get('voice')]);
+                //console.log(this.model.get('voice'));
+                this.model.set('lang', this.voiceDialects[this.model.get('voice')])
+                //this.$('.voiceLang').text(this.voiceDialects[this.voiceSelect.value]);
             }
 
         
