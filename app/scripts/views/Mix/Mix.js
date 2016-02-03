@@ -125,7 +125,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     default:
                         //
                 }
-                this.model.set('output',result);
+                if (this.model.get('mixType') == 'latest' || ins.length > 0) {
+                    this.model.set('output',result);
+                } // else don't send any output if all inputs are non-numeric
+                
                 
             }
         },
