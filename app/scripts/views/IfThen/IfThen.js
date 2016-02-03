@@ -230,7 +230,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 }
             }
             
-            return Number(output);
+            var returnOutput = Number(output);
+            if (isNaN(Number(output))) {
+                return output; // output the string as is
+            } else {
+                return Number(output); // output as a number
+            }
+            
         },
         
         onModelChange: function(model) {
