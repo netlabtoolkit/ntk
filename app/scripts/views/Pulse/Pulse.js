@@ -59,7 +59,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.domReady = false;
             this.lastTimeLength = this.model.get('timerLength');
 
-            window.app.timingController.registerFrameCallback(this.timeKeeper, this);
+			this.localTimeKeeperFunc = function(frameCount) {
+				this.timeKeeper(frameCount);
+			}.bind(this);
+
+			window.app.timingController.registerFrameCallback(this.localTimeKeeperFunc, this);
 
 		},
         /**
@@ -82,7 +86,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
         
         onRemove: function() {
-			window.app.timingController.removeFrameCallback(this.timeKeeper, this);
+			window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
 		},
         
         onModelChange: function(model) {
