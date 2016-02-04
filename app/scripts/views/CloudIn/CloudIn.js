@@ -69,7 +69,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// If you would like to register any function to be called at frame rate (60fps)
 			//console.log('register!');
 			//window.app.server && 
-			window.app.timingController.registerFrameCallback(this.timeKeeper, this);
+			this.localTimeKeeperFunc = function(frameCount) {
+				this.timeKeeper(frameCount);
+			}.bind(this);
+
+			window.app.timingController.registerFrameCallback(this.localTimeKeeperFunc, this);
 		},
 
         /**
@@ -112,7 +116,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// Any custom function can be attached to the widget like this "limitServoRange" function
 		// and can be accessed via this.limitServoRange();
 		onRemove: function() {
-			window.app.timingController.removeFrameCallback(this.timeKeeper, this);
+			window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
 		},
         
         getFromCloud: function(e) {
