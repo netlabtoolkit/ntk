@@ -54,12 +54,20 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// then push its processing function onto the stack
 			this.smoother = new SignalChainClasses.Smoother({tolerance: this.model.get('smoothingAmount')});
 			this.signalChainFunctions.push(this.smoother.getChainFunction());
+            
+            this.localProcessSignalChain = function() {
+				this.processSignalChain();
+			}.bind(this);
 
 			// Register the signal chain to be updated at frame rate
-			window.app.timingController.registerFrameCallback(this.processSignalChain, this);
+			window.app.timingController.registerFrameCallback(this.localProcessSignalChain, this);
 
             // If you would like to register any function to be called at frame rate (60fps)
-			window.app.timingController.registerFrameCallback(this.timeKeeper, this);
+			this.localTimeKeeperFunc = function(frameCount) {
+				this.timeKeeper(frameCount);
+			}.bind(this);
+
+			window.app.timingController.registerFrameCallback(this.localTimeKeeperFunc, this);
 		},
 
 		onRender: function() {
@@ -87,8 +95,6 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				$(el).val(value);
 				$(el).trigger('change');
 			};
-
-
 		},
 		/**
 		 * onRemove  - Called when the widget is removed. Used for cleanup.
@@ -96,8 +102,8 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		 * @return {void}
 		 */
 		onRemove: function() {
-			window.app.timingController.removeFrameCallback(this.processSignalChain, this);
-            window.app.timingController.removeFrameCallback(this.timeKeeper, this);
+			window.app.timingController.removeFrameCallback(this.localProcessSignalChain, this);
+            window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
 		},
 		toggleInvert: function(e) {
 			e.preventDefault();
@@ -140,6 +146,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 		timeKeeper: function(frameCount) {
 			if (this.model.get('easing')) {
+                //console.log('timekeeper' + this.wname);
 				this.easingLast = this.easeOutExpo (0.17,this.easingLast,(this.easingNew - this.easingLast), this.model.get('easingAmount'));
 				if (Math.abs(this.easingLast - this.easingNew) < 0.4) this.easingLast = this.easingNew;
 				if (isNaN(this.easingLast)) {

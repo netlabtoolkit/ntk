@@ -80,9 +80,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 		// Any custom function can be attached to the widget like this "limitServoRange" function
 		// and can be accessed via this.limitServoRange();
-		onRemove: function() {
-			//window.app.timingController.removeFrameCallback(this.timeKeeper, this);
-		},
         
         onModelChange: function(model) {
             //console.log("modelChange");

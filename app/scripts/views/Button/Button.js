@@ -82,7 +82,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			//this.signalChainFunctions.push(this.smoother.getChainFunction());
 
 			// If you would like to register any function to be called at frame rate (60fps)
-			//window.app.timingController.registerFrameCallback(this.processSignalChain, this);
+			/*
+			this.localTimeKeeperFunc = function(frameCount) {
+				this.timeKeeper(frameCount);
+			}.bind(this);
+
+			window.app.timingController.registerFrameCallback(this.localTimeKeeperFunc, this);
+            */
 		},
 
         /**

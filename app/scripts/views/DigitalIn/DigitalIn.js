@@ -57,10 +57,19 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			this.signalChainFunctions.push(this.smoother.getChainFunction());
 
 			// Register the signal chain to be updated at frame rate
-			window.app.timingController.registerFrameCallback(this.processSignalChain, this);
+			this.localProcessSignalChain = function() {
+				this.processSignalChain();
+			}.bind(this);
+
+			// Register the signal chain to be updated at frame rate
+			window.app.timingController.registerFrameCallback(this.localProcessSignalChain, this);
 
             // If you would like to register any function to be called at frame rate (60fps)
-			window.app.timingController.registerFrameCallback(this.timeKeeper, this);
+			this.localTimeKeeperFunc = function(frameCount) {
+				this.timeKeeper(frameCount);
+			}.bind(this);
+
+			window.app.timingController.registerFrameCallback(this.localTimeKeeperFunc, this);
 
 			window.setTimeout(function() {
 				var modelType = this.sources[0].model.get('type');
@@ -104,8 +113,8 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		 * @return {void}
 		 */
 		onRemove: function() {
-			window.app.timingController.removeFrameCallback(this.processSignalChain, this);
-            window.app.timingController.removeFrameCallback(this.timeKeeper, this);
+			window.app.timingController.removeFrameCallback(this.localProcessSignalChain, this);
+            window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
 		},
 		toggleInvert: function(e) {
 			e.preventDefault();
