@@ -26,6 +26,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         widgetEvents: {
             'change .select_language': 'updateCountry',
             'change .voice': 'updateLang',
+            'mousedown .speak': 'speakStart',
+            'mouseup .speak': 'speakStop',
         },
 		sources: [],
 		typeID: 'SpeechOut',
@@ -48,7 +50,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 dialect: 'en-US',
                 lang: 'en-US',
                 threshold: 512,
-                autoPlay: false,
+                autoPlay: true,
                 autoCancel: false,
                 lastIn: -1,
                 start_timestamp: 0,
@@ -69,39 +71,43 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
             var self = this;
             
-            // setup speach recognition
-            if (!('speechSynthesis' in window)) {
-                alert("Browser not supported for speech synthesis");
-            } else {
-                this.voiceSelect = this.$( '.voice' ).get(0);
-                this.select_language = this.$( '.select_language' ).get(0);
-                this.select_dialect = this.$( '.select_dialect' ).get(0);
-                this.voiceDialects = {};
-                //this.loadVoices();
-                this.setLanguages();
-                //this.voiceSelect.value = this.model.get('voice');
-                //this.updateLang();
-                
-                this.msg = new SpeechSynthesisUtterance();
-                //this.voices = window.speechSynthesis.getVoices();
-                //msg.voice = voices[10]; // Note: some voices don't support altering params
-                //this.msg.voiceURI = 'native';
-                this.msg.volume = 1; // 0 to 1
-                this.msg.rate = 1; // 0.1 to 10
-                this.msg.lang = 'en-US';
+            if(!app.server) {
+                this.$( '.speak' ).css( 'cursor', 'pointer' );
+            
+                // setup speach recognition
+                if (!('speechSynthesis' in window)) {
+                    alert("Browser not supported for speech synthesis");
+                } else {
+                    this.voiceSelect = this.$( '.voice' ).get(0);
+                    this.select_language = this.$( '.select_language' ).get(0);
+                    this.select_dialect = this.$( '.select_dialect' ).get(0);
+                    this.voiceDialects = {};
+                    //this.loadVoices();
+                    this.setLanguages();
+                    //this.voiceSelect.value = this.model.get('voice');
+                    //this.updateLang();
 
-                window.speechSynthesis.onvoiceschanged = function(e) {
-                    if (!self.voiceSelect.value) {
-                        self.loadVoices();
-                        self.voiceSelect.value = self.model.get('voice');
-                        self.updateLang();
-                    }
-                };
-                this.msg.onend = function(e) {
-                  //console.log('Finished in ' + e.elapsedTime + ' seconds.');
-                };
+                    this.msg = new SpeechSynthesisUtterance();
+                    //this.voices = window.speechSynthesis.getVoices();
+                    //msg.voice = voices[10]; // Note: some voices don't support altering params
+                    //this.msg.voiceURI = 'native';
+                    this.msg.volume = 1; // 0 to 1
+                    this.msg.rate = 1; // 0.1 to 10
+                    this.msg.lang = 'en-US';
 
-                //speechSynthesis.speak(msg);
+                    window.speechSynthesis.onvoiceschanged = function(e) {
+                        if (!self.voiceSelect.value) {
+                            self.loadVoices();
+                            self.voiceSelect.value = self.model.get('voice');
+                            self.updateLang();
+                        }
+                    };
+                    this.msg.onend = function(e) {
+                      //console.log('Finished in ' + e.elapsedTime + ' seconds.');
+                    };
+
+                    //speechSynthesis.speak(msg);
+                }
             }
             
             this.model.set('domReady',true); 
@@ -174,6 +180,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 // Add the option to the voice selector.
                 self.voiceSelect.appendChild(option);
             });
+        },
+        
+        speakStart: function() {
+            this.model.set('in1',1023);
+        },
+        
+        speakStop: function() {
+            this.model.set('in1',0);
         },
         
         setLanguages: function() {

@@ -25,6 +25,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         widgetEvents: {
             'blur .database': 'outputText',
             'change .select_language': 'updateCountry',
+            'mousedown .listen': 'listenStart',
+            'mouseup .listen': 'listenStop',
         },
 		sources: [],
 		typeID: 'SpeechIn',
@@ -63,91 +65,96 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
          */
 		onRender: function() {
 			WidgetView.prototype.onRender.call(this);
-
-            var self = this;
-            self.model.set('output','');
-            self.model.set('final_transcript','');
             
-            // setup speach recognition
-            if (!('webkitSpeechRecognition' in window)) {
-                alert("Browser not supported for speech recognition");
-            } else {
-                this.select_language = this.$( '.select_language' ).get(0);
-                this.select_dialect = this.$( '.select_dialect' ).get(0);
-                this.setLanguages();
-                
-                
-                this.recognition = new webkitSpeechRecognition();
-                this.recognition.continuous = true;
-                this.recognition.interimResults = true;
-                
+            if(!app.server) {
+                this.$( '.listen' ).css( 'cursor', 'pointer' );
+            
+
                 var self = this;
+                self.model.set('output','');
+                self.model.set('final_transcript','');
 
-                this.recognition.onstart = function() {
-                    self.model.set('recognizing',true);
-                    //showInfo('info_speak_now');
-                };
+                // setup speach recognition
+                if (!('webkitSpeechRecognition' in window)) {
+                    alert("Browser not supported for speech recognition");
+                } else {
+                    this.select_language = this.$( '.select_language' ).get(0);
+                    this.select_dialect = this.$( '.select_dialect' ).get(0);
+                    this.setLanguages();
 
-                this.recognition.onerror = function(event) {
-                    if (event.error == 'no-speech') {
-                      //start_img.src = '/intl/en/chrome/assets/common/images/content/mic.gif';
-                      //showInfo('info_no_speech');
-                      self.model.set('ignore_onend',true);
-                    }
-                    if (event.error == 'audio-capture') {
-                      //start_img.src = '/intl/en/chrome/assets/common/images/content/mic.gif';
-                      //showInfo('info_no_microphone');
-                      self.model.set('ignore_onend',true);
-                    }
-                    if (event.error == 'not-allowed') {
-                      if (event.timeStamp - start_timestamp < 100) {
-                        //showInfo('info_blocked');
-                      } else {
-                        //showInfo('info_denied');
-                      }
-                      self.model.set('ignore_onend',true);
-                    }
-                };
 
-                this.recognition.onend = function() {
-                    self.model.set('recognizing',false);
-                    //self.$('.transcript').css({ 'background-color': '' });
-                    self.$('.title').css({ 'color': 'white' });
+                    this.recognition = new webkitSpeechRecognition();
+                    this.recognition.continuous = true;
+                    this.recognition.interimResults = true;
 
-                    if (!self.model.get('final_transcript')) {
-                      return;
-                    }
-                    //self.model.set('output',self.model.get('final_transcript'));
+                    var self = this;
 
-                };
+                    this.recognition.onstart = function() {
+                        self.model.set('recognizing',true);
+                        //showInfo('info_speak_now');
+                    };
 
-                this.recognition.onresult = function(event) {
-                    var interim_transcript = '';
-                    if (typeof(event.results) == 'undefined') {
-                      self.recognition.onend = null;
-                      self.recognition.stop();
-                      return;
-                    }
-                    for (var i = event.resultIndex; i < event.results.length; ++i) {
-                      if (event.results[i].isFinal) {
-                          self.$('.transcript').css({ 'background-color': 'lime' });
-                          interim_transcript += event.results[i][0].transcript;
-                          self.model.set('final_transcript',interim_transcript);
-                          if (!self.model.get('continuous') && self.model.get('recognizing')) {
-                              // stop recognition
-                              self.recognition.stop();
-                          } // else continue recognizing
-                          self.model.set('output',self.model.get('final_transcript'));
-                      } else {
-                          self.model.set('output','');
-                          self.$('.transcript').css({ 'background-color': 'yellow' });
-                          interim_transcript += event.results[i][0].transcript;
-                      }
-                    }
-                    //interim_transcript = capitalize(interim_transcript);
-                    //self.model.set('speach-output',interim_transcript);
-                    self.model.set('final_transcript',interim_transcript);
-                };
+                    this.recognition.onerror = function(event) {
+                        if (event.error == 'no-speech') {
+                          //start_img.src = '/intl/en/chrome/assets/common/images/content/mic.gif';
+                          //showInfo('info_no_speech');
+                          self.model.set('ignore_onend',true);
+                        }
+                        if (event.error == 'audio-capture') {
+                          //start_img.src = '/intl/en/chrome/assets/common/images/content/mic.gif';
+                          //showInfo('info_no_microphone');
+                          self.model.set('ignore_onend',true);
+                        }
+                        if (event.error == 'not-allowed') {
+                          if (event.timeStamp - start_timestamp < 100) {
+                            //showInfo('info_blocked');
+                          } else {
+                            //showInfo('info_denied');
+                          }
+                          self.model.set('ignore_onend',true);
+                        }
+                    };
+
+                    this.recognition.onend = function() {
+                        self.model.set('recognizing',false);
+                        //self.$('.transcript').css({ 'background-color': '' });
+                        self.$('.title').css({ 'color': 'white' });
+
+                        if (!self.model.get('final_transcript')) {
+                          return;
+                        }
+                        //self.model.set('output',self.model.get('final_transcript'));
+
+                    };
+
+                    this.recognition.onresult = function(event) {
+                        var interim_transcript = '';
+                        if (typeof(event.results) == 'undefined') {
+                          self.recognition.onend = null;
+                          self.recognition.stop();
+                          return;
+                        }
+                        for (var i = event.resultIndex; i < event.results.length; ++i) {
+                          if (event.results[i].isFinal) {
+                              self.$('.transcript').css({ 'background-color': 'lime' });
+                              interim_transcript += event.results[i][0].transcript;
+                              self.model.set('final_transcript',interim_transcript);
+                              if (!self.model.get('continuous') && self.model.get('recognizing')) {
+                                  // stop recognition
+                                  self.recognition.stop();
+                              } // else continue recognizing
+                              self.model.set('output',self.model.get('final_transcript'));
+                          } else {
+                              self.model.set('output','');
+                              self.$('.transcript').css({ 'background-color': 'yellow' });
+                              interim_transcript += event.results[i][0].transcript;
+                          }
+                        }
+                        //interim_transcript = capitalize(interim_transcript);
+                        //self.model.set('speach-output',interim_transcript);
+                        self.model.set('final_transcript',interim_transcript);
+                    };
+                }
             }
 
 		},
@@ -184,6 +191,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         
         outputText: function() {
             this.model.set('output',this.model.get('final_transcript'));
+        },
+        
+        listenStart: function() {
+            this.model.set('in1',1023);
+        },
+        
+        listenStop: function() {
+            this.model.set('in1',0);
         },
         
         setLanguages: function() {

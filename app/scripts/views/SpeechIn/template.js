@@ -15,6 +15,9 @@
         <div class="widgetBodyLeft">
             <div class="inletValue"><span rv-text="widget:in1 | rounded">0</span></div>
         </div>
+        <div class="widgetBodyRight">
+            <div class="inletValue"><span class="listen outputSingle">listen</span></div>
+        </div>
             <br><br>
             <span class='transcript' rv-text="widget:final_transcript"> </span>
             <br>
