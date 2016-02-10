@@ -67,10 +67,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
         
         onModelChange: function(model) {
-            if(model.changedAttributes().in1 !== undefined ||
-               model.changedAttributes().in2 !== undefined ||
-               model.changedAttributes().in3 !== undefined ||
-               model.changedAttributes().in4 !== undefined) {
+            if((model.changedAttributes().in1 !== undefined && model.changedAttributes().in1 != this.model.get('lastIns')[0]) ||
+               (model.changedAttributes().in2 !== undefined && model.changedAttributes().in1 != this.model.get('lastIns')[1]) ||
+               (model.changedAttributes().in3 !== undefined && model.changedAttributes().in1 != this.model.get('lastIns')[2]) ||
+               (model.changedAttributes().in4 !== undefined && model.changedAttributes().in1 != this.model.get('lastIns')[3])) {
                 
                 var ins = [parseFloat(this.model.get('in1')),
                            parseFloat(this.model.get('in2')),
@@ -82,7 +82,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     
                 }*/
                 
-                var result = this.model.get('output');
+                var result = parseFloat(this.model.get('output'));
                 var increaseBy = 0;
                 var threshold = this.model.get('threshold');
                 

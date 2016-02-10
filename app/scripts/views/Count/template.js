@@ -38,6 +38,7 @@
             <label>min</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:outputFloor"><br>
             <label>max</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:outputCeiling"><br>
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
+            <label>count val</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:output">
         </div>
     </div>
 </div>
