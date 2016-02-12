@@ -83,17 +83,15 @@ function(Backbone, rivets, WidgetView, Template){
                 this.$( '.detachedEl' ).css( 'cursor', 'move' );
                 this.$( '.detachedEl' ).css( 'position', 'fixed' );
                 this.$( '.detachedEl' ).draggable({ cursor: "move" });
-                this.$(".video")[0].loop = this.model.get('loop');
-                
-                if (this.model.get('continuous')) {
-                    this.playing = true;
-                    this.$(".video")[0].play();
-                    this.model.set('playText',"Play");
-                }
-                
                 
                 //console.log("vid: " + this.$(".video")[0].currentSrc);
                 this.domReady = true;
+                this.init = false;
+                
+                $( document ).ready(function() {
+                    //console.log('ready')
+                    self.setVideoDimensions();
+                });
                 
             }
 
@@ -103,6 +101,7 @@ function(Backbone, rivets, WidgetView, Template){
 
         onModelChange: function(model) {
             if (this.domReady) {
+
 				if(!app.server  && (model.changedAttributes().play != undefined || model.changedAttributes().speed != undefined || model.changedAttributes().time != undefined)) {
 					var play = parseInt(this.model.get('play'),10);
 					var volume = Math.min(parseFloat(this.model.get('volume')) / 100,1.0);
@@ -148,7 +147,17 @@ function(Backbone, rivets, WidgetView, Template){
         },
         
         setVideoDimensions: function() {
-            this.$( '.detachedEl' ).css( 'width', this.model.get('displayWidth'));
+            if(!app.server) {
+                this.$( '.detachedEl' ).css( 'width', this.model.get('displayWidth'));
+            }
+            
+            this.$(".video")[0].loop = this.model.get('loop');
+                
+            if (this.model.get('continuous')) {
+                this.playing = true;
+                this.$(".video")[0].play();
+                this.model.set('playText',"Play");
+            }
         },
             
         continuousChange: function(e) {
