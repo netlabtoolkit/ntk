@@ -1,6 +1,6 @@
 {
   "name": "netlab",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "dependencies": {
     "es6-shim": "^0.22.2",
     "express": "~4.4.5",
