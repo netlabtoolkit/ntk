@@ -1,7 +1,6 @@
 define([
-	'jquery',
 ],
-function ($) {
+function () {
 	'use strict';
 
 	/**
@@ -94,7 +93,7 @@ function ($) {
 		 * @return {function}
 		 */
 		getChainFunction: function() {
-			return $.proxy(this.smoothInput, this);
+			return this.smoothInput.bind(this);
 		},
 		/**
 		 * Toggle the active state (bypass/process)
