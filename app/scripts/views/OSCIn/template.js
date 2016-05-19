@@ -38,6 +38,7 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
+            Receiving on port: <strong>57190</strong><br>
             <label for="messageName">message</label> <input name="messageName" type="text" rv-value="widget:messageName">
 		</div>
     </div>
