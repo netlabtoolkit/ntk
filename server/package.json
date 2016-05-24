@@ -9,12 +9,11 @@
     "formidable": "^1.0.16",
     "johnny-five": "~0.9.11",
     "node-osc": "^1.1.0",
-    "phantomjs": "^1.9.13",
     "socket.io": "~1.0.0",
     "underscore": "~1.4.4"
   },
   "engines": {
-    "node": "4.2.2"
+    "node": "4.5.5"
   },
   "scripts": {
     "start": "node cli.js"
