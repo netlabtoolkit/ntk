@@ -59,6 +59,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		widgets: [],
 		widgetMappings: [],
 		hardwareModelInstances: {},
+		largestCID: 0,
 		initialize: function() {
 			this.attachMainViews();
 		},
@@ -324,7 +325,10 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			this.views.mainCanvas.addView(view);
 			this.widgets.push(view);
 			if(!view.model.get('wid')) {
-				view.model.set('wid', view.model.cid);
+				//view.model.set('wid', view.model.cid);
+				this.largestCID++;
+				// adding the c to maintain backwards compatibility
+				view.model.set('wid', "c" + this.largestCID);
 			}
 			if(!addedFromLoader) {
 				window.app.vent.trigger('addWidget', view.model);

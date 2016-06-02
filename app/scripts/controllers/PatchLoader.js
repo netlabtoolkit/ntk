@@ -33,6 +33,9 @@ function(app){
 				window.app.vent.trigger('loadPatchFileToServer', {widgets: widgets, mappings: mappings});
 			}
 
+			//this.largestCID = _.map(widgets, function(widget) { return widget.model.get('wid');}).sort()[0];
+			console.log('widgets', widgets[0]);
+			this.largestCID = widgets.length > 0 ? parseInt(_.map(widgets, function(widget) { return widget.wid;}).sort()[0].slice(1), 10) : 0;
 			// Add all widgets
 			for(var i=widgets.length-1; i>=0; i--) {
 				var newWidget = this.addFunction(widgets[i].typeID, true, widgets[i].wid);
@@ -69,6 +72,7 @@ function(app){
 						server: window.location.host
 					}, true);
 				}
+
 			}
 
 		},
