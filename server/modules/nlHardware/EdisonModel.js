@@ -5,11 +5,27 @@ module.exports = function(attributes) {
 		five = require("johnny-five"),
 		Edison = require("edison-io"),
 		events = require('events'),
-		self = this,
 		pollIntervalMod = 1;
 
-	events.EventEmitter.call(this);
-	_.extend(this, events.EventEmitter.prototype);
+	var constructor = function() {
+		var self = this;
+		this.board = five.Board({
+			io: new Edison(),
+			repl:false,
+		});
+
+		this.board.on("ready", function() {
+			self.connected = true;
+			this.addDefaultPins.call(self);
+		}.bind(this));
+		this.board.on('error', function(err) {
+			console.log(err);
+		});
+
+	};
+
+	events.EventEmitter.call(constructor.prototype);
+	_.extend(constructor.prototype, events.EventEmitter.prototype);
 
 	// Base HardwareModel class
 	var johnnyFiveHardwareModel = {
@@ -30,6 +46,7 @@ module.exports = function(attributes) {
 			return this;
 		},
 		addDefaultPins: function addDefaultPins() {
+			self = this;
 			// Store all pin mode mappings (string -> integer)
 			this.PINMODES = this.board.io.MODES;
 
@@ -45,7 +62,7 @@ module.exports = function(attributes) {
 							freq: pollFreq,
 						});
 
-						self.inputs[input].pin = sensor;
+						this.inputs[input].pin = sensor;
 
 						sensor.scale([0, 1023]).on("data", function() {
 							self.set('A'+this.pin, Math.floor(this.value));
@@ -55,7 +72,7 @@ module.exports = function(attributes) {
 						this.board.pinMode(input, five.Pin.INPUT);
 					}
 
-				})();
+				}.bind(this))();
 			}
 
 
@@ -78,7 +95,7 @@ module.exports = function(attributes) {
 
 					this.outputs[output].pin = outputPin;
 
-				})();
+				}.bind(this))();
 			}
 
 		},
@@ -191,10 +208,10 @@ module.exports = function(attributes) {
 			}
 		},
 	};
-	_.extend(this, johnnyFiveHardwareModel);
+	_.extend(constructor.prototype, johnnyFiveHardwareModel);
 
 
-	_.extend(this, {
+	_.extend(constructor.prototype, {
 		type: 'ArduinoUno',
 		inputs: {
 			A0: {pin: {}, value: 0},
@@ -221,7 +238,8 @@ module.exports = function(attributes) {
 		},
 	});
 
-	_.extend(this, attributes);
+	_.extend(constructor.prototype, attributes);
 
-	return this;
+	var newObj = new constructor();
+	return newObj;
 };
