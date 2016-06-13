@@ -59,7 +59,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		widgets: [],
 		widgetMappings: [],
 		hardwareModelInstances: {},
-		largestCID: 0,
+		largestCID: 1,
 		initialize: function() {
 			this.attachMainViews();
 		},
@@ -328,7 +328,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				//view.model.set('wid', view.model.cid);
 				this.largestCID++;
 				// adding the c to maintain backwards compatibility
-				view.model.set('wid', "c" + this.largestCID);
+				view.model.set('wid', "n" + this.largestCID);
 			}
 			if(!addedFromLoader) {
 				window.app.vent.trigger('addWidget', view.model);
@@ -432,6 +432,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				viewWID = view.model.get('wid');
 			}
 
+
 			if(model) {
 				var mappingObject = {
 					model: model,
@@ -515,7 +516,9 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					&& widgetMapping.map.sourceField == mapping.map.sourceField
 			});
 
-			this.removeMapping(widgetMap);
+			if(widgetMap) {
+				this.removeMapping(widgetMap);
+			}
 		},
 		/**
 		 * Remove a mapping from the widgetMappings array
