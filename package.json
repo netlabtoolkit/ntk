@@ -10,8 +10,8 @@
     "underscore": "~1.4.4"
   },
   "devDependencies": {
-    "electron-prebuilt": "^0.35.1",
-    "electron-packager": "^5.1.1",
+    "electron-prebuilt": "^1.2.2",
+    "electron-packager": "^7.0.3",
     "gaze": "~0.5.2",
     "matchdep": "~0.1.2",
     "uglify-js": "~2.4.16"
