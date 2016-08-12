@@ -39,33 +39,22 @@ You must first install node and npm if you have not already done so.
 
 If you are on a Mac, you may need to install the Xcode command line tools by installing Xcode (free from the Mac app store).
 
+### Current Build System for NTK (one time only)
 
-### Dependencies (one time only)
-
-You will also need to install command-line tools: Ruby, bower, SASS, and the require.js build tool if you do not have them already:
+To install the build system, dependencies, and source for this version of NTK:
 ```
-npm install -g bower
-npm install -g requirejs
-
-sudo gem update --system
-sudo gem install sass
+git clone https://github.com/netlabtoolkit/ntk.git
+cd ntk
+npm run setup
 ```
+
 NOTE: On Mac OS X El Capitan v10.11, there's an issue with installing gems. For the above use:
 ```
 sudo gem update --system -n /usr/local/bin
 sudo gem install -n /usr/local/bin sass
 ```
 Ref: <https://github.com/sass/sass/issues/1768>
-### Current Build System for NTK
 
-To install the build system and source for this version of NETLab Toolkit:
-```
-git clone https://github.com/netlabtoolkit/ntk.git
-cd ntk
-bower install
-npm install
-npm run build
-```
 Note: if you are running Linux, you will have to set proper permissions on your Arduino in order to use it.
 For instance:
 ```
