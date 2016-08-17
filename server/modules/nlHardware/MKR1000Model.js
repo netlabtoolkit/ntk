@@ -1,20 +1,23 @@
 
 module.exports = function(attributes) {
+	var argHostPort = process.argv[3] ? process.argv[3].split(":") : undefined;
 
 	var _ = require('underscore'),
 		five = require("johnny-five"),
 		net = require("net"),
 		firmata = require("firmata"),
 		events = require('events'),
-		pollIntervalMod = 1;
+		pollIntervalMod = 1,
+		mkrHost = argHostPort !== undefined ? argHostPort[0] : "10.0.1.2",
+		mkrPort = argHostPort !== undefined ? parseInt(argHostPort[1],10) : 3030;
 
 	var constructor = function() {
 		var self = this;
 
-		var client = net.connect({host: "10.0.1.2", port: 3030}, function() {
+		var client = net.connect({host: mkrHost, port: mkrPort}, function() {
 			var socketClient = this;
 
-			console.log('connect');
+			console.log('Connected to MKR1000...');
 			var io = new firmata.Board(socketClient);
 
 			io.once('ready', function() {
