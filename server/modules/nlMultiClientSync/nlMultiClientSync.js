@@ -154,7 +154,9 @@ module.exports = function(options) {
 						//self.hardwareModels[modelType].setIOMode(options.port, options.mode);
 					//}
 					//else {
+					if(self.hardwareModels[modelType] !== undefined) {
 						self.hardwareModels[modelType].setIOMode(options.port, options.mode);
+					}
 					//}
 				}
 
