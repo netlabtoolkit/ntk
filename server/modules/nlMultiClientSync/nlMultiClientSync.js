@@ -128,15 +128,18 @@ module.exports = function(options) {
 				for(var field in options.model) {
 					var selectedModel = self.hardwareModels[modelType];
 
-					//if(selectedModel == undefined) {
-						//self.hardwareModels[modelType] = new nlHardware({deviceType: typeAddressPort[0], address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+					// If there is no model to update, try to instantiate one
+					if(selectedModel == undefined) {
+						self.hardwareModels[modelType] = new nlHardware({deviceType: typeAddressPort[0], address: typeAddressPort[1], port: typeAddressPort[2] }).model;
 
-						//self.bindModelToTransport(self.hardwareModels[modelType]);
-						//self.hardwareModels[modelType].set(field, parseInt(options.model[field], 10));
-					//}
-					//else {
+						console.log('MAKING NEW');
+						self.bindModelToTransport(self.hardwareModels[modelType]);
+						self.hardwareModels[modelType].set(field, parseInt(options.model[field], 10));
+					}
+					else {
+						console.log('update...');
 						selectedModel.set(field, parseFloat(options.model[field], 10));
-					//}
+					}
 				}
 			});
 

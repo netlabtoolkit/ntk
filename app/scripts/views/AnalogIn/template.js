@@ -45,6 +45,11 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             input range<br>
+            <label class="narrowLabel">Device</label> <select class="moreParam" type="text" rv-value="widget:deviceType">
+				<option selected value="ArduinoUno">Arduino Standard Firmata</option>
+				<option selected value="MKR1000">MKR1000</option>
+			</select>
+
             <label class="narrowLabel">min</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:inputFloor">
             <label class="narrowLabel">max</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:inputCeiling"><br>
             <label class="narrowLabel">ease</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:easingAmount"><br>

@@ -69,6 +69,12 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 			window.app.timingController.registerFrameCallback(this.localTimeKeeperFunc, this);
 		},
+		onModelChange: function(model) {
+			var changed = model.changedAttributes();
+			if(changed && changed.deviceType) {
+				console.log('this.model', model.changedAttributes() );
+			}
+		},
 
 		onRender: function() {
 			WidgetView.prototype.onRender.call(this);
