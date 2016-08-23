@@ -11,7 +11,7 @@
   },
   "devDependencies": {
     "electron-prebuilt": "^1.2.2",
-    "electron-packager": "^7.5.1",
+    "electron-packager": "^7.0.3",
     "gaze": "~0.5.2",
     "matchdep": "~0.1.2",
     "uglify-js": "~2.4.16"
