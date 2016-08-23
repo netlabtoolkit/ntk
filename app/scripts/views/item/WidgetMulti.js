@@ -422,7 +422,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}
 			}
 
-			if(this.$('.settings input').parents('.rightTab') ) {
+			if(this.$('.settings input').parents('.rightTab').length > 0 ) {
 				this.model.set('outputMapping', inputVal);
 			}
 			else {

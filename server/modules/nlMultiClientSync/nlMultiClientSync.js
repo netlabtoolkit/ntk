@@ -125,6 +125,7 @@ module.exports = function(options) {
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
 
+				console.log('ot update', options.model);
 				for(var field in options.model) {
 					var selectedModel = self.hardwareModels[modelType];
 
@@ -132,7 +133,7 @@ module.exports = function(options) {
 					if(selectedModel == undefined) {
 						self.hardwareModels[modelType] = new nlHardware({deviceType: typeAddressPort[0], address: typeAddressPort[1], port: typeAddressPort[2] }).model;
 
-						console.log('MAKING NEW');
+						console.log('MAKING NEW ', modelType);
 						self.bindModelToTransport(self.hardwareModels[modelType]);
 						self.hardwareModels[modelType].set(field, parseInt(options.model[field], 10));
 					}

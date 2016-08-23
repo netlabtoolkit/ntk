@@ -71,8 +71,29 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		},
 		onModelChange: function(model) {
 			var changed = model.changedAttributes();
+
 			if(changed && changed.deviceType) {
-				console.log('this.model', model.changedAttributes() );
+				this.model.set('deviceType', changed.deviceType);
+				var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping');
+
+				this.unMapHardwareInlet();
+
+				app.Patcher.Controller.mapToModel({
+					view: this,
+					modelType: changed.deviceType,
+					IOMapping: {sourceField: sourceField, destinationField: 'in'},
+					server: window.location.host,
+				}, true);
+			}
+		},
+		unMapHardwareInlet: function unMapHardwareInlet() {
+
+			this.sourceToRemove = this.sources[0];
+			this.sources.length = 0;
+			this.sources = [];
+
+			if(this.sourceToRemove) {
+				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
 			}
 		},
 

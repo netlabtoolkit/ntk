@@ -7,6 +7,7 @@ function( ArduinoUnoModel, OSCModel ) {
 
 	return {
 		ArduinoUno: ArduinoUnoModel,
+		MKR1000: ArduinoUnoModel,
 		OSC: OSCModel,
 	};
 });
