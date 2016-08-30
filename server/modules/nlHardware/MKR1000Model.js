@@ -46,7 +46,7 @@ module.exports = function(attributes) {
 		init: function() {
 			var self = this;
 
-			var client = net.connect({host: "10.0.1.2", port: 3030}, function() {
+			var client = net.connect({host: mkrHost, port: mkrPort}, function() {
 				var socketClient = this;
 
 				var io = new firmata.Board(socketClient);
@@ -128,13 +128,13 @@ module.exports = function(attributes) {
 		},
 		set: function(field, value) {
 			if(this.outputs[field] !== undefined) {
-				if(parseInt(this.outputs[field],10) !== parseInt(value,10)) {
+				if(parseInt(this.outputs[field].value,10) !== parseInt(value,10)) {
 					this.outputs[field].value = value;
 					this.setHardwarePin(field, value);
 				}
 			}
 			else if(this.inputs[field] != undefined) {
-				if(parseInt(this.inputs[field], 10) !== parseInt( value, 10 )) {
+				if(parseInt(this.inputs[field].value, 10) !== parseInt( value, 10 )) {
 					this.inputs[field].value = value;
 					this.emit('change', {field: field, value: this.inputs[field].value});
 				}
@@ -145,7 +145,7 @@ module.exports = function(attributes) {
 			var outputField = this.outputs[field];
 
 			// PINS 10 and up are currently not supported by libmraa
-			if(outputField !== undefined && field === 'D3' || field === 'D5' || field === 'D6' || field === 'D9') {
+			if(outputField !== undefined && field === 'D2' || field === 'D3' || field === 'D4' || field === 'D5') {
 				var pinMode = outputField.pin.mode;
 
 				// Check which pinmode is set on the pin to detemine which method to call
@@ -242,11 +242,12 @@ module.exports = function(attributes) {
 			A1: {pin: {}, value: 0},
 			A2: {pin: {}, value: 0},
 			A3: {pin: {}, value: 0},
-			A4: {pin: {}, value: 0},
-			A5: {pin: {}, value: 0},
-			A6: {pin: {}, value: 0},
+			//A4: {pin: {}, value: 0},
+			//A5: {pin: {}, value: 0},
+			//A6: {pin: {}, value: 0},
 		},
 		outputs: {
+			D0: {pin: {}, value: 0},
 			D1: {pin: {}, value: 0},
 			D2: {pin: {}, value: 0},
 			D3: {pin: {}, value: 0},
