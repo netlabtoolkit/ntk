@@ -125,7 +125,6 @@ module.exports = function(options) {
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
 
-				console.log('ot update', options.model);
 				for(var field in options.model) {
 					var selectedModel = self.hardwareModels[modelType];
 

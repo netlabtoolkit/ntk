@@ -17,6 +17,7 @@ module.exports = function(attributes) {
 
 			this.board.on("ready", function() {
 				self.connected = true;
+				console.log('BOARD', this.board);
 				this.addDefaultPins();
 			}.bind(this));
 
@@ -36,51 +37,66 @@ module.exports = function(attributes) {
 
 			var pollFreq = 100;
 
-			// Instantiate each sensor listed on the model to the sensors array
-			for(var input in this.inputs) {
+			for(var index in this.board.pins) {
+				var reportedPin = this.board.pins[index];
+				if(reportedPin.analogChannel < 127) {
+					var sensor = five.Sensor({
+						pin: "A"+reportedPin.analogChannel,
+						freq: pollFreq,
+					});
 
-				(function() {
-					if(!parseInt(input, 10)) {
-						var sensor = five.Sensor({
-							pin: input,
-							freq: pollFreq,
-						});
+					sensor.scale([0, 1023]).on("data", function() {
+						self.set("A"+this.pin, Math.floor(this.value));
+					});
 
-						this.inputs[input].pin = sensor;
-
-						sensor.scale([0, 1023]).on("data", function() {
-							self.set('A'+this.pin, Math.floor(this.value));
-						});
-					}
-					else {
-						this.board.pinMode(input, five.Pin.INPUT);
-					}
-
-				}.bind(this))();
+					this.inputs["A"+reportedPin.analogChannel] = {pin: sensor, value: 0};
+				}
+				else {
+					this.inputs["D"+index] = {pin: {}, value: 0, supportedModes: reportedPin.supportedModes};
+				}
 			}
 
+			console.log(this.inputs, this.outputs);
 
-			// Cycle through and add all the outputs here
-			for(var output in this.outputs) {
-				(function() {
-					// hack for right now to hard code pin <3 as pwm, pin 9 as servo
-					var pin = parseInt(output.substr(1),10);
-					var outputPin;
+			//// Instantiate each sensor listed on the model to the sensors array
+			//for(var input in this.inputs) {
 
-					if (pin === 3 || pin === 5 || pin === 6 || pin === 10 || pin === 11 || pin === 9) {
-						outputPin = new five.Led(pin);
-					}
-					//else if(pin === 9) {
-						//outputPin = new five.Servo({
-							//pin: pin,
-							//range: [0,180],
+				//(function() {
+					//if(!parseInt(input, 10)) {
+						//var sensor = five.Sensor({
+							//pin: input,
+							//freq: pollFreq,
+						//});
+
+						//this.inputs[input].pin = sensor;
+
+						//sensor.scale([0, 1023]).on("data", function() {
+							//self.set('A'+this.pin, Math.floor(this.value));
 						//});
 					//}
+					//else {
+						//this.board.pinMode(input, five.Pin.INPUT);
+					//}
 
-					this.outputs[output].pin = outputPin;
+				//}.bind(this))();
+			//}
 
-				}.bind(this))();
-			}
+
+			//// Cycle through and add all the outputs here
+			//for(var output in this.outputs) {
+				//(function() {
+					//// hack for right now to hard code pin <3 as pwm, pin 9 as servo
+					//var pin = parseInt(output.substr(1),10);
+					//var outputPin;
+
+					//if (pin === 3 || pin === 5 || pin === 6 || pin === 10 || pin === 11 || pin === 9) {
+						//outputPin = new five.Led(pin);
+					//}
+
+					//this.outputs[output].pin = outputPin;
+
+				//}.bind(this))();
+			//}
 
 		},
 		get: function(field) {
@@ -113,19 +129,34 @@ module.exports = function(attributes) {
 				var pinMode = outputField.pin.mode;
 			}
 
-			if(outputField !== undefined && (field === 'D3' 
-			|| field === 'D5'
-			|| field === 'D6'
-			|| field === 'D9'
-			|| field === 'D10'
-			|| field === 'D11') ) {
+			if(outputField !== undefined) {
 				var pinMode = outputField.pin.mode;
 
-				// Check which pinmode is set on the pin to detemine which method to call
-				if (pinMode === this.PINMODES.PWM || pinMode === this.PINMODES.OUTPUT) {
-					this.outputs[field].pin.brightness(value);
+				var modeSupported = false;
 
-				} else if(pinMode === this.PINMODES.SERVO) {
+				for(var mode in this.outputs[field].supportedModes) {
+					if(mode == pinMode) {
+						modeSupported = true;
+						console.log('SUPPORTED');
+					}
+					else {
+						console.log('NOPE');
+					}
+				}
+
+				// Check which pinmode is set on the pin to detemine which method to call
+				if(pinMode === this.PINMODES.PWM) {
+					this.outputs[field].pin.brightness(value);
+				}
+				else if(pinMode === this.PINMODES.OUTPUT) {
+					if(value >= 255) {
+						this.outputs[field].pin.on();
+					}
+					else {
+						this.outputs[field].pin.off();
+					}
+				}
+				else if(pinMode === this.PINMODES.SERVO) {
 					this.outputs[field].pin.to(value);
 				}
 
@@ -144,18 +175,19 @@ module.exports = function(attributes) {
 				//UNKOWN: 16 },
 
 			}
-			else if(pinMode == this.PINMODES.OUTPUT) {
-				var pinMode = outputField.pin.mode;
-				if(value >= 255) {
-					this.outputs[field].pin.on();
-				}
-				else {
-					this.outputs[field].pin.off();
-				}
-			}
+			//else if(pinMode == this.PINMODES.OUTPUT) {
+				//var pinMode = outputField.pin.mode;
+				//if(value >= 255) {
+					//this.outputs[field].pin.on();
+				//}
+				//else {
+					//this.outputs[field].pin.off();
+				//}
+			//}
 		},
 		setIOMode: function setPinMode(pin, mode) {
 			if(this.connected) {
+			console.log('SETTING', mode);
 				// Always immediately set an input to a Sensor. If it is already a sensor, then we are resetting it
 				if(mode == 'INPUT') {
 					var pinExists = (this.inputs[pin] !== undefined || this.outputs[pin] !== undefined);
@@ -250,27 +282,27 @@ module.exports = function(attributes) {
 	_.extend(constructor.prototype, {
 		type: 'ArduinoUno',
 		inputs: {
-			A0: {pin: {}, value: 0},
-			A1: {pin: {}, value: 0},
-			A2: {pin: {}, value: 0},
-			A3: {pin: {}, value: 0},
-			A4: {pin: {}, value: 0},
-			A5: {pin: {}, value: 0},
+			//A0: {pin: {}, value: 0},
+			//A1: {pin: {}, value: 0},
+			//A2: {pin: {}, value: 0},
+			//A3: {pin: {}, value: 0},
+			//A4: {pin: {}, value: 0},
+			//A5: {pin: {}, value: 0},
 		},
 		outputs: {
-			D1: {pin: {}, value: 0},
-			D2: {pin: {}, value: 0},
-			D3: {pin: {}, value: 0},
-			D4: {pin: {}, value: 0},
-			D5: {pin: {}, value: 0},
-			D6: {pin: {}, value: 0},
-			D7: {pin: {}, value: 0},
-			D8: {pin: {}, value: 0},
-			D9: {pin: {}, value: 0},
-			D10: {pin: {}, value: 0},
-			D11: {pin: {}, value: 0},
-			D12: {pin: {}, value: 0},
-			D13: {pin: {}, value: 0},
+			//D1: {pin: {}, value: 0},
+			//D2: {pin: {}, value: 0},
+			//D3: {pin: {}, value: 0},
+			//D4: {pin: {}, value: 0},
+			//D5: {pin: {}, value: 0},
+			//D6: {pin: {}, value: 0},
+			//D7: {pin: {}, value: 0},
+			//D8: {pin: {}, value: 0},
+			//D9: {pin: {}, value: 0},
+			//D10: {pin: {}, value: 0},
+			//D11: {pin: {}, value: 0},
+			//D12: {pin: {}, value: 0},
+			//D13: {pin: {}, value: 0},
 		},
 	});
 

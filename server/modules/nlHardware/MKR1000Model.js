@@ -128,13 +128,13 @@ module.exports = function(attributes) {
 		},
 		set: function(field, value) {
 			if(this.outputs[field] !== undefined) {
-				if(parseInt(this.outputs[field],10) !== parseInt(value,10)) {
+				if(parseInt(this.outputs[field].value,10) !== parseInt(value,10)) {
 					this.outputs[field].value = value;
 					this.setHardwarePin(field, value);
 				}
 			}
 			else if(this.inputs[field] != undefined) {
-				if(parseInt(this.inputs[field], 10) !== parseInt( value, 10 )) {
+				if(parseInt(this.inputs[field].value, 10) !== parseInt( value, 10 )) {
 					this.inputs[field].value = value;
 					this.emit('change', {field: field, value: this.inputs[field].value});
 				}
