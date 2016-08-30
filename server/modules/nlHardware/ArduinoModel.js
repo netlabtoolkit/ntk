@@ -17,7 +17,6 @@ module.exports = function(attributes) {
 
 			this.board.on("ready", function() {
 				self.connected = true;
-				console.log('BOARD', this.board);
 				this.addDefaultPins();
 			}.bind(this));
 
@@ -52,11 +51,9 @@ module.exports = function(attributes) {
 					this.inputs["A"+reportedPin.analogChannel] = {pin: sensor, value: 0};
 				}
 				else {
-					this.inputs["D"+index] = {pin: {}, value: 0, supportedModes: reportedPin.supportedModes};
+					this.outputs["D"+index] = {pin: {}, value: 0, supportedModes: reportedPin.supportedModes};
 				}
 			}
-
-			console.log(this.inputs, this.outputs);
 
 			//// Instantiate each sensor listed on the model to the sensors array
 			//for(var input in this.inputs) {
@@ -103,7 +100,7 @@ module.exports = function(attributes) {
 			return this.inputs[field].value;
 		},
 		set: function(field, value) {
-			value = parseInt(value);
+			value = parseInt(value, 10);
 
 			if(this.inputs[field] != undefined) {
 
@@ -113,36 +110,37 @@ module.exports = function(attributes) {
 				}
 			}
 			else if(this.outputs[field] !== undefined) {
+
 				if(parseInt(this.outputs[field].value,10) !== parseInt(value,10)) {
 					this.outputs[field].value = value;
+
 					if(this.connected) {
 						this.setHardwarePin(field, value);
 					}
 				}
 			}
+
 			return this;
 		},
 		setHardwarePin: function(field, value) {
-			var outputField = this.outputs[field];
+			var outputField = this.outputs[field],
+				modeSupported = false;
 
 			if(outputField && outputField.pin) {
 				var pinMode = outputField.pin.mode;
-			}
 
-			if(outputField !== undefined) {
-				var pinMode = outputField.pin.mode;
-
-				var modeSupported = false;
-
-				for(var mode in this.outputs[field].supportedModes) {
-					if(mode == pinMode) {
+				// Check if this mode is supported on this pin
+				for(var supportedMode in this.outputs[field].supportedModes) {
+					if(supportedMode == pinMode) {
 						modeSupported = true;
-						console.log('SUPPORTED');
-					}
-					else {
-						console.log('NOPE');
 					}
 				}
+
+				if(!modeSupported) { return false; }
+			}
+
+
+			if(outputField !== undefined) {
 
 				// Check which pinmode is set on the pin to detemine which method to call
 				if(pinMode === this.PINMODES.PWM) {
@@ -175,19 +173,21 @@ module.exports = function(attributes) {
 				//UNKOWN: 16 },
 
 			}
-			//else if(pinMode == this.PINMODES.OUTPUT) {
-				//var pinMode = outputField.pin.mode;
-				//if(value >= 255) {
-					//this.outputs[field].pin.on();
-				//}
-				//else {
-					//this.outputs[field].pin.off();
-				//}
-			//}
 		},
 		setIOMode: function setPinMode(pin, mode) {
 			if(this.connected) {
-			console.log('SETTING', mode);
+
+				// Check if this mode is supported on this pin
+				var modeSupported = false;
+
+				for(var supportedMode in this.outputs[pin].supportedModes) {
+					if(supportedMode == this.PINMODES[mode]) {
+						modeSupported = true;
+					}
+				}
+
+				if(!modeSupported) { return false; }
+
 				// Always immediately set an input to a Sensor. If it is already a sensor, then we are resetting it
 				if(mode == 'INPUT') {
 					var pinExists = (this.inputs[pin] !== undefined || this.outputs[pin] !== undefined);
@@ -244,15 +244,16 @@ module.exports = function(attributes) {
 				}
 				else if(mode === 'SERVO') {
 					var pinExists = this.outputs[pin] !== undefined;
+
 					if(pinExists) {
-					var hardwarePin = parseInt(pin.substr(1),10);
+						var hardwarePin = parseInt(pin.substr(1),10);
 
-					var outputPin = five.Servo({
-						pin: hardwarePin,
-						range: [0,180],
-					});
+						var outputPin = five.Servo({
+							pin: hardwarePin,
+							range: [0,180],
+						});
 
-					this.outputs[pin].pin = outputPin;
+						this.outputs[pin].pin = outputPin;
 					}
 				}
 				else if(mode === 'STEPPER') {
@@ -261,8 +262,6 @@ module.exports = function(attributes) {
 				}
 
 			}
-			//SHIFT: 5,
-			//ONEWIRE: 7,
 		},
 		setPollSpeed: function(highLow) {
 			if(highLow == 'fast') {
@@ -281,29 +280,8 @@ module.exports = function(attributes) {
 
 	_.extend(constructor.prototype, {
 		type: 'ArduinoUno',
-		inputs: {
-			//A0: {pin: {}, value: 0},
-			//A1: {pin: {}, value: 0},
-			//A2: {pin: {}, value: 0},
-			//A3: {pin: {}, value: 0},
-			//A4: {pin: {}, value: 0},
-			//A5: {pin: {}, value: 0},
-		},
-		outputs: {
-			//D1: {pin: {}, value: 0},
-			//D2: {pin: {}, value: 0},
-			//D3: {pin: {}, value: 0},
-			//D4: {pin: {}, value: 0},
-			//D5: {pin: {}, value: 0},
-			//D6: {pin: {}, value: 0},
-			//D7: {pin: {}, value: 0},
-			//D8: {pin: {}, value: 0},
-			//D9: {pin: {}, value: 0},
-			//D10: {pin: {}, value: 0},
-			//D11: {pin: {}, value: 0},
-			//D12: {pin: {}, value: 0},
-			//D13: {pin: {}, value: 0},
-		},
+		inputs: {},
+		outputs: {},
 	});
 
 	_.extend(constructor.prototype, attributes);

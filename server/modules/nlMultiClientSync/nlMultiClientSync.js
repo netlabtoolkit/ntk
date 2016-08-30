@@ -137,7 +137,6 @@ module.exports = function(options) {
 						self.hardwareModels[modelType].set(field, parseInt(options.model[field], 10));
 					}
 					else {
-						console.log('update...');
 						selectedModel.set(field, parseFloat(options.model[field], 10));
 					}
 				}
