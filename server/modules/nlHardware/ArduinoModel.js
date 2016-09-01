@@ -4,8 +4,6 @@ module.exports = function(attributes) {
 	var _ = require('underscore'),
 		five = require("johnny-five"),
 		events = require('events'),
-		standardFirmataModel = require("StandardFirmataModel"),
-		pollIntervalMod = 1,
 		self;
 
 
@@ -27,10 +25,12 @@ module.exports = function(attributes) {
 				console.log(err);
 			});
 
+			// Load in the Standard Firmata model
+			var standardFirmataModel = require("./StandardFirmataModel")(five);
+			_.extend(constructor.prototype, standardFirmataModel);
+
 		};
 
-	// Load in the Standard Firmata model
-	_.extend(constructor.prototype, standardFirmataModel);
 
 	// Add event handling
 	events.EventEmitter.call(constructor.prototype);

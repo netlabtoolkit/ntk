@@ -4,11 +4,9 @@ module.exports = function(attributes) {
 
 	var _ = require('underscore'),
 		five = require("johnny-five"),
-		standardFirmataModel = require("StandardFirmataModel"),
 		net = require("net"),
 		firmata = require("firmata"),
 		events = require('events'),
-		pollIntervalMod = 1,
 		mkrHost = argHostPort !== undefined ? argHostPort[0] : "10.0.1.2",
 		mkrPort = argHostPort !== undefined ? parseInt(argHostPort[1],10) : 3030;
 
@@ -38,14 +36,16 @@ module.exports = function(attributes) {
 			});
 		});
 
+		// Load in the Standard Firmata model
+		var standardFirmataModel = require("./StandardFirmataModel")(five);
+		_.extend(constructor.prototype, standardFirmataModel);
+
 	};
 
 	// Add event handling
 	events.EventEmitter.call(constructor.prototype);
 	_.extend(constructor.prototype, events.EventEmitter.prototype);
 
-	// Load in the Standard Firmata model
-	_.extend(constructor.prototype, standardFirmataModel);
 
 	// Add any attributes that were passed in
 	_.extend(constructor.prototype, attributes);
