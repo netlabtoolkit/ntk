@@ -122,21 +122,23 @@ module.exports = function(options) {
 			socket.emit('serverActive', self.serverActive);
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			socket.on('sendModelUpdate', function(options) {
-				var typeAddressPort = options.modelType.split(':');
-				var modelType = typeAddressPort[0];
+				for(var i=options.length-1; i >= 0; i--) {
+					var typeAddressPort = options[i].modelType.split(':');
+					var modelType = typeAddressPort[0];
 
-				for(var field in options.model) {
-					var selectedModel = self.hardwareModels[modelType];
+					for(var field in options[i].model) {
+						var selectedModel = self.hardwareModels[modelType];
 
-					//if(selectedModel == undefined) {
-						//self.hardwareModels[modelType] = new nlHardware({deviceType: typeAddressPort[0], address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+						//if(selectedModel == undefined) {
+							//self.hardwareModels[modelType] = new nlHardware({deviceType: typeAddressPort[0], address: typeAddressPort[1], port: typeAddressPort[2] }).model;
 
-						//self.bindModelToTransport(self.hardwareModels[modelType]);
-						//self.hardwareModels[modelType].set(field, parseInt(options.model[field], 10));
-					//}
-					//else {
-						selectedModel.set(field, parseFloat(options.model[field], 10));
-					//}
+							//self.bindModelToTransport(self.hardwareModels[modelType]);
+							//self.hardwareModels[modelType].set(field, parseInt(options.model[field], 10));
+						//}
+						//else {
+							selectedModel.set(field, parseFloat(options[i].model[field], 10));
+						//}
+					}
 				}
 			});
 
