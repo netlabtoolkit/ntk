@@ -75,17 +75,42 @@ function( Backbone ) {
 					socket.emit('client:sendModelUpdate', options);
 				}
 			});
+
+			var sendQueue = [];
 			// DEVICE MODEL
 			window.app.vent.on('sendDeviceModelUpdate', function(options) {
 				if(window.app.server || !window.app.serverMode) {
+
+					// Queue and package multiple messages
+					var field = _.keys(options.model);
+
+					var previouslyQueued = _.findWhere(sendQueue, function(queueItem) {
+						return queueItem.modelType == options.modelType && _.findWhere(queueItem.model[field] ) !== undefined;
+					});
+
+					if(previouslyQueued !== undefined) {
+						sendQueue.push(options);
+					}
+					else {
+						// Clean sendQueue of any previously defined updated for this particular field
+						sendQueue = _.reject(sendQueue, function(entry) {
+							return entry.model[field] !== undefined;
+						});
+
+						sendQueue.push(options);
+						//previouslyQueued = options.model;
+					}
+
 					// THROTTLE THESE
 					if(deviceUpdateThrottleID !== undefined) {
 						clearTimeout(deviceUpdateThrottleID);
 					}
 
 					deviceUpdateThrottleID = setTimeout(function() {
-						socket.emit('sendModelUpdate', options);
+						socket.emit('sendModelUpdate', sendQueue);
 						deviceUpdateThrottleID = undefined;
+
+						sendQueue.length = 0;
 					}.bind(this), 10);
 				}
 			});
