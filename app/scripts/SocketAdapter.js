@@ -84,6 +84,7 @@ function( Backbone ) {
 					}
 
 					deviceUpdateThrottleID = setTimeout(function() {
+						console.log('sendModelUpdate', options);
 						socket.emit('sendModelUpdate', options);
 						deviceUpdateThrottleID = undefined;
 					}.bind(this), 10);

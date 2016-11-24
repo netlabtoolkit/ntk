@@ -97,6 +97,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				var hardwareModel = this.hardwareModelInstances[data.modelType + ':' + serverAddress];
 
 				hardwareModel && hardwareModel.model.set(data.field, data.value);
+				hardwareModel && (hardwareModel.model.active = true);
 			}, this);
 
 			window.app.cableManager = new CableManager();
@@ -165,6 +166,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 							view: newWidget,
 							IOMapping: {sourceField: "out", destinationField: defaultOutputMapping},
 							modelType: 'ArduinoUno',
+							//modelType: 'mkr1000',
 							server: serverAddress,
 						}, addedFromLoader);
 					}
@@ -427,6 +429,8 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				server = options.server,
 				inletOffsets = options.inletOffsets;
 
+			console.log('server', options.server, options);
+			console.log(new Error().stack);
 			// If we have a view, grab its wid
 			if(view) {
 				viewWID = view.model.get('wid');
@@ -472,6 +476,9 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			}
 			// If we don't have a model, it means we are using a "hardware model" so get one of those and use it
 			else {
+				// Unmap any previous mappings
+				this.removeMappingFromHardwareWidget(viewWID, modelType, server);
+				console.log('<', modelType, server);
 				var sourceModel = this.getHardwareModelInstance(modelType, server);
 				var mappingObject = {
 					model: sourceModel,
@@ -482,6 +489,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					viewWID: viewWID,
 					map: mappingObject.map,
 					modelWID: modelType,
+					//modelWID: modelType + ":" + server,
 					offsets: inletOffsets,
 				});
 			}
@@ -517,6 +525,23 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			});
 
 			if(widgetMap) {
+				this.removeMapping(widgetMap);
+			}
+		},
+		removeMappingFromHardwareWidget: function removeMappingFromWidget(wid, deviceType, server) {
+
+			var widgetMap = _.find(this.widgetMappings, function(widgetMapping) {
+				return widgetMapping.viewWID == wid;
+			});
+
+			if(widgetMap) {
+				console.log('found it and removing!', widgetMap);
+				var hardwareDevice = this.getHardwareModelInstance[deviceType, server];
+				console.log('hardware', hardwareDevice, deviceType, server);
+				if(hardwareDevice !== undefined) {
+					hardwareDevice.off('change'); // TODO: Make this remove the SPECIFIC listeners instead of all
+				}
+
 				this.removeMapping(widgetMap);
 			}
 		},
@@ -559,7 +584,8 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 						for(attribute in changedAttributes) {
 							// and see if the attribute exists in the outputs section of this model
 							if(newModelInstance.attributes.outputs[attribute] !== undefined) {
-								window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: changedAttributes});
+								//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: changedAttributes});
+								window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelServerQuery, model: changedAttributes});
 							}
 						}
 					});

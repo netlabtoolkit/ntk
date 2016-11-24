@@ -46,6 +46,36 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			for(var i=this.sources.length-1; i>=0; i--) {
 				this.syncWithSource(this.sources[i].model);
 			}
+
+			var changed = model.changedAttributes();
+
+			if(changed) {
+				if(changed.server) {
+					this.model.set('server', changed.server);
+				}
+				if(changed.port) {
+					this.model.set('port', changed.port);
+				}
+
+				if(changed.deviceType) {
+					this.model.set('deviceType', changed.deviceType);
+				}
+
+				if( changed.deviceType || changed.server || changed.port) {
+					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
+						modelType = this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType');
+
+					var server = this.model.get('server') == undefined ? 'localhost' : this.model.get('server');
+					var port = this.model.get('port') == undefined ? 9001 : this.model.get('port');
+
+					app.Patcher.Controller.mapToModel({
+						view: this,
+						modelType: modelType,
+						IOMapping: {sourceField: "out", destinationField: 'D3'},
+						server: server + ":" + port,
+					}, true);
+				}
+			}
 		},
         onRender: function() {
 			// always call the superclass

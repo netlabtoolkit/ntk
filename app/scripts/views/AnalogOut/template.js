@@ -27,4 +27,16 @@
             </div>
         </div>
     </div>
+    <div class="widgetBottom">
+        <div class="tab"><p>more</p></div>
+        <div class="content">
+            <label class="narrowLabel">Device</label> <select class="moreParam" type="text" rv-value="widget:deviceType">
+				<option selected value="ArduinoUno">Arduino Standard Firmata</option>
+				<option selected value="mkr1000">MKR1000</option>
+			</select>
+            <label class="narrowLabel">address</label> <input class="address" type="text" pattern="[0-9]*" rv-value="widget:server">
+            <label class="narrowLabel">port</label> <input class="port" type="text" pattern="[0-9]*" rv-value="widget:port">
+
+        </div>
+    </div>
 </div>

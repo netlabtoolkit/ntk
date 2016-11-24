@@ -42,4 +42,5 @@ module.exports = function(attributes) {
 
 	var newObj = new constructor();
 	return newObj;
+	//return constructor();
 };

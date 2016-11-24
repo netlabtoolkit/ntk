@@ -124,17 +124,25 @@ module.exports = function(options) {
 			socket.on('sendModelUpdate', function(options) {
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
+				console.log('address', typeAddressPort[1]);
 
 				for(var field in options.model) {
-					var selectedModel = self.hardwareModels[modelType];
+					//var selectedModel = self.hardwareModels[modelType];
+					var selectedModel = self.hardwareModels[options.modelType];
 
 					// If there is no model to update, try to instantiate one
 					if(selectedModel == undefined) {
-						self.hardwareModels[modelType] = new nlHardware({deviceType: typeAddressPort[0], address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+						var networkDevice = typeAddressPort[1].match(/^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/);
+						console.log('networkDevice', !!networkDevice, typeAddressPort[1]);
+						if(networkDevice) {
+							options.modelType = 'mkr1000';
+						}
+						//self.hardwareModels[modelType] = new nlHardware({deviceType: typeAddressPort[0], address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+						self.hardwareModels[options.modelType] = new nlHardware({deviceType: options.modelType, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
 
-						console.log('MAKING NEW ', modelType);
-						self.bindModelToTransport(self.hardwareModels[modelType]);
-						self.hardwareModels[modelType].set(field, parseInt(options.model[field], 10));
+						console.log('MAKING NEW ', options.modelType, self.hardwareModels[options.modelType].type, self.hardwareModels);
+						self.bindModelToTransport(self.hardwareModels[options.modelType]);
+						self.hardwareModels[options.modelType].set(field, parseInt(options.model[field], 10));
 					}
 					else {
 						selectedModel.set(field, parseFloat(options.model[field], 10));

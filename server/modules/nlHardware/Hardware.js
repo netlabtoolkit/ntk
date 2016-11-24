@@ -21,7 +21,13 @@ module.exports = function(options) {
 			outputs = {};
 
 
-		var model = new require(modelMap[deviceType])(options);
+		var deviceTypeParsed = deviceType.split(":");
+		deviceTypeParsed = deviceTypeParsed[0];
+		options.deviceType = deviceTypeParsed;
+
+		console.log('modelMap chose', deviceTypeParsed, options);
+
+		var model = new require(modelMap[deviceTypeParsed])(options);
 		this.model = model;
 
 		var Hardware = {

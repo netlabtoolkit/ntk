@@ -1,19 +1,23 @@
 
 module.exports = function(attributes) {
-	var argHostPort = process.argv[3] ? process.argv[3].split(":") : undefined;
+	// Replace this with passed in data
+	//var argHostPort = process.argv[3] ? process.argv[3].split(":") : undefined;
+	var argHostPort = [attributes.address, attributes.port];
+	console.log('CHOSE THE RIGHT ONE)_)_)_)_)_)_)_)_)_)_)', attributes);
 
 	var _ = require('underscore'),
 		five = require("johnny-five"),
 		net = require("net"),
 		firmata = require("firmata"),
 		events = require('events'),
-		mkrHost = argHostPort !== undefined ? argHostPort[0] : "10.0.1.2",
+		mkrHost = argHostPort !== undefined ? argHostPort[0] : "192.168.1.113",
 		mkrPort = argHostPort !== undefined ? parseInt(argHostPort[1],10) : 3030;
 
 	var constructor = function() {
-		this.type = "ArduinoUno";
+		this.type = "mkr1000";
 		var self = this;
 
+		console.log('Connecting to ...', mkrHost, mkrPort);
 		var client = net.connect({host: mkrHost, port: mkrPort}, function() {
 			var socketClient = this;
 
