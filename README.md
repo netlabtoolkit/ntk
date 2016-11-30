@@ -1,6 +1,8 @@
 NTK
 =============
 
+[![Join the chat at https://gitter.im/netlabtoolkit/ntk](https://badges.gitter.im/netlabtoolkit/ntk.svg)](https://gitter.im/netlabtoolkit/ntk?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 NETLab Toolkit JavaScript Version
 
 NTK (the NETLab Toolkit) is a visual authoring system for designers, developers, makers, researchers and students who want to design and build tangible Internet of Things projects. With a simple drag and drop interface, connect sensors, actuators, media and networks with the smart widgets. Concepts can be prototyped quickly, encouraging iteration, experimentation and testing by sketching in hardware.
