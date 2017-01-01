@@ -65,7 +65,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 resendRepeatSameInterval: 5,
 
             });
-            
+
             // private variables
             this.startTime = 0;
             this.lastSendToCloud = false;
@@ -83,7 +83,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				this.timeKeeper(frameCount);
 			}.bind(this);
 			// If you would like to register any function to be called at frame rate (60fps)
-			//window.app.server && 
+			//window.app.server &&
 			window.app.timingController.registerFrameCallback(this.localTimeKeeperFunc, this);
 		},
 
@@ -113,13 +113,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				'max': 1023,
 				'change' : function (v) { self.model.set('in', parseInt(v)); }
 			});
-            
+
 			rivets.binders.knob = function(el, value) {
 				el.value = value;
 				$(el).val(value);
 				$(el).trigger('change');
 			};
-            
+
             this.init = false; // set up to do changeCloudService to make sure interface is correct
         },
 
@@ -129,7 +129,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		onRemove: function() {
 			window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
 		},
-        
+
         changeCloudService: function(e) {
             // update the more section to show options only for the current cloud service
             if(!app.server) {
@@ -149,23 +149,23 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 }
             }
         },
-        
+
         watchData: function(input) {
             var value = input;
-            
+
             if (this.model.get('averageInputs')) {
                 this.inputCount++;
                 this.inputCumulative += Number(input);
                 value = this.inputCumulative / this.inputCount;
             }
-            
+
             if (this.model.get('roundOutput')) {
                 value = Math.round(value);
             }
 
             return value;
         },
-        
+
         sendToCloud: function(e) {
             //console.log('sendtocloud: ' + this.model.get('sendToCloud'));
             if(!app.server && !this.model.get('sendToCloud')) {
@@ -173,16 +173,16 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 this.setDisplayText("Stopped");
             }
         },
-        
+
         setDisplayText: function(text) {
             if(!app.server) {
                 this.$('.timeLeft').text(text);
             }
         },
-                     
+
         timeKeeper: function(frameCount) {
             //console.log('sending: ' + this.model.get('sendToCloud') + this.model.get('phantDataField'));
-            
+
             if (this.init == false) {
                 this.changeCloudService();
                 this.init = true;
@@ -190,7 +190,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             if (this.model.get('sendToCloud')) {
                 var self = this;
                 var period = this.model.get('sendPeriod');
-                
+
 
                 if (this.lastSendToCloud == false) { // starting to send to cloud
                     this.startTime = Date.now() - (period + 1) ;
@@ -203,7 +203,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 var theValue = (this.model.get('out')).toString();
 
                 if (timeDiff >= period ||
-                    (this.model.get('lastValueSentToCloud') != theValue && lastTimeSentTimeDiff >= period)) { 
+                    (this.model.get('lastValueSentToCloud') != theValue && lastTimeSentTimeDiff >= period)) {
                     // send to cloud
 
                     this.startTime = Date.now();
@@ -211,13 +211,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     this.setDisplayText(' Send in: ' + (period / 1000).toFixed(1) + 's');
 
                     this.lastTimeDiff = 0;
-                    
-                    
+
+
                     if (this.model.get('lastValueSentToCloud') != theValue ||
-                        this.model.get('repeatSameCount') >= this.model.get('resendRepeatSameInterval') - 1) { 
+                        this.model.get('repeatSameCount') >= this.model.get('resendRepeatSameInterval') - 1) {
                         // only send changed values
                         console.log('actually sending: ' + theValue);
-                        
+
                         if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
                             this.model.set('lastTimeSentToCloud', Date.now());
                             this.model.set('repeatSameCount',0);
@@ -254,7 +254,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                 case 'particle':
                                     // PARTICLE.IO
                                     //
-                                    var url = "https://api.particle.io/v1/devices/" + this.model.get('particleDeviceId') + "/analogwrite"; 
+                                    var url = "https://api.particle.io/v1/devices/" + this.model.get('particleDeviceId') + "/analogwrite";
                                     $.ajax({
                                         url: url,
                                         type: "POST",
@@ -267,6 +267,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                     break;
                                 default:
                             }
+                            this.model.set('lastValueSentToCloud',theValue);
+                            this.inputCount = 0;
+                            this.inputCumulative = 0;
                         }
                     } else {
                         if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
@@ -274,9 +277,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                             this.model.set('repeatSameCount',this.model.get('repeatSameCount') + 1);
                         }
                     }
-                    this.model.set('lastValueSentToCloud',theValue);
-                    this.inputCount = 0;
-                    this.inputCumulative = 0;
+                    // this.model.set('lastValueSentToCloud',theValue);
+                    // this.inputCount = 0;
+                    // this.inputCumulative = 0;
                 } else if (timeDiff - this.lastTimeDiff >= 100) {
                     this.setDisplayText(' Send in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
                     if (!app.server && timeDiff >= 300) this.$('.outvalue').css('color','#000000'); // stop the RED pulse
