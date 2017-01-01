@@ -29,7 +29,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             'change .cloudService': 'changeCloudService',
 		},
 
-        
+
 		typeID: 'CloudIn',
         categories: ['network'],
 		className: 'cloudIn',
@@ -57,7 +57,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 displayTimerStart: false,
                 displayText: "Stopped",
             });
-            
+
             // private variables
             this.startTime = 0;
             this.lastSendToCloud = false;
@@ -68,7 +68,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.signalChainFunctions.push(SignalChainFunctions.scale);
 			// If you would like to register any function to be called at frame rate (60fps)
 			//console.log('register!');
-			//window.app.server && 
+			//window.app.server &&
 			this.localTimeKeeperFunc = function(frameCount) {
 				this.timeKeeper(frameCount);
 			}.bind(this);
@@ -102,13 +102,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				'max': 1023,
 				'change' : function (v) { self.model.set('in', parseInt(v)); }
 			});
-            
+
 			rivets.binders.knob = function(el, value) {
 				el.value = value;
 				$(el).val(value);
 				$(el).trigger('change');
 			};
-            
+
             this.init = false; // set up to do changeCloudService to make sure interface is correct
         },
 
@@ -118,13 +118,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		onRemove: function() {
 			window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
 		},
-        
+
         getFromCloud: function(e) {
             if (!app.server && !this.model.get('sendToCloud')) {
                 this.setDisplayText("Stopped");
             }
         },
-        
+
         changeCloudService: function(e) {
             if(!app.server) {
                 var service = this.model.get('cloudService');
@@ -143,13 +143,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 }
             }
         },
-        
+
         setDisplayText: function(text) {
             if(!app.server) {
                 this.$('.timeLeft').text(text);
             }
         },
-        
+
         onModelChange: function(model) {
             if(!app.server) {
                 if (model.changedAttributes().in) {
@@ -157,7 +157,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 }
             }
         },
-        
+
         timeKeeper: function(frameCount) {
             if (this.init == false) {
                 this.changeCloudService();
@@ -180,7 +180,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     this.setDisplayText(' Get in: ' + (period / 1000).toFixed(1) + 's');
 
                     this.lastTimeDiff = 0;
-                    if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) { 
+                    if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
                         // only send if we're the server and in server mode, or the browser in authoring mode
                         switch(this.model.get('cloudService')) {
                             case 'sparkfun':
@@ -190,13 +190,15 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                 var dataField = this.model.get('phantDataField');
                                 var phantUrl = this.model.get('phantUrl');
                                 var url = phantUrl + '/output/' + pubKey + '.json';
+                                // possible fix for server exceeding files https://github.com/sparkfun/phant/issues/144
+                                // limit: 10 instead of page: 1
                                 $.ajax({
                                     url: url,
                                     jsonp: 'callback',
                                     cache: false,
                                     dataType: 'jsonp',
                                     data: {
-                                        page: 1
+                                        limit: 1
                                     },
                                     success: function(response) {
                                         // check for success
@@ -228,7 +230,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                             case 'particle':
                                 // PARTICLE.IO
                                 //
-                                var url = "https://api.particle.io/v1/devices/" + this.model.get('particleDeviceId') + "/analogread"; 
+                                var url = "https://api.particle.io/v1/devices/" + this.model.get('particleDeviceId') + "/analogread";
                                 $.ajax({
                                     //url: "https://api.particle.io/v1/devices/55ff6d066678505517151667/analogread",
                                     url: url,
