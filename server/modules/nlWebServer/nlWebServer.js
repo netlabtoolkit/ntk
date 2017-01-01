@@ -35,7 +35,10 @@ module.exports = function(options) {
 		this.server = http.createServer(app);
 
 		app.get('/patch.ntk', function(req, res){
-			res.sendfile( path.join( __dirname, '../nlMultiClientSync/currentPatch.ntk' ) );
+			//res.sendfile( path.join( __dirname, '../nlMultiClientSync/currentPatch.ntk' ) );
+			// send file from GET "patch" parameter - should probably change this to a PUT
+      res.set({'Content-Disposition': 'attachment; filename=\"patch.ntk\"','Content-type': 'application/octet-stream'});
+      res.send(decodeURIComponent(req.query.patch));
 		});
 
 		var self = this;
@@ -81,7 +84,7 @@ module.exports = function(options) {
 		app.get('/test', function(req, res){
 			console.log(req, res);
 		});
-		
+
 
 	WebServer = {
 		/**

@@ -89,6 +89,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		addEventListeners: function() {
 			window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
 			window.app.vent.on('ToolBar:savePatch', this.savePatch, this);
+      window.app.vent.on('ToolBar:exportPatch', this.exportPatch, this);
 			window.app.vent.on('ToolBar:loadPatch', this.loadPatch, this);
 			window.app.vent.on('ToolBar:clearPatch', this.clearPatch, this);
 			window.app.vent.on('receivedDeviceModelUpdate', function(data) {
@@ -342,7 +343,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
         /**
          * updateWidgetModelFromServer
          *
-         * @param {object} changedWidgets 
+         * @param {object} changedWidgets
          * @return {void}
          */
 		updateWidgetModelFromServer: function(changedWidgets) {
@@ -486,7 +487,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				});
 			}
 
-			
+
 			// Pass the mapping to the view. The view will handle the event binding
 			if(view) {
 				view.addInputMap(mappingObject);
@@ -584,6 +585,14 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		savePatch: function() {
 			window.app.vent.trigger('savePatchToServer', {collection: this.widgetModels, mappings: this.widgetMappings});
 		},
+    exportPatch: function() {
+			// send current patch to be exported by nlWebServer.js - should probably convert to POST
+      var patch = {
+        widgets: this.widgetModels.toJSON(),
+        mappings: this.widgetMappings,
+      };
+			window.location.href = "/patch.ntk?patch=" + encodeURIComponent(JSON.stringify(patch));
+    },
 		clearPatch: function() {
 			var emptyPatch = {"widgets":[],"mappings":[]};
 
