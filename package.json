@@ -21,8 +21,8 @@
   },
   "scripts": {
     "start": "pkill phantomjs & node server/cli.js",
-    "build": "npm run clean && npm run optimizeRequire && npm run compileSCSS && cp ./package.json ./server/dist",
-    "package": "npm run build && ./buildScripts/packageElectron.sh && cp -r ./server/assets ./packaged/NTK-darwin-x64/.",
+    "build": "npm run clean && cp ./server/emptyPatch.ntk ./server/currentPatch.ntk && npm run optimizeRequire && npm run compileSCSS && cp ./package.json ./server/dist",
+    "package": "npm run build && ./buildScripts/packageElectron.sh",
     "dev": "npm run clean && npm run copyAppToDist && npm run compileSCSS && node ./buildScripts/liveReload.js & open http://localhost:9001 & npm start",
     "copyAppToDist": "cp -r ./app/* ./server/dist && cp ./package.json ./server/dist",
     "clean": "./buildScripts/clean.sh",
