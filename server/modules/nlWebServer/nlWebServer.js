@@ -33,7 +33,8 @@ module.exports = function(options) {
     if (str == commandLineDir) { // running from the command line
       assetDir = '/../../assets';
     } else { // running from the app package
-      assetDir = '/../../../../../../assets';
+      //assetDir = '/../../../../../../assets';
+      assetDir = '/../../assets';
     }
 
 		app.use(express.static( path.join( __dirname, '../../dist') ));

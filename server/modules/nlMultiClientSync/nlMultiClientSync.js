@@ -297,7 +297,8 @@ module.exports = function(options) {
       if (str == commandLineDir) { // running from the command line
         patchFileName += '/../../currentPatch.ntk';
       } else { // running from the app package
-        patchFileName += '/../../../../../../currentPatch.ntk';
+        //patchFileName += '/../../../../../../currentPatch.ntk';
+        patchFileName += '/../../currentPatch.ntk';
       }
       return patchFileName;
     }
