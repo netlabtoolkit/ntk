@@ -9,19 +9,19 @@
 
 	background-color: #eee;
 
-	font-family: 'Helvetica Neue', sans-serif;
+	font-family: 'Arial', sans-serif;
 	font-size: 12px;
 }
 
 .restrictiveOverlay {
-	position: fixed;
-	top:0;
-	left:0;
+	position: absolute;
+	top:0px;
+	left:74px;
 
 	width:100%;
 	height:100%;
 
-	/*background-color: rgba(0,0,0,0.2);*/
+	/*background-color: rgba(0,0,0,0.9);*/
 	background-color: rgba(0,0,0,0);
 
 	.message {
@@ -31,7 +31,7 @@
 		top: 48%;
 		left: 40%;
 
-		color: #000;
+		color: #F00;
 		opacity: 0;
 
 		font-size: 24px;

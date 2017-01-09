@@ -38,7 +38,7 @@ function( Backbone, Template  ) {
 			e.preventDefault();
 
 			this.$('.message')
-			.css({top: e.pageY - 20, left: e.pageX + 20})
+			.css({top: e.pageY - 20, left: e.pageX - 60})
 			.animate({opacity: 1}, {
 				duration: 500,
 				complete: function() {
@@ -56,8 +56,8 @@ function( Backbone, Template  ) {
 				}
 			});
 
-			this.$el.css('z-index', topZIndex);
-			$('#toolBarRegion').css('z-index', topZIndex+10);
+			this.$el.css('z-index', topZIndex + 20);
+			//$('#toolBarRegion').css('z-index', topZIndex+10);
 		},
 	});
 
