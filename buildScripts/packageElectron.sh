@@ -1,4 +1,5 @@
 #!/bin/sh
+rm -r ./packaged
 mkdir ./packaged
 
 # ALL
