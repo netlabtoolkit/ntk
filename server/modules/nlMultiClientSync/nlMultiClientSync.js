@@ -83,7 +83,7 @@ module.exports = function(options) {
 		 * @return {void}
 		 */
 		loadPatchFromServer: function() {
-			var patchFileName = __dirname + '/currentPatch.ntk';
+      var patchFileName = self.getPatchPath();
 
 			// Read the currently stored patch file and push it to the client
 			fs.exists(patchFileName, function(exists) {
@@ -97,15 +97,15 @@ module.exports = function(options) {
 					});
 				}
 			});
-			
+
 
 		},
 		loadFileIntoMasterPatch: function loadFileIntoMasterPatch(patchFileName) {
 			fs.readFile(patchFileName, 'utf8', function (err, data) {
-
 				if (err) {
 					console.log('Error: ' + err);
-					return;
+          data = '{"widgets":[],"mappings":[]}';
+					//return;
 				}
 
 				self.setMaster(JSON.parse(data));
@@ -161,7 +161,7 @@ module.exports = function(options) {
 				}
 
 			});
-			
+
 			// New responder. Anytime a widget changes, notify all other clients
 			socket.on('client:sendModelUpdate', function(options) {
 				var wid = options.wid,
@@ -210,8 +210,7 @@ module.exports = function(options) {
 		},
 		loadPatch: function(options) {
 			var patch = options.patch;
-			var patchFileName = __dirname + '/currentPatch.ntk';
-
+			var patchFileName = self.getPatchPath();
 
 			self.setMaster(patch);
 
@@ -290,7 +289,18 @@ module.exports = function(options) {
 			}
 
 			return changesExist;
-		}
+		},
+    getPatchPath: function() {
+      var commandLineDir = "server/modules/nlMultiClientSync";
+      var patchFileName = __dirname;
+      var str = __dirname.substr(-1*(commandLineDir.length));
+      if (str == commandLineDir) { // running from the command line
+        patchFileName += '/../../currentPatch.ntk';
+      } else { // running from the app package
+        patchFileName += '/../../../../../../currentPatch.ntk';
+      }
+      return patchFileName;
+    }
 	};
 
 	return new MultiClientSync(options);

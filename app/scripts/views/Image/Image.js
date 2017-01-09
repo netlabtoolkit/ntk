@@ -17,12 +17,14 @@ function(Backbone, rivets, WidgetView, Template){
         widgetEvents: {
 			'mouseup .detachedEl': 'imgMoved',
       'change .displayWidth': 'setImageDimensions',
+      'change .srcFile': 'setSrc',
 		},
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
 
 			this.model.set({
-				src: 'assets/images/NTKlogogreen.jpg',
+				src: 'assets/images/ntk_logo.jpg',
+        srcFile: 'ntk_logo.jpg',
 				ins: [
 					//{name: 'in', to: 'in'},
 					{title: 'X Position', to: 'left'},
@@ -55,12 +57,14 @@ function(Backbone, rivets, WidgetView, Template){
 
         onRender: function() {
     		  WidgetView.prototype.onRender.call(this);
+
     			var self = this;
-                if(!app.server) {
-                    this.$( '.detachedEl' ).css( 'cursor', 'move' );
-                    this.$( '.detachedEl' ).css( 'position', 'fixed' );
-                    this.$( '.detachedEl' ).draggable({ cursor: 'move' });
-                }
+          if(!app.server) {
+            this.$( '.detachedEl' ).css( 'cursor', 'move' );
+            this.$( '.detachedEl' ).css( 'position', 'fixed' );
+            this.$( '.detachedEl' ).draggable({ cursor: 'move' });
+            this.setImageDimensions();
+          }
     		},
 
         onModelChange: function(model) {
@@ -89,6 +93,10 @@ function(Backbone, rivets, WidgetView, Template){
             if(!app.server) {
                 this.$( '.detachedEl' ).css( 'width', this.model.get('displayWidth'));
             }
+        },
+
+        setSrc: function() {
+          this.model.set('src','assets/images/' + this.model.get('srcFile'));
         },
 
 	});

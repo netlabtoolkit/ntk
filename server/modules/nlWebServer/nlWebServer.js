@@ -27,8 +27,17 @@ module.exports = function(options) {
 			next();
 		});
 
+    var commandLineDir = "server/modules/nlWebServer";
+    var assetDir = "";
+    var str = __dirname.substr(-1*(commandLineDir.length));
+    if (str == commandLineDir) { // running from the command line
+      assetDir = '/../../assets';
+    } else { // running from the app package
+      assetDir = '/../../../../../../assets';
+    }
 
 		app.use(express.static( path.join( __dirname, '../../dist') ));
+    app.use('/assets', express.static( path.join( __dirname, assetDir) ));
 		app.use('/server', express.static( path.join( __dirname, '../../dist') ));
 		app.use(express.static( path.join( __dirname, '../../.tmp') ));
 
