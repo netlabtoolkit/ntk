@@ -9,7 +9,7 @@
     "formidable": "^1.0.16",
     "johnny-five": "~0.9.11",
     "node-osc": "^1.1.0",
-    "phantomjs": "^2.1.7",
+    "phantomjs-prebuilt": "^2.1.7",
     "socket.io": "~1.0.0",
     "underscore": "~1.4.4"
   },
