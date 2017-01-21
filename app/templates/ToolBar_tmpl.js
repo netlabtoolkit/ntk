@@ -13,7 +13,8 @@
 </div>
 
 <div class="addWidgets open">
-<h1>Add Widgets</div>
+<h1>Add Widgets</h1>
+<span id="messages"></span>
 </div>
 
 <div class="menuBar open">

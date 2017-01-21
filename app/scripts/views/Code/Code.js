@@ -99,7 +99,12 @@ function(Backbone, WidgetView, Template, CodeMirror){
 		},
 
 		onModelChange: function onModelChange(model) {
-			var codeFunction = new Function("var ins = arguments[0]; " + this.model.get('filter'));
+			try {
+				var codeFunction = new Function("var ins = arguments[0]; " + this.model.get('filter'));
+			}
+			catch(e) {
+				var codeFunction = new Function("var ins = arguments[0]; return ins;");
+			}
 
 			var result = codeFunction({in1: this.model.get('in1'), in2: this.model.get('in2'), in3: this.model.get('in3'), in4: this.model.get('in4')} );
 

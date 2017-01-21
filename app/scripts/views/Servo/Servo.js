@@ -26,8 +26,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
-        
-        
+
+
 		typeID: 'Servo',
 		deviceMode: 'SERVO',
 		categories: ['I/O'],
@@ -39,7 +39,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			WidgetView.prototype.initialize.call(this, options);
 
             // Call any custom DOM events here
-            
+
             this.model.set({
 				title: 'Servo',
 				outputMapping: options.outputMapping,
@@ -55,12 +55,17 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 			// If you would like to register any function to be called at frame rate (60fps)
 			//window.app.timingController.registerFrameCallback(this.processSignalChain, this);
-			
+
 			// This is here because this widget effectively does not output (only outputs to hardware and then, only on server)
 			// So we go ahead and process so the output can be shown in the widget
 			//if(!app.server) {
 				this.model.on('change', this.processSignalChain, this);
 			//}
+      window.setTimeout(function() {
+				//this.deviceType = this.sources[0].model.get('type');
+        this.deviceType = "ArduinoUno";
+        //console.log(this.deviceType);
+			}.bind(this), 3000);
 		},
 
 		onModelChange: function(model) {
@@ -101,7 +106,27 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				$(el).val(value);
 				$(el).trigger('change');
 			};
+      this.init = false;
+
         },
+
+        onModelChange: function(model) {
+            var deviceMode = this.deviceMode;
+            var port = this.model.get('outputMapping');
+            var deviceType = this.deviceType;
+            
+            if (!this.init && !app.serverMode && deviceMode !== undefined && port != '' && deviceType !== undefined) {
+              //console.log('servo trigger hardwareSwitch');
+              //console.log(deviceMode, port, deviceType, app.serverMode);
+              window.app.vent.trigger('Widget:hardwareSwitch', {
+                deviceType: deviceType,
+                port: port,
+                mode: deviceMode,
+                hasInput: true
+              });
+             this.init = true;
+            }
+    		},
 
 
 		// Any custom function can be attached to the widget like this "limitRange" function

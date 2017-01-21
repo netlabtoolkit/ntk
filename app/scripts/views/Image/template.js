@@ -15,21 +15,22 @@
             <div class="inletValue"><span rv-text="widget:left | rounded">100</span> X</div>
             <div class="inletValue"><span rv-text="widget:top | rounded">100</span> Y</div>
             <div class="inletValue"><span rv-text="widget:opacity | rounded">100</span> Opacity</div>
+            <div class="inletValue"><span rv-text="widget:displayWidth | rounded">500</span> Width</div>
         </div>
     </div>
 
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-            <label>image file</label> <input type="text" rv-value="widget:src"><br>
+            <label>image file</label> <input class="srcFile" type="text" rv-value="widget:srcFile"><br>
+            <label>width</label> <input class="displayWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth"><br>
         </div>
     </div>
 </div>
-        
+
 <% if(!server) { %>
     <img class="detachedEl" rv-style-opacity="widget:opacity"
         rv-positionx="widget:left"
         rv-positiony="widget:top"
         class="element" rv-src="widget:src"/>
 <% } %>
-

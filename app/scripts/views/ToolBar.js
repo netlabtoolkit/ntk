@@ -168,7 +168,9 @@ function( app, Backbone, Template, Widgets ) {
 		},
 		downloadPatch: function() {
 			window.app.vent.trigger('ToolBar:savePatch');
-			window.location.href = "/patch.ntk";
+			// window.location.href = "/patch.ntk";
+			// new method for exporting patch - doesn't use saved patch file
+			window.app.vent.trigger('ToolBar:exportPatch');
 		},
         hideWidgets: function() {
 			this.widgetsVisible = !this.widgetsVisible;

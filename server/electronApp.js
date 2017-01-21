@@ -1,6 +1,7 @@
 
 const electron = require('electron');
-var Menu = require("menu");
+//var Menu = require("menu");
+var Menu = electron.Menu
 const app = electron.app;
 const BrowserWindow = electron.BrowserWindow;
 const ntk = require('./netlabServer.js')();
@@ -56,5 +57,6 @@ app.on('ready', function() {
   ];
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  // turn on devTools to show inspector/console in app version
+  //mainWindow.webContents.openDevTools();
 });
-

@@ -24,13 +24,13 @@
         <div class="content">
             <label>continuous</label> <input class="continuous" type="checkbox" rv-checked="widget:continuous" /><br>
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
-            <label>audio file</label> <input type="text" rv-value="widget:src"><br>
+            <label>audio file</label> <input class="srcFile" type="text" rv-value="widget:srcFile"><br>
         </div>
     </div>
 </div>
-  
+
 <% if(!server) { %>
-    <audio id="audio" rv-src="widget:src">
+    <audio class="audio" rv-src="widget:src">
     Your browser does not support the audio element
     </audio>
 <% } %>
