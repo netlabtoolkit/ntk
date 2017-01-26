@@ -9,92 +9,22 @@ module.exports = function(options) {
 		path = require('path'),
 		fs = require('fs'),
 		events = require('events'),
-		formidable = require('formidable');
+		formidable = require('formidable'),
+		routes = require("./routes");
 
-	app = express();
 
 	events.EventEmitter.call(this);
 	_.extend(this, events.EventEmitter.prototype);
 
-		var port = options.port || '9001';
-		this.port = port;
+	var port = options.port || '9001';
+	this.port = port;
 
 
+	app = express();
+	// Setup routes
+	app.use(routes(this));
 
-		//// simple log
-		app.use(function(req, res, next){
-			console.log('%s %s', req.method, req.url);
-			next();
-		});
-
-    var commandLineDir = "server/modules/nlWebServer";
-    var assetDir = "";
-    var str = __dirname.substr(-1*(commandLineDir.length));
-    if (str == commandLineDir) { // running from the command line
-      assetDir = '/../../assets';
-    } else { // running from the app package
-      //assetDir = '/../../../../../../assets';
-      assetDir = '/../../assets';
-    }
-
-		app.use(express.static( path.join( __dirname, '../../dist') ));
-    app.use('/assets', express.static( path.join( __dirname, assetDir) ));
-		app.use('/server', express.static( path.join( __dirname, '../../dist') ));
-		app.use(express.static( path.join( __dirname, '../../.tmp') ));
-
-		this.server = http.createServer(app);
-
-		app.get('/patch.ntk', function(req, res){
-			//res.sendfile( path.join( __dirname, '../nlMultiClientSync/currentPatch.ntk' ) );
-			// send file from GET "patch" parameter - should probably change this to a PUT
-      res.set({'Content-Disposition': 'attachment; filename=\"patch.ntk\"','Content-type': 'application/octet-stream'});
-      res.send(decodeURIComponent(req.query.patch));
-		});
-
-		var self = this;
-
-		// Receive a file from the client and load it as a patch
-		app.post('/loadPatch', function(req, res, next) {
-
-			var form = new formidable.IncomingForm();
-
-			form.parse(req, function(err, fields, files) {
-				res.writeHead(200, {'content-type': 'text/plain'});
-				res.write('received upload\n\n');
-
-				fs.readFile(files.patch.path, 'utf8', function (err, data) {
-
-					if (err) {
-						console.log('Error: ' + err);
-						return;
-					}
-
-					var loadedPatch = data;
-					self.emit('loadPatch', { patch: JSON.parse(loadedPatch) });
-				});
-			res.end();
-			});
-		});
-
-		app.get('/devTools', function(req, res){
-			res.send('');
-			//res.sendfile( path.join( __dirname, '../../devTools/cssrefresh.js' ) );
-		});
-		app.get('/client', function(req, res){
-			console.log('Client connected');
-			self.emit('clientConnected');
-			res.sendfile( path.join( __dirname, '../../dist/index.html' ) );
-		});
-		app.get('*', function(req, res){
-			res.sendfile( path.join( __dirname, '../../dist/index.html' ) );
-		});
-		app.get('/server', function(req, res){
-			res.sendfile( path.join( __dirname, '../../dist/index.html' ) );
-		});
-		app.get('/test', function(req, res){
-			console.log(req, res);
-		});
-
+	this.server = http.createServer(app);
 
 	WebServer = {
 		/**
