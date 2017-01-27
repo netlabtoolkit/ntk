@@ -1,8 +1,5 @@
 module.exports = function(options) {
 
-	//var domain = require('domain');
-
-
 	var express = require('express');
 		_ = require('underscore'),
 		http = require('http'),
@@ -10,7 +7,6 @@ module.exports = function(options) {
 		fs = require('fs'),
 		events = require('events'),
 		formidable = require('formidable'),
-		expressDomain = require("express-domain-middleware"),
 		router = require("./routes");
 
 
@@ -23,8 +19,6 @@ module.exports = function(options) {
 
 	app = express();
 
-	// SAFETY!
-	app.use(expressDomain);
 	// Setup routes
 	app.use(router(this));
 
