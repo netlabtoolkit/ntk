@@ -10,7 +10,8 @@ module.exports = function(options) {
 		fs = require('fs'),
 		events = require('events'),
 		formidable = require('formidable'),
-		routes = require("./routes");
+		expressDomain = require("express-domain-middleware"),
+		router = require("./routes");
 
 
 	events.EventEmitter.call(this);
@@ -21,8 +22,11 @@ module.exports = function(options) {
 
 
 	app = express();
+
+	// SAFETY!
+	app.use(expressDomain);
 	// Setup routes
-	app.use(routes(this));
+	app.use(router(this));
 
 	this.server = http.createServer(app);
 
