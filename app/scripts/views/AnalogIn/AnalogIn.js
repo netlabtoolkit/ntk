@@ -16,6 +16,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			'click .invert': 'toggleInvert',
 			'click .smoothing': 'toggleSmoothing',
             'click .easing': 'toggleEasing',
+            'click .enableDevice': 'enableDevice',
             'change .smoothingAmount': 'smoothingAmtChange',
 		},
 		ins: [
@@ -231,6 +232,11 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 		smoothingAmtChange: function(e) {
 			this.smoother.setBufferLength(this.model.get('smoothingAmount'));
+		},
+
+		enableDevice: function enableHardware(e) {
+			console.log('OOOO');
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: "ArduinoUno:localhost", model: this.model.attributes});
 		},
 
 	});

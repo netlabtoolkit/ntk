@@ -126,6 +126,7 @@ module.exports = function(options) {
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
 				console.log('address', typeAddressPort[1]);
+				// THIS IS THE MOMENT WHERE HARDWARE IS INITIALIZED
 
 				for(var field in options.model) {
 					//var selectedModel = self.hardwareModels[modelType];

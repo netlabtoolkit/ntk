@@ -72,6 +72,7 @@ function( Backbone ) {
 			// MODEL
 			window.app.vent.on('widgetUpdate', function(options){
 				if(window.app.server || !window.app.serverMode) {
+					console.log('sending');
 					socket.emit('client:sendModelUpdate', options);
 				}
 			});
