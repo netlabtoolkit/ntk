@@ -72,7 +72,6 @@ function( Backbone ) {
 			// MODEL
 			window.app.vent.on('widgetUpdate', function(options){
 				if(window.app.server || !window.app.serverMode) {
-					console.log('sending');
 					socket.emit('client:sendModelUpdate', options);
 				}
 			});
@@ -108,7 +107,6 @@ function( Backbone ) {
 					}
 
 					deviceUpdateThrottleID = setTimeout(function() {
-						console.log('sendModelUpdate', options);
 						socket.emit('sendModelUpdate', options);
 
 						deviceUpdateThrottleID = undefined;
