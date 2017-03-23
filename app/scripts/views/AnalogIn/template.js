@@ -10,7 +10,6 @@
             <div rv-each-source="sources" class="settings">
                 <input type='text' rv-value="source.map.sourceField">
             </div>
-			<div class='enableDevice'></div>
         </div>
     </div>
 

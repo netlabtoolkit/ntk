@@ -75,14 +75,14 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 			if(changed) {
 				if(changed.server) {
-					this.model.set('server', changed.server);
+					this.model.set({server: changed.server, active: false});
 				}
 				if(changed.port) {
-					this.model.set('port', changed.port);
+					this.model.set({port: changed.port, active: false});
 				}
 
 				if(changed.deviceType) {
-					this.model.set('deviceType', changed.deviceType);
+					this.model.set({deviceType: changed.deviceType, active: false});
 				}
 
 				// Check if there are any inactive models that we will need to activate
@@ -97,9 +97,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 					}
 				}
 
-				console.log('inactiveModels', inactiveModels);
-				if( inactiveModels ||  changed.deviceType || changed.server || changed.port) {
-					console.log('hello', inactiveModels);
+				if( inactiveModels && this.model.get("active") == true ) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
 						modelType = this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType');
 
@@ -109,7 +107,6 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 					var server = this.model.get('server') == undefined ? 'localhost' : this.model.get('server');
 					var port = this.model.get('port') == undefined ? 9001 : this.model.get('port');
 
-					console.log('mapToModel', modelType);
 					app.Patcher.Controller.mapToModel({
 						view: this,
 						modelType: modelType,
@@ -117,17 +114,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 						server: server + ":" + port,
 					}, true);
 
-					// HERE IS WHERE WE NEED TO DO SOMETHING TO MAKE SURE THAT A CHANGE IS TRIGGERED ON THE HARDWARE MODEL.
-					// That way it will send the info down to the server to instantiate on the server.
-					if(inactiveModels) {
-						console.log('setting');
-						this.model.attributes["A0"] = 1;
-						this.model.set("A0", 1);
-
-						for(var i=this.sources.length-1; i>=0; i--) {
-							this.syncWithSource(this.sources[i].model);
-						}
-					}
+						this.enableDevice({modelType: modelType + ":" + server + ":" + port });
 
 				}
 			}
@@ -219,7 +206,6 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 		timeKeeper: function(frameCount) {
 			if (this.model.get('easing')) {
-                //console.log('timekeeper' + this.wname);
 				this.easingLast = this.easeOutExpo (0.17,this.easingLast,(this.easingNew - this.easingLast), this.model.get('easingAmount'));
 				if (Math.abs(this.easingLast - this.easingNew) < 0.4) this.easingLast = this.easingNew;
 				if (isNaN(this.easingLast)) {
@@ -234,9 +220,8 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			this.smoother.setBufferLength(this.model.get('smoothingAmount'));
 		},
 
-		enableDevice: function enableHardware(e) {
-			console.log('OOOO');
-			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: "ArduinoUno:localhost", model: this.model.attributes});
+		enableDevice: function enableHardware(options) {
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: options.modelType, model: this.model.attributes});
 		},
 
 	});
