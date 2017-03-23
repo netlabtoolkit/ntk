@@ -145,7 +145,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				else if(widgetType === 'AnalogOut') {
 					var defaultMapping = 'D3';
 
-					var existingMapping = this.existingMappingExists(defaultMapping);
+					var existingMapping = this.existingMappingExists(defaultMapping, "ArduinoUno" );
 
 					// Check if we are already using this output pin, don't use it if we are
 					//var existingMapping = _.find(this.widgetMappings, function(map) {
@@ -197,7 +197,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				else if(widgetType === 'DigitalOut') {
 					var defaultMapping = 'D3';
 
-					var existingMapping = this.existingMappingExists(defaultMapping);
+					var existingMapping = this.existingMappingExists(defaultMapping, "ArduinoUno" );
 
 					// Check if we are already using this output pin, don't use it if we are
 					//var existingMapping = _.find(this.widgetMappings, function(map) {
@@ -310,10 +310,11 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 			return false;
 		},
-		existingMappingExists: function existingMappingExists(port) {
+		existingMappingExists: function existingMappingExists(port, deviceType) {
+			console.log(port, deviceType);
 			// Check if we are already using this output pin, don't use it if we are
 			var existingMapping = _.find(this.widgetMappings, function(map) {
-				return map.map.destinationField === port;
+				return map.map.destinationField === port && map.modelWID === deviceType;
 			});
 
 			return existingMapping;
