@@ -86,16 +86,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				}
 
 				// Check if there are any inactive models that we will need to activate
-				var inactiveModels = false;
-				if(this.sources.length > 0) {
-					for(var i=this.sources.length-1; i>=0; i--) {
-						var source = this.sources[i];
-
-						if(!source.model.active) {
-							inactiveModels = true;
-						}
-					}
-				}
+				var inactiveModels = this.inactiveModelsExist();
 
 				if( inactiveModels && this.model.get("active") == true ) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
@@ -118,6 +109,21 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 				}
 			}
+		},
+		inactiveModelsExist: function checkForInactiveModels() {
+			var inactiveModels = false;
+
+			if(this.sources.length > 0) {
+				for(var i=this.sources.length-1; i>=0; i--) {
+					var source = this.sources[i];
+
+					if(!source.model.active) {
+						inactiveModels = true;
+					}
+				}
+			}
+
+			return inactiveModels;
 		},
 		unMapHardwareInlet: function unMapHardwareInlet() {
 

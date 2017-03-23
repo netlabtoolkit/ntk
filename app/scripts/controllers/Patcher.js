@@ -432,7 +432,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				inletOffsets = options.inletOffsets;
 
 			console.log('server', options.server, options);
-			console.log(new Error().stack);
+
 			// If we have a view, grab its wid
 			if(view) {
 				viewWID = view.model.get('wid');
