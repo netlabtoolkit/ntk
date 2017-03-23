@@ -16,7 +16,6 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			'click .invert': 'toggleInvert',
 			'click .smoothing': 'toggleSmoothing',
             'click .easing': 'toggleEasing',
-            'click .enableDevice': 'enableDevice',
             'change .smoothingAmount': 'smoothingAmtChange',
 		},
 		ins: [
@@ -95,8 +94,10 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 					// DIFF
 					this.unMapHardwareInlet();
 
-					var server = this.model.get('server') == undefined ? 'localhost' : this.model.get('server');
-					var port = this.model.get('port') == undefined ? 9001 : this.model.get('port');
+					//var server = this.model.get('server') == undefined ? 'localhost' : this.model.get('server');
+					var server = this.getDeviceServerName();
+					//var port = this.model.get('port') == undefined ? 9001 : this.model.get('port');
+					var port = this.getDeviceServerPort();
 
 					app.Patcher.Controller.mapToModel({
 						view: this,
@@ -105,11 +106,14 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 						server: server + ":" + port,
 					}, true);
 
-						this.enableDevice({modelType: modelType + ":" + server + ":" + port });
+						this.enableDevice();
 
 				}
 			}
 		},
+		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
+		getDeviceServerName: function() {return this.model.get('server') == undefined ? 'localhost' : this.model.get('server')},
+		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
 		inactiveModelsExist: function checkForInactiveModels() {
 			var inactiveModels = false;
 
@@ -226,8 +230,11 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			this.smoother.setBufferLength(this.model.get('smoothingAmount'));
 		},
 
-		enableDevice: function enableHardware(options) {
-			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: options.modelType, model: this.model.attributes});
+		enableDevice: function enableHardware() {
+			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+
+			console.log('enabling', modelType, window.app.vent);
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
 		},
 
 	});

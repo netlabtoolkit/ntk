@@ -494,6 +494,15 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					//modelWID: modelType + ":" + server,
 					offsets: inletOffsets,
 				});
+
+				if(view.model.get("active") === true) {
+					console.log('true');
+					// TODO: Hack for now due to hardware usually being triggered from edit mode.
+					// Temporarily dipping into edit mode for now. See SocketAdapter:registerOutboundClientEvents
+					window.app.serverMode = false;
+					view.enableDevice.bind(view)();
+					window.app.serverMode = true;
+				}
 			}
 
 
