@@ -2,6 +2,7 @@
 module.exports = function(options) {
 'use strict';
 
+	return new Promise( (resolve, reject)  => {
 // Create hardware device factory
 var deviceType = process.argv[2] || 'ArduinoUno',
 	nlHardware = require('./modules/nlHardware/Hardware'),
@@ -78,6 +79,14 @@ nlWebServer.start()
 				clientSync.emit('notify:serverActive', true);
 			}
 		});
+
+		resolve();
+	})
+	.catch((err) => {
+		console.log('error:', err);
+
+		resolve();
 	});
 
+});
 };
