@@ -50,22 +50,27 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 			if(changed) {
 				if(changed.server) {
-					this.model.set('server', changed.server);
+					this.model.set({server: changed.server, activeOut: false});
 				}
 				if(changed.port) {
-					this.model.set('port', changed.port);
+					this.model.set({port: changed.port, activeOut: false});
 				}
 
 				if(changed.deviceType) {
-					this.model.set('deviceType', changed.deviceType);
+					this.model.set({deviceType: changed.deviceType, activeOut: false});
 				}
 
-				if( changed.deviceType || changed.server || changed.port) {
+				var inactiveModels = this.inactiveModelsExist();
+
+				if( inactiveModels && this.model.get("activeOut") == true ) {
+				//if( changed.deviceType || changed.server || changed.port) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
 						modelType = this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType');
 
-					var server = this.model.get('server') == undefined ? 'localhost' : this.model.get('server');
-					var port = this.model.get('port') == undefined ? 9001 : this.model.get('port');
+					this.unMapHardwareInlet();
+
+					var server = this.getDeviceServerName();
+					var port = this.getDeviceServerPort();
 
 					app.Patcher.Controller.mapToModel({
 						view: this,
@@ -73,8 +78,43 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 						IOMapping: {sourceField: "out", destinationField: 'D3'},
 						server: server + ":" + port,
 					}, true);
+
+					this.enableDevice();
 				}
 			}
+		},
+		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
+		getDeviceServerName: function() {return this.model.get('server') == undefined ? 'localhost' : this.model.get('server')},
+		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
+		inactiveModelsExist: function checkForInactiveModels() {
+			var inactiveModels = false;
+
+			if(this.sources.length > 0) {
+				for(var i=this.sources.length-1; i>=0; i--) {
+					var source = this.sources[i];
+
+					if(!source.model.active) {
+						inactiveModels = true;
+					}
+				}
+			}
+
+			return inactiveModels;
+		},
+		unMapHardwareInlet: function unMapHardwareInlet() {
+
+			this.sourceToRemove = this.sources[0];
+			this.sources.length = 0;
+			this.sources = [];
+
+			if(this.sourceToRemove) {
+				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
+			}
+		},
+		enableDevice: function enableHardware() {
+			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
 		},
         onRender: function() {
 			// always call the superclass

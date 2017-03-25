@@ -106,7 +106,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 						server: server + ":" + port,
 					}, true);
 
-						this.enableDevice();
+					this.enableDevice();
 
 				}
 			}
@@ -233,7 +233,6 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		enableDevice: function enableHardware() {
 			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 
-			console.log('enabling', modelType, window.app.vent);
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
 		},
 
