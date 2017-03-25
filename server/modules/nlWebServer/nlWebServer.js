@@ -1,4 +1,8 @@
 module.exports = function(options) {
+	// Last resort
+	process.on('uncaughtException', (err) => {
+		console.log('error:', err);
+	});
 
 	var express = require('express');
 		_ = require('underscore'),
