@@ -125,8 +125,6 @@ module.exports = function(options) {
 
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
-				console.log('address', typeAddressPort[1]);
-				// THIS IS THE MOMENT WHERE HARDWARE IS INITIALIZED
 
 				for(var field in options.model) {
 					//var selectedModel = self.hardwareModels[modelType];
@@ -135,10 +133,6 @@ module.exports = function(options) {
 					// If there is no model to update, try to instantiate one
 					if(selectedModel == undefined) {
 						var networkDevice = typeAddressPort[1].match(/^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/);
-						console.log('networkDevice', !!networkDevice, typeAddressPort[1]);
-						if(networkDevice) {
-							options.modelType = 'mkr1000';
-						}
 
 						//self.hardwareModels[modelType] = new nlHardware({deviceType: typeAddressPort[0], address: typeAddressPort[1], port: typeAddressPort[2] }).model;
 						self.hardwareModels[options.modelType] = new nlHardware({deviceType: options.modelType, address: typeAddressPort[1], port: typeAddressPort[2] }).model;

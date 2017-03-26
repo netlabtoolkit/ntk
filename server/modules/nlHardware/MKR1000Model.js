@@ -1,28 +1,34 @@
 
 module.exports = function(attributes) {
-	// Replace this with passed in data
-	//var argHostPort = process.argv[3] ? process.argv[3].split(":") : undefined;
 	var argHostPort = [attributes.address, attributes.port];
-	console.log('CHOSE THE RIGHT ONE)_)_)_)_)_)_)_)_)_)_)', attributes);
+
+	var EtherPortClient = require("etherport-client").EtherPortClient;
 
 	var _ = require('underscore'),
 		five = require("johnny-five"),
 		net = require("net"),
 		firmata = require("firmata"),
 		events = require('events'),
-		mkrHost = argHostPort !== undefined ? argHostPort[0] : "192.168.1.113",
+		mkrHost = argHostPort !== undefined ? argHostPort[0] : "192.168.1.113", // This default is based on the default in StandardFirmataWifi
 		mkrPort = argHostPort !== undefined ? parseInt(argHostPort[1],10) : 3030;
 
 	var constructor = function() {
 		this.type = "mkr1000";
 		var self = this;
 
-		console.log('Connecting to ...', mkrHost, mkrPort);
-		var client = net.connect({host: mkrHost, port: mkrPort}, function() {
-			var socketClient = this;
+		// Load in the Standard Firmata model
+		var standardFirmataModel = require("./StandardFirmataModel")(five);
+		_.extend(constructor.prototype, standardFirmataModel);
 
-			console.log('Connected to MKR1000...');
-			var io = new firmata.Board(socketClient);
+		console.log('Connecting to ...', mkrHost, mkrPort);
+		//var client = net.connect({host: mkrHost, port: mkrPort}, function() {
+			//var socketClient = this;
+
+			//var io = new firmata.Board(socketClient);
+			var io = new firmata.Board(new EtherPortClient({
+				host: mkrHost,
+				port: mkrPort
+			}));
 
 			io.once('ready', function() {
 				self.board = five.Board({
@@ -38,11 +44,8 @@ module.exports = function(attributes) {
 					console.log(err);
 				});
 			});
-		});
+		//});
 
-		// Load in the Standard Firmata model
-		var standardFirmataModel = require("./StandardFirmataModel")(five);
-		_.extend(constructor.prototype, standardFirmataModel);
 
 	};
 
