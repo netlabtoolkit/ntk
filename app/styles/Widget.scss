@@ -7,14 +7,14 @@
 
 
 	margin: 0;
-    
+
     hr {
         background-color: #eee;
         border: 0 none;
         color: #eee;
         height: 1px;
     }
-    
+
 	.remove {
 		float: right;
 		width: 0.7em;
@@ -179,7 +179,7 @@
 	.options li:hover {
 	    color: #FFF;
 	}
-    
+
     .operator {
         width: 44px;
     }
@@ -232,8 +232,8 @@
         margin-left: 1px;
         width: 60%;
     }
-    
-    
+
+
 
     .widgetBody {
         background-color: whitesmoke;
@@ -244,41 +244,41 @@
         border-bottom-left-radius: 5px;
 		border: 2px solid #98a6ac;
 		border-top: 0;
-        
+
         .widgetBodyLeft {
-            float: left;   
+            float: left;
         }
-        
+
         .widgetBodyRight {
-            float: right;   
+            float: right;
         }
-        
+
         .inletValue {
-            
+
             margin-top: 6px;
             margin-left: 2px;
             height: 20px;
-            
+
             clear: both;
-            
+
         }
-        
+
         .inletValueInput {
-            
+
             margin-top: 6px;
             margin-left: 0px;
             height: 20px;
-            
+
             clear: both;
-            
+
             input {
                 margin-left: 0px;
             }
-            
+
         }
-        
+
         .outletValue {
-            
+
             margin-top: 4px;
             margin-bottom: 0px;
             height: 22px;
@@ -288,7 +288,7 @@
             padding-left: 0px;
             padding-right: 0px;
             clear: both;
-            
+
             .outputParam {
                 width: 25px;
                 margin-top: 0px;
@@ -298,34 +298,34 @@
                 padding-right: 0px;
             }
         }
-        
+
         .fullWidthInput {
             margin-top: 3px;
             width: 90% !important;
             text-align: center;
         }
-        
+
         .outputSingle {
-            padding-left: 32px; 
+            padding-left: 32px;
         }
-        
+
         .inletValueTop {
             margin-top: 20px;
         }
-        
+
         input[type='checkbox'] {
             width: 12px;
         }
-        
+
         .timeLeft {
             margin-top: 5px;
             margin-left: 5px;
         }
-        
+
         .ifFalse {
             background-color: #f8c885;
         }
-        
+
         .ifStatement {
             background-color: #c6c6c6;
             margin-left: 0px;
@@ -333,7 +333,7 @@
             margin-right: 0px;
             padding: 0px;
             text-align: right;
-            
+
             .outputParam {
                 width: 26px;
                 margin-top: 0px;
@@ -343,16 +343,16 @@
                 padding-right: 0px;
             }
         }
-    
+
         .ifTop {
             background-color: #c6c6c6;
         }
-        
+
         label {
             display: inline-block;
             width: 60px;
         }
-        
+
     }
 
     .widgetBody input[type='text'] {
@@ -363,8 +363,8 @@
         width: 25px;
         height: 12px;
     }
-    
-    
+
+
     .widgetOutput {
         width: 12px;
         height: 24px;
@@ -427,43 +427,47 @@
             padding: 5px;
             margin-left: 5px;
             border-radius: 5px;
-            
+
             background-color: #fff;
-            
+
             label {
                 display: inline-block;
                 width: 60px;
             }
-            
+
             label.wide-label {
                 width: 125px;
             }
-            
+
             .narrowLabel {
                 width: 30px;
             }
-            
+
             .moreParam {
                 width: 40px;
             }
+
+            .deviceIp {
+              display: none;
+            }
         }
-        
-        
-        
-        
+
+
+
+
     }
 
     .typeIO {
-    	background-color: #E57373; 
+    	background-color: #E57373;
     }
     .typeNetwork {
-    	background-color: #FF8A65; 
+    	background-color: #FF8A65;
     }
     .typeMedia {
-    	background-color: #4DB6AC; 
+    	background-color: #4DB6AC;
     }
     .typeGenerator {
-    	background-color: #AED581; 
+    	background-color: #AED581;
     }
     .typeLogic {
     	background-color: #64B5F6;
@@ -475,12 +479,12 @@
 
 .detachedEl {
 	position: fixed;
-    
+
     .ui-button.ui-widget {
 /*        width: 200px !important;
         height: 200px !important;*/
     }
-    
+
     .ui-button .ui-button-text {
 /*        font-size: 2.0em !important;*/
     }

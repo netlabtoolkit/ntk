@@ -58,6 +58,13 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 				if(changed.deviceType) {
 					this.model.set({deviceType: changed.deviceType, activeOut: false});
+          if(!app.server) {
+            if (changed.deviceType == "mkr1000") {
+              this.$('.deviceIp').show();
+            } else {
+              this.$('.deviceIp').hide();
+            }
+          }
 				}
 
 				var inactiveModels = this.inactiveModelsExist();

@@ -54,7 +54,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// then push its processing function onto the stack
 			this.smoother = new SignalChainClasses.Smoother({tolerance: this.model.get('smoothingAmount')});
 			this.signalChainFunctions.push(this.smoother.getChainFunction());
-            
+
             this.localProcessSignalChain = function() {
 				this.processSignalChain();
 			}.bind(this);
@@ -82,6 +82,14 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 				if(changed.deviceType) {
 					this.model.set({deviceType: changed.deviceType, active: false});
+          if(!app.server) {
+            if (changed.deviceType == "mkr1000") {
+              this.$('.deviceIp').show();
+            } else {
+              this.$('.deviceIp').hide();
+            }
+          }
+
 				}
 
 				// Check if there are any inactive models that we will need to activate
@@ -238,5 +246,3 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 	});
 });
-
-
