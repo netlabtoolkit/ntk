@@ -74,33 +74,32 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 			if(changed) {
 				if(changed.server) {
-					this.model.set({server: changed.server, active: false});
+					this.model.set({server: changed.server, hwActive: false});
 				}
 				if(changed.port) {
-					this.model.set({port: changed.port, active: false});
+					this.model.set({port: changed.port, hwActive: false});
 				}
 
 				if(changed.deviceType) {
-					this.model.set({deviceType: changed.deviceType, active: false});
-          if(!app.server) {
-            if (changed.deviceType == "mkr1000") {
-              this.$('.deviceIp').show();
-            } else {
-              this.$('.deviceIp').hide();
-            }
-          }
-
+					this.model.set({deviceType: changed.deviceType, hwActive: false});
+					if(!app.server) {
+						if (changed.deviceType == "mkr1000") {
+							this.$('.deviceIp').show();
+						}
+						else {
+							this.$('.deviceIp').hide();
+						}
+					}
 				}
 
 				// Check if there are any inactive models that we will need to activate
 				var inactiveModels = this.inactiveModelsExist();
 
-				if( inactiveModels && this.model.get("active") == true ) {
+				if( inactiveModels && this.model.get("hwActive") == true ) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
 						modelType = this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType');
 
-					// DIFF
-					this.unMapHardwareInlet();
+					//this.unMapHardwareInlet();
 
 					//var server = this.model.get('server') == undefined ? 'localhost' : this.model.get('server');
 					var server = this.getDeviceServerName();
