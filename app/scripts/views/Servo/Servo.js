@@ -127,6 +127,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
              this.init = true;
             }
     		},
+		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
+		getDeviceServerName: function() {return this.model.get('server') == undefined ? 'localhost' : this.model.get('server')},
+		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
+		enableDevice: function enableHardware() {
+			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
+		},
 
 
 		// Any custom function can be attached to the widget like this "limitRange" function

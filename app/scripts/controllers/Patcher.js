@@ -165,9 +165,8 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 						this.mapToModel({
 							view: newWidget,
-							IOMapping: {sourceField: "out", destinationField: defaultOutputMapping},
 							modelType: 'ArduinoUno',
-							//modelType: 'mkr1000',
+							IOMapping: {sourceField: "out", destinationField: defaultOutputMapping},
 							server: serverAddress,
 						}, addedFromLoader);
 					}

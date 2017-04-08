@@ -24,7 +24,8 @@ module.exports = function(five) {
 					this.inputs["A"+reportedPin.analogChannel] = {pin: sensor, value: 0};
 				}
 				else {
-					this.outputs["D"+index] = {pin: {}, value: 0, supportedModes: reportedPin.supportedModes};
+					//this.outputs["D"+index] = {pin: {}, value: 0, supportedModes: reportedPin.supportedModes};
+					this.outputs["D"+index] = {pin: reportedPin,  value: 0, supportedModes: reportedPin.supportedModes};
 				}
 			}
 
@@ -66,6 +67,11 @@ module.exports = function(five) {
 				for(var supportedMode in this.outputs[field].supportedModes) {
 					if(supportedMode == pinMode) {
 						modeSupported = true;
+
+						if(supportedMode !== this.outputs[field].pin.mode) {
+							var PINMODESTRINGS = _.invert(this.PINMODES);
+							//this.setIOMode(field, PINMODESTRINGS[supportedMode] );
+						}
 					}
 				}
 

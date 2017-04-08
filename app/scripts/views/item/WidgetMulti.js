@@ -97,7 +97,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					var deviceType = this.sources[i].model.get('type');
 					if(deviceType !== undefined) {
 						window.app.vent.trigger('Widget:hardwareSwitch', {
-							deviceType: deviceType,
+							deviceType: deviceType + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),
 							port: outputMapping,
 							mode: this.deviceMode,
 							hasInput: hasInput
@@ -111,10 +111,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
 				// Do this for all sources and include the address of the source
 				for(var i=this.sources.length-1; i>=0; i--) {
-					window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: this.sources[i].model.get('type'), port: inputMapping, mode: this.deviceMode} );
+					window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: this.sources[i].model.get('type') + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(), port: inputMapping, mode: this.deviceMode} );
 				}
 			}
 		},
+		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
+		getDeviceServerName: function() {return this.model.get('server') == undefined ? 'localhost' : this.model.get('server')},
+		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
 		makeDraggable: function() {
 
 			var updateCables = function updateCables(e, object) {

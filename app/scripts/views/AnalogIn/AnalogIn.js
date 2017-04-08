@@ -40,8 +40,8 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				title: 'AnalogIn',
 				easing: false,
 				easingAmount: 30,
-				smoothingAmount: 60
-
+				smoothingAmount: 60,
+				active: false,
 			});
 
 			this.easingLast = 0;
@@ -74,14 +74,14 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 			if(changed) {
 				if(changed.server) {
-					this.model.set({server: changed.server, hwActive: false});
+					this.model.set({server: changed.server, active: false});
 				}
 				if(changed.port) {
-					this.model.set({port: changed.port, hwActive: false});
+					this.model.set({port: changed.port, active: false});
 				}
 
 				if(changed.deviceType) {
-					this.model.set({deviceType: changed.deviceType, hwActive: false});
+					this.model.set({deviceType: changed.deviceType, active: false});
 					if(!app.server) {
 						if (changed.deviceType == "mkr1000") {
 							this.$('.deviceIp').show();
@@ -95,7 +95,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				// Check if there are any inactive models that we will need to activate
 				var inactiveModels = this.inactiveModelsExist();
 
-				if( inactiveModels && this.model.get("hwActive") == true ) {
+				if( inactiveModels && this.model.get("active") == true ) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
 						modelType = this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType');
 
@@ -128,7 +128,8 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				for(var i=this.sources.length-1; i>=0; i--) {
 					var source = this.sources[i];
 
-					if(!source.model.active) {
+					//if(!source.model.get("active") ) {
+					if(!source.model.active ) {
 						inactiveModels = true;
 					}
 				}

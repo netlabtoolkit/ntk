@@ -29,6 +29,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			this.model.set({
 				title: 'AnalogOut',
 				outputMapping: options.outputMapping,
+				activeOut: false,
 			});
 
             this.signalChainFunctions.push(this.limitRange);
@@ -61,7 +62,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
           if(!app.server) {
             if (changed.deviceType == "mkr1000") {
               this.$('.deviceIp').show();
-            } else {
+            } else 
+				{
               this.$('.deviceIp').hide();
             }
           }
@@ -74,7 +76,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
 						modelType = this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType');
 
-					//this.unMapHardwareInlet();
+					this.unMapHardwareInlet();
 
 					var server = this.getDeviceServerName();
 					var port = this.getDeviceServerPort();
@@ -100,7 +102,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				for(var i=this.sources.length-1; i>=0; i--) {
 					var source = this.sources[i];
 
-					if(source.model.get("hwActive") === false) {
+					//if(source.model.get("active") === false) {
+					if(source.model.active === false) {
 						inactiveModels = true;
 					}
 				}
@@ -122,6 +125,14 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
+			let hasInput = this.deviceMode == 'in';
+
+			window.app.vent.trigger('Widget:hardwareSwitch', {
+				deviceType: this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),
+				port: this.model.get("outputMapping"),
+				mode: this.deviceMode,
+				hasInput: hasInput
+			});
 		},
         onRender: function() {
 			// always call the superclass
