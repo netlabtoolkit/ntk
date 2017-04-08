@@ -311,7 +311,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			return false;
 		},
 		existingMappingExists: function existingMappingExists(port, deviceType) {
-			console.log(port, deviceType);
+			//console.log(port, deviceType);
 			// Check if we are already using this output pin, don't use it if we are
 			var existingMapping = _.find(this.widgetMappings, function(map) {
 				return map.map.destinationField === port && map.modelWID === deviceType;
@@ -496,12 +496,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				});
 
 				if(view.model.get("active") === true) {
-					console.log('true');
-					// TODO: Hack for now due to hardware usually being triggered from edit mode.
-					// Temporarily dipping into edit mode for now. See SocketAdapter:registerOutboundClientEvents
-					window.app.serverMode = false;
 					view.enableDevice.bind(view)();
-					window.app.serverMode = true;
 				}
 			}
 
@@ -546,9 +541,9 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			});
 
 			if(widgetMap) {
-				console.log('found it and removing!', widgetMap);
+				//console.log('found it and removing!', widgetMap);
 				var hardwareDevice = this.getHardwareModelInstance[deviceType, server];
-				console.log('hardware', hardwareDevice, deviceType, server);
+				//console.log('hardware', hardwareDevice, deviceType, server);
 				if(hardwareDevice !== undefined) {
 					hardwareDevice.off('change'); // TODO: Make this remove the SPECIFIC listeners instead of all
 				}
