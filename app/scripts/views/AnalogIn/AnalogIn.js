@@ -97,7 +97,8 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 				if( inactiveModels && this.model.get("active") == true ) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
-						modelType = this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType');
+						//modelType = this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType');
+						modelType = this.getDeviceModelType();
 
 					//this.unMapHardwareInlet();
 

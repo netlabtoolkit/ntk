@@ -10,10 +10,14 @@
     "underscore": "~1.4.4"
   },
   "devDependencies": {
-    "electron-prebuilt": "^1.2.2",
+    "chai": "^3.5.0",
+    "cheerio": "^0.22.0",
     "electron-packager": "^7.5.1",
+    "electron-prebuilt": "^1.2.2",
     "gaze": "~0.5.2",
     "matchdep": "~0.1.2",
+    "mocha": "^3.2.0",
+    "supertest": "^3.0.0",
     "uglify-js": "~2.4.16"
   },
   "engines": {
@@ -21,6 +25,7 @@
   },
   "scripts": {
     "start": "pkill phantomjs & node server/cli.js",
+    "test": "mocha --recursive",
     "setup": "./buildScripts/setup.sh",
     "build": "npm run clean && cp ./server/emptyPatch.ntk ./server/currentPatch.ntk && npm run optimizeRequire && npm run compileSCSS && cp ./package.json ./server/dist",
     "package": "npm run build && ./buildScripts/packageElectron.sh",

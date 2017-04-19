@@ -8,8 +8,11 @@ module.exports = function(options) {
 
 	//domain.run(function() {
 
-		var deviceType = options.deviceType || 'ArduinoUno';
+	if(options === undefined) {
+		options = {deviceType: 'ArduinoUno'};
+	}
 
+	var deviceType = options.deviceType;
 		var modelMap = {
 			ArduinoUno: './ArduinoModel',
 			OSC: './OSC',
