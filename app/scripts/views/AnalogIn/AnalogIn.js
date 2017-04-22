@@ -251,7 +251,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
 
-			(switchBack == true) && (window.app.serverMode = true);
+			(switchBack === true) && (window.app.serverMode = true);
 		},
 
 	});
