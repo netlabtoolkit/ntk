@@ -490,10 +490,16 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					offsets: inletOffsets,
 				});
 
-				if(view.model.get("active") === true) {
+				// Check if deviceMode is set. This indicates an output widget which needs its active field to be true (input) and separates its output "active" field
+				if(view.deviceMode === undefined && view.model.get("active") === true) {
 					sourceModel.active = true;
 					view.enableDevice.bind(view)();
 				}
+				else if(view.deviceMode !== undefined && view.model.get("activeOut") === true) {
+					sourceModel.active = true;
+					view.enableDevice.bind(view)();
+				}
+
 			}
 
 

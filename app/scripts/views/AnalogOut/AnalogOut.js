@@ -101,7 +101,6 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				for(var i=this.sources.length-1; i>=0; i--) {
 					var source = this.sources[i];
 
-					//if(source.model.get("active") === false) {
 					if(source.model.active === false) {
 						inactiveModels = true;
 					}
