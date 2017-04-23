@@ -59,20 +59,19 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 				if(changed.deviceType) {
 					this.model.set({deviceType: changed.deviceType, activeOut: false});
-          if(!app.server) {
-            if (changed.deviceType == "mkr1000") {
-              this.$('.deviceIp').show();
-            } else 
-				{
-              this.$('.deviceIp').hide();
-            }
-          }
+					if(!app.server) {
+						if (changed.deviceType == "mkr1000") {
+							this.$('.deviceIp').show();
+						} else 
+							{
+								this.$('.deviceIp').hide();
+							}
+					}
 				}
 
 				var inactiveModels = this.inactiveModelsExist();
 
 				if( inactiveModels && this.model.get("activeOut") == true ) {
-				//if( changed.deviceType || changed.server || changed.port) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
 						modelType = this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType');
 
