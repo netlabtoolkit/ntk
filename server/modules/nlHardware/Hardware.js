@@ -32,6 +32,7 @@ module.exports = function(options) {
 
 		var model = new require(modelMap[deviceTypeParsed])(options);
 		this.model = model;
+		this.model.address = deviceType;
 
 		var Hardware = {
 			model: model,

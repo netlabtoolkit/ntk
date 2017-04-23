@@ -14,7 +14,8 @@ function( Backbone, HardwareModel ) {
 
 		// Need to update for separated inputs/outputs
 		defaults: {
-			type: "mkr1000",
+			//type: "mkr1000",
+			type: "ArduinoUno",
 			A0: 0,
 			A1: 0,
 			A2: 0,

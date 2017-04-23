@@ -48,7 +48,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.model.on('change', this.onModelChange, this);
 			this.model.on('change', this.checkOutputMappingUpdate, this);
 
-			window.app.on('Widget:removeMapping', this.removeMapping, this);
+			window.app.vent.on('Widget:removeMapping', this.removeMapping, this);
 
 			this.setWidgetBinders();
 			this.setTopZIndex();
@@ -331,7 +331,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				// Remove the cable and the reference to the cable from the cables array
 				var cableToRemove = _.find(this.cables, function(item) { return item.map.destinationField === inletField});
 
-				//window.app.vent.trigger('Widget:removeMapping', cableToRemove.map, this.model.get('wid') );
 				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
 
 				cableToRemove !== undefined && cableToRemove.cable.remove();
@@ -339,10 +338,19 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 
 		},
-		removeMapping: function removeMapping(modelWID) {
-			if(modelWID !== 'ArduinoUno') {
+		removeMapping: function removeMapping(source, modelWID) {
+			var modelType = modelWID.split(":")[0];
+
+			if(modelType !== 'ArduinoUno') {
 				this.sources = _.reject(this.sources, function(source) {
 					return source.model.attributes.wid == modelWID;
+				});
+			}
+			else {
+
+				this.sources = _.reject(this.sources, function(source) {
+					//TODO: This seems sketchy
+					return source.model.attributes.type == modelType;
 				});
 			}
 		},
@@ -453,8 +461,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			// Check if we already have this mapping in sources
 			var duplicate = false;
 			for(var i=this.sources.length-1; i>=0; i--) {
-				if(this.sources[i].map.destinationField === map.map.destinationField 
+				if(
+					this.sources[i].map.destinationField === map.map.destinationField 
 				   && this.sources[i].map.sourceField === map.map.sourceField
+				   && this.sources[i].model.cid === map.model.cid
 				   && this.sources[i].model.get('wid') === map.model.get('wid') ) {
 					   duplicate = true;
 				   }

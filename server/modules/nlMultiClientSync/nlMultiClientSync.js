@@ -74,7 +74,7 @@ module.exports = function(options) {
 		bindModelToTransport: function(model) {
 			// Listen for changes made on the hardware to update the front-end
 			model.on('change', function(options) {
-				this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: model.type, field: options.field, value: options.value}));
+				this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: model.address, field: options.field, value: options.value}));
 			}.bind(this));
 		},
 		/**

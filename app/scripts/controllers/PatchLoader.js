@@ -64,11 +64,16 @@ function(app){
 				// Otherwise we must be mapping a widget to a device model
 				else {
 
+					var typeServerPort = mappings[i].modelWID.split(":");
+					var modelType = typeServerPort[0],
+						server = typeServerPort[1],
+						port = typeServerPort[2];
+
 					this.mapFunction({
 						view: widgetView,
-						modelType: mappings[i].modelWID, // Expectin modeWID to be a descriptive string in this case
+						modelType: modelType, // Expectin modeWID to be a descriptive string in this case
 						IOMapping: mappings[i].map,
-						server: window.location.host
+						server: server + ":" + port
 					}, true);
 				}
 

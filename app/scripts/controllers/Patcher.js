@@ -94,8 +94,8 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			window.app.vent.on('ToolBar:clearPatch', this.clearPatch, this);
 			window.app.vent.on('receivedDeviceModelUpdate', function(data) {
 				data = JSON.parse(data);
-				var serverAddress = window.location.host;
-				var hardwareModel = this.hardwareModelInstances[data.modelType + ':' + serverAddress];
+
+				var hardwareModel = this.hardwareModelInstances[data.modelType];
 
 				hardwareModel && hardwareModel.model.set(data.field, data.value);
 				hardwareModel && (hardwareModel.model.active = true);
@@ -310,7 +310,6 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			return false;
 		},
 		existingMappingExists: function existingMappingExists(port, deviceType) {
-			//console.log(port, deviceType);
 			// Check if we are already using this output pin, don't use it if we are
 			var existingMapping = _.find(this.widgetMappings, function(map) {
 				return map.map.destinationField === port && map.modelWID === deviceType;
@@ -430,7 +429,6 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				server = options.server,
 				inletOffsets = options.inletOffsets;
 
-			console.log('server', options.server, options);
 
 			// If we have a view, grab its wid
 			if(view) {
@@ -479,7 +477,6 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			else {
 				// Unmap any previous mappings
 				this.removeMappingFromHardwareWidget(viewWID, modelType, server);
-				console.log('<', modelType, server);
 				var sourceModel = this.getHardwareModelInstance(modelType, server);
 				var mappingObject = {
 					model: sourceModel,
@@ -489,12 +486,12 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				this.widgetMappings.push({
 					viewWID: viewWID,
 					map: mappingObject.map,
-					modelWID: modelType,
-					//modelWID: modelType + ":" + server,
+					modelWID: modelType + ":" + server,
 					offsets: inletOffsets,
 				});
 
 				if(view.model.get("active") === true) {
+					sourceModel.active = true;
 					view.enableDevice.bind(view)();
 				}
 			}
@@ -540,14 +537,12 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			});
 
 			if(widgetMap) {
-				//console.log('found it and removing!', widgetMap);
-				var hardwareDevice = this.getHardwareModelInstance[deviceType, server];
-				//console.log('hardware', hardwareDevice, deviceType, server);
+				var hardwareDevice = this.getHardwareModelInstance(deviceType, server);
 				if(hardwareDevice !== undefined) {
 					hardwareDevice.off('change'); // TODO: Make this remove the SPECIFIC listeners instead of all
 				}
 
-				this.removeMapping(widgetMap);
+				window.app.vent.trigger('Widget:removeMapping', widgetMap, widgetMap.modelWID );
 			}
 		},
 		/**
@@ -569,6 +564,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		 */
 		getHardwareModelInstance: function(modelType, server) {
 			var modelServerQuery = modelType + ":" + server;
+
 
 			if(this.hardwareModelInstances[modelServerQuery]) {
 				return this.hardwareModelInstances[modelServerQuery].model;
