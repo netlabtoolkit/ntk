@@ -73,7 +73,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 				if( inactiveModels && this.model.get("activeOut") == true ) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
-						modelType = this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType');
+						modelType = this.getDeviceModelType();
 
 					this.unMapHardwareInlet();
 
@@ -124,7 +124,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
-			let hasInput = this.deviceMode == 'in';
+			let hasInput = (this.deviceMode == 'in');
 
 			window.app.vent.trigger('Widget:hardwareSwitch', {
 				deviceType: this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),
