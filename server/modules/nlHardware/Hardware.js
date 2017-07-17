@@ -23,6 +23,8 @@ module.exports = function(options) {
 		var sensors = [],
 			outputs = {};
 
+		//this.outputs = outputs;
+
 
 		var deviceTypeParsed = deviceType.split(":");
 		deviceTypeParsed = deviceTypeParsed[0];

@@ -584,7 +584,8 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 				// Only the server can update hardware
 				//if(window.app.server) {
-					newModelInstance.on('change', function(model) {
+					newModelInstance.on('change', function updateHardwareModel(model) {
+						console.log('change!');
 						var changedAttributes = model.changedAttributes();
 
 						// Check all the changed attributes
@@ -592,6 +593,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 							// and see if the attribute exists in the outputs section of this model
 							if(newModelInstance.attributes.outputs[attribute] !== undefined) {
 								//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: changedAttributes});
+								console.log('changeAttributes', changedAttributes);
 								window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelServerQuery, model: changedAttributes});
 							}
 						}

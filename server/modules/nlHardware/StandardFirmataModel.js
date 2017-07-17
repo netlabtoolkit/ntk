@@ -33,7 +33,7 @@ module.exports = function(five) {
 		get: function(field) {
 			return this.inputs[field].value;
 		},
-		set: function(field, value) {
+		set: function(field, value, modeRequested) {
 			value = parseInt(value, 10);
 
 			if(this.inputs[field] != undefined) {
@@ -49,14 +49,14 @@ module.exports = function(five) {
 					this.outputs[field].value = value;
 
 					if(this.connected) {
-						this.setHardwarePin(field, value);
+						this.setHardwarePin(field, value, modeRequested);
 					}
 				}
 			}
 
 			return this;
 		},
-		setHardwarePin: function(field, value) {
+		setHardwarePin: function(field, value, modeRequested) {
 			var outputField = this.outputs[field],
 				modeSupported = false;
 
@@ -65,12 +65,15 @@ module.exports = function(five) {
 
 				// Check if this mode is supported on this pin
 				for(var supportedMode in this.outputs[field].supportedModes) {
+					// TODO: Casts a string in "supportMode" to an int for loose comparison.
 					if(supportedMode == pinMode) {
 						modeSupported = true;
 
-						if(supportedMode !== this.outputs[field].pin.mode) {
+						var currentPinModeInteger = this.outputs[field].pin.board.pins[this.outputs[field].pin.pin].mode;
+						//if(parseInt(supportedMode,10) !== this.outputs[field].pin.mode) {
+						if(parseInt(supportedMode,10) !== currentPinModeInteger) {
 							var PINMODESTRINGS = _.invert(this.PINMODES);
-							//this.setIOMode(field, PINMODESTRINGS[supportedMode] );
+							this.setIOMode(field, PINMODESTRINGS[supportedMode] );
 						}
 					}
 				}

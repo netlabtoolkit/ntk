@@ -88,7 +88,7 @@ function( Backbone ) {
 						return queueItem.modelType == options.modelType && _.findWhere(queueItem.model[field] ) !== undefined;
 					});
 
-					if(previouslyQueued !== undefined) {
+					if(previouslyQueued != undefined && previouslyQueued != null) {
 						sendQueue.push(options);
 					}
 					else {

@@ -25,6 +25,7 @@
   },
   "scripts": {
     "start": "pkill phantomjs & node server/cli.js",
+    "debug": "pkill phantomjs & node --debug-brk server/cli.js",
     "test": "mocha --recursive",
     "setup": "./buildScripts/setup.sh",
     "build": "npm run clean && cp ./server/emptyPatch.ntk ./server/currentPatch.ntk && npm run optimizeRequire && npm run compileSCSS && cp ./package.json ./server/dist",
