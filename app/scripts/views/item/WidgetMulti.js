@@ -506,7 +506,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 						value = externalModel.get(mapping.sourceField);
 					attributes[mapping.destinationField] = value == undefined ? 0 : value;
                     // update the input of the widget
-					thisWidgetModel.set(attributes, {updateNoTrigger: true});
+					//console.log('update input', this.typeID, new Error().stack);
+					var trigger = true;
+					if(this.deviceMode == 'in') {
+						trigger = false;
+					}
+
+					thisWidgetModel.set(attributes, {updateNoTrigger: true, trigger: trigger});
 				}
 				//else if(thisWidgetModel.get('active') && thisWidgetModel.get('activeOut') && externalModel.attributes[mapping.destinationField] !== undefined) {
 				else if(thisWidgetModel.get('active') && thisWidgetModel.get('activeOut')) {
@@ -591,6 +597,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		},
 		setAsHardwareOutput: function setAsHardwareOutput() {
 			this.onModelChange = function(model) {
+				console.log('GO!');
 				for(var i=this.sources.length-1; i>=0; i--) {
 					this.syncWithSource(this.sources[i].model);
 				}

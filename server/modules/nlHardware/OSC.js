@@ -41,6 +41,7 @@ module.exports = function(attributes) {
 			setThrottlerID = setTimeout(function() {
 
 
+				console.log(field, this.sending[field], this.sending);
 				if(this.sending[field] !== undefined) {
 					if(parseFloat(this.sending[field],10) !== parseFloat(value,10)) {
 
@@ -55,6 +56,7 @@ module.exports = function(attributes) {
 							client = this.OSCClients[serverPort];
 						}
 
+						console.log("_______", messageServerPort, value);
 						client.send(messageServerPort[0], value);
 					}
 				}
