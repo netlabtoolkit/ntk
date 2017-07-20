@@ -26,8 +26,6 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label for="messageName">message</label> <input name="messageName" type="text" rv-value="widget:messageName"><br>
-            //<label for="server">server</label> <input name="server" type="text" rv-value="widget:server"><br>
-            //<label for="port">port</label> <input name="port" type="text" rv-value="widget:port">
             <div class="deviceIp">
               <label class="narrowLabel">ip</label> <input class="address" type="text" pattern="[0-9]*" rv-value="widget:server">
             </div>

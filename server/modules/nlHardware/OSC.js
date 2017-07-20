@@ -40,10 +40,8 @@ module.exports = function(attributes) {
 
 			setThrottlerID = setTimeout(function() {
 
-			console.log('set!', field, value, this, this.sending[field] );
 
 				if(this.sending[field] !== undefined) {
-					console.log(parseFloat(this.sending[field],10), parseFloat(value, 10) );
 					if(parseFloat(this.sending[field],10) !== parseFloat(value,10)) {
 
 						var messageServerPort = field.split(':');
@@ -57,7 +55,6 @@ module.exports = function(attributes) {
 							client = this.OSCClients[serverPort];
 						}
 
-						console.log("_______", messageServerPort, value);
 						client.send(messageServerPort[0], value);
 					}
 				}
@@ -96,9 +93,35 @@ module.exports = function(attributes) {
 		type: 'OSC',
 		receiving: {
 			'/ntk/in/1': 0,
+			'/ntk/in/2': 0,
+			'/ntk/in/3': 0,
+			'/ntk/in/4': 0,
+			'/ntk/in/5': 0,
+			'/ntk/in/6': 0,
+			'/ntk/in/7': 0,
+			'/ntk/in/8': 0,
+			'/ntk/in/9': 0,
+			'/ntk/in/10': 0,
+			'/ntk/in/11': 0,
+			'/ntk/in/12': 0,
+			'/ntk/in/13': 0,
+			'/ntk/in/14': 0,
 		},
 		sending: {
 			'/ntk/out/1:127.0.0.1:57120': 0,
+			'/ntk/out/2:127.0.0.1:57120': 0,
+			'/ntk/out/3:127.0.0.1:57120': 0,
+			'/ntk/out/4:127.0.0.1:57120': 0,
+			'/ntk/out/5:127.0.0.1:57120': 0,
+			'/ntk/out/6:127.0.0.1:57120': 0,
+			'/ntk/out/7:127.0.0.1:57120': 0,
+			'/ntk/out/8:127.0.0.1:57120': 0,
+			'/ntk/out/9:127.0.0.1:57120': 0,
+			'/ntk/out/10:127.0.0.1:57120': 0,
+			'/ntk/out/11:127.0.0.1:57120': 0,
+			'/ntk/out/12:127.0.0.1:57120': 0,
+			'/ntk/out/13:127.0.0.1:57120': 0,
+			'/ntk/out/14:127.0.0.1:57120': 0,
 		},
 	});
 

@@ -105,24 +105,6 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			var changed = model.changedAttributes();
 
 			if(changed) {
-				//if(changed.server) {
-					//this.model.set({server: changed.server, activeOut: false});
-				//}
-				//if(changed.port) {
-					//this.model.set({port: changed.port, activeOut: false});
-				//}
-
-				//if(changed.deviceType) {
-					//this.model.set({deviceType: changed.deviceType, activeOut: false});
-					//if(!app.server) {
-						//if (changed.deviceType == "mkr1000") {
-							//this.$('.deviceIp').show();
-						//} else 
-							//{
-								//this.$('.deviceIp').hide();
-							//}
-					//}
-				//}
 
 				var inactiveModels = this.inactiveModelsExist();
 
