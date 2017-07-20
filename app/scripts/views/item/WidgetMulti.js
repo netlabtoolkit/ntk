@@ -339,19 +339,22 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 		},
 		removeMapping: function removeMapping(source, modelWID) {
-			var modelType = modelWID.split(":")[0];
+			if(source.viewWID == this.model.get('wid') ) {
+				var modelType = modelWID.split(":")[0];
+				console.log(source, this);
 
-			if(modelType !== 'ArduinoUno') {
-				this.sources = _.reject(this.sources, function(source) {
-					return source.model.attributes.wid == modelWID;
-				});
-			}
-			else {
-
-				this.sources = _.reject(this.sources, function(source) {
-					//TODO: This seems sketchy
-					return source.model.attributes.type == modelType;
-				});
+				if(modelType !== 'ArduinoUno') {
+					this.sources = _.reject(this.sources, function(source) {
+						return source.model.attributes.wid == modelWID;
+					});
+				}
+				else {
+					// IF the model is a hardware model
+					this.sources = _.reject(this.sources, function(source) {
+						//TODO: This seems sketchy. Doesn't allow for more than one type of device
+						return source.model.attributes.type == modelType;
+					});
+				}
 			}
 		},
 		/**
@@ -519,6 +522,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 							trigger = false;
 						}
 
+						// SET!
+						console.log("setting", attributes, trigger);
 						externalModel.set(attributes, {fromServer: false, trigger: trigger});
 					}
 

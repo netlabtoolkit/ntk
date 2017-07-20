@@ -89,7 +89,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		addEventListeners: function() {
 			window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
 			window.app.vent.on('ToolBar:savePatch', this.savePatch, this);
-      window.app.vent.on('ToolBar:exportPatch', this.exportPatch, this);
+			window.app.vent.on('ToolBar:exportPatch', this.exportPatch, this);
 			window.app.vent.on('ToolBar:loadPatch', this.loadPatch, this);
 			window.app.vent.on('ToolBar:clearPatch', this.clearPatch, this);
 			window.app.vent.on('receivedDeviceModelUpdate', function(data) {
@@ -490,7 +490,8 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					offsets: inletOffsets,
 				});
 
-				// Check if deviceMode is set. This indicates an output widget which needs its active field to be true (input) and separates its output "active" field
+				// Check if deviceMode is set. This indicates an output widget which needs its active field to be true (input)
+				// and separates its output "active" field
 				if(view.deviceMode === undefined && view.model.get("active") === true) {
 					sourceModel.active = true;
 					view.enableDevice.bind(view)();
@@ -538,14 +539,17 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		},
 		removeMappingFromHardwareWidget: function removeMappingFromWidget(wid, deviceType, server) {
 
+			// Find any widgetmapping with this particular id
 			var widgetMap = _.find(this.widgetMappings, function(widgetMapping) {
 				return widgetMapping.viewWID == wid;
 			});
 
+			// If you found one, remove it and unbind.
 			if(widgetMap) {
 				var hardwareDevice = this.getHardwareModelInstance(deviceType, server);
 				if(hardwareDevice !== undefined) {
-					hardwareDevice.off('change'); // TODO: Make this remove the SPECIFIC listeners instead of all
+					// TODO: Could the unbinding be the main issue?
+					//hardwareDevice.off('change'); // TODO: Make this remove the SPECIFIC listeners instead of all
 				}
 
 				window.app.vent.trigger('Widget:removeMapping', widgetMap, widgetMap.modelWID );
@@ -585,16 +589,19 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				// Only the server can update hardware
 				//if(window.app.server) {
 					newModelInstance.on('change', function updateHardwareModel(model) {
-						console.log('change!');
 						var changedAttributes = model.changedAttributes();
 
 						// Check all the changed attributes
 						for(attribute in changedAttributes) {
-							// and see if the attribute exists in the outputs section of this model
-							if(newModelInstance.attributes.outputs[attribute] !== undefined) {
-								//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: changedAttributes});
-								console.log('changeAttributes', changedAttributes);
-								window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelServerQuery, model: changedAttributes});
+
+							for(pinName in attribute) {
+								if(pinName[0] != "A") {
+									// and see if the attribute exists in the outputs section of this model
+									if(newModelInstance.attributes.outputs[attribute] !== undefined) {
+										// TODO: THIS modeSupported SHOULD BE SPECIFIC TO VIEW
+										window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelServerQuery, model: changedAttributes, modeRequested: 3});
+									}
+								}
 							}
 						}
 					});

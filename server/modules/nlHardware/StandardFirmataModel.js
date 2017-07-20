@@ -61,7 +61,8 @@ module.exports = function(five) {
 				modeSupported = false;
 
 			if(outputField && outputField.pin) {
-				var pinMode = outputField.pin.mode;
+				//var pinMode = outputField.pin.mode;
+				var pinMode = modeRequested;
 
 				// Check if this mode is supported on this pin
 				for(var supportedMode in this.outputs[field].supportedModes) {
@@ -69,7 +70,14 @@ module.exports = function(five) {
 					if(supportedMode == pinMode) {
 						modeSupported = true;
 
-						var currentPinModeInteger = this.outputs[field].pin.board.pins[this.outputs[field].pin.pin].mode;
+						// TODO: PROBLEM. SOmetimes this is undefined
+						if(this.outputs[field].pin.board == undefined) {
+							var currentPinModeInteger = this.outputs[field].pin.mode;
+						}
+						else {
+							var currentPinModeInteger = this.outputs[field].pin.board.pins[this.outputs[field].pin.pin].mode;
+						}
+
 						//if(parseInt(supportedMode,10) !== this.outputs[field].pin.mode) {
 						if(parseInt(supportedMode,10) !== currentPinModeInteger) {
 							var PINMODESTRINGS = _.invert(this.PINMODES);
@@ -86,6 +94,7 @@ module.exports = function(five) {
 
 				// Check which pinmode is set on the pin to detemine which method to call
 				if(pinMode === this.PINMODES.PWM) {
+					console.log('brightness', field, value, this.outputs[field].pin.brightness(value));
 					this.outputs[field].pin.brightness(value);
 				}
 				else if(pinMode === this.PINMODES.OUTPUT) {
@@ -179,10 +188,14 @@ module.exports = function(five) {
 				else if(mode === 'PWM' || mode === 'OUTPUT') {
 					var pinExists = this.outputs[pin] !== undefined;
 					if(pinExists) {
-						var hardwarePin = parseInt(pin.substr(1),10);
+						var currentPin = this.outputs[pin].pin;
 
-						var outputPin = five.Led(hardwarePin);
-						this.outputs[pin].pin = outputPin;
+						if( !(currentPin instanceof five.Led) ) {
+							var hardwarePin = parseInt(pin.substr(1),10);
+
+							var outputPin = five.Led(hardwarePin);
+							this.outputs[pin].pin = outputPin;
+						}
 					}
 				}
 				else if(mode === 'SERVO') {

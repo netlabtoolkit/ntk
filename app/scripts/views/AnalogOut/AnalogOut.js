@@ -71,6 +71,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 				var inactiveModels = this.inactiveModelsExist();
 
+				// If we haven't made the hardware model yet, then we should bind everything together
 				if( inactiveModels && this.model.get("activeOut") == true ) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
 						modelType = this.getDeviceModelType();
@@ -80,10 +81,12 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 					var server = this.getDeviceServerName();
 					var port = this.getDeviceServerPort();
 
+					// We do NOT pass a "model" attribute indicating hardware widget
 					app.Patcher.Controller.mapToModel({
 						view: this,
 						modelType: modelType,
-						IOMapping: {sourceField: "out", destinationField: 'D3'},
+						//IOMapping: {sourceField: "out", destinationField: 'D3'},
+						IOMapping: {sourceField: "out", destinationField: this.model.get('outputMapping')},
 						server: server + ":" + port,
 					}, true);
 
@@ -122,7 +125,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 		enableDevice: function enableHardware() {
 			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 
-			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 3});
 			let hasInput = (this.deviceMode == 'in');
 
 			window.app.vent.trigger('Widget:hardwareSwitch', {

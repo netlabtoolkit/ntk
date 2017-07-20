@@ -79,6 +79,7 @@ function( Backbone ) {
 			var sendQueue = [];
 			// DEVICE MODEL
 			window.app.vent.on('sendDeviceModelUpdate', function(options) {
+				console.log('options', options);
 				if(window.app.server || !window.app.serverMode) {
 
 					// Queue and package multiple messages
