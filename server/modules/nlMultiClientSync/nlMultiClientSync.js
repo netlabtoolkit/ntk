@@ -145,7 +145,7 @@ module.exports = function(options) {
 						self.hardwareModels[options.modelType].set(field, parseInt(options.model[field], 10), options.modeRequested);
 					}
 					else {
-						console.log('set', field, parseFloat(options.model[field], 10));
+						//console.log('set', field, parseFloat(options.model[field], 10));
 						if(networkDevice) {
 							if(deviceUpdateThrottleID !== undefined) {
 								clearTimeout(deviceUpdateThrottleID);

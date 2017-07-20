@@ -341,7 +341,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		removeMapping: function removeMapping(source, modelWID) {
 			if(source.viewWID == this.model.get('wid') ) {
 				var modelType = modelWID.split(":")[0];
-				console.log(source, this);
 
 				if(modelType !== 'ArduinoUno') {
 					this.sources = _.reject(this.sources, function(source) {

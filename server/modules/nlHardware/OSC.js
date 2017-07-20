@@ -40,7 +40,10 @@ module.exports = function(attributes) {
 
 			setThrottlerID = setTimeout(function() {
 
+			console.log('set!', field, value, this, this.sending[field] );
+
 				if(this.sending[field] !== undefined) {
+					console.log(parseFloat(this.sending[field],10), parseFloat(value, 10) );
 					if(parseFloat(this.sending[field],10) !== parseFloat(value,10)) {
 
 						var messageServerPort = field.split(':');
@@ -54,6 +57,7 @@ module.exports = function(attributes) {
 							client = this.OSCClients[serverPort];
 						}
 
+						console.log("_______", messageServerPort, value);
 						client.send(messageServerPort[0], value);
 					}
 				}
@@ -94,7 +98,7 @@ module.exports = function(attributes) {
 			'/ntk/in/1': 0,
 		},
 		sending: {
-			'ntkSendMsg:127.0.0.1:57120': 0,
+			'/ntk/out/1:127.0.0.1:57120': 0,
 		},
 	});
 
