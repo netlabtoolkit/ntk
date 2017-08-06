@@ -31,9 +31,11 @@ module.exports = function(five) {
 
 		},
 		get: function(field) {
+			field = field.toUpperCase();
 			return this.inputs[field].value;
 		},
 		set: function(field, value, modeRequested) {
+			field = field.toUpperCase();
 			value = parseInt(value, 10);
 
 			if(this.inputs[field] != undefined) {
@@ -57,6 +59,8 @@ module.exports = function(five) {
 			return this;
 		},
 		setHardwarePin: function(field, value, modeRequested) {
+			field = field.toUpperCase();
+
 			var outputField = this.outputs[field],
 				modeSupported = false;
 
@@ -126,6 +130,8 @@ module.exports = function(five) {
 			}
 		},
 		setIOMode: function setPinMode(pin, mode) {
+			pin = pin.toUpperCase();
+
 			if(this.connected) {
 
 				// Check if this mode is supported on this pin
