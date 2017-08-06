@@ -36,7 +36,8 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 		// Create a patch loader / saver for reloading in JSON "patches"
 		this.patchLoader = new PatchLoader({
-			serverAddress: 'localhost',
+			//serverAddress: 'localhost',
+			serverAddress: '127.0.0.1',
 			addFunction: this.onExternalAddWidget.bind(this),
 			mapFunction: this.mapToModel.bind(this),
 		});
@@ -113,6 +114,10 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		onExternalAddWidget: function(widgetType, addedFromLoader, wid) {
 			var newWidget,
 				serverAddress = window.location.host;
+
+				if(serverAddress == "localhost:9001") {
+					serverAddress = "127.0.0.1:9001";
+				}
 
 			var newModel = new WidgetModel();
 
@@ -492,7 +497,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 				// Check if deviceMode is set. This indicates an output widget which needs its active field to be true (input)
 				// and separates its output "active" field
-				if(view.deviceMode === undefined && view.model.get("active") === true) {
+				if((view.deviceMode === undefined || view.deviceMode === "in") && view.model.get("active") === true) {
 					sourceModel.active = true;
 					view.enableDevice.bind(view)();
 				}

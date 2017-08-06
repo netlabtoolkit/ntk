@@ -58,7 +58,7 @@ function(app){
 						IOMapping: mappings[i].map,
 						view: widgetView,
 						inletOffsets: mappings[i].offsets,
-						server: window.location.host
+						server: window.location.host == "localhost:9001" ? "127.0.0.1:9001" : window.location.host
 					}, true);
 				}
 				// Otherwise we must be mapping a widget to a device model

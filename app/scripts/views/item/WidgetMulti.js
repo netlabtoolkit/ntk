@@ -116,7 +116,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 		},
 		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
-		getDeviceServerName: function() {return this.model.get('server') == undefined ? 'localhost' : this.model.get('server')},
+		getDeviceServerName: function() {return this.model.get('server') == undefined ? '127.0.0.1' : this.model.get('server')},
 		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
 		makeDraggable: function() {
 

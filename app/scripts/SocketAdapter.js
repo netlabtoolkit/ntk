@@ -11,7 +11,8 @@ function( Backbone ) {
 
 	SocketAdapter.prototype = {
 		bindToSocketServer: function() {
-			var serverAddress = window.location.host,
+			//var serverAddress = window.location.host,
+			var serverAddress = "127.0.0.1:9001",
 				self = this;
 
 			console.log("SERVER ADDRESS", serverAddress);

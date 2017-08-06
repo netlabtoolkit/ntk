@@ -40,7 +40,6 @@ module.exports = function(attributes) {
 
 			setThrottlerID = setTimeout(function() {
 
-
 				console.log(field, this.sending[field], this.sending);
 				if(this.sending[field] !== undefined) {
 					if(parseFloat(this.sending[field],10) !== parseFloat(value,10)) {
@@ -56,11 +55,12 @@ module.exports = function(attributes) {
 							client = this.OSCClients[serverPort];
 						}
 
-						console.log("_______", messageServerPort, value);
 						client.send(messageServerPort[0], value);
 					}
 				}
 				else if(this.receiving[field] !== undefined) {
+					console.log('received', this.receiving[field]);
+
 					if(parseFloat(this.receiving[field], 10) !== parseFloat( value, 10 )) {
 						this.receiving[field] = value;
 						this.emit('change', {field: field, value: this.receiving[field]});
