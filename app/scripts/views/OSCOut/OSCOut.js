@@ -30,7 +30,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				title: "OSCOut",
                 server: "127.0.0.1",
                 port: 57120,
-				messageName: "/ntk/out/1",
+				messageName: options.outputMapping,
 				outputMapping: options.outputMapping,
                 activeOut: false,
 			});

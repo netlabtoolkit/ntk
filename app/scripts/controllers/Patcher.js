@@ -277,11 +277,11 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					var defaultMapping = '/ntk/out/1:127.0.0.1:57120';
 
 					// Check if we are already using this output pin, don't use it if we are
-					//var existingMapping = _.find(this.widgetMappings, function(map) {
-						//return map.map.destinationField === defaultMapping;
-					//});
-					//var defaultOutputMapping = existingMapping ? '' : defaultMapping;
-					var defaultOutputMapping = defaultMapping;
+					var existingMapping = _.find(this.widgetMappings, function(map) {
+						return map.map.destinationField === defaultMapping;
+					});
+					var defaultOutputMapping = existingMapping ? '' : defaultMapping;
+					//var defaultOutputMapping = defaultMapping;
 
 					var newWidget = new OSCOutView({
 						model: newModel,
