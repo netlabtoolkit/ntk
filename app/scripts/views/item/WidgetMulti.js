@@ -507,7 +507,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					attributes[mapping.destinationField] = value == undefined ? 0 : value;
                     // update the input of the widget
 
-					console.log('update input', this.typeID, new Error().stack);
 
 					var trigger = true;
 					if(this.deviceMode == 'in') {
@@ -530,7 +529,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 						}
 
 						// SET!
-						console.log("setting", attributes, trigger, new Error().stack);
 						externalModel.set(attributes, {fromServer: false, trigger: trigger});
 					}
 
@@ -599,7 +597,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		},
 		setAsHardwareOutput: function setAsHardwareOutput() {
 			this.onModelChange = function(model) {
-				console.log('GO!');
 				for(var i=this.sources.length-1; i>=0; i--) {
 					this.syncWithSource(this.sources[i].model);
 				}
