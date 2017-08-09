@@ -88,7 +88,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		checkOutputMappingUpdate: function checkOutputMappingUpdate(model) {
 
 			var outputMapping = model.changedAttributes().outputMapping,
-				hasInput = this.deviceMode == 'in';
+				hasInput = (this.deviceMode == 'in');
 
 			if(outputMapping) {
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
@@ -506,7 +506,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 						value = externalModel.get(mapping.sourceField);
 					attributes[mapping.destinationField] = value == undefined ? 0 : value;
                     // update the input of the widget
-					//console.log('update input', this.typeID, new Error().stack);
+
+					console.log('update input', this.typeID, new Error().stack);
+
 					var trigger = true;
 					if(this.deviceMode == 'in') {
 						trigger = false;
@@ -528,7 +530,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 						}
 
 						// SET!
-						console.log("setting", attributes, trigger);
+						console.log("setting", attributes, trigger, new Error().stack);
 						externalModel.set(attributes, {fromServer: false, trigger: trigger});
 					}
 

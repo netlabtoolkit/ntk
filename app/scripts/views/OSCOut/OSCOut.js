@@ -32,7 +32,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
                 port: 57120,
 				messageName: "/ntk/out/1",
 				outputMapping: options.outputMapping,
-                activeOut: true,
+                activeOut: false,
 			});
 
             //this.signalChainFunctions.push(this.limitRange);

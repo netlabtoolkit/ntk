@@ -107,7 +107,9 @@ function (Backbone, App, rivets ) {
 		},
 		// It gets triggered whenever we want update a model using Rivets.js
 		publish: function(obj, keypath, value) {
-			obj.set(keypath, value);
+			if(parseInt(obj.get(keypath), 10) !== parseInt(value, 10) ) {
+				obj.set(keypath, value);
+			}
 		}
 	};
 
