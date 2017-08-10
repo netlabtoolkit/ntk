@@ -274,7 +274,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					return newWidget;
                 }
                 else if(widgetType === 'OSCOut') {
-					var defaultMapping = '/ntk/out/1';
+					var defaultMapping = '/ntk/out/1:127.0.0.1:57120';
 
 					// Check if we are already using this output pin, don't use it if we are
 					var existingMapping = _.find(this.widgetMappings, function(map) {

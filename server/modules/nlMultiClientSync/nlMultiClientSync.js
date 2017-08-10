@@ -131,7 +131,6 @@ module.exports = function(options) {
 				var modelType = typeAddressPort[0];
 
 				for(var field in options.model) {
-					console.log(options);
 					//var selectedModel = self.hardwareModels[modelType];
 					var selectedModel = self.hardwareModels[options.modelType];
 					var networkDevice = typeAddressPort[1].match(/^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/);

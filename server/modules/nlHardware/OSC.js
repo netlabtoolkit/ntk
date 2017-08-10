@@ -66,7 +66,7 @@ module.exports = function(attributes) {
 					}
 				}
 				else {
-					console.log("ELSE", field, value);
+					console.log("ELSE", field, value, this.sending);
 				}
 
 				setThrottlerID = undefined;
