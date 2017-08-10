@@ -52,6 +52,9 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			this.setWidgetBinders();
 			this.setTopZIndex();
+
+
+			this.lastQueuedSyncWithSource = undefined;
 		},
 		onRender: function() {
 			var self = this;
@@ -492,11 +495,24 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 		},
 		syncWithSource: function(externalModel, options) {
+			if(options && (options.noRetrigger == true) ) {
+				return false;
+			}
+
 			var thisWidgetModel = this.model;
 
 			var sourceMappings = _.map(_.where(this.sources, {model: externalModel}), function(source) {
 				return source.map;
 			});
+
+			// Trying to avoid duplicates caused my mouse events
+			if( this.lastQueuedSyncWithSource == JSON.stringify(externalModel.attributes) ) {
+				this.lastQueuedSyncWithSource = JSON.stringify(externalModel.attributes);
+
+				//return false;
+			}
+
+			this.lastQueuedSyncWithSource = JSON.stringify(externalModel.attributes);
 
 			// Map any incoming data to this model's data
 			for(var i=sourceMappings.length-1; i>=0; i--) {
@@ -513,6 +529,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 						trigger = false;
 					}
 
+					// updateNoTrigger refers to the widget itself not being updated, while the trigger refers to the model not triggering an update
 					thisWidgetModel.set(attributes, {updateNoTrigger: true, trigger: trigger});
 				}
 				//else if(thisWidgetModel.get('active') && thisWidgetModel.get('activeOut') && externalModel.attributes[mapping.destinationField] !== undefined) {
@@ -529,7 +546,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 						}
 
 						// SET!
-						externalModel.set(attributes, {fromServer: false, trigger: trigger});
+						externalModel.set(attributes, {fromServer: false, trigger: trigger, noRetrigger: true});
 					}
 
 				}

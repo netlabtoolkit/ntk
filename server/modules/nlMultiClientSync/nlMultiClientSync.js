@@ -1,6 +1,6 @@
 module.exports = function(options) {
 
-	var deviceUpdateThrottleID = undefined;
+	//var deviceUpdateThrottleID = undefined;
 	var fs = require('fs'),
 		_ = require('underscore'),
 		events = require('events'),
@@ -126,12 +126,12 @@ module.exports = function(options) {
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			socket.on('sendModelUpdate', function(options) {
 
-				console.log(options);
 
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
 
 				for(var field in options.model) {
+					console.log(options);
 					//var selectedModel = self.hardwareModels[modelType];
 					var selectedModel = self.hardwareModels[options.modelType];
 					var networkDevice = typeAddressPort[1].match(/^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/);
@@ -149,13 +149,14 @@ module.exports = function(options) {
 					else {
 						// Extra throttling for network latency
 						if(networkDevice) {
-							if(deviceUpdateThrottleID !== undefined) {
-								clearTimeout(deviceUpdateThrottleID);
-							}
+							//if(deviceUpdateThrottleID !== undefined) {
+								//clearTimeout(deviceUpdateThrottleID);
+							//}
 
-							deviceUpdateThrottleID = setTimeout(function() {
+							// THIS was for Wifi! But unfortunatley causes messages that aren't the same to be dropped
+							//deviceUpdateThrottleID = setTimeout(function() {
 								selectedModel.set(field, parseFloat(options.model[field], 10), options.modeRequested);
-							}.bind(this), 300);
+							//}.bind(this), 300);
 						}
 						else {
 							selectedModel.set(field, parseFloat(options.model[field], 10), options.modeRequested);

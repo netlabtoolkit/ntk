@@ -80,6 +80,7 @@ function( Backbone ) {
 			var sendQueue = [];
 			// DEVICE MODEL
 			window.app.vent.on('sendDeviceModelUpdate', function(options) {
+
 				if(window.app.server || !window.app.serverMode) {
 
 					// Queue and package multiple messages
@@ -108,7 +109,9 @@ function( Backbone ) {
 					}
 
 					deviceUpdateThrottleID = setTimeout(function() {
-						socket.emit('sendModelUpdate', options);
+						for(var i=sendQueue.length-1; i >=0; i--) {
+							socket.emit('sendModelUpdate', sendQueue[i]);
+						}
 
 						deviceUpdateThrottleID = undefined;
 

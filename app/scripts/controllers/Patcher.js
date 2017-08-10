@@ -594,19 +594,29 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 				// Only the server can update hardware
 				//if(window.app.server) {
+				var lastChangedAttributes = undefined;
+
 					newModelInstance.on('change', function updateHardwareModel(model) {
 						var changedAttributes = model.changedAttributes();
 
 						// Check all the changed attributes
 						for(attribute in changedAttributes) {
 
+							var lastAttribute = undefined;
+							// TODO: This triggers many times even though there is only attribute?
 							for(pinName in attribute) {
-								if(pinName[0] != "A") {
-									// and see if the attribute exists in the outputs section of this model
-									if(newModelInstance.attributes.outputs[attribute] !== undefined) {
-										// TODO: THIS modeSupported SHOULD BE SPECIFIC TO VIEW
-										window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelServerQuery, model: changedAttributes, modeRequested: 3});
+								// TODO: Doing this to ensure only one call is made if it is, for some reason, treating it as if more pins are attribute than there actually is (see previous TODO)
+								if( attribute != lastAttribute ) {
+
+									lastAttribute = attribute;
+									if(pinName[0] != "A") {
+										// and see if the attribute exists in the outputs section of this model
+										if(newModelInstance.attributes.outputs[attribute] !== undefined) {
+											// TODO: THIS modeSupported SHOULD BE SPECIFIC TO VIEW
+											window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelServerQuery, model: changedAttributes, modeRequested: 3});
+										}
 									}
+
 								}
 							}
 						}

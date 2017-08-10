@@ -5,8 +5,8 @@ module.exports = function(attributes) {
 		osc = require('node-osc'),
 		events = require('events'),
 		es6 = require('es6-shim'),
-		address = attributes.address,
-		setThrottlerID;
+		address = attributes.address;
+		//setThrottlerID;
 
 	var constructor = function() {
 		var options = attributes;
@@ -34,13 +34,12 @@ module.exports = function(attributes) {
 		},
 		set: function(field, value) {
 			// If data is coming in TOO fast then we need to throttle it to avoid overloading NTK's network
-			if(setThrottlerID !== undefined) {
-				clearTimeout(setThrottlerID);
-			}
+			//if(setThrottlerID !== undefined) {
+				//clearTimeout(setThrottlerID);
+			//}
 
-			setThrottlerID = setTimeout(function() {
+			//setThrottlerID = setTimeout(function() {
 
-				console.log(field, this.sending[field], this.sending);
 				if(this.sending[field] !== undefined) {
 					if(parseFloat(this.sending[field],10) !== parseFloat(value,10)) {
 
@@ -66,9 +65,12 @@ module.exports = function(attributes) {
 						this.emit('change', {field: field, value: this.receiving[field]});
 					}
 				}
+				else {
+					console.log("ELSE", field, value);
+				}
 
 				setThrottlerID = undefined;
-			}.bind(this), 10);
+			//}.bind(this), 10);
 
 			return this;
 		},
