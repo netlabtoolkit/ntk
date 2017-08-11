@@ -547,7 +547,8 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 			// Find any widgetmapping with this particular id
 			var widgetMap = _.find(this.widgetMappings, function(widgetMapping) {
-				return widgetMapping.viewWID == wid;
+				return widgetMapping.viewWID == wid
+				&& (widgetMapping.modelWID.match(":") != null);
 			});
 
 			// If you found one, remove it and unbind.
