@@ -1,6 +1,6 @@
 module.exports = function(options) {
 
-	//var deviceUpdateThrottleID = undefined;
+	var deviceUpdateThrottleID = undefined;
 	var fs = require('fs'),
 		_ = require('underscore'),
 		events = require('events'),
@@ -77,7 +77,12 @@ module.exports = function(options) {
 			model.on('change', function(options) {
 				//this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: model.address, field: options.field, value: options.value}));
 				var modelSplit = model.address.split(":");
-				this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: modelSplit[0] + ":" + modelSplit[1] + ":9001", field: options.field, value: options.value}));
+				if(modelSplit[0] == "OSC") {
+					this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: modelSplit[0] + ":" + modelSplit[1] + ":9001", field: options.field, value: options.value}));
+				}
+				else {
+					this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: modelSplit[0] + ":" + modelSplit[1] + ":" + modelSplit[2], field: options.field, value: options.value}));
+				}
 			}.bind(this));
 		},
 		/**
@@ -135,6 +140,12 @@ module.exports = function(options) {
 					var selectedModel = self.hardwareModels[options.modelType];
 					var networkDevice = typeAddressPort[1].match(/^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/);
 
+
+					if(typeAddressPort[1] == "127.0.0.1") {
+						networkDevice = false;
+					}
+
+
 					// If there is no model to update, try to instantiate one
 					if(selectedModel == undefined) {
 
@@ -148,14 +159,14 @@ module.exports = function(options) {
 					else {
 						// Extra throttling for network latency
 						if(networkDevice) {
-							//if(deviceUpdateThrottleID !== undefined) {
-								//clearTimeout(deviceUpdateThrottleID);
-							//}
+							if(deviceUpdateThrottleID !== undefined) {
+								clearTimeout(deviceUpdateThrottleID);
+							}
 
 							// THIS was for Wifi! But unfortunatley causes messages that aren't the same to be dropped
-							//deviceUpdateThrottleID = setTimeout(function() {
+							deviceUpdateThrottleID = setTimeout(function() {
 								selectedModel.set(field, parseFloat(options.model[field], 10), options.modeRequested);
-							//}.bind(this), 300);
+							}.bind(this), 30);
 						}
 						else {
 							selectedModel.set(field, parseFloat(options.model[field], 10), options.modeRequested);

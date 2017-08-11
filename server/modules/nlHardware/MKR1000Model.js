@@ -14,6 +14,7 @@ module.exports = function(attributes) {
 
 	var constructor = function() {
 		this.type = "mkr1000";
+		//this.type = "ArduinoUno";
 		var self = this;
 
 		// Load in the Standard Firmata model
