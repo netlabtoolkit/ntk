@@ -559,6 +559,8 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					//hardwareDevice.off('change'); // TODO: Make this remove the SPECIFIC listeners instead of all
 				}
 
+				// Remove the mapping explicitly here from widgetMappings... it also tries to do it with an event but that has logic for other things.. this ensures that we remove it from the widgetMappings
+				this.removeMapping(widgetMap);
 				window.app.vent.trigger('Widget:removeMapping', widgetMap, widgetMap.modelWID );
 			}
 		},

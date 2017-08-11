@@ -98,7 +98,7 @@ module.exports = function(five) {
 
 				// Check which pinmode is set on the pin to detemine which method to call
 				if(pinMode === this.PINMODES.PWM) {
-					console.log('brightness', field, value, this.outputs[field].pin.brightness(value));
+					console.log('brightness', field, value);
 					this.outputs[field].pin.brightness(value);
 				}
 				else if(pinMode === this.PINMODES.OUTPUT) {

@@ -30,7 +30,7 @@ module.exports = function(options) {
 		deviceTypeParsed = deviceTypeParsed[0];
 		options.deviceType = deviceTypeParsed;
 
-		console.log('modelMap chose', deviceTypeParsed, options);
+		//console.log('modelMap chose', deviceTypeParsed, options);
 
 		var model = new require(modelMap[deviceTypeParsed])(options);
 		this.model = model;
