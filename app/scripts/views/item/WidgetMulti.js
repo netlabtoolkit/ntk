@@ -610,6 +610,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.$el.css({top: model.offsetTop, left: model.offsetLeft});
 			this.model.set(model);
 
+			// TODO: an eleventh hour hack to make sure that active and activeOut is properly set
+			this.model.set('active', model.active);
+			this.model.set('activeOut', model.activeOut);
+
 			return this;
 		},
 		setAsHardwareOutput: function setAsHardwareOutput() {

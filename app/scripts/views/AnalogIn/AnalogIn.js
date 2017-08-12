@@ -114,6 +114,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 					this.enableDevice();
 
 				}
+
 			}
 		},
 		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
