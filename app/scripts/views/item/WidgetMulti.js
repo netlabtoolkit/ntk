@@ -73,6 +73,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
             this.$( ".widgetBottom .content" ).hide();
             this.$( ".widgetBottom .tab" ).click(function() {
+				if (self.model.get("deviceType") == "mkr1000") {
+					self.$('.deviceIp').show();
+				}
+				else {
+					self.$('.deviceIp').hide();
+				}
+
                 self.$( ".widgetBottom .content" ).toggle();
             });
 

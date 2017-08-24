@@ -44,7 +44,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.model.set({
 				title: 'Servo',
 				outputMapping: options.outputMapping,
-                activeOut: true,
+                activeOut: false,
 			});
 
             // If you want to register your own signal processing function, push them to signalChainFunctions
@@ -62,16 +62,64 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			//if(!app.server) {
 				this.model.on('change', this.processSignalChain, this);
 			//}
-      window.setTimeout(function() {
-				//this.deviceType = this.sources[0].model.get('type');
-        this.deviceType = "ArduinoUno";
-        //console.log(this.deviceType);
-			}.bind(this), 3000);
+			//window.setTimeout(function() {
+				//this.deviceType = "ArduinoUno";
+			//}.bind(this), 3000);
 		},
 
 		onModelChange: function(model) {
 			for(var i=this.sources.length-1; i>=0; i--) {
 				this.syncWithSource(this.sources[i].model);
+			}
+
+
+			var changed = model.changedAttributes();
+			console.log('chang', changed);
+
+			if(changed) {
+				if(changed.server) {
+					this.model.set({server: changed.server, activeOut: false});
+				}
+				if(changed.port) {
+					this.model.set({port: changed.port, activeOut: false});
+				}
+
+				if(changed.deviceType) {
+					this.model.set({deviceType: changed.deviceType, activeOut: false});
+					if(!app.server) {
+						if (changed.deviceType == "mkr1000") {
+							this.$('.deviceIp').show();
+							console.log('showing');
+						} else 
+							{
+								this.$('.deviceIp').hide();
+							}
+					}
+				}
+
+				var inactiveModels = this.inactiveModelsExist();
+
+				// If we haven't made the hardware model yet, then we should bind everything together
+				if( inactiveModels && this.model.get("activeOut") == true ) {
+					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
+						modelType = this.getDeviceModelType();
+
+					this.unMapHardwareInlet();
+
+					var server = this.getDeviceServerName();
+					var port = this.getDeviceServerPort();
+
+					// We do NOT pass a "model" attribute indicating hardware widget
+					app.Patcher.Controller.mapToModel({
+						view: this,
+						modelType: modelType,
+						//IOMapping: {sourceField: "out", destinationField: 'D3'},
+						IOMapping: {sourceField: "out", destinationField: this.model.get('outputMapping')},
+						server: server + ":" + port,
+					}, true);
+
+					this.enableDevice();
+				}
 			}
 		},
 		/**
@@ -107,34 +155,73 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				$(el).val(value);
 				$(el).trigger('change');
 			};
+
       this.init = false;
 
         },
 
-        onModelChange: function(model) {
-            var deviceMode = this.deviceMode;
-            var port = this.model.get('outputMapping');
-            var deviceType = this.deviceType;
+        //onModelChange: function(model) {
+            //var deviceMode = this.deviceMode;
+            //var port = this.model.get('outputMapping');
+            //var deviceType = this.deviceType;
             
-            if (!this.init && !app.serverMode && deviceMode !== undefined && port != '' && deviceType !== undefined) {
-              //console.log('servo trigger hardwareSwitch');
-              //console.log(deviceMode, port, deviceType, app.serverMode);
-              window.app.vent.trigger('Widget:hardwareSwitch', {
-                deviceType: deviceType,
-                port: port,
-                mode: deviceMode,
-                hasInput: true
-              });
-             this.init = true;
-            }
-    		},
+            //if (!this.init && !app.serverMode && deviceMode !== undefined && port != '' && deviceType !== undefined) {
+              ////console.log('servo trigger hardwareSwitch');
+              ////console.log(deviceMode, port, deviceType, app.serverMode);
+              //window.app.vent.trigger('Widget:hardwareSwitch', {
+                //deviceType: deviceType,
+                //port: port,
+                //mode: deviceMode,
+                //hasInput: true
+              //});
+             //this.init = true;
+            //}
+		//},
 		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
 		getDeviceServerName: function() {return this.model.get('server') == undefined ? '127.0.0.1' : this.model.get('server')},
 		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
+		inactiveModelsExist: function checkForInactiveModels() {
+			var inactiveModels = false;
+
+			if(this.sources.length > 0) {
+				for(var i=this.sources.length-1; i>=0; i--) {
+					var source = this.sources[i];
+
+					if(source.model.active === false) {
+						inactiveModels = true;
+					}
+				}
+			}
+
+			return inactiveModels;
+		},
+		unMapHardwareInlet: function unMapHardwareInlet() {
+
+			this.sourceToRemove = this.sources[0];
+			this.sources.length = 0;
+			this.sources = [];
+
+			if(this.sourceToRemove) {
+				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
+			}
+		},
+		//enableDevice: function enableHardware() {
+			//let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+
+			//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 4});
+		//},
 		enableDevice: function enableHardware() {
 			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 4});
+			let hasInput = (this.deviceMode == 'in');
+
+			window.app.vent.trigger('Widget:hardwareSwitch', {
+				deviceType: this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),
+				port: this.model.get("outputMapping"),
+				mode: this.deviceMode,
+				hasInput: hasInput
+			});
 		},
 
 

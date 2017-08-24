@@ -164,7 +164,7 @@ module.exports = function(options) {
 								clearTimeout(deviceUpdateThrottleID);
 							}
 
-							// THIS was for Wifi! But unfortunatley causes messages that aren't the same to be dropped
+							// THIS was for Wifi! But unfortunately causes messages that aren't the same to be dropped
 							deviceUpdateThrottleID = setTimeout(function() {
 								selectedModel.set(field, parseFloat(options.model[field], 10), options.modeRequested);
 							}.bind(this), 30);
