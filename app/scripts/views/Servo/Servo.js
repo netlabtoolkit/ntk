@@ -32,6 +32,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		deviceMode: 'SERVO',
 		categories: ['I/O'],
 		className: 'servo',
+		pinMode: 4,
 		template: _.template(Template),
 
 		initialize: function(options) {
@@ -133,7 +134,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		enableDevice: function enableHardware() {
 			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 
-			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 4});
 		},
 
 

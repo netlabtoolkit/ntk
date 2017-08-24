@@ -30,6 +30,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		],
 		typeID: 'AnalogIn',
 		className: 'analogIn',
+		pinMode: 3,
 		categories: ['I/O'],
 		template: _.template(Template),
 		initialize: function(options) {

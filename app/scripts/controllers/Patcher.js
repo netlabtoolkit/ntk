@@ -615,8 +615,9 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 									if(pinName[0] != "A") {
 										// and see if the attribute exists in the outputs section of this model
 										if(newModelInstance.attributes.outputs[attribute] !== undefined) {
-											// TODO: THIS modeSupported SHOULD BE SPECIFIC TO VIEW
-											window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelServerQuery, model: changedAttributes, modeRequested: 3});
+											// TODO: THIS modeRequested SHOULD BE SPECIFIC TO VIEW
+											//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelServerQuery, model: changedAttributes, modeRequested: 3});
+											window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelServerQuery, model: changedAttributes});
 										}
 									}
 

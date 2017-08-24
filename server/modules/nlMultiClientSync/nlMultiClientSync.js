@@ -131,6 +131,7 @@ module.exports = function(options) {
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			socket.on('sendModelUpdate', function(options) {
 
+				console.log('update mode requested', options);
 
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];

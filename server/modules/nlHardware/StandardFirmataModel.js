@@ -51,6 +51,7 @@ module.exports = function(five) {
 					this.outputs[field].value = value;
 
 					if(this.connected) {
+						console.log('mode requested', modeRequested);
 						this.setHardwarePin(field, value, modeRequested);
 					}
 				}
@@ -68,6 +69,7 @@ module.exports = function(five) {
 				//var pinMode = outputField.pin.mode;
 				var pinMode = modeRequested;
 
+				console.log('modeREquested', pinMode);
 				// Check if this mode is supported on this pin
 				for(var supportedMode in this.outputs[field].supportedModes) {
 					// TODO: Casts a string in "supportMode" to an int for loose comparison.
@@ -84,17 +86,29 @@ module.exports = function(five) {
 
 						//if(parseInt(supportedMode,10) !== this.outputs[field].pin.mode) {
 						if(parseInt(supportedMode,10) !== currentPinModeInteger) {
+							console.log('mode', supportedMode, pinMode);
 							var PINMODESTRINGS = _.invert(this.PINMODES);
 							this.setIOMode(field, PINMODESTRINGS[supportedMode] );
 						}
 					}
 				}
 
-				if(!modeSupported) { return false; }
+				// Doesn't even try if the pinmode is not supported.
+				if(!modeSupported && pinMode !== undefined) { return false; }
 			}
 
 
 			if(outputField !== undefined) {
+
+				// If we don't have the pinmode from the front end, then grab what it was previously
+				if(pinMode == undefined) {
+					if(outputField.pin.board == undefined) {
+						pinMode = outputField.pin.mode;
+					}
+					else {
+						pinMode = outputField.pin.board.pins[outputField.pin.pin].mode;
+					}
+				}
 
 				// Check which pinmode is set on the pin to detemine which method to call
 				if(pinMode === this.PINMODES.PWM) {
@@ -110,6 +124,7 @@ module.exports = function(five) {
 					}
 				}
 				else if(pinMode === this.PINMODES.SERVO) {
+					console.log('servo');
 					this.outputs[field].pin.to(value);
 				}
 
@@ -137,14 +152,15 @@ module.exports = function(five) {
 				// Check if this mode is supported on this pin
 				var modeSupported = false;
 
+				var modeInt = this.PINMODES[mode];
 				for(var supportedMode in this.outputs[pin].supportedModes) {
-					if(supportedMode == this.PINMODES[mode]) {
+					if(this.outputs[pin].supportedModes[supportedMode] == modeInt) {
 						modeSupported = true;
 					}
 				}
 
 				// If we don't support this mode on this pin then immediately return
-				if(!modeSupported) { return false; }
+				if(!modeSupported && mode !== 4) { return false; }
 
 				// Always immediately set an input to a Sensor. If it is already a sensor, then we are resetting it
 				if(mode == 'INPUT') {
