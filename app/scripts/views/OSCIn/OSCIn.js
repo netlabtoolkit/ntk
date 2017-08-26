@@ -191,17 +191,18 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		getDeviceServerName: function() {return this.model.get('server') == undefined ? '127.0.0.1' : this.model.get('server')},
 		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
 		enableDevice: function enableHardware() {
+			// TODO: Hack for now due to hardware usually being triggered from edit mode.
+			// Temporarily dipping into edit mode for now. See SocketAdapter:registerOutboundClientEvents
+			let switchBack = false;
+			if(window.app.serverMode == true) {
+				window.app.serverMode = false;
+				switchBack = true;
+			}
+
 			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
 
-			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 3});
-			let hasInput = (this.deviceMode == 'in');
-
-			window.app.vent.trigger('Widget:hardwareSwitch', {
-				deviceType: this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),
-				port: this.model.get("outputMapping"),
-				mode: this.deviceMode,
-				hasInput: hasInput
-			});
+			(switchBack === true) && (window.app.serverMode = true);
 		},
 		inactiveModelsExist: function checkForInactiveModels() {
 			var inactiveModels = false;

@@ -120,6 +120,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 					this.model.set({port: changed.port, activeOut: false});
 				}
 
+
 				// If we haven't made the hardware model yet, then we should bind everything together
 				if( inactiveModels && this.model.get("activeOut") == true ) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
@@ -153,6 +154,10 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 						app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"].model.attributes.outputs[messageAddress] = this.model.get('in');
 						app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"].model.attributes[messageAddress] = this.model.get('in');
 					}
+				}
+
+				if(changed.messageName == '/ntk/out/1:127.0.0.1:57120') {
+					this.model.set('messageName', '/ntk/out/1');
 				}
 			}
 		},
