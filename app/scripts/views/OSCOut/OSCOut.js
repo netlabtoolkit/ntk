@@ -86,6 +86,11 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				mode: this.deviceMode,
 				hasInput: hasInput
 			});
+
+
+			let messageAddress = this.model.get('outputMapping');
+			app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"].model.attributes.outputs[messageAddress] = this.model.get('in');
+			app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"].model.attributes[messageAddress] = this.model.get('in');
 		},
 		unMapHardwareInlet: function unMapHardwareInlet() {
 
@@ -108,6 +113,13 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 				var inactiveModels = this.inactiveModelsExist();
 
+				if(changed.server) {
+					this.model.set({server: changed.server, activeOut: false});
+				}
+				if(changed.port) {
+					this.model.set({port: changed.port, activeOut: false});
+				}
+
 				// If we haven't made the hardware model yet, then we should bind everything together
 				if( inactiveModels && this.model.get("activeOut") == true ) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
@@ -127,6 +139,20 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 					}, true);
 
 					this.enableDevice();
+
+					//if(changed['messageName'] !== undefined || changed.server !== undefined || changed.port !== undefined) {
+						// add the message to the outputs of the OSC hardware device
+					//}
+				}
+
+				if(app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"] !== undefined) {
+					if((changed['messageName'] !== undefined) || (changed.server !== undefined) || (changed.port !== undefined) ) {
+						// add the message to the outputs of the OSC hardware device
+						let messageAddress = this.model.get('outputMapping');
+
+						app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"].model.attributes.outputs[messageAddress] = this.model.get('in');
+						app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"].model.attributes[messageAddress] = this.model.get('in');
+					}
 				}
 			}
 		},

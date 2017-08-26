@@ -78,7 +78,9 @@ module.exports = function(options) {
 				//this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: model.address, field: options.field, value: options.value}));
 				var modelSplit = model.address.split(":");
 				if(modelSplit[0] == "OSC") {
-					this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: modelSplit[0] + ":" + modelSplit[1] + ":9001", field: options.field, value: options.value}));
+					// OSC always points to the server. The messages themselves now determine the ultimate destination.
+					//this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: modelSplit[0] + ":" + modelSplit[1] + ":9001", field: options.field, value: options.value}));
+					this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: modelSplit[0] + ":127.0.0.1:9001", field: options.field, value: options.value}));
 				}
 				else {
 					this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: modelSplit[0] + ":" + modelSplit[1] + ":" + modelSplit[2], field: options.field, value: options.value}));

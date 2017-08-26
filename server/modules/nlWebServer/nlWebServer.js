@@ -1,7 +1,7 @@
 module.exports = function(options) {
 	// Last resort
 	process.on('uncaughtException', (err) => {
-		console.log('error:', err);
+		console.log('error:', err, new Error().stack);
 	});
 
 	var express = require('express');

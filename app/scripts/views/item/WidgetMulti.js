@@ -80,6 +80,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					self.$('.deviceIp').hide();
 				}
 
+				if(self.typeID == 'OSCOut') {
+					self.$('.deviceIp').show();
+				}
+
                 self.$( ".widgetBottom .content" ).toggle();
             });
 
