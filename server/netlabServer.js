@@ -58,6 +58,10 @@ nlWebServer.start()
 
 		var phantomChild = childProcess.execFile(binPath, childArgs, function(err, stdout, stderr) {});
 
+		phantomChild.stdout.on('data', function(data) {
+			console.log("PHANTOM CONSOLE: ", data.toString());
+		});
+
 		// Toggle the autonomous server off or on depending on whether it is running
 		clientSync.on('toggleServer', function() {
 			if(serverActivated) {

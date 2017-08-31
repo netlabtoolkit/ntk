@@ -15,10 +15,6 @@ page.onError = function(msg, trace) {
 	console.error(msgStack.join('\n'));
 
 };
-// Console logging
-page.onConsoleMessage = function(msg, lineNum, sourceId) {
-	console.log('CONSOLE: ' + msg + ' (from line #' + lineNum + ' in "' + sourceId + '")');
-};
 
 page.open('http://localhost:9001/server/#server', function() {
 });
