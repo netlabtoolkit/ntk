@@ -96,7 +96,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			}
 		},
 		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
-		getDeviceServerName: function() {return this.model.get('server') == undefined ? '127.0.0.1' : this.model.get('server')},
+		getDeviceServerName: function() {return ((this.model.get('server') == undefined) || (this.model.get('server') === true) ) ? '127.0.0.1' : this.model.get('server')},
 		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
 		inactiveModelsExist: function checkForInactiveModels() {
 			var inactiveModels = false;
@@ -124,10 +124,13 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			}
 		},
 		enableDevice: function enableHardware() {
-			console.log('enabling');
 			var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 
-			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 3});
+			//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 3});
+			var outputModel = {};
+			outputModel[this.model.get('outputMapping')] = this.model.get("out");
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel, modeRequested: 3});
+
 			var hasInput = (this.deviceMode == 'in');
 
 			window.app.vent.trigger('Widget:hardwareSwitch', {

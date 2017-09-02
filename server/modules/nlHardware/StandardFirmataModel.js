@@ -38,6 +38,13 @@ module.exports = function(five) {
 			field = field.toUpperCase();
 			value = parseInt(value, 10);
 
+
+			if(!this.connected) {
+				var self = this;
+				setTimeout(function() {
+					self.set(field, value, modeRequested);
+				}, 500);
+			}
 			if(this.inputs[field] != undefined) {
 
 				if(parseInt(this.inputs[field].value, 10) !== parseInt( value, 10 )) {
@@ -47,11 +54,10 @@ module.exports = function(five) {
 			}
 			else if(this.outputs[field] !== undefined) {
 
-				if(parseInt(this.outputs[field].value,10) !== parseInt(value,10)) {
+				if( (modeRequested !== undefined) || parseInt(this.outputs[field].value,10) !== parseInt(value,10)) {
 					this.outputs[field].value = value;
 
 					if(this.connected) {
-						console.log('mode requested', modeRequested);
 						this.setHardwarePin(field, value, modeRequested);
 					}
 				}
@@ -69,7 +75,6 @@ module.exports = function(five) {
 				//var pinMode = outputField.pin.mode;
 				var pinMode = modeRequested;
 
-				console.log('modeREquested', pinMode);
 				// Check if this mode is supported on this pin
 				for(var supportedMode in this.outputs[field].supportedModes) {
 					// TODO: Casts a string in "supportMode" to an int for loose comparison.
@@ -86,7 +91,6 @@ module.exports = function(five) {
 
 						//if(parseInt(supportedMode,10) !== this.outputs[field].pin.mode) {
 						if(parseInt(supportedMode,10) !== currentPinModeInteger) {
-							console.log('mode', supportedMode, pinMode);
 							var PINMODESTRINGS = _.invert(this.PINMODES);
 							this.setIOMode(field, PINMODESTRINGS[supportedMode] );
 						}
@@ -112,7 +116,6 @@ module.exports = function(five) {
 
 				// Check which pinmode is set on the pin to detemine which method to call
 				if(pinMode === this.PINMODES.PWM) {
-					console.log('brightness', field, value);
 					this.outputs[field].pin.brightness(value);
 				}
 				else if(pinMode === this.PINMODES.OUTPUT) {
@@ -124,7 +127,6 @@ module.exports = function(five) {
 					}
 				}
 				else if(pinMode === this.PINMODES.SERVO) {
-					console.log('servo');
 					this.outputs[field].pin.to(value);
 				}
 

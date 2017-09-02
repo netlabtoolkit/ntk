@@ -133,7 +133,6 @@ module.exports = function(options) {
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			socket.on('sendModelUpdate', function(options) {
 
-				console.log('update mode requested', options);
 
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
@@ -184,7 +183,6 @@ module.exports = function(options) {
 					modelType = options.deviceType;
 
 
-				console.log('received the IO mode change');
 				if(options.port && options.mode) {
 					//if(self.hardwareModels[modelType] == undefined) {
 						//var typeAndAddress = modelType.split(':');

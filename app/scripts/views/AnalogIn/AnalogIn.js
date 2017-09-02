@@ -120,7 +120,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			}
 		},
 		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
-		getDeviceServerName: function() {return this.model.get('server') == undefined ? '127.0.0.1' : this.model.get('server')},
+		getDeviceServerName: function() {return ((this.model.get('server') == undefined) || (this.model.get('server') === true) ) ? '127.0.0.1' : this.model.get('server')},
 		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
 		inactiveModelsExist: function checkForInactiveModels() {
 			var inactiveModels = false;
@@ -249,6 +249,10 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			}
 
 			var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+
+			//var outputModel = {};
+			//outputModel[this.model.get('outputMapping')] = this.model.get("out");
+			//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel });
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
 
 			(switchBack === true) && (window.app.serverMode = true);

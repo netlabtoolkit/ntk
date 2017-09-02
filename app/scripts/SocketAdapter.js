@@ -80,7 +80,7 @@ function( Backbone ) {
 			var sendQueue = [];
 			// DEVICE MODEL
 			window.app.vent.on('sendDeviceModelUpdate', function(options) {
-				console.log('options', options);
+
 				if(window.app.server || !window.app.serverMode) {
 
 					// Queue and package multiple messages
@@ -165,9 +165,7 @@ function( Backbone ) {
 				}
 			});
 			window.app.vent.on('Widget:hardwareSwitch', function(portAndMode) {
-				console.log('trying to do it');
 				if(window.app.server || !window.app.serverMode) {
-					console.log('doing it');
 					socket.emit('client:changeIOMode', JSON.stringify( portAndMode ));
 				}
 			});
