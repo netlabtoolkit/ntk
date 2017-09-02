@@ -15,6 +15,16 @@ page.onError = function(msg, trace) {
 	console.error(msgStack.join('\n'));
 
 };
+// Console logging
+page.onConsoleMessage = function(msg, lineNum, sourceId) {
+	console.log(msg);
+};
+//var system = require('system');
+
+//page.onConsoleMessage = function(msg) {
+
+	//system.stderr.writeLine('console: ' + msg);
+//};
 
 page.open('http://localhost:9001/server/#server', function() {
 });

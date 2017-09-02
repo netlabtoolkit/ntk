@@ -75,10 +75,10 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			return inactiveModels;
 		},
 		enableDevice: function enableHardware() {
-			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+			var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 3});
-			let hasInput = (this.deviceMode == 'in');
+			var hasInput = (this.deviceMode == 'in');
 
 			window.app.vent.trigger('Widget:hardwareSwitch', {
 				deviceType: this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),
@@ -88,7 +88,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			});
 
 
-			let messageAddress = this.model.get('outputMapping');
+			var messageAddress = this.model.get('outputMapping');
 			app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"].model.attributes.outputs[messageAddress] = this.model.get('in');
 			app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"].model.attributes[messageAddress] = this.model.get('in');
 		},
@@ -149,7 +149,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				if(app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"] !== undefined) {
 					if((changed['messageName'] !== undefined) || (changed.server !== undefined) || (changed.port !== undefined) ) {
 						// add the message to the outputs of the OSC hardware device
-						let messageAddress = this.model.get('outputMapping');
+						var messageAddress = this.model.get('outputMapping');
 
 						app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"].model.attributes.outputs[messageAddress] = this.model.get('in');
 						app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"].model.attributes[messageAddress] = this.model.get('in');

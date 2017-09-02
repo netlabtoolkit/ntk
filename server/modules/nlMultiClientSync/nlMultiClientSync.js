@@ -183,6 +183,8 @@ module.exports = function(options) {
 				var options = JSON.parse(options),
 					modelType = options.deviceType;
 
+
+				console.log('received the IO mode change');
 				if(options.port && options.mode) {
 					//if(self.hardwareModels[modelType] == undefined) {
 						//var typeAndAddress = modelType.split(':');

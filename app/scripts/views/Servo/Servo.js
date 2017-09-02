@@ -74,7 +74,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 
 			var changed = model.changedAttributes();
-			console.log('chang', changed);
 
 			if(changed) {
 				if(changed.server) {
@@ -89,7 +88,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 					if(!app.server) {
 						if (changed.deviceType == "mkr1000") {
 							this.$('.deviceIp').show();
-							console.log('showing');
 						} else 
 							{
 								this.$('.deviceIp').hide();
@@ -206,15 +204,15 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			}
 		},
 		//enableDevice: function enableHardware() {
-			//let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+			//var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 
 			//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 4});
 		//},
 		enableDevice: function enableHardware() {
-			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+			var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 4});
-			let hasInput = (this.deviceMode == 'in');
+			var hasInput = (this.deviceMode == 'in');
 
 			window.app.vent.trigger('Widget:hardwareSwitch', {
 				deviceType: this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),

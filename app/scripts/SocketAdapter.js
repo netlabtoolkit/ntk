@@ -165,7 +165,9 @@ function( Backbone ) {
 				}
 			});
 			window.app.vent.on('Widget:hardwareSwitch', function(portAndMode) {
+				console.log('trying to do it');
 				if(window.app.server || !window.app.serverMode) {
+					console.log('doing it');
 					socket.emit('client:changeIOMode', JSON.stringify( portAndMode ));
 				}
 			});

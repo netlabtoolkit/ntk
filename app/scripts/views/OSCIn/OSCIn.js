@@ -193,31 +193,16 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		enableDevice: function enableHardware() {
 			// TODO: Hack for now due to hardware usually being triggered from edit mode.
 			// Temporarily dipping into edit mode for now. See SocketAdapter:registerOutboundClientEvents
-			let switchBack = false;
+			var switchBack = false;
 			if(window.app.serverMode == true) {
 				window.app.serverMode = false;
 				switchBack = true;
 			}
 
-			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+			var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
 
 			(switchBack === true) && (window.app.serverMode = true);
-		},
-		inactiveModelsExist: function checkForInactiveModels() {
-			var inactiveModels = false;
-
-			if(this.sources.length > 0) {
-				for(var i=this.sources.length-1; i>=0; i--) {
-					var source = this.sources[i];
-
-					if(source.model.active === false) {
-						inactiveModels = true;
-					}
-				}
-			}
-
-			return inactiveModels;
 		},
 
 	});

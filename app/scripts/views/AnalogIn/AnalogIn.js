@@ -29,6 +29,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			{title: 'out', from: 'in', to: 'out'},
 		],
 		typeID: 'AnalogIn',
+		deviceMode: 'INPUT',
 		className: 'analogIn',
 		pinMode: 3,
 		categories: ['I/O'],
@@ -241,13 +242,13 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		enableDevice: function enableHardware() {
 			// TODO: Hack for now due to hardware usually being triggered from edit mode.
 			// Temporarily dipping into edit mode for now. See SocketAdapter:registerOutboundClientEvents
-			let switchBack = false;
+			var switchBack = false;
 			if(window.app.serverMode == true) {
 				window.app.serverMode = false;
 				switchBack = true;
 			}
 
-			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+			var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
 
 			(switchBack === true) && (window.app.serverMode = true);

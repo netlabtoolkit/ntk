@@ -625,6 +625,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.model.set('active', model.active);
 			this.model.set('activeOut', model.activeOut);
 
+			(this.enableDevice !== undefined) && this.enableDevice();
+
 			return this;
 		},
 		setAsHardwareOutput: function setAsHardwareOutput() {

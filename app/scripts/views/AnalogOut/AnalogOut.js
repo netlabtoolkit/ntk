@@ -124,10 +124,11 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			}
 		},
 		enableDevice: function enableHardware() {
-			let modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+			console.log('enabling');
+			var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 3});
-			let hasInput = (this.deviceMode == 'in');
+			var hasInput = (this.deviceMode == 'in');
 
 			window.app.vent.trigger('Widget:hardwareSwitch', {
 				deviceType: this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),
