@@ -6,7 +6,52 @@ module.exports = function(attributes) {
 		events = require('events'),
 		es6 = require('es6-shim'),
 		address = attributes.address;
-		var setThrottlerID;
+	var setThrottlerID, 
+		sendQueue = {};
+
+
+	var QueueHandler = function(cb) {
+		this.sendCallback = cb;
+	};
+
+	_.extend(QueueHandler.prototype, {
+		interval: 10,
+		queue: [],
+		lastTimeoutID: undefined,
+		addToQueue: function(field, value) {
+			if(this.queue.length == 0) {
+				// then add to the queue and schedule
+				this.queue.push({field: field, value: value});
+
+				this.next();
+			}
+			else {
+				var lastFieldValue = _.findWhere(this.queue, {field: field});
+
+				// If we find a previous version of this field already, replace it. Otherwise add it.
+				if(lastFieldValue !== undefined) {
+					// replace what was there with the latest value
+					this.queue[this.queue.indexOf(lastFieldValue)] = {field: field, value: value};
+				}
+				else {
+					this.queue.push({field: field, value: value});
+				}
+			}
+		},
+		next: function() {
+			if(this.queue.length > 0) {
+
+				setTimeout(function() {
+					this.sendCallback(this.queue);
+
+					this.queue.length = 0;
+				}.bind(this), this.interval);
+
+			}
+		},
+		sendCallback: function() {},
+	});
+
 
 	var constructor = function() {
 		var options = attributes;
@@ -24,6 +69,8 @@ module.exports = function(attributes) {
 
 		this.OSCServer = OSCServer;
 
+		this.queueHandler = new QueueHandler( this.receiveOSCMessage.bind(this) );
+
 		return this;
 	};
 
@@ -38,51 +85,53 @@ module.exports = function(attributes) {
 			if(!field.match(/^\//) ) {
 				return false;
 			}
-			// If data is coming in TOO fast then we need to throttle it to avoid overloading NTK's network
-			//if(setThrottlerID !== undefined) {
-				//clearTimeout(setThrottlerID);
-			//}
-
 
 				if(this.receiving[field] !== undefined) {
-
-					//setThrottlerID = setTimeout(function() {
-						if(parseFloat(this.receiving[field], 10) !== parseFloat( value, 10 )) {
-							this.receiving[field] = value;
-
-							this.emit('change', {field: field, value: this.receiving[field]});
-						}
-						setThrottlerID = undefined;
-					//}.bind(this), 10);
+					this.queueHandler.addToQueue(field, value);
 				}
-				//else if(this.sending[field] !== undefined) {
 				else {
-
-					// If there is no output field at this address yet then create one
-					if(this.sending[field] == undefined) {
-						this.sending[field] = 0;
-					}
-
-					if(parseFloat(this.sending[field],10) !== parseFloat(value,10)) {
-
-						var messageServerPort = field.split(':');
-						var serverPort = messageServerPort[1] + ":" + messageServerPort[2];
-						this.sending[field] = value;
-
-						var client = this.OSCClients[ serverPort ];
-
-						if(client == undefined) {
-							this.OSCClients[serverPort] = new osc.Client(messageServerPort[1], messageServerPort[2]);
-
-							client = this.OSCClients[serverPort];
-						}
-
-						client.send(messageServerPort[0], value);
-					}
+					this.sendOSCMessage(field, value);
 				}
 
 
 			return this;
+		},
+		receiveOSCMessage: function(fieldValues) {
+			for(var i=fieldValues.length-1; i >= 0; i--) {
+				var field = fieldValues[i].field,
+					value = fieldValues[i].value;
+
+				// cycle through all fields and value and then set the corresponding field.
+				if(parseFloat(this.receiving[field], 10) !== parseFloat( value, 10 )) {
+					this.receiving[field] = value;
+
+					this.emit('change', {field: field, value: this.receiving[field]});
+				}
+			}
+
+		},
+		sendOSCMessage: function(field, value) {
+			// If there is no output field at this address yet then create one
+			if(this.sending[field] == undefined) {
+				this.sending[field] = 0;
+			}
+
+			if(parseFloat(this.sending[field],10) !== parseFloat(value,10)) {
+
+				var messageServerPort = field.split(':');
+				var serverPort = messageServerPort[1] + ":" + messageServerPort[2];
+				this.sending[field] = value;
+
+				var client = this.OSCClients[ serverPort ];
+
+				if(client == undefined) {
+					this.OSCClients[serverPort] = new osc.Client(messageServerPort[1], messageServerPort[2]);
+
+					client = this.OSCClients[serverPort];
+				}
+
+				client.send(messageServerPort[0], value);
+			}
 		},
 		setPollSpeed: function(highLow) {
 		},
