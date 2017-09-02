@@ -53,7 +53,6 @@ module.exports = function(five) {
 				}
 			}
 			else if(this.outputs[field] !== undefined) {
-
 				if( (modeRequested !== undefined) || parseInt(this.outputs[field].value,10) !== parseInt(value,10)) {
 					this.outputs[field].value = value;
 
@@ -76,29 +75,32 @@ module.exports = function(five) {
 				var pinMode = modeRequested;
 
 				// Check if this mode is supported on this pin
-				for(var supportedMode in this.outputs[field].supportedModes) {
+				for(var mode in this.outputs[field].supportedModes) {
+					var supportedMode = this.outputs[field].supportedModes[mode];
 					// TODO: Casts a string in "supportMode" to an int for loose comparison.
 					if(supportedMode == pinMode) {
 						modeSupported = true;
 
 						// TODO: PROBLEM. SOmetimes this is undefined
-						if(this.outputs[field].pin.board == undefined) {
-							var currentPinModeInteger = this.outputs[field].pin.mode;
-						}
-						else {
-							var currentPinModeInteger = this.outputs[field].pin.board.pins[this.outputs[field].pin.pin].mode;
-						}
+						// TODO Update: Don't need this anymore since it is not set on each "set" command. So just let it go through since it is rare.
+						//if(this.outputs[field].pin.board == undefined) {
+							//var currentPinModeInteger = this.outputs[field].pin.mode;
+						//}
+						//else {
+							//var currentPinModeInteger = this.outputs[field].pin.board.pins[this.outputs[field].pin.pin].mode;
+						//}
 
 						//if(parseInt(supportedMode,10) !== this.outputs[field].pin.mode) {
-						if(parseInt(supportedMode,10) !== currentPinModeInteger) {
+						//if(parseInt(supportedMode,10) !== currentPinModeInteger) {
 							var PINMODESTRINGS = _.invert(this.PINMODES);
 							this.setIOMode(field, PINMODESTRINGS[supportedMode] );
-						}
+						//}
 					}
 				}
 
+
 				// Doesn't even try if the pinmode is not supported.
-				if(!modeSupported && pinMode !== undefined) { return false; }
+				if(!modeSupported && (pinMode !== undefined) ) { return false; }
 			}
 
 
@@ -149,7 +151,7 @@ module.exports = function(five) {
 		setIOMode: function setPinMode(pin, mode) {
 			pin = pin.toUpperCase();
 
-			if(this.connected) {
+			if(this.connected == true) {
 
 				// Check if this mode is supported on this pin
 				var modeSupported = false;

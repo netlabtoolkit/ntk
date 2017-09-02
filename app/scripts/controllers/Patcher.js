@@ -148,7 +148,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					return newWidget;
 				}
 				else if(widgetType === 'AnalogOut') {
-					var defaultMapping = 'D3';
+					var defaultMapping = '';
 
 					var existingMapping = this.existingMappingExists(defaultMapping, "ArduinoUno" );
 
@@ -199,7 +199,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					return newWidget;
 				}
 				else if(widgetType === 'DigitalOut') {
-					var defaultMapping = 'D3';
+					var defaultMapping = '';
 
 					var existingMapping = this.existingMappingExists(defaultMapping, "ArduinoUno" );
 

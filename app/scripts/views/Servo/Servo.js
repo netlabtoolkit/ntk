@@ -213,7 +213,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 			var outputModel = {};
 			outputModel[this.model.get('outputMapping')] = this.model.get("out");
-			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel, modeRequested: 4});
 			//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 4});
 			var hasInput = (this.deviceMode == 'in');
 
@@ -223,6 +222,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				mode: this.deviceMode,
 				hasInput: hasInput
 			});
+
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel, modeRequested: 4});
 		},
 
 

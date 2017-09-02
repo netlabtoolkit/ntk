@@ -129,7 +129,6 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 3});
 			var outputModel = {};
 			outputModel[this.model.get('outputMapping')] = this.model.get("out");
-			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel, modeRequested: 3});
 
 			var hasInput = (this.deviceMode == 'in');
 
@@ -139,6 +138,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				mode: this.deviceMode,
 				hasInput: hasInput
 			});
+
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel, modeRequested: 3});
 		},
         onRender: function() {
 			// always call the superclass
