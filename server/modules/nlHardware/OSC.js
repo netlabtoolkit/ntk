@@ -46,7 +46,7 @@ module.exports = function(attributes) {
 			}
 
 				if(this.receiving[field] !== undefined) {
-					this.queueHandler.addToQueue(field, value);
+					this.queueHandler.addToQueue({field: field, value: value});
 				}
 				else {
 					this.sendOSCMessage(field, value);

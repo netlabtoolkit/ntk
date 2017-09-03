@@ -5,7 +5,12 @@ module.exports = function(options) {
 		_ = require('underscore'),
 		events = require('events'),
 		nlHardware = require('../nlHardware/Hardware'),
+		utils = require('../../utils')(),
 		self;
+
+
+	var QueueHandler = utils.QueueHandler;
+
 
 	var MultiClientSync = function(options) {
 		_.extend(this, events.EventEmitter.prototype);
@@ -31,6 +36,9 @@ module.exports = function(options) {
 			this.transport.emit('serverActive', serverActive);
 		}, this);
 
+
+		this.queueHandler = new QueueHandler( this.sendNetworkSet.bind(this) );
+		this.queueHandler.interval = 30;
 
 	};
 
@@ -165,10 +173,7 @@ module.exports = function(options) {
 								clearTimeout(deviceUpdateThrottleID);
 							}
 
-							// THIS was for Wifi! But unfortunately causes messages that aren't the same to be dropped
-							deviceUpdateThrottleID = setTimeout(function() {
-								selectedModel.set(field, parseFloat(options.model[field], 10), options.modeRequested);
-							}.bind(this), 30);
+							self.queueHandler.addToQueue({field: field, value: parseFloat(options.model[field], 10), model: selectedModel, modeRequested: options.modeRequested});
 						}
 						else {
 							selectedModel.set(field, parseFloat(options.model[field], 10), options.modeRequested);
@@ -244,6 +249,17 @@ module.exports = function(options) {
 			socket.on('disconnect', function() {
 				self.emit('clientDisconnected');
 			});
+
+		},
+		sendNetworkSet: function(fieldValues) {
+			for(var i=fieldValues.length-1; i >= 0; i--) {
+				var field = fieldValues[i].field,
+					value = fieldValues[i].value,
+					modeRequested = fieldValues[i].modeRequested,
+					model = fieldValues[i].model;
+
+				model.set(field, value, modeRequested);
+			}
 
 		},
 		loadPatch: function(options) {
