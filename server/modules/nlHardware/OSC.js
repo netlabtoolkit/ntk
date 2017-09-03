@@ -2,55 +2,14 @@
 module.exports = function(attributes) {
 
 	var _ = require('underscore'),
+		utils = require('../../utils')(),
 		osc = require('node-osc'),
 		events = require('events'),
 		es6 = require('es6-shim'),
 		address = attributes.address;
-	var setThrottlerID, 
-		sendQueue = {};
-
-
-	var QueueHandler = function(cb) {
-		this.sendCallback = cb;
-	};
-
-	_.extend(QueueHandler.prototype, {
-		interval: 10,
-		queue: [],
-		lastTimeoutID: undefined,
-		addToQueue: function(field, value) {
-			if(this.queue.length == 0) {
-				// then add to the queue and schedule
-				this.queue.push({field: field, value: value});
-
-				this.next();
-			}
-			else {
-				var lastFieldValue = _.findWhere(this.queue, {field: field});
-
-				// If we find a previous version of this field already, replace it. Otherwise add it.
-				if(lastFieldValue !== undefined) {
-					// replace what was there with the latest value
-					this.queue[this.queue.indexOf(lastFieldValue)] = {field: field, value: value};
-				}
-				else {
-					this.queue.push({field: field, value: value});
-				}
-			}
-		},
-		next: function() {
-			if(this.queue.length > 0) {
-
-				setTimeout(function() {
-					this.sendCallback(this.queue);
-
-					this.queue.length = 0;
-				}.bind(this), this.interval);
-
-			}
-		},
-		sendCallback: function() {},
-	});
+	var setThrottlerID,
+		sendQueue = {},
+		QueueHandler = utils.QueueHandler;
 
 
 	var constructor = function() {
