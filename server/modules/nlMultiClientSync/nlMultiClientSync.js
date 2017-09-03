@@ -39,6 +39,17 @@ module.exports = function(options) {
 
 		this.queueHandler = new QueueHandler( this.sendNetworkSet.bind(this) );
 		this.queueHandler.interval = 30;
+		this.queueHandler.next = function() {
+			if(this.queue.length > 0) {
+
+				setTimeout(function() {
+					this.sendCallback(this.queue);
+
+					//this.queue.length = 0;
+				}.bind(this), this.interval);
+
+			}
+		};
 
 	};
 
@@ -253,12 +264,26 @@ module.exports = function(options) {
 		},
 		sendNetworkSet: function(fieldValues) {
 			for(var i=fieldValues.length-1; i >= 0; i--) {
-				var field = fieldValues[i].field,
-					value = fieldValues[i].value,
-					modeRequested = fieldValues[i].modeRequested,
-					model = fieldValues[i].model;
 
-				model.set(field, value, modeRequested);
+				var closedFunction = function(i, fieldValues) {
+					return function() {
+						var field = fieldValues[i].field,
+							value = fieldValues[i].value,
+							modeRequested = fieldValues[i].modeRequested,
+							model = fieldValues[i].model;
+
+						model.set(field, value, modeRequested);
+
+						if(i == self.queueHandler.queue.length-1) {
+							self.queueHandler.queue.length = 0;
+						}
+
+					}
+				};
+
+				closedFunction = closedFunction(i, fieldValues);
+
+				setTimeout(closedFunction, 30*(i+1));
 			}
 
 		},
