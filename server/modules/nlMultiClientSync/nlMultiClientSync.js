@@ -265,7 +265,7 @@ module.exports = function(options) {
 		sendNetworkSet: function(fieldValues) {
 			for(var i=fieldValues.length-1; i >= 0; i--) {
 
-				var closedFunction = function(i, fieldValues) {
+				var closedFunction = function(i) {
 					return function() {
 						var field = fieldValues[i].field,
 							value = fieldValues[i].value,
@@ -281,7 +281,7 @@ module.exports = function(options) {
 					}
 				};
 
-				closedFunction = closedFunction(i, fieldValues);
+				closedFunction = closedFunction(i);
 
 				setTimeout(closedFunction, 30*(i+1));
 			}
