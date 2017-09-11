@@ -34,10 +34,20 @@
             <label for="send">send every</label> <input name="send" type="text" rv-value="widget:sendPeriod"><br>
             <hr>
             <select class="cloudService" rv-value="widget:cloudService">
+              <option value="ioadafruit">io.adafruit.com</option>
+              <option value="thingspeak">ThingSpeak</option>
               <option value="sparkfun">SparkfunPhant</option>
               <option value="particle">Particle.io</option>
             </select>
               <br>
+                <div class="ioadafruit">
+                    <label>aio key</label> <input class="keys" type="text" rv-value="widget:ioAdafruitAioKey"><br>
+                    <label>username</label> <input class="keys" type="text" placeholder="username" rv-value="widget:ioAdafruitUsername"><br>
+                    <label>feed key</label> <input class="keys" type="text" placeholder="feedkey" rv-value="widget:ioAdafruitFeedKey"><br>
+                </div>
+                <div class="thingspeak">
+                    <label>write key</label> <input class="keys" type="text" placeholder="Write Key" rv-value="widget:thingspeakWriteApiKey"><br>
+                </div>
                 <div class="sparkfun">
                     <label for="dataField">data field</label> <input name="dataField" class="keys" type="text" rv-value="widget:phantDataField"><br>
                     <label for="pubKey">public key</label> <input name="pubKey" class="keys" type="text" placeholder="Public Key" rv-value="widget:phantPublicKey"><br>

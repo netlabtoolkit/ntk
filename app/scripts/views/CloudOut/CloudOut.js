@@ -42,7 +42,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.model.set({
                 title: 'CloudOut',
                 sendPeriod: 10000,
-                cloudService: 'sparkfun',
+                cloudService: 'ioadafruit',
                 // sparkfun phant
                 phantPrivateKey: '',
                 phantPublicKey: '',
@@ -52,17 +52,25 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 particlePin: 'D0',
                 particleDeviceId: '',
                 particleAccessToken: '',
+								// thingspeak.com
+								thingspeakWriteApiKey: '',
+								// io.adafruit.com
+								ioAdafruitAioKey: '',
+								ioAdafruitUsername: '',
+								ioAdafruitFeedKey: 'mydata',
                 //
                 averageInputs: false,
                 roundOutput: true,
                 sendToCloud: false,
                 displayTimerStart: false,
                 displayText: "Stopped",
+								dataLimitWaiting: false,
                 //
                 lastValueSentToCloud: "-1000",
                 lastTimeSentToCloud: 0,
                 repeatSameCount: 0,
                 resendRepeatSameInterval: 5,
+								dataLimitWaiting: false,
 
             });
 
@@ -136,13 +144,28 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 var service = this.model.get('cloudService');
                 switch(service) {
                     case 'sparkfun':
-                        //
                         this.$('.sparkfun').show();
                         this.$('.particle').hide();
+												this.$('.thingspeak').hide();
+												this.$('.ioadafruit').hide();
                         break;
                     case 'particle':
                         this.$('.sparkfun').hide();
                         this.$('.particle').show();
+												this.$('.thingspeak').hide();
+												this.$('.ioadafruit').hide();
+                        break;
+										case 'thingspeak':
+                        this.$('.sparkfun').hide();
+                        this.$('.particle').hide();
+												this.$('.thingspeak').show();
+												this.$('.ioadafruit').hide();
+                        break;
+										case 'ioadafruit':
+												this.$('.ioadafruit').show();
+                        this.$('.sparkfun').hide();
+                        this.$('.particle').hide();
+												this.$('.thingspeak').hide();
                         break;
                     default:
                         //
@@ -201,6 +224,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 var timeDiff = Date.now() - this.startTime;
                 var lastTimeSentTimeDiff = Date.now() - this.model.get('lastTimeSentToCloud');
                 var theValue = (this.model.get('out')).toString();
+								var timeMessage = " Send in: ";
+								if (this.model.get('dataLimitWaiting')) {
+									timeMessage = "Lmt Wait: ";
+								}
 
                 if (timeDiff >= period ||
                     (this.model.get('lastValueSentToCloud') != theValue && lastTimeSentTimeDiff >= period)) {
@@ -208,7 +235,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
                     this.startTime = Date.now();
                     if(!app.server) this.$('.outvalue').css('color','#ff0000'); // start the RED pulse
-                    this.setDisplayText(' Send in: ' + (period / 1000).toFixed(1) + 's');
+
+										this.setDisplayText(timeMessage + (period / 1000).toFixed(1) + 's');
 
                     this.lastTimeDiff = 0;
 
@@ -265,6 +293,68 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                             //console.log(response);
                                     });
                                     break;
+																case 'thingspeak':
+		                                // thingspeak.com
+		                                //
+																		var apiKey = "api_key=" + this.model.get('thingspeakWriteApiKey');
+		                                var url = "https://api.thingspeak.com/update?" + apiKey + "&field1=" + theValue;
+																		//console.log(url);
+
+																		$.getJSON(url)
+																			.done(function( json ) {
+																					var responseValue = parseInt(JSON.stringify(json));
+																					//console.log( "JSON Data: " + responseValue );
+																					if (responseValue == 0) {
+																						self.model.set('dataLimitWaiting',true);
+																						self.setDisplayText("Exceeded Data Limit");
+																						console.log("Exceeded Data Limit");
+																						//self.model.set('repeatSameCount',self.model.get('resendRepeatSameInterval'));
+																					} else {
+																						self.model.set('dataLimitWaiting',false);
+																						console.log("Update success, added message: " + responseValue);
+																					}
+																			})
+																			.fail(function( jqxhr, textStatus, error ) {
+																					//var response = JSON.parse(jqxhr.responseText);
+																					self.model.set('dataLimitWaiting',false);
+																					self.model.set('sendToCloud',false);
+																					self.setDisplayText("Invalid key");
+																					var err = textStatus + ", " + error;
+																					console.log( "Connection to cloud service failed: " + err);
+																		});
+		                                break;
+																case 'ioadafruit':
+																		jQuery.ajax({
+																		    url: "https://io.adafruit.com/api/v2/" + self.model.get('ioAdafruitUsername') + "/feeds/" + self.model.get('ioAdafruitFeedKey') + "/data",
+																		    type: "POST",
+																		    headers: {
+																		        "x-aio-key": self.model.get('ioAdafruitAioKey'),
+																		        "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+																		    },
+																		    contentType: "application/x-www-form-urlencoded",
+																		    data: {
+																		        "value": theValue,
+																		    },
+																		})
+																		.done(function(data, textStatus, jqXHR) {
+																				self.model.set('dataLimitWaiting',false);
+																				console.log("HTTP Request Succeeded: " + jqXHR.status);
+																		    console.log(data);
+																		})
+																		.fail(function(jqXHR, textStatus, errorThrown) {
+																		    //console.log("HTTP Request Failed");
+																				var err = textStatus + ", " + errorThrown;
+																				if (errorThrown.indexOf("Too Many Requests") >= 0) {
+																					self.model.set('dataLimitWaiting',true);
+																					console.log(err + ", trying again");
+																				} else {
+																					self.model.set('sendToCloud',false);
+																					self.setDisplayText("Bad key/user");
+																					console.log( err);
+																				}
+																		})
+																		break;
+
                                 default:
                             }
                             this.model.set('lastValueSentToCloud',theValue);
@@ -273,6 +363,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                         }
                     } else {
                         if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
+														//console.log(theValue + " " + this.model.get('lastValueSentToCloud'));
                             console.log('not sending due to repeat: '  + this.model.get('repeatSameCount'));
                             this.model.set('repeatSameCount',this.model.get('repeatSameCount') + 1);
                         }
@@ -281,7 +372,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     // this.inputCount = 0;
                     // this.inputCumulative = 0;
                 } else if (timeDiff - this.lastTimeDiff >= 100) {
-                    this.setDisplayText(' Send in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
+                    this.setDisplayText(timeMessage + ((period - timeDiff) / 1000).toFixed(1) + 's');
                     if (!app.server && timeDiff >= 300) this.$('.outvalue').css('color','#000000'); // stop the RED pulse
                     this.lastTimeDiff = timeDiff;
                 }

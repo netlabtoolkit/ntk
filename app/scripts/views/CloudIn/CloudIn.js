@@ -43,7 +43,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.model.set({
                 title: 'CloudIn',
                 getPeriod: 10000,
-                cloudService: 'sparkfun',
+                cloudService: 'ioadafruit',
                 // sparkfun phant
                 phantPublicKey: '',
                 phantDataField: 'mydata',
@@ -52,6 +52,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 particlePin: 'A0',
                 particleDeviceId: '',
                 particleAccessToken: '',
+								// thingspeak.com
+								thingspeakReadApiKey: "",
+								thingspeakChannelId: "",
+								// io.adafruit.com
+								ioAdafruitAioKey: '',
+								ioAdafruitUsername: '',
+								ioAdafruitFeedKey: 'mydata',
                 //
                 getFromCloud: false,
                 displayTimerStart: false,
@@ -129,16 +136,31 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             if(!app.server) {
                 var service = this.model.get('cloudService');
                 switch(service) {
-                    case 'sparkfun':
-                        //
-                        this.$('.sparkfun').show();
-                        this.$('.particle').hide();
-                        break;
-                    case 'particle':
-                        this.$('.sparkfun').hide();
-                        this.$('.particle').show();
-                        break;
-                    default:
+									case 'sparkfun':
+											this.$('.sparkfun').show();
+											this.$('.particle').hide();
+											this.$('.thingspeak').hide();
+											this.$('.ioadafruit').hide();
+											break;
+									case 'particle':
+											this.$('.sparkfun').hide();
+											this.$('.particle').show();
+											this.$('.thingspeak').hide();
+											this.$('.ioadafruit').hide();
+											break;
+									case 'thingspeak':
+											this.$('.sparkfun').hide();
+											this.$('.particle').hide();
+											this.$('.thingspeak').show();
+											this.$('.ioadafruit').hide();
+											break;
+									case 'ioadafruit':
+											this.$('.sparkfun').hide();
+											this.$('.particle').hide();
+											this.$('.thingspeak').hide();
+											this.$('.ioadafruit').show();
+											break;
+                  default:
                         //
                 }
             }
@@ -173,11 +195,15 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     //console.log("reset");
                 }
                 var timeDiff = Date.now() - this.startTime;
+								var timeMessage = " Get in: ";
+								if (this.model.get('dataLimitWaiting')) {
+									timeMessage = "Lmt Wait: ";
+								}
                 if (timeDiff > period) { // get from cloud
                     //console.log("getting");
                     this.startTime = Date.now();
                     if(!app.server) this.$('.outvalue').css('color','#ff0000'); // start the RED pulse
-                    this.setDisplayText(' Get in: ' + (period / 1000).toFixed(1) + 's');
+                    this.setDisplayText(timeMessage + (period / 1000).toFixed(1) + 's');
 
                     this.lastTimeDiff = 0;
                     if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
@@ -249,6 +275,57 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                                         }
                                 });
                                 break;
+														case 'thingspeak':
+                                // thingspeak.com
+                                //
+
+																var apiKey = "api_key=" + this.model.get('thingspeakReadApiKey');
+																var channelId = this.model.get('thingspeakChannelId');
+                                var url = "http://api.thingspeak.com/channels/" + channelId + "/feed/last.json?" + apiKey + "&callback=?";
+																$.getJSON(url, function(data) {
+
+																	// if the field1 has data update widget
+																	if (data.field1 && !isNaN(data.field1)) {
+																		//console.log(data.field1);
+																		var value = parseInt(data.field1,10);
+																		self.model.set("in",value);
+																	} else { // stop getting data
+																		self.model.set('getFromCloud',false);
+                                    this.setDisplayText("Bad data");
+																	}
+																});
+                                break;
+
+														case 'ioadafruit':
+																jQuery.ajax({
+																		url: "https://io.adafruit.com/api/v2/" + self.model.get('ioAdafruitUsername') + "/feeds/" + self.model.get('ioAdafruitFeedKey') + "/data/last",
+																    type: "GET",
+																    headers: {
+																        "x-aio-key": self.model.get('ioAdafruitAioKey'),
+																        "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+																    },
+																})
+																.done(function(data, textStatus, jqXHR) {
+																    //console.log("HTTP Request Succeeded: " + jqXHR.status);
+																    //console.log(data);
+																		var value = parseInt(data.value,10);
+																		//console.log("VALUE: " + value);
+																		self.model.set("in",value);
+																		self.model.set('dataLimitWaiting',false);
+																})
+																.fail(function(jqXHR, textStatus, errorThrown) {
+																		if (errorThrown.indexOf("Too Many Requests") >= 0) {
+																			self.model.set('dataLimitWaiting',true);
+																			console.log(errorThrown + ", trying again");
+																		} else {
+																			self.model.set('getFromCloud',false);
+																			self.setDisplayText("Bad key/user");
+																			var err = textStatus + ", " + errorThrown;
+																			console.log( "Connection to cloud service failed: " + err);
+																		}
+																});
+																break;
+
                             default:
                                 //
                         }
@@ -256,7 +333,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     this.inputCount = 0;
                     this.inputCumulative = 0;
                 } else if (timeDiff - this.lastTimeDiff >= 100) {
-                    this.setDisplayText(' Get in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
+                    this.setDisplayText(timeMessage + ((period - timeDiff) / 1000).toFixed(1) + 's');
                     if (!app.server && timeDiff >= 300) this.$('.outvalue').css('color','#000000'); // stop the RED pulse
                     this.lastTimeDiff = timeDiff;
                 }

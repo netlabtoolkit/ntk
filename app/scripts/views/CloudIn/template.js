@@ -36,14 +36,25 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-            
+
             <label>get every</label> <input type="text" rv-value="widget:getPeriod">
             <hr>
             <select class="cloudService" rv-value="widget:cloudService">
-              <option value="sparkfun">SparkfunPhant</option>
+              <option value="ioadafruit">io.adafruit.com</option>
+              <option value="thingspeak">ThingSpeak</option>
               <option value="particle">Particle.io</option>
+              <option value="sparkfun">SparkfunPhant</option>
             </select>
-              <br>
+            <br>
+            <div class="thingspeak">
+                <label>read key</label> <input class="keys" type="text" placeholder="Read Key" rv-value="widget:thingspeakReadApiKey"><br>
+                <label>channel id</label> <input class="keys" type="text" placeholder="Channel ID" rv-value="widget:thingspeakChannelId"><br>
+            </div>
+            <div class="ioadafruit">
+                <label>aio key</label> <input class="keys" type="text" rv-value="widget:ioAdafruitAioKey"><br>
+                <label>username</label> <input class="keys" type="text" placeholder="username" rv-value="widget:ioAdafruitUsername"><br>
+                <label>feed key</label> <input class="keys" type="text" placeholder="feedkey" rv-value="widget:ioAdafruitFeedKey"><br>
+            </div>
             <div class="sparkfun">
                 <label for="dataField">data field</label> <input name="dataField" class="keys" type="text" rv-value="widget:phantDataField"><br>
                 <label>public key</label> <input class="keys" type="text" placeholder="Public Key" rv-value="widget:phantPublicKey"><br>
