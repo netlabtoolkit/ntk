@@ -31,6 +31,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		typeID: 'DigitalIn',
 		deviceMode: 'INPUT',
 		className: 'digitalIn',
+		pinMode: 3,
 		categories: ['I/O'],
 		template: _.template(Template),
 		initialize: function(options) {
@@ -41,7 +42,8 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				title: 'DigitalIn',
 				easing: false,
 				easingAmount: 30,
-				smoothingAmount: 60
+				smoothingAmount: 60,
+				active: false,
 
 			});
 
@@ -78,6 +80,83 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 		},
 
+		onModelChange: function(model) {
+			var changed = model.changedAttributes();
+
+			if(changed) {
+				if(changed.server) {
+					this.model.set({server: changed.server, active: false});
+				}
+				if(changed.port) {
+					this.model.set({port: changed.port, active: false});
+				}
+
+				if(changed.deviceType) {
+					this.model.set({deviceType: changed.deviceType, active: false});
+					if(!app.server) {
+						if (changed.deviceType == "mkr1000") {
+							this.$('.deviceIp').show();
+						}
+						else {
+							this.$('.deviceIp').hide();
+						}
+					}
+				}
+
+				// Check if there are any inactive models that we will need to activate
+				var inactiveModels = this.inactiveModelsExist();
+
+				if( inactiveModels && this.model.get("active") == true ) {
+					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
+						modelType = this.getDeviceModelType();
+
+					//this.unMapHardwareInlet();
+
+					var server = this.getDeviceServerName();
+					var port = this.getDeviceServerPort();
+
+					app.Patcher.Controller.mapToModel({
+						view: this,
+						modelType: modelType,
+						IOMapping: {sourceField: sourceField, destinationField: 'in'},
+						server: server + ":" + port,
+					}, true);
+
+					this.enableDevice();
+
+				}
+
+			}
+		},
+		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
+		getDeviceServerName: function() {return ((this.model.get('server') == undefined) || (this.model.get('server') === true) ) ? '127.0.0.1' : this.model.get('server')},
+		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
+		inactiveModelsExist: function checkForInactiveModels() {
+			var inactiveModels = false;
+
+			if(this.sources.length > 0) {
+				for(var i=this.sources.length-1; i>=0; i--) {
+					var source = this.sources[i];
+
+					//if(!source.model.get("active") ) {
+					if(!source.model.active ) {
+						inactiveModels = true;
+					}
+				}
+			}
+
+			return inactiveModels;
+		},
+		unMapHardwareInlet: function unMapHardwareInlet() {
+
+			this.sourceToRemove = this.sources[0];
+			this.sources.length = 0;
+			this.sources = [];
+
+			if(this.sourceToRemove) {
+				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
+			}
+		},
 		onRender: function() {
 			WidgetView.prototype.onRender.call(this);
 			var self = this;
