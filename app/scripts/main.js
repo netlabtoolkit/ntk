@@ -117,6 +117,16 @@ function (Backbone, App, rivets ) {
 	  return value !== undefined && value.length > 0;
 	};
 
+	rivets.formatters.capitalize = {
+		read: function(outputMapping) {
+			return outputMapping.toUpperCase();
+		},
+		publish: function(outputMapping) {
+			return outputMapping.toUpperCase();
+		}
+
+	};
+
 	rivets.formatters.hardwareOutput = {
 		read: function(outputMapping) {
 			if(outputMapping !== undefined && outputMapping.length !== 0) {
