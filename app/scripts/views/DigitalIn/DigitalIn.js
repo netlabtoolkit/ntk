@@ -250,6 +250,25 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			this.smoother.setBufferLength(this.model.get('smoothingAmount'));
 		},
 
+		enableDevice: function enableHardware() {
+			console.log('ENABLE DEVICE');
+			// TODO: Hack for now due to hardware usually being triggered from edit mode.
+			// Temporarily dipping into edit mode for now. See SocketAdapter:registerOutboundClientEvents
+			var switchBack = false;
+			if(window.app.serverMode == true) {
+				window.app.serverMode = false;
+				switchBack = true;
+			}
+
+			var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+
+			//var outputModel = {};
+			//outputModel[this.model.get('outputMapping')] = this.model.get("out");
+			//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel });
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
+
+			(switchBack === true) && (window.app.serverMode = true);
+		},
 	});
 });
 

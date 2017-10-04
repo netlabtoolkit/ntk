@@ -153,6 +153,7 @@ module.exports = function(options) {
 			socket.on('sendModelUpdate', function(options) {
 
 
+
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
 

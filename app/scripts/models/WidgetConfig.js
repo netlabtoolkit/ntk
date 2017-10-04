@@ -17,7 +17,7 @@ function( Backbone ) {
 			// widget ID. Unique ID for remapping later
 			wid: undefined,
 			active: true,
-            activeOut: true,
+            activeOut: false,
 			hwActive: false,
 			smoothing: false,
 			easing: false,
