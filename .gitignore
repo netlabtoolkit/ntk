@@ -13,3 +13,5 @@ npm-debug.log
 packaged/*
 currentPatch.ntk
 notes.md
+.DS_Store
+.claude/settings.local.json

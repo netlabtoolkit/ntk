@@ -11,7 +11,7 @@ module.exports = function(attributes) {
 			this.type = "ArduinoUno";
 
 			var self = this;
-			this.board = five.Board({
+			this.board = new five.Board({
 				repl:false
 			});
 

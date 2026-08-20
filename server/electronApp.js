@@ -1,13 +1,9 @@
 
 const electron = require('electron');
-//var Menu = require("menu");
 var Menu = electron.Menu
 const app = electron.app;
 const BrowserWindow = electron.BrowserWindow;
 const ntk = require('./netlabServer.js')();
-
-// Report crashes to our server.
-electron.crashReporter.start();
 
 var mainWindow = null;
 
@@ -25,7 +21,10 @@ app.on('ready', function() {
 	  height: 768,
 	  title: "NTK",
 	  autoHideMenuBar: true,
-	  nodeIntegration: false,
+	  webPreferences: {
+		  nodeIntegration: false,
+		  contextIsolation: true,
+	  },
   });
 
   mainWindow.loadURL('http://localhost:9001');
@@ -40,19 +39,19 @@ app.on('ready', function() {
   var template = [{
 	  label: "Application",
 	  submenu: [
-		  { label: "About Application", selector: "orderFrontStandardAboutPanel:" },
+		  { label: "About Application", role: "about" },
 		  { type: "separator" },
 		  { label: "Quit", accelerator: "Command+Q", click: function() { app.quit(); }}
 	  ]}, {
 		  label: "Edit",
 		  submenu: [
-			  { label: "Undo", accelerator: "CmdOrCtrl+Z", selector: "undo:" },
-			  { label: "Redo", accelerator: "Shift+CmdOrCtrl+Z", selector: "redo:" },
+			  { label: "Undo", accelerator: "CmdOrCtrl+Z", role: "undo" },
+			  { label: "Redo", accelerator: "Shift+CmdOrCtrl+Z", role: "redo" },
 			  { type: "separator" },
-			  { label: "Cut", accelerator: "CmdOrCtrl+X", selector: "cut:" },
-			  { label: "Copy", accelerator: "CmdOrCtrl+C", selector: "copy:" },
-			  { label: "Paste", accelerator: "CmdOrCtrl+V", selector: "paste:" },
-			  { label: "Select All", accelerator: "CmdOrCtrl+A", selector: "selectAll:" }
+			  { label: "Cut", accelerator: "CmdOrCtrl+X", role: "cut" },
+			  { label: "Copy", accelerator: "CmdOrCtrl+C", role: "copy" },
+			  { label: "Paste", accelerator: "CmdOrCtrl+V", role: "paste" },
+			  { label: "Select All", accelerator: "CmdOrCtrl+A", role: "selectAll" }
 		  ]}
   ];
 

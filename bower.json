@@ -22,5 +22,8 @@
     "velocity": "~1.2.2"
   },
   "devDependencies": {},
-  "directory": "bower_components"
+  "directory": "bower_components",
+  "resolutions": {
+    "underscore": "1.6.0"
+  }
 }

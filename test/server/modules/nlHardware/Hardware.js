@@ -10,7 +10,7 @@ beforeEach(function() {
 });
 
 describe("returns a response", function() {
-	it("returns a function", function(done) {
+	it("returns a function", function() {
 		expect(hw).to.be.an.instanceOf(Object);
 	});
 });

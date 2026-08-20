@@ -2,12 +2,16 @@
 rm -r ./packaged
 mkdir ./packaged
 
-# ALL
-#./node_modules/.bin/electron-packager ./server NTK --platform=all --arch=x64 --version=0.35.1 --overwrite --out=packaged
+# electron lives in the root devDependencies, not server/'s — electron-packager
+# can't auto-detect it from the ./server source dir, so read it explicitly.
+ELECTRON_VERSION=$(node -p "require('./package.json').devDependencies.electron.replace(/^[^0-9]*/, '')")
 
-# OSX
-./node_modules/.bin/electron-packager ./server NTK --platform=darwin --arch=x64 --version=0.35.1 --overwrite --out=packaged --icon=server/icons/icon.icns --app-version=1.0.0
-#./node_modules/.bin/electron-packager ./server NTK --platform=linux --arch=x64 --version=1.3.3 --overwrite --out=packaged --icon=server/icons/icon.icns --app-version=1.0.0
+# ALL
+#./node_modules/.bin/electron-packager ./server NTK --platform=all --arch=arm64 --electron-version=$ELECTRON_VERSION --overwrite --out=packaged
+
+# OSX (Apple Silicon)
+./node_modules/.bin/electron-packager ./server NTK --platform=darwin --arch=arm64 --electron-version=$ELECTRON_VERSION --overwrite --out=packaged --icon=server/icons/icon.icns --app-version=1.0.0
+#./node_modules/.bin/electron-packager ./server NTK --platform=linux --arch=arm64 --electron-version=$ELECTRON_VERSION --overwrite --out=packaged --icon=server/icons/icon.icns --app-version=1.0.0
 
 # WIN
-#./node_modules/.bin/electron-packager ./server NTK --platform=win32 --arch=x64 --version=0.35.1 --overwrite --out=packaged --icon=server/icons/icon.ico
+#./node_modules/.bin/electron-packager ./server NTK --platform=win32 --arch=x64 --electron-version=$ELECTRON_VERSION --overwrite --out=packaged --icon=server/icons/icon.ico

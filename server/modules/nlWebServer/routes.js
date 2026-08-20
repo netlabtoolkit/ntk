@@ -57,7 +57,7 @@ var createRouter = (server) => {
 	});
 
 	router.get('/devTools', function(req, res){
-		res.send('');
+		res.end('');
 		//res.sendfile( path.join( __dirname, '../../devTools/cssrefresh.js' ) );
 	});
 

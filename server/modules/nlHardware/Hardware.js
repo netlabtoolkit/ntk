@@ -16,8 +16,6 @@ module.exports = function(options) {
 		var modelMap = {
 			ArduinoUno: './ArduinoModel',
 			OSC: './OSC',
-			galileo: './Galileo2Model',
-			edison: './EdisonModel',
 			mkr1000: './MKR1000Model',
 		};
 		var sensors = [],

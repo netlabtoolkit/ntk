@@ -5,7 +5,7 @@ NETLab Toolkit JavaScript Version
 
 NTK (the NETLab Toolkit) is a visual authoring system for designers, developers, makers, researchers and students who want to design and build tangible Internet of Things projects. With a simple drag and drop interface, connect sensors, actuators, media and networks with the smart widgets. Concepts can be prototyped quickly, encouraging iteration, experimentation and testing by sketching in hardware.
 
-NTK works with the original Arduino and newer Linux embedded systems like the Intel Edison. And NTK can be easily adapted to do new things. The Code widget allows users to add custom Javascript. And with a bit more expertise, users can create their own, reusable widgets.
+NTK works with the original Arduino, and with any board (including ESP32-based boards) running a StandardFirmataWiFi-compatible sketch over the network. And NTK can be easily adapted to do new things. The Code widget allows users to add custom Javascript. And with a bit more expertise, users can create their own, reusable widgets.
 
 Go ahead, Drag and Drop the Internet of Things.
 
@@ -48,13 +48,6 @@ cd ntk
 npm run setup
 ```
 
-NOTE: On Mac OS X El Capitan v10.11, there's an issue with installing gems. For the above use:
-```
-sudo gem update --system -n /usr/local/bin
-sudo gem install -n /usr/local/bin sass
-```
-Ref: <https://github.com/sass/sass/issues/1768>
-
 Note: if you are running Linux, you will have to set proper permissions on your Arduino in order to use it.
 For instance:
 ```
@@ -64,21 +57,27 @@ sudo chmod a+rw /dev/ttyUSB0
 
 Starting the server
 ---------------------
-To run NTK as a **standard command-line application**:
+To run NTK as the **Electron desktop app**:
+
+```
+npm run electron
+```
+Note: if you've made any changes or this is the first time you are running it, you should rerun "npm run build" before "npm run electron".
+
+To run NTK as a **standard command-line web server** (no Electron window, connect with any browser):
 
 ```
 npm start
 ```
-Note: if you've made any changes or this is the first time you are running it, you should rerun "npm run build" before "npm start".
 
-To run NTK as a **live-reload development server**, run grunt by:
+To run NTK as a **live-reload development server**, run:
 ```
 npm run dev
 ```
 
 To Build a Distributable Application
 ---------------------
-After installing bower, SASS, requirejs build tool, etc. as noted above, run these commands to build:
+After running `npm run setup` as noted above, build the packaged app with:
 ```
 npm run package
 ```

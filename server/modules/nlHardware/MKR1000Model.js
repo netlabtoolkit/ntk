@@ -32,7 +32,7 @@ module.exports = function(attributes) {
 			}));
 
 			io.once('ready', function() {
-				self.board = five.Board({
+				self.board = new five.Board({
 					io: io,
 					repl: false,
 				});

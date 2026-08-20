@@ -12,7 +12,7 @@ module.exports = function(five) {
 			for(var index in this.board.pins) {
 				var reportedPin = this.board.pins[index];
 				if(reportedPin.analogChannel < 127) {
-					var sensor = five.Sensor({
+					var sensor = new five.Sensor({
 						pin: "A"+reportedPin.analogChannel,
 						freq: pollFreq,
 					});
@@ -178,7 +178,7 @@ module.exports = function(five) {
 						// delete this pin if it exists in the outputs
 						delete this.outputs[pin].pin;
 
-						var button = five.Button(hardwarePinNumber);
+						var button = new five.Button(hardwarePinNumber);
 
 						var withinThrottleRange = false;
 						button.on("press", function() {
@@ -219,7 +219,7 @@ module.exports = function(five) {
 						if( !(currentPin instanceof five.Led) ) {
 							var hardwarePin = parseInt(pin.substr(1),10);
 
-							var outputPin = five.Led(hardwarePin);
+							var outputPin = new five.Led(hardwarePin);
 							this.outputs[pin].pin = outputPin;
 						}
 					}
@@ -230,7 +230,7 @@ module.exports = function(five) {
 					if(pinExists) {
 						var hardwarePin = parseInt(pin.substr(1),10);
 
-						var outputPin = five.Servo({
+						var outputPin = new five.Servo({
 							pin: hardwarePin,
 							range: [0,180],
 						});
