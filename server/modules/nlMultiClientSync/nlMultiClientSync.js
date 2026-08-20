@@ -26,7 +26,8 @@ module.exports = function(options) {
 
 
 		this.masterPatch = [];
-		this.serverActive = true;
+		// Starts unlocked (Edit ON) -- must match netlabServer.js's initial `serverActivated`
+		this.serverActive = false;
 
 		this.loadPatchFromServer();
 		this.transport.on('connection', this.registerClient);

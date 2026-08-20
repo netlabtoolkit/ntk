@@ -23,7 +23,9 @@ nlWebServer.start()
 
 		// Passing the deviceControllers model to the clientSync before having the server specific version
 		var clientSync = require('./modules/nlMultiClientSync/nlMultiClientSync')({transport: io, models: deviceControllers });
-		var serverActivated = true;
+		// Starts unlocked (Edit ON) -- the Electron window is always the sole client,
+		// so there's no autonomous headless system to hand control back and forth with.
+		var serverActivated = false;
 
 		// Bind loading a new file directly from the client
 		nlWebServer.on('loadPatch', function(options) {
