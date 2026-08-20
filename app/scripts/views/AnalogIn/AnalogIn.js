@@ -17,6 +17,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			'click .smoothing': 'toggleSmoothing',
             'click .easing': 'toggleEasing',
             'change .smoothingAmount': 'smoothingAmtChange',
+            'mousedown .serialPortPicker': 'requestSerialPorts',
 		},
 		ins: [
 			//{
@@ -44,6 +45,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				easingAmount: 30,
 				smoothingAmount: 60,
 				active: false,
+				port: this.model.get('port') || 3030,
 			});
 
 			this.easingLast = 0;
@@ -70,6 +72,36 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			}.bind(this);
 
 			window.app.timingController.registerFrameCallback(this.localTimeKeeperFunc, this);
+
+			this.onSerialPortList = function(ports) {
+				this.updateSerialPortOptions(ports);
+			}.bind(this);
+			window.app.vent.on('serialPortList', this.onSerialPortList);
+
+			if(this.getDeviceModelType() === 'ArduinoUno') {
+				this.requestSerialPorts();
+			}
+		},
+		requestSerialPorts: function() {
+			window.app.vent.trigger('listSerialPorts');
+		},
+		updateSerialPortOptions: function(ports) {
+			var $select = this.$('.serialPortSelect'),
+				currentValue = this.model.get('server');
+
+			$select.find('option.detectedPort').remove();
+
+			_.each(ports, function(port) {
+				var label = port.manufacturer ? port.path + ' (' + port.manufacturer + ')' : port.path;
+				$select.append('<option class="detectedPort" value="' + port.path + '">' + label + '</option>');
+			});
+
+			// Auto-select the sole connected board when nothing has been explicitly chosen yet
+			if(ports.length === 1 && (currentValue === undefined || currentValue === 'auto')) {
+				this.model.set('server', ports[0].path);
+			}
+
+			$select.val(this.model.get('server') || 'auto');
 		},
 		onModelChange: function(model) {
 			var changed = model.changedAttributes();
@@ -86,10 +118,13 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 					this.model.set({deviceType: changed.deviceType, active: false});
 					if(!app.server) {
 						if (changed.deviceType == "mkr1000") {
-							this.$('.deviceIp').show();
+							this.$('.deviceIp, .devicePort').show();
+							this.$('.serialPortPicker').hide();
 						}
 						else {
-							this.$('.deviceIp').hide();
+							this.$('.deviceIp, .devicePort').hide();
+							this.$('.serialPortPicker').show();
+							this.requestSerialPorts();
 						}
 					}
 				}
@@ -120,8 +155,12 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			}
 		},
 		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
-		getDeviceServerName: function() {return ((this.model.get('server') == undefined) || (this.model.get('server') === true) ) ? '127.0.0.1' : this.model.get('server')},
-		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
+		getDeviceServerName: function() {
+			var server = this.model.get('server');
+			if(server !== undefined && server !== true) return server;
+			return this.getDeviceModelType() === 'ArduinoUno' ? 'auto' : '127.0.0.1';
+		},
+		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 3030 : this.model.get('port')},
 		inactiveModelsExist: function checkForInactiveModels() {
 			var inactiveModels = false;
 
@@ -183,6 +222,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		onRemove: function() {
 			window.app.timingController.removeFrameCallback(this.localProcessSignalChain, this);
             window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
+			window.app.vent.off('serialPortList', this.onSerialPortList);
 		},
 		toggleInvert: function(e) {
 			e.preventDefault();

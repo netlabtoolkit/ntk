@@ -16,6 +16,9 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 		categories: ['I/O'],
 		className: 'analogOut',
 		template: _.template(Template),
+		widgetEvents: {
+			'mousedown .serialPortPicker': 'requestSerialPorts',
+		},
 
 		ins: [
 			{title: 'input', to: 'in'},
@@ -31,6 +34,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				title: 'AnalogOut',
 				outputMapping: options.outputMapping,
 				activeOut: false,
+				port: this.model.get('port') || 3030,
 			});
 
             this.signalChainFunctions.push(this.limitRange);
@@ -41,6 +45,37 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				this.model.on('change', this.processSignalChain, this);
 			//}
 
+			this.onSerialPortList = function(ports) {
+				this.updateSerialPortOptions(ports);
+			}.bind(this);
+			window.app.vent.on('serialPortList', this.onSerialPortList);
+
+			if(this.getDeviceModelType() === 'ArduinoUno') {
+				this.requestSerialPorts();
+			}
+		},
+		requestSerialPorts: function() {
+			window.app.vent.trigger('listSerialPorts');
+		},
+		updateSerialPortOptions: function(ports) {
+			var $select = this.$('.serialPortSelect'),
+				currentValue = this.model.get('server');
+
+			$select.find('option.detectedPort').remove();
+
+			_.each(ports, function(port) {
+				var label = port.manufacturer ? port.path + ' (' + port.manufacturer + ')' : port.path;
+				$select.append('<option class="detectedPort" value="' + port.path + '">' + label + '</option>');
+			});
+
+			if(ports.length === 1 && (currentValue === undefined || currentValue === 'auto')) {
+				this.model.set('server', ports[0].path);
+			}
+
+			$select.val(this.model.get('server') || 'auto');
+		},
+		onRemove: function() {
+			window.app.vent.off('serialPortList', this.onSerialPortList);
 		},
 
 		onModelChange: function(model) {
@@ -62,10 +97,13 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 					this.model.set({deviceType: changed.deviceType, activeOut: false});
 					if(!app.server) {
 						if (changed.deviceType == "mkr1000") {
-							this.$('.deviceIp').show();
-						} else 
+							this.$('.deviceIp, .devicePort').show();
+							this.$('.serialPortPicker').hide();
+						} else
 							{
-								this.$('.deviceIp').hide();
+								this.$('.deviceIp, .devicePort').hide();
+								this.$('.serialPortPicker').show();
+								this.requestSerialPorts();
 							}
 					}
 				}
@@ -96,8 +134,12 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			}
 		},
 		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
-		getDeviceServerName: function() {return ((this.model.get('server') == undefined) || (this.model.get('server') === true) ) ? '127.0.0.1' : this.model.get('server')},
-		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
+		getDeviceServerName: function() {
+			var server = this.model.get('server');
+			if(server !== undefined && server !== true) return server;
+			return this.getDeviceModelType() === 'ArduinoUno' ? 'auto' : '127.0.0.1';
+		},
+		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 3030 : this.model.get('port')},
 		inactiveModelsExist: function checkForInactiveModels() {
 			var inactiveModels = false;
 

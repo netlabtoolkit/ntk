@@ -61,6 +61,11 @@ function( Backbone ) {
 			});
 			//END MODEL AND PATCH UPDATES
 
+			// List of currently connected serial ports, for the Serial device port picker
+			socket.on("serialPortList", function(ports) {
+				window.app.vent.trigger('serialPortList', ports);
+			});
+
 			socket.on("disconnect", function() {
 				self.connected = false;
 			});
@@ -193,6 +198,10 @@ function( Backbone ) {
 			window.app.vent.on('ToolBar:toggleServer', function(options) {
 				socket.emit('client:toggleServer');
 				window.app.serverMode = !window.app.serverMode;
+			});
+
+			window.app.vent.on('listSerialPorts', function() {
+				socket.emit('client:listSerialPorts');
 			});
 		},
 	};

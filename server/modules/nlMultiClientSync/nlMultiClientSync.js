@@ -194,6 +194,15 @@ module.exports = function(options) {
 				}
 			});
 
+			// Enumerate currently connected serial ports, for the Serial device port picker
+			socket.on('client:listSerialPorts', function() {
+				require('serialport').list().then(function(ports) {
+					socket.emit('serialPortList', ports);
+				}).catch(function(err) {
+					socket.emit('serialPortList', []);
+				});
+			});
+
 			// Allow the front-end to switch IO modes on the device
 			socket.on('client:changeIOMode', function(options) {
 				var options = JSON.parse(options),

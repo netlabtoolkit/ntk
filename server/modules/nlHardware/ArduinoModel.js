@@ -11,9 +11,8 @@ module.exports = function(attributes) {
 			this.type = "ArduinoUno";
 
 			var self = this;
-			this.board = new five.Board({
-				repl:false
-			});
+			var explicitPort = this.address && this.address !== 'auto' ? this.address : undefined;
+			this.board = new five.Board(explicitPort ? { port: explicitPort, repl: false } : { repl: false });
 
 
 			this.board.on("ready", function() {

@@ -43,6 +43,11 @@
             <div class="devicePort">
               <label class="narrowLabel">port</label> <input class="port" type="text" pattern="[0-9]*" rv-value="widget:port">
             </div>
+            <div class="serialPortPicker">
+              <label class="narrowLabel">port</label> <select class="serialPortSelect" rv-value="widget:server">
+                <option value="auto">Auto-detect</option>
+              </select>
+            </div>
 
         </div>
     </div>

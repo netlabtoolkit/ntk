@@ -450,6 +450,16 @@
             .deviceIp {
               display: none;
             }
+
+            .devicePort {
+              display: none;
+            }
+
+            // Serial is the default device type, so this starts visible
+            // (opposite of .deviceIp/.devicePort, which are Network-only).
+            .serialPortPicker {
+              display: block;
+            }
         }
 
 
@@ -457,7 +467,8 @@
 
     }
 
-	.oscOut .deviceIp {
+	.oscOut .deviceIp,
+	.oscOut .devicePort {
 		display: block;
 	}
 
