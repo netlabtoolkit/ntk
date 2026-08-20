@@ -192,6 +192,10 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			WidgetView.prototype.onRender.call(this);
 			var self = this;
 
+			if(this.getDeviceModelType() === 'ArduinoUno') {
+				this.requestSerialPorts();
+			}
+
 			this.$('.dial').knob({
 				'fgColor':'#000000',
 				'bgColor':'#ffffff',

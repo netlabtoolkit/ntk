@@ -192,6 +192,10 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			// always call the superclass
             WidgetView.prototype.onRender.call(this);
 
+			if(this.getDeviceModelType() === 'ArduinoUno') {
+				this.requestSerialPorts();
+			}
+
             this.$('.dial').knob({
 				'fgColor':'#000000',
 				'bgColor':'#ffffff',

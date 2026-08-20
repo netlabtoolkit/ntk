@@ -168,6 +168,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// always call the superclass
             WidgetView.prototype.onRender.call(this);
 
+			if(this.getDeviceModelType() === 'ArduinoUno') {
+				this.requestSerialPorts();
+			}
+
             var self = this;
 
 			this.$('.dial').knob({
