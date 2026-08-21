@@ -11,6 +11,17 @@ module.exports = function(options) {
 
 	var QueueHandler = utils.QueueHandler;
 
+	// OSC has a single, fixed receiving port (see nlHardware/OSC.js) shared by the whole
+	// process, unlike Arduino/MKR1000 devices which are genuinely distinct per address:port.
+	// Widgets (OSCIn/OSCOut) each compute their own "OSC:server:port" key from their own
+	// configurable fields, so without this they'd each get their own hardwareModels entry -
+	// and therefore their own redundant UDP socket bound to the same port. Route every OSC
+	// widget to one canonical key so they all share a single hardware model instance.
+	// Must match the canonical key bindModelToTransport() already broadcasts OSC changes under.
+	var canonicalHardwareKey = function(modelType) {
+		return modelType.split(':')[0] === 'OSC' ? 'OSC:127.0.0.1:9001' : modelType;
+	};
+
 
 	var MultiClientSync = function(options) {
 		_.extend(this, events.EventEmitter.prototype);
@@ -157,10 +168,11 @@ module.exports = function(options) {
 
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
+				var hardwareKey = canonicalHardwareKey(options.modelType);
 
 				for(var field in options.model) {
 					//var selectedModel = self.hardwareModels[modelType];
-					var selectedModel = self.hardwareModels[options.modelType];
+					var selectedModel = self.hardwareModels[hardwareKey];
 					var networkDevice = typeAddressPort[1].match(/^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/);
 
 
@@ -173,11 +185,11 @@ module.exports = function(options) {
 					if(selectedModel == undefined) {
 
 						//self.hardwareModels[modelType] = new nlHardware({deviceType: typeAddressPort[0], address: typeAddressPort[1], port: typeAddressPort[2] }).model;
-						self.hardwareModels[options.modelType] = new nlHardware({deviceType: options.modelType, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+						self.hardwareModels[hardwareKey] = new nlHardware({deviceType: hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
 
-						console.log('MAKING NEW ', options.modelType, self.hardwareModels[options.modelType].type, self.hardwareModels);
-						self.bindModelToTransport(self.hardwareModels[options.modelType]);
-						self.hardwareModels[options.modelType].set(field, parseInt(options.model[field], 10), options.modeRequested);
+						console.log('MAKING NEW ', hardwareKey, self.hardwareModels[hardwareKey].type, self.hardwareModels);
+						self.bindModelToTransport(self.hardwareModels[hardwareKey]);
+						self.hardwareModels[hardwareKey].set(field, parseInt(options.model[field], 10), options.modeRequested);
 					}
 					else {
 						// Extra throttling for network latency
@@ -207,7 +219,7 @@ module.exports = function(options) {
 			// Allow the front-end to switch IO modes on the device
 			socket.on('client:changeIOMode', function(options) {
 				var options = JSON.parse(options),
-					modelType = options.deviceType;
+					modelType = canonicalHardwareKey(options.deviceType);
 
 
 				if(options.port && options.mode) {
