@@ -59,6 +59,13 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'OSC' : this.model.get('deviceType')},
 		getDeviceServerName: function() {return ((this.model.get('server') == undefined) || (this.model.get('server') === true) ) ? '127.0.0.1' : this.model.get('server')},
 		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
+		// this.model's "server"/"port" are the OUTBOUND message target (e.g. SuperCollider),
+		// not something to open a receiving socket on. The hardware-model instance this widget
+		// routes through (for sendDeviceModelUpdate/hardwareSwitch bookkeeping only - the actual
+		// send target is parsed out of the outputMapping field string, independent of this key)
+		// must instead match OSCIn's default receiving key, so OSCOut/OSCIn widgets share one
+		// server-side instance instead of each opening their own UDP socket.
+		getReceivingDeviceKey: function() {return this.getDeviceModelType() + ':127.0.0.1:57190'},
 		inactiveModelsExist: function checkForInactiveModels() {
 			var inactiveModels = false;
 
@@ -75,7 +82,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			return inactiveModels;
 		},
 		enableDevice: function enableHardware() {
-			var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+			var modelType = this.getReceivingDeviceKey();
 
 			var outputModel = {};
 			outputModel[this.model.get('outputMapping')] = this.model.get("out");
@@ -84,7 +91,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			var hasInput = (this.deviceMode == 'in');
 
 			window.app.vent.trigger('Widget:hardwareSwitch', {
-				deviceType: this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),
+				deviceType: this.getReceivingDeviceKey(),
 				port: this.model.get("outputMapping"),
 				mode: this.deviceMode,
 				hasInput: hasInput
@@ -92,8 +99,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 
 			var messageAddress = this.model.get('outputMapping');
-			app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"].model.attributes.outputs[messageAddress] = this.model.get('in');
-			app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"].model.attributes[messageAddress] = this.model.get('in');
+			app.Patcher.Controller.hardwareModelInstances[this.getReceivingDeviceKey()].model.attributes.outputs[messageAddress] = this.model.get('in');
+			app.Patcher.Controller.hardwareModelInstances[this.getReceivingDeviceKey()].model.attributes[messageAddress] = this.model.get('in');
 		},
 		unMapHardwareInlet: function unMapHardwareInlet() {
 
@@ -149,13 +156,13 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 					//}
 				}
 
-				if(app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"] !== undefined) {
+				if(app.Patcher.Controller.hardwareModelInstances[this.getReceivingDeviceKey()] !== undefined) {
 					if((changed['messageName'] !== undefined) || (changed.server !== undefined) || (changed.port !== undefined) ) {
 						// add the message to the outputs of the OSC hardware device
 						var messageAddress = this.model.get('outputMapping');
 
-						app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"].model.attributes.outputs[messageAddress] = this.model.get('in');
-						app.Patcher.Controller.hardwareModelInstances["OSC:127.0.0.1:9001"].model.attributes[messageAddress] = this.model.get('in');
+						app.Patcher.Controller.hardwareModelInstances[this.getReceivingDeviceKey()].model.attributes.outputs[messageAddress] = this.model.get('in');
+						app.Patcher.Controller.hardwareModelInstances[this.getReceivingDeviceKey()].model.attributes[messageAddress] = this.model.get('in');
 					}
 				}
 

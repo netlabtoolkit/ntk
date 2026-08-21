@@ -255,6 +255,21 @@ module.exports = function(options) {
 			socket.on('client:removeWidget', function(wid) {
 				self.masterPatch.widgets = _.reject(self.masterPatch.widgets, function(view) { return wid === view.wid; });
 				this.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
+
+				// Release any hardware-model instance (e.g. an OSC listening socket) that no
+				// widget references any more - the client already removed this widget's own
+				// mappings (see Patcher.js's removeWidget) before sending this event, so
+				// masterPatch.mappings reflects what's still in use.
+				var stillReferencedKeys = _.pluck(self.masterPatch.mappings, 'modelWID');
+				for(var key in self.hardwareModels) {
+					if(!_.contains(stillReferencedKeys, key)) {
+						var model = self.hardwareModels[key];
+						if(typeof model.close === 'function') {
+							model.close();
+						}
+						delete self.hardwareModels[key];
+					}
+				}
 			});
 
 			socket.on('client:addWidget', function(view) {

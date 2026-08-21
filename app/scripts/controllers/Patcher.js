@@ -263,11 +263,14 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					this.addWidgetToStage(newWidget, addedFromLoader);
 
 					if(!addedFromLoader) {
+						// NOT serverAddress (NTK's own web server host) - OSC widgets bind to
+						// the actual OSC receiving port (see OSCIn.js/nlHardware/OSC.js), which
+						// is unrelated to NTK's own web server address.
 						this.mapToModel({
 							view: newWidget,
 							modelType: 'OSC',
 							IOMapping: {sourceField: "/ntk/in/1", destinationField: 'in'},
-							server: serverAddress,
+							server: newWidget.getDeviceServerName() + ":" + newWidget.getDeviceServerPort(),
 						}, addedFromLoader);
 					}
 
@@ -291,11 +294,14 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					this.addWidgetToStage(newWidget, addedFromLoader);
 
 					if(!addedFromLoader) {
+						// NOT serverAddress - see getReceivingDeviceKey() in OSCOut.js: this
+						// must match OSCIn's default receiving key, not OSCOut's own (outbound
+						// target) port, so both share one server-side hardware model instance.
 						this.mapToModel({
 							view: newWidget,
 							IOMapping: {sourceField: "out", destinationField: defaultOutputMapping},
 							modelType: 'OSC',
-							server: serverAddress,
+							server: '127.0.0.1:57190',
 						}, addedFromLoader);
 					}
 

@@ -45,7 +45,12 @@ module.exports = function(attributes) {
 				return false;
 			}
 
-				if(this.receiving[field] !== undefined) {
+				// An outbound send (from a widget, e.g. OSCOut) encodes "address:ip:port"
+				// (see OSCOut.js's outputMapping); a real incoming OSC address (decoded off
+				// the network, or this app's own /ntk/in/N convention) never contains a colon.
+				// Route by that distinction instead of a fixed whitelist, so any OSC address
+				// - not just the predefined /ntk/in/N placeholders - can be received.
+				if(field.indexOf(':') === -1) {
 					this.queueHandler.addToQueue({field: field, value: value});
 				}
 				else {
@@ -102,6 +107,17 @@ module.exports = function(attributes) {
 			else if(mode == 'out') {
 				this.sending[pin] = 0;
 			}
+		},
+		// Releases the real OS sockets this instance opened - the receiving UDP socket and
+		// any per-target outbound clients - so the port is free again once nothing references
+		// this instance (see nlMultiClientSync.js, which calls this on widget deletion).
+		close: function close() {
+			this.OSCServer.kill();
+
+			for(var serverPort in this.OSCClients) {
+				this.OSCClients[serverPort].kill();
+			}
+			this.OSCClients = {};
 		},
 	};
 	_.extend(constructor.prototype, OSCHardwareModel);
