@@ -16,7 +16,7 @@ module.exports = function(attributes) {
 		var options = attributes;
 
 		this.OSCClients = {};
-		var OSCServer = new osc.Server(57190);
+		var OSCServer = new osc.Server(parseInt(attributes.port, 10) || 57190);
 
 		OSCServer.on("message", function (msg, rinfo) {
 			var field = msg[0],

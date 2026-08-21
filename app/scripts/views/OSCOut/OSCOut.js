@@ -5,8 +5,9 @@ define([
 	'text!./template.js',
     'jqueryknob',
 
+	'utils/SignalChainFunctions',
 ],
-function(Backbone, rivets, WidgetView, Template, jqueryknob){
+function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunctions){
 	'use strict';
 
 	return WidgetView.extend({
@@ -33,9 +34,11 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				messageName: options.outputMapping,
 				outputMapping: options.outputMapping,
                 activeOut: false,
+                valueType: 'float',
 			});
 
             //this.signalChainFunctions.push(this.limitRange);
+            this.signalChainFunctions.push(SignalChainFunctions.roundToInt);
 
 			// This is here because this widget effectively does not output (only outputs to hardware and then, only on server)
 			// So we go ahead and process so the output can be shown in the widget

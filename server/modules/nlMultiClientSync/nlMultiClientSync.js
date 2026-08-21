@@ -11,16 +11,15 @@ module.exports = function(options) {
 
 	var QueueHandler = utils.QueueHandler;
 
-	// OSC has a single, fixed receiving port (see nlHardware/OSC.js) shared by the whole
-	// process, unlike Arduino/MKR1000 devices which are genuinely distinct per address:port.
-	// Widgets (OSCIn/OSCOut) each compute their own "OSC:server:port" key from their own
-	// configurable fields, so without this they'd each get their own hardwareModels entry -
-	// and therefore their own redundant UDP socket bound to the same port. Route every OSC
-	// widget to one canonical key so they all share a single hardware model instance.
-	// Must match the canonical key bindModelToTransport() already broadcasts OSC changes under.
-	var canonicalHardwareKey = function(modelType) {
-		return modelType.split(':')[0] === 'OSC' ? 'OSC:127.0.0.1:9001' : modelType;
-	};
+	// An OSC hardware-model instance opens a real UDP socket on whatever port its key
+	// encodes (see nlHardware/OSC.js), so distinct OSCIn widgets configured with distinct
+	// receiving ports correctly get distinct instances/sockets - and OSCIn widgets sharing
+	// a port correctly share one instance, since equal key strings hash to the same entry.
+	// OSCOut has no receiving-port semantics (its own "port" field is an outbound message
+	// target, unrelated to any local socket) - see OSCOut.js's getReceivingDeviceKey(),
+	// which reports a fixed key here instead of its own configurable target, so it always
+	// routes through the same shared instance as a default-configuration OSCIn rather than
+	// opening its own redundant listener.
 
 
 	var MultiClientSync = function(options) {
@@ -105,17 +104,12 @@ module.exports = function(options) {
 		 */
 		bindModelToTransport: function(model) {
 			// Listen for changes made on the hardware to update the front-end
+			// model.address is the exact key this instance was created under (see
+			// nlHardware/Hardware.js), so broadcasting under it always reaches whichever
+			// client-side hardwareModelInstances entry (same key) the change came from -
+			// for OSC in particular, that's now the widget's real configured receiving port.
 			model.on('change', function(options) {
-				//this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: model.address, field: options.field, value: options.value}));
-				var modelSplit = model.address.split(":");
-				if(modelSplit[0] == "OSC") {
-					// OSC always points to the server. The messages themselves now determine the ultimate destination.
-					//this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: modelSplit[0] + ":" + modelSplit[1] + ":9001", field: options.field, value: options.value}));
-					this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: modelSplit[0] + ":127.0.0.1:9001", field: options.field, value: options.value}));
-				}
-				else {
-					this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: modelSplit[0] + ":" + modelSplit[1] + ":" + modelSplit[2], field: options.field, value: options.value}));
-				}
+				this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: model.address, field: options.field, value: options.value}));
 			}.bind(this));
 		},
 		/**
@@ -168,7 +162,7 @@ module.exports = function(options) {
 
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
-				var hardwareKey = canonicalHardwareKey(options.modelType);
+				var hardwareKey = options.modelType;
 
 				for(var field in options.model) {
 					//var selectedModel = self.hardwareModels[modelType];
@@ -219,7 +213,7 @@ module.exports = function(options) {
 			// Allow the front-end to switch IO modes on the device
 			socket.on('client:changeIOMode', function(options) {
 				var options = JSON.parse(options),
-					modelType = canonicalHardwareKey(options.deviceType);
+					modelType = options.deviceType;
 
 
 				if(options.port && options.mode) {

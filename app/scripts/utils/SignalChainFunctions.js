@@ -42,5 +42,19 @@ function () {
 
 			return output;
 		},
+		/**
+		 * Rounds a signal to a whole number when the widget is in int mode
+		 * Requires model.valueType to be present on the Widget's model
+		 *
+		 * @param {number} input
+		 * @return {number}
+		 */
+		roundToInt: function(input, model) {
+			if(model.valueType === 'int') {
+				return Math.round(parseFloat(input, 10));
+			}
+
+			return input;
+		},
 	};
 });

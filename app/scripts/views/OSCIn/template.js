@@ -38,7 +38,7 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-            Receiving on port: <strong>57190</strong><br>
+            <label class="narrowLabel">port</label> <input class="port" type="text" pattern="[0-9]*" rv-value="widget:port"><br>
             <label for="messageName">message</label> <input name="messageName" type="text" rv-value="widget:messageName">
 		</div>
     </div>

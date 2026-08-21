@@ -36,6 +36,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this.model.set({
 				title: 'OSCIn',
 				messageName: '/ntk/in/1',
+                port: 57190,
                 active: true,
 			});
 
@@ -115,16 +116,39 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 			var changed = model.changedAttributes();
 
+			// This must NOT be gated by the this.lastChanged['in'] throttle below: that
+			// compares only the 'in' key across calls, so once any change has occurred whose
+			// changedAttributes lacked 'in' (e.g. the widget's own initial construction-time
+			// setup), every later change that also lacks 'in' - including a port/server edit -
+			// reads as no different (undefined === undefined) and gets silently skipped.
+			//
+			// A plain field edit doesn't make inactiveModelsExist() true (that only tracks the
+			// shared hardware model's own .active flag, not this widget's fields), so without
+			// this, editing server/port after creation updates the display only - the widget
+			// stays bound to whichever hardware-model instance (and thus port) it had at
+			// creation time. Force a rebind directly when either actually changes.
+			// Gated on sources.length: initialize()'s own initial model.set() (which sets port
+			// too) fires this same 'change' handler synchronously mid-construction, before the
+			// widget has a source (or even exists on the canvas yet) - without this guard,
+			// remapping+render() would run prematurely and break creation.
+			if(changed && (changed.server !== undefined || changed.port !== undefined) && this.sources.length > 0) {
+				this.unMapHardwareInlet();
+
+				var server = this.getDeviceServerName(),
+					port = this.getDeviceServerPort();
+
+				app.Patcher.Controller.mapToModel({
+					view: this,
+					modelType: this.getDeviceModelType(),
+					IOMapping: {sourceField: this.model.get('messageName'), destinationField: 'in'},
+					server: server + ":" + port,
+				}, true);
+
+				this.enableDevice();
+			}
 
 			if(changed && (this.lastChanged['in'] !== changed['in']) ) {
 				this.lastChanged = changed;
-
-				if(changed.server) {
-					this.model.set({server: changed.server, activeOut: false});
-				}
-				if(changed.port) {
-					this.model.set({port: changed.port, activeOut: false});
-				}
 
 				if(changed.deviceType) {
 					this.model.set({deviceType: changed.deviceType, activeOut: false});

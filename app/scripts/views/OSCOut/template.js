@@ -32,6 +32,10 @@
             <div class="devicePort">
               <label class="narrowLabel">port</label> <input class="port" type="text" pattern="[0-9]*" rv-value="widget:port">
 				</div>
+            <div class="valueType">
+              <label class="narrowLabel">float</label> <input type="radio" name="valueType" value="float" rv-checked="widget:valueType">
+              <label class="narrowLabel">int</label> <input type="radio" name="valueType" value="int" rv-checked="widget:valueType">
+				</div>
     </div>
 
 </div>
