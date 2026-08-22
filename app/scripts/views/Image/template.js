@@ -22,8 +22,10 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-            <label>image file</label> <input class="srcFile" type="text" rv-value="widget:srcFile"><br>
             <label>width</label> <input class="displayWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth"><br>
+            <label>image file</label> <input class="srcFile" type="text" rv-value="widget:srcFile"><br>
+            <div class="browseImage">Browse&hellip;</div>
+            <div class="localImagePath" rv-show="widget:localImagePath" rv-text="widget:localImagePath"></div>
         </div>
     </div>
 </div>

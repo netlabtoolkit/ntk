@@ -25,6 +25,8 @@
             <label>continuous</label> <input class="continuous" type="checkbox" rv-checked="widget:continuous" /><br>
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
             <label>audio file</label> <input class="srcFile" type="text" rv-value="widget:srcFile"><br>
+            <div class="browseAudio">Browse&hellip;</div>
+            <div class="localAudioPath" rv-show="widget:localAudioPath" rv-text="widget:localAudioPath"></div>
         </div>
     </div>
 </div>

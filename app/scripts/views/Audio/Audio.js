@@ -16,7 +16,8 @@ define([
 			widgetEvents: {
 				'change .loop': 'loopChange',
 				'change .continuous': 'continuousChange',
-				'change .srcFile': 'setSrc',
+				'change .srcFile': 'srcFileChange',
+				'click .browseAudio': 'browseAudio',
 			},
 
 			initialize: function(options) {
@@ -25,6 +26,7 @@ define([
 				this.model.set({
 					src: 'assets/audio/song_part5.wav',
 					srcFile: 'song_part5.wav',
+					localAudioPath: null,
 					ins: [{
 						title: 'Play',
 						to: 'play'
@@ -123,11 +125,45 @@ define([
 				}
 			},
 
+			srcFileChange: function() {
+				// Typing a bundled asset filename should take back over from a
+				// previously browsed-to local file, not be silently ignored.
+				this.model.set('localAudioPath', null);
+				this.setSrc();
+			},
+
 			setSrc: function() {
-				this.model.set('src', 'assets/audio/' + this.model.get('srcFile'));
+				var localAudioPath = this.model.get('localAudioPath');
+
+				if (localAudioPath) {
+					// Served through /localAudio (see routes.js) rather than as a direct
+					// file:// src - Chromium blocks file:// media loads from a page loaded
+					// over http, which is how this app's renderer is loaded.
+					this.model.set('src', '/localAudio?path=' + encodeURIComponent(localAudioPath));
+				}
+				else {
+					this.model.set('src', 'assets/audio/' + this.model.get('srcFile'));
+				}
+
         if (!app.server) {
           this.$(".audio")[0].load();
         }
+			},
+
+			browseAudio: function() {
+				if (!window.ntkElectron) {
+					// Not running inside the Electron app (e.g. a remote browser client) -
+					// no local file picker available, fall back to the assets/audio field.
+					return;
+				}
+
+				var self = this;
+				window.ntkElectron.pickAudioFile().then(function(filePath) {
+					if (filePath) {
+						self.model.set('localAudioPath', filePath);
+						self.setSrc();
+					}
+				});
 			},
 
 		});

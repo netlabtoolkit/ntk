@@ -1,6 +1,27 @@
 .widget.audio {
 
 	.title {
-		
+
+	}
+
+	.widgetBottom .content {
+		.browseAudio {
+			display: inline-block;
+			margin-top: 4px;
+			padding: 3px 8px;
+			background-color: dimgrey;
+			color: white;
+			border-radius: 3px;
+			cursor: pointer;
+			font-size: 0.9em;
+			white-space: nowrap;
+		}
+
+		.localAudioPath {
+			margin-top: 4px;
+			font-size: 0.85em;
+			word-break: break-all;
+			color: #666;
+		}
 	}
 }

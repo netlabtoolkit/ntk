@@ -61,6 +61,34 @@ var createRouter = (server) => {
 		//res.sendfile( path.join( __dirname, '../../devTools/cssrefresh.js' ) );
 	});
 
+	// Streams a media file from anywhere on the local machine, chosen via the
+	// native file picker (see server/preload.js + electronApp.js's pick-*-file
+	// IPC handlers) - lets Video/Audio/Image widgets reference a file outside
+	// server/assets without rebuilding/repackaging the app. Local desktop app,
+	// single user, so an absolute-path query param is an acceptable tradeoff;
+	// still checked against an extension whitelist and confirmed to exist first.
+	var localFileRoute = function(extensions) {
+		return function(req, res) {
+			var filePath = req.query.path;
+
+			if (!filePath || !extensions.includes(path.extname(filePath).toLowerCase())) {
+				return res.status(400).send('Invalid file path');
+			}
+
+			fs.stat(filePath, function(err, stats) {
+				if (err || !stats.isFile()) {
+					return res.status(404).send('File not found');
+				}
+
+				res.sendFile(filePath);
+			});
+		};
+	};
+
+	router.get('/localVideo', localFileRoute(['.mp4', '.mov', '.m4v', '.webm', '.ogv']));
+	router.get('/localAudio', localFileRoute(['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac']));
+	router.get('/localImage', localFileRoute(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp']));
+
 
 	router.get('*', function(req, res){
 		res.sendfile( path.join( __dirname, '../../dist/index.html' ) );

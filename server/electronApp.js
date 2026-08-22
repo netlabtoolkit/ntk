@@ -3,7 +3,33 @@ const electron = require('electron');
 var Menu = electron.Menu
 const app = electron.app;
 const BrowserWindow = electron.BrowserWindow;
+const dialog = electron.dialog;
+const ipcMain = electron.ipcMain;
+const path = require('path');
 const ntk = require('./netlabServer.js')();
+
+var pickFile = async function(dialogName, extensions) {
+	var result = await dialog.showOpenDialog(mainWindow, {
+		properties: ['openFile'],
+		filters: [{ name: dialogName, extensions: extensions }],
+	});
+
+	if (result.canceled || result.filePaths.length === 0) {
+		return null;
+	}
+
+	return result.filePaths[0];
+};
+
+ipcMain.handle('pick-video-file', function() {
+	return pickFile('Videos', ['mp4', 'mov', 'm4v', 'webm', 'ogv']);
+});
+ipcMain.handle('pick-audio-file', function() {
+	return pickFile('Audio', ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac']);
+});
+ipcMain.handle('pick-image-file', function() {
+	return pickFile('Images', ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp']);
+});
 
 var mainWindow = null;
 
@@ -24,6 +50,7 @@ app.on('ready', function() {
 	  webPreferences: {
 		  nodeIntegration: false,
 		  contextIsolation: true,
+		  preload: path.join(__dirname, 'preload.js'),
 	  },
   });
 
