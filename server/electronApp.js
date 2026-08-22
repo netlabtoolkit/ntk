@@ -43,6 +43,14 @@ app.on('ready', function() {
 		  { type: "separator" },
 		  { label: "Quit", accelerator: "Command+Q", click: function() { app.quit(); }}
 	  ]}, {
+		  label: "File",
+		  submenu: [
+			  { label: "Save", accelerator: "CmdOrCtrl+S", click: function() {
+				  if(mainWindow) {
+					  mainWindow.webContents.executeJavaScript("window.app.vent.trigger('ToolBar:savePatch');");
+				  }
+			  }}
+		  ]}, {
 		  label: "Edit",
 		  submenu: [
 			  { label: "Undo", accelerator: "CmdOrCtrl+Z", role: "undo" },

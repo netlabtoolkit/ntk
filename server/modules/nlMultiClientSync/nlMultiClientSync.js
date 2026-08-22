@@ -403,15 +403,21 @@ module.exports = function(options) {
 		},
     getPatchPath: function() {
       var commandLineDir = "server/modules/nlMultiClientSync";
-      var patchFileName = __dirname;
       var str = __dirname.substr(-1*(commandLineDir.length));
+
       if (str == commandLineDir) { // running from the command line
-        patchFileName += '/../../currentPatch.ntk';
-      } else { // running from the app package
-        //patchFileName += '/../../../../../../currentPatch.ntk';
-        patchFileName += '/../../currentPatch.ntk';
+        return __dirname + '/../../currentPatch.ntk';
       }
-      return patchFileName;
+      else if (process.versions.electron) {
+        // A packaged build runs out of app.asar, a read-only archive - writing
+        // "into" it (e.g. __dirname + '/../../currentPatch.ntk') silently fails
+        // (ENOTDIR), so save/load never actually persist. Use Electron's real
+        // per-user writable data directory instead.
+        return require('electron').app.getPath('userData') + '/currentPatch.ntk';
+      }
+      else { // running from the built app package outside Electron (e.g. plain node)
+        return __dirname + '/../../currentPatch.ntk';
+      }
     }
 	};
 
