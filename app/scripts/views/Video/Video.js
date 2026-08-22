@@ -74,7 +74,6 @@ define([
 
 				});
 
-				this.lastTimeIn = 0;
 				this.playing = false;
 
 				this.domReady = false;
@@ -121,8 +120,15 @@ define([
 							videoEl.playbackRate = speed;
 						}
 
-						if (time != this.lastTimeIn && model.changedAttributes().time != undefined) {
-							var timeLimited = Math.min(time, Math.floor(videoEl.duration));
+						if (model.changedAttributes().time != undefined) {
+							// 'time' arrives in NTK's standard 0-1023 control range (see
+							// Knob.js), not in seconds - scale it onto the video's actual
+							// duration so the full range of an incoming knob/slider maps
+							// across the whole video, instead of almost every value
+							// clamping to the very end of a short clip.
+							var duration = videoEl.duration || 0;
+							var timeLimited = (time / 1023) * duration;
+							timeLimited = Math.min(timeLimited, duration);
 							timeLimited = Math.max(timeLimited, 0);
 							videoEl.currentTime = timeLimited;
 						}
@@ -141,8 +147,6 @@ define([
 							}
 						}
 					}
-
-					this.lastTimeIn = time;
 				}
 
 			},
