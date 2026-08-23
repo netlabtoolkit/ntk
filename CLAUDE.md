@@ -12,11 +12,13 @@
   readout while capturing, IfThen's blink during a pending wait state,
   a record button's flashing while actively recording. If a state change
   isn't visible, users read it as broken even when it's working correctly.
-- Where practical, let the user simulate the hardware by interacting with
-  the widget directly, not just by wiring another widget's output into it
-  - e.g. Knob/AnalogOut's in-widget dial, Gesture's dial for
-  recording/testing without physical hardware attached. This lets someone
-  build and test a patch's logic before any hardware is connected.
+- As much as possible, the user should be able to test a widget without
+  any hardware connected. Where practical, let them simulate the hardware
+  by interacting with the widget directly, not just by wiring another
+  widget's output into it - e.g. Knob/AnalogOut's in-widget dial,
+  Gesture's dial for recording/testing without physical hardware
+  attached, SpeechOut's speak button. This lets someone build and verify
+  a patch's logic entirely before any hardware is connected.
 
 ## Build & run
 
