@@ -1,0 +1,177 @@
+@keyframes gestureRecordFlash {
+	0%, 100% { background-color: #F25151; }
+	50% { background-color: #ffb3b3; }
+}
+
+@keyframes gesturePending {
+	0%, 100% { background-color: #f8c885; }
+	50% { background-color: #fff; }
+}
+
+.widget.gesture {
+
+	.title {
+
+	}
+
+	// Dial + 4 output rows + slot picker + Record button add up to more than
+	// the 94x110px every widget's .widgetBody gets by default (see
+	// Widget.scss) - let it grow to fit instead of overflowing/overlapping
+	// .widgetBottom below it. Also needs its own clearfix: .widgetBodyLeft/
+	// Right are floated (see Widget.scss), and height:auto alone doesn't
+	// make a container account for floated children's height.
+	.widgetBody {
+		height: auto;
+		min-height: 110px;
+		// Left at the default 94px (60px left + 34px right) - IfThen/Splitter
+		// also let their .outletValue overflow rather than widening
+		// widgetBody itself, since widgetBody's declared width is what
+		// pushes the outlet nubs (.widgetRight) further right.
+		padding-bottom: 6px;
+
+		&:after {
+			content: '';
+			display: table;
+			clear: both;
+		}
+
+		.widgetBodyLeft {
+			width: 60px;
+			// Dial, transport icons and slot dropdown are all narrower than
+			// (or exactly equal to) this column at different points - flex
+			// centering keeps every one of them centered under the dial
+			// regardless of its own rendered width, instead of relying on
+			// text-align cascading through each child's own display type.
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+		}
+
+		.widgetBodyRight {
+			width: 34px;
+		}
+
+		.outletValue {
+			// Overrides the global .outletValue{width:64px} (Widget.scss) -
+			// that width is wider than widgetBodyRight itself here, which
+			// was letting the box overflow unpredictably instead of just
+			// filling its column.
+			width: 100%;
+			box-sizing: border-box;
+			text-align: center;
+			font-size: 0.82em;
+			margin-bottom: 4px;
+
+			span {
+				display: inline-block;
+				box-sizing: border-box;
+				width: 100%;
+				padding: 1px 0;
+				// Default (falseOn) state - .matched below overrides this
+				// when the slot is actively firing.
+				background-color: #f8c885;
+
+				&.matched {
+					background-color: #fff;
+				}
+
+				&.pending {
+					animation: gesturePending 0.3s step-start infinite;
+				}
+			}
+		}
+
+		.recordControls {
+			text-align: center;
+			margin-top: 4px;
+			font-size: 0.85em;
+
+			.recordSlot {
+				width: 36px;
+			}
+		}
+
+		.transportControls {
+			text-align: center;
+			margin-top: 4px;
+		}
+
+		.recordIcon {
+			display: inline-block;
+			width: 14px;
+			height: 14px;
+			border-radius: 50%;
+			background-color: #F25151;
+			cursor: pointer;
+			vertical-align: middle;
+
+			&.recording {
+				animation: gestureRecordFlash 0.6s step-start infinite;
+			}
+
+			&.playing {
+				opacity: 0.4;
+				cursor: default;
+			}
+		}
+
+		.playIcon {
+			display: inline-block;
+			width: 0;
+			height: 0;
+			margin-left: 10px;
+			border-top: 8px solid transparent;
+			border-bottom: 8px solid transparent;
+			border-left: 13px solid #4CAF50;
+			cursor: pointer;
+			vertical-align: middle;
+
+			&.playing {
+				opacity: 0.4;
+				cursor: default;
+			}
+		}
+	}
+
+	.widgetBottom .content {
+		width: 200px;
+
+		.recognitionMeter {
+			margin-top: 4px;
+			width: 90%;
+			height: 8px;
+			background-color: #eee;
+			border-radius: 4px;
+			overflow: hidden;
+
+			&.capturing {
+				background-color: #ffe9b3;
+			}
+		}
+
+		.recognitionBar {
+			height: 100%;
+			width: 0%;
+			background-color: #7CD97C;
+			transition: width 0.1s linear;
+		}
+
+		.recognitionLabel {
+			font-size: 0.8em;
+			color: #666;
+			margin-bottom: 6px;
+		}
+
+		.templateLength {
+			font-size: 0.85em;
+			color: #666;
+			margin-bottom: 4px;
+		}
+
+		.statusMessage {
+			font-size: 0.85em;
+			color: #F25151;
+			margin-bottom: 4px;
+		}
+	}
+}
