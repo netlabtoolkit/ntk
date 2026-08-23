@@ -100,6 +100,7 @@
                 </optgroup>
             </select><br>
             <label class="wide-label">gamma</label> <input class="moreParam" type="text" pattern="[0-9.]*" rv-value="widget:gamma"><br>
+            <a href="https://pvanallen.github.io/VarSpeedPython/docs/easings_cheatsheet/" target="_blank">easings cheatsheet</a><br>
         </div>
         <div class="animateDiv"></div>
     </div>
