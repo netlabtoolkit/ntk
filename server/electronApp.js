@@ -87,6 +87,14 @@ app.on('ready', function() {
 			  { label: "Copy", accelerator: "CmdOrCtrl+C", role: "copy" },
 			  { label: "Paste", accelerator: "CmdOrCtrl+V", role: "paste" },
 			  { label: "Select All", accelerator: "CmdOrCtrl+A", role: "selectAll" }
+		  ]}, {
+		  label: "View",
+		  submenu: [
+			  { label: "Toggle Developer Tools", accelerator: "CmdOrCtrl+Alt+I", click: function() {
+				  if(mainWindow) {
+					  mainWindow.webContents.toggleDevTools();
+				  }
+			  }}
 		  ]}
   ];
 
