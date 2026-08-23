@@ -40,6 +40,66 @@
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
             <input class="return" type="checkbox" rv-checked="widget:returnToStart" /> Return to start value<br>
             <input class="loop" type="checkbox" rv-checked="widget:loop" /> Loop<br>
+            <label class="wide-label">easing</label>
+            <select class="easing" rv-value="widget:tweenEasing">
+                <option value="linear">Linear</option>
+                <optgroup label="Sine">
+                    <option value="easeInSine">In</option>
+                    <option value="easeOutSine">Out</option>
+                    <option value="easeInOutSine">In-Out</option>
+                </optgroup>
+                <optgroup label="Quad">
+                    <option value="easeInQuad">In</option>
+                    <option value="easeOutQuad">Out</option>
+                    <option value="easeInOutQuad">In-Out</option>
+                </optgroup>
+                <optgroup label="Cubic">
+                    <option value="easeInCubic">In</option>
+                    <option value="easeOutCubic">Out</option>
+                    <option value="easeInOutCubic">In-Out</option>
+                </optgroup>
+                <optgroup label="Quartic">
+                    <option value="easeInQuart">In</option>
+                    <option value="easeOutQuart">Out</option>
+                    <option value="easeInOutQuart">In-Out</option>
+                </optgroup>
+                <optgroup label="Quintic">
+                    <option value="easeInQuint">In</option>
+                    <option value="easeOutQuint">Out</option>
+                    <option value="easeInOutQuint">In-Out</option>
+                </optgroup>
+                <optgroup label="Exponential">
+                    <option value="easeInExpo">In</option>
+                    <option value="easeOutExpo">Out</option>
+                    <option value="easeInOutExpo">In-Out</option>
+                </optgroup>
+                <optgroup label="Circular">
+                    <option value="easeInCirc">In</option>
+                    <option value="easeOutCirc">Out</option>
+                    <option value="easeInOutCirc">In-Out</option>
+                </optgroup>
+                <optgroup label="Elastic">
+                    <option value="easeInElastic">In</option>
+                    <option value="easeOutElastic">Out</option>
+                    <option value="easeInOutElastic">In-Out</option>
+                </optgroup>
+                <optgroup label="Back">
+                    <option value="easeInBack">In</option>
+                    <option value="easeOutBack">Out</option>
+                    <option value="easeInOutBack">In-Out</option>
+                </optgroup>
+                <optgroup label="Bounce">
+                    <option value="easeInBounce">In</option>
+                    <option value="easeOutBounce">Out</option>
+                    <option value="easeInOutBounce">In-Out</option>
+                </optgroup>
+                <optgroup label="Gamma (LED)">
+                    <option value="easeInGamma">In</option>
+                    <option value="easeOutGamma">Out</option>
+                    <option value="easeInOutGamma">In-Out</option>
+                </optgroup>
+            </select><br>
+            <label class="wide-label">gamma</label> <input class="moreParam" type="text" pattern="[0-9.]*" rv-value="widget:gamma"><br>
         </div>
         <div class="animateDiv"></div>
     </div>

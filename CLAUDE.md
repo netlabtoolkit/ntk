@@ -28,6 +28,18 @@
   chokes on them) and Sass `@import` deprecation warnings. Neither is a
   real error; only treat it as broken if `SCSS files built` is missing or
   there's an actual JS syntax error in a file you touched.
+- **`npm run build` overwrites `server/currentPatch.ntk` with the empty
+  patch template every time it runs** (`cp ./server/emptyPatch.ntk
+  ./server/currentPatch.ntk`, part of the `build` npm script), and
+  `npm run electron` (dev mode) reads/writes that exact file - not the
+  packaged app's `userData` path (see `getPatchPath()` in
+  `nlMultiClientSync.js`, which branches on whether `__dirname` matches
+  the raw source tree). If the user has a patch open and asks for a
+  code change, rebuilding for that fix silently destroys their current
+  patch on next launch. Back up `server/currentPatch.ntk` (or copy it
+  from Electron's userData `currentPatch.ntk`, if a packaged run saved
+  one more recently) before rebuilding if there's any real patch in it,
+  and restore it after.
 - Run the app with `npm run electron > /tmp/some.log 2>&1 & disown`, then
   grep the log for `error`/`exception`. The Express server logs every GET
   request (including 404s), so a widget's `.js`/`template.js` failing to
