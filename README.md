@@ -5,7 +5,7 @@ NETLab Toolkit JavaScript Version
 
 NTK (the NETLab Toolkit) is a visual authoring system for designers, developers, makers, researchers and students who want to design and build tangible Internet of Things projects. With a simple drag and drop interface, connect sensors, actuators, media and networks with the smart widgets. Concepts can be prototyped quickly, encouraging iteration, experimentation and testing by sketching in hardware.
 
-NTK works with the original Arduino, and with any board (including ESP32-based boards) running a StandardFirmataWiFi-compatible sketch over the network. And NTK can be easily adapted to do new things. The Code widget allows users to add custom Javascript. And with a bit more expertise, users can create their own, reusable widgets.
+NTK works with the original Arduino. And NTK can be easily adapted to do new things. The Code widget allows users to add custom Javascript. And with a bit more expertise, users can create their own, reusable widgets.
 
 Go ahead, Drag and Drop the Internet of Things.
 
