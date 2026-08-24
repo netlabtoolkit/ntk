@@ -149,7 +149,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 // overwrote this default on load, and got passed straight
                 // into Velocity's `easing` option, which crashes when it
                 // tries to call `false` as a function.
-                tweenEasing: 'linear',
+                tweenEasing: 'easeInQuad',
                 // Only used when 'tweenEasing' is one of the Gamma curves -
                 // see resolveEasing(). 2.8 matches the default in the
                 // reference varspeedpython implementation, chosen for LED

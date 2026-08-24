@@ -173,5 +173,15 @@
 			color: #F25151;
 			margin-bottom: 4px;
 		}
+
+		.gestureOutputsTable {
+			margin-top: 4px;
+			margin-bottom: 6px;
+
+			.tableHeader {
+				font-size: 0.75em;
+				color: #666;
+			}
+		}
 	}
 }

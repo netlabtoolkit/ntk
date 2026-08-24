@@ -64,8 +64,33 @@
             <label class="wide-label">stillness ms</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:stillnessMs"><br>
             <label class="wide-label">wait time true</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:waitTimeTrue"><br>
             <label class="wide-label">wait time false</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:waitTimeFalse"><br>
-            <label class="wide-label">match output</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:ifMatch | rounded"><br>
-            <label class="wide-label">no match output</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:ifNoMatch | rounded"><br>
+            <table class="rangeTable gestureOutputsTable" border="0" cellspacing="3" cellpadding="0">
+                <tr>
+                    <td></td>
+                    <td class="tableHeader">no match</td>
+                    <td class="tableHeader">match</td>
+                </tr>
+                <tr>
+                    <td>1</td>
+                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifNoMatch1 | rounded"></td>
+                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifMatch1 | rounded"></td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifNoMatch2 | rounded"></td>
+                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifMatch2 | rounded"></td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifNoMatch3 | rounded"></td>
+                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifMatch3 | rounded"></td>
+                </tr>
+                <tr>
+                    <td>4</td>
+                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifNoMatch4 | rounded"></td>
+                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifMatch4 | rounded"></td>
+                </tr>
+            </table>
         </div>
     </div>
 </div>

@@ -120,8 +120,6 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				// Shared across slots (the timing behavior, not the template).
 				waitTimeTrue: 0,
 				waitTimeFalse: 1000,
-				ifMatch: 1023,
-				ifNoMatch: 0,
 			};
 
 			for(var i = 1; i <= SLOT_COUNT; i++) {
@@ -136,13 +134,17 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				defaults['templateLength' + i] = 0;
 				defaults['matched' + i] = false;
 				defaults['ifState' + i] = 'falseOn';
-				// out<i> is set below, once ifNoMatch itself is set.
+				// Per-slot, not shared - each output can be mapped to its own
+				// match/no-match value (e.g. different MIDI notes per gesture).
+				defaults['ifMatch' + i] = 1023;
+				defaults['ifNoMatch' + i] = 0;
+				// out<i> is set below, once ifNoMatch<i> itself is set.
 			}
 
 			this.model.set(defaults);
 
 			for(var s = 1; s <= SLOT_COUNT; s++) {
-				this.model.set('out' + s, this.model.get('ifNoMatch'));
+				this.model.set('out' + s, this.model.get('ifNoMatch' + s));
 			}
 
 			this.localFrameTick = function() {
@@ -209,6 +211,31 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				clearTimeout(this.falseTimers[i]);
 			}
 			clearTimeout(this.playTimer);
+		},
+
+		// ifMatch<slot>/ifNoMatch<slot> are otherwise only read at the moment
+		// a match/no-match transition commits (see commitMatched) - editing
+		// one in the "more" panel while a slot is just sitting in that same
+		// state wouldn't touch out<slot> until the next actual transition,
+		// which reads as "the field doesn't do anything". Push it through
+		// immediately if the slot is currently sitting in the state that
+		// field applies to.
+		onModelChange: function(model) {
+			var changed = model.changedAttributes();
+
+			for(var i = 1; i <= SLOT_COUNT; i++) {
+				var ifState = this.model.get('ifState' + i);
+
+				if(changed['ifMatch' + i] !== undefined && ifState === 'trueOn') {
+					this.model.set('out' + i, changed['ifMatch' + i]);
+				}
+				// out<i> also still equals ifNoMatch<i> while pending
+				// ('trueWaitStart') - the true transition hasn't committed
+				// yet, only 'trueOn' means out<i> is currently ifMatch<i>.
+				if(changed['ifNoMatch' + i] !== undefined && ifState !== 'trueOn') {
+					this.model.set('out' + i, changed['ifNoMatch' + i]);
+				}
+			}
 		},
 
 		widgetEvents: {
@@ -336,7 +363,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				var trueUpdate = {};
 				trueUpdate['matched' + slot] = true;
 				trueUpdate['ifState' + slot] = 'trueOn';
-				trueUpdate[outKey] = this.model.get('ifMatch');
+				trueUpdate[outKey] = this.model.get('ifMatch' + slot);
 				this.model.set(trueUpdate);
 
 				clearTimeout(this.falseTimers[slot - 1]);
@@ -349,7 +376,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				var falseUpdate = {};
 				falseUpdate['matched' + slot] = false;
 				falseUpdate['ifState' + slot] = 'falseOn';
-				falseUpdate[outKey] = this.model.get('ifNoMatch');
+				falseUpdate[outKey] = this.model.get('ifNoMatch' + slot);
 				this.model.set(falseUpdate);
 			}
 		},

@@ -1,6 +1,23 @@
 .widget.tween {
 
 	.title {
-		
+
+	}
+
+	// Without an explicit width, .content's size depends entirely on the
+	// widget's own shrink-to-fit computation (it's a normal block, not
+	// absolutely positioned) - fragile, and gets narrow enough after
+	// dragging the widget to wrap the easing dropdown onto its own line.
+	// Gesture's widgetBottom .content already solves this the same way.
+	// 260px: the default (non-wide) 60px label - "easing"/"gamma" are
+	// short enough not to need .wide-label's 125px - plus the 180px
+	// easing select (room for the longest option text,
+	// "ExponentialEaseInOut") and a little breathing room.
+	.widgetBottom .content {
+		width: 260px;
+
+		.easing {
+			width: 180px;
+		}
 	}
 }
