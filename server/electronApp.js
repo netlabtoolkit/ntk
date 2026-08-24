@@ -6,6 +6,7 @@ const BrowserWindow = electron.BrowserWindow;
 const dialog = electron.dialog;
 const ipcMain = electron.ipcMain;
 const path = require('path');
+const fs = require('fs');
 const ntk = require('./netlabServer.js')();
 
 var pickFile = async function(dialogName, extensions) {
@@ -62,6 +63,39 @@ app.on('ready', function() {
   });
 
 
+  // Built dynamically from whatever .ntk files are in examplePatches -
+  // adding a new example is just dropping a file in that folder, no menu
+  // code changes needed.
+  var examplePatchesDir = path.join(__dirname, 'examplePatches');
+  var exampleMenuItems = [];
+  try {
+	  exampleMenuItems = fs.readdirSync(examplePatchesDir)
+		  .filter(function(file) { return file.endsWith('.ntk'); })
+		  .map(function(file) {
+			  return {
+				  label: file.replace(/\.ntk$/, ''),
+				  click: function() {
+					  if(mainWindow) {
+						  var patchJSON = fs.readFileSync(path.join(examplePatchesDir, file), 'utf8');
+						  // Loads into the UI without touching the user's saved
+						  // currentPatch.ntk (loadPatch's second "save" arg is
+						  // omitted/falsy) - same as opening a file shouldn't
+						  // silently overwrite your last save.
+						  mainWindow.webContents.executeJavaScript(
+							  "window.app.vent.trigger('ToolBar:loadPatch', " + JSON.stringify(patchJSON) + ");"
+						  );
+					  }
+				  }
+			  };
+		  });
+  } catch(e) {
+	  // examplePatches directory missing - fall through to the empty-list case below
+  }
+
+  if(exampleMenuItems.length === 0) {
+	  exampleMenuItems = [{ label: "No examples found", enabled: false }];
+  }
+
   // Create the Application's main menu
   var template = [{
 	  label: "Application",
@@ -76,7 +110,9 @@ app.on('ready', function() {
 				  if(mainWindow) {
 					  mainWindow.webContents.executeJavaScript("window.app.vent.trigger('ToolBar:savePatch');");
 				  }
-			  }}
+			  }},
+			  { type: "separator" },
+			  { label: "Open Example", submenu: exampleMenuItems }
 		  ]}, {
 		  label: "Edit",
 		  submenu: [
