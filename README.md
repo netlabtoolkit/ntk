@@ -9,6 +9,8 @@ NTK works with the original Arduino, and with any board (including ESP32-based b
 
 Go ahead, Drag and Drop the Internet of Things.
 
+This branch has been modernized to build and run natively on Apple Silicon Macs, updating the Electron and dependency toolchain accordingly. Other platforms (Intel Mac, Windows, Linux) are not currently built or tested - see the Build section below.
+
 Installation instructions below. For more information and documentation, please see the project website.
 
 <http://netlabtoolkit.org/>
@@ -33,7 +35,7 @@ For development purposes, use the below installation process:
 
 You must first install node and npm if you have not already done so.
 
-* Mac or Windows - Install Node and NPM from the official [Node.js website](http://nodejs.org/), using their standard installer (we've tested up to v4.2.2)
+* Mac or Windows - Install Node and NPM from the official [Node.js website](http://nodejs.org/), using their standard installer. We recommend a current Node.js LTS release (this branch has been built and tested with Node v24).
 * Linux – You most likely have Node/NPM already installed but can also install via your distribution's [https://nodejs.org/en/download/package-manager/](package manager).
 * If you are on Raspberry Pi, then you probably have an outdated version of Node. Here's a nice & easy upgrade method: https://github.com/DonaldDerek/rPi-cheat-sheet
 
@@ -83,6 +85,8 @@ npm run package
 ```
 
 This will place the distributable builds in a folder named "packaged" in the main NTK directory.
+
+Note: this currently builds for Apple Silicon (arm64) Macs only - other platforms are not yet supported by the build script.
 
 
 Creating a New Widget
