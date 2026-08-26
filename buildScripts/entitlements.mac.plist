@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened Runtime entitlements for the notarized, Developer ID-signed
+  build (see buildScripts/packageElectron.js). Applied to the main app and
+  all helper processes/binaries.
+
+  - allow-jit / allow-unsigned-executable-memory: required by V8's JIT
+    (both the main process and renderer/GPU helpers use it).
+  - allow-dyld-environment-variables: Electron's standard recommendation
+    for apps that ship Squirrel.framework (auto-update support).
+  - disable-library-validation: required so the main process can load
+    server/node_modules/@serialport/bindings' native .node binary, which
+    isn't signed by Apple or with this same Team ID.
+-->
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+  </dict>
+</plist>

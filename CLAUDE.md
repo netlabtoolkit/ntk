@@ -97,3 +97,24 @@
   (detect via `process.versions.electron`) - a path relative to the app
   bundle resolves inside the read-only `app.asar` archive and silently
   fails to save.
+- `npm run package` (`buildScripts/packageElectron.js`) signs and
+  notarizes the macOS build with the "Developer ID Application: Commotion
+  New Media, Inc (2E2K9GSX37)" identity, using
+  `buildScripts/entitlements.mac.plist` (needed for hardened runtime plus
+  loading `@serialport/bindings`' unsigned native `.node` binary) and
+  notarization credentials stored under the `NTK-notarize` keychain
+  profile (`xcrun notarytool store-credentials NTK-notarize ...` - see
+  the comment block at the top of that script). Both steps degrade
+  gracefully (warn + skip) if the identity/profile aren't present on the
+  machine, so it's still safe to run on a machine that only needs an
+  unsigned dev build; `--no-sign`/`--no-notarize` force that.
+- **`@electron/osx-sign`'s top-level `osxSign.entitlements` and
+  `osxSign.hardenedRuntime` options are silently ignored** - its per-file
+  codesign pass (`sign.js`) only reads whatever `osxSign.optionsForFile()`
+  returns, falling back to Electron's stock default entitlements
+  otherwise. Verified by inspecting the signed app with `codesign -d
+  --entitlements :-`: the plain top-level fields produced an app signed
+  with the *default* entitlements plist, with the custom one silently
+  dropped. Entitlements customization must go through
+  `osxSign.optionsForFile: () => ({ entitlements: ..., hardenedRuntime:
+  true })` instead.
