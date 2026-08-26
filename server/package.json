@@ -11,7 +11,7 @@
     "johnny-five": "^2.1.0",
     "node-osc": "^1.1.0",
     "socket.io": "~1.0.0",
-    "underscore": "~1.4.4"
+    "underscore": "^1.13.8"
   },
   "scripts": {
     "start": "node cli.js"
