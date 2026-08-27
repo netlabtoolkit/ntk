@@ -11,6 +11,7 @@ npm-debug.log
 .sync
 *.vim
 packaged/*
+server/assets/mediapipe
 currentPatch.ntk
 notes.md
 .DS_Store

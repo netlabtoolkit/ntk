@@ -9,4 +9,6 @@ npm run rebuild
 
 ./node_modules/.bin/bower install
 
+./buildScripts/fetchMediaPipeAssets.sh
+
 npm run build

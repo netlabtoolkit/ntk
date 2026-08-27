@@ -12,6 +12,7 @@
   "devDependencies": {
     "@electron/packager": "^20.3.0",
     "@electron/rebuild": "^4.2.0",
+    "@mediapipe/tasks-vision": "^1.0.1",
     "bower": "^1.8.14",
     "chai": "^3.5.0",
     "cheerio": "^0.22.0",
@@ -32,6 +33,7 @@
     "setup": "./buildScripts/setup.sh",
     "build": "npm run clean && cp ./server/emptyPatch.ntk ./server/currentPatch.ntk && npm run optimizeRequire && npm run compileSCSS && cp ./package.json ./server/dist",
     "package": "npm run build && node ./buildScripts/packageElectron.js",
+    "package:dev": "npm run build && node ./buildScripts/packageElectron.js --no-notarize",
     "dev": "npm run clean && npm run copyAppToDist && npm run compileSCSS && node ./buildScripts/liveReload.js & open http://localhost:9001 & npm start",
     "copyAppToDist": "cp -r ./app/* ./server/dist && cp ./package.json ./server/dist",
     "clean": "./buildScripts/clean.sh",

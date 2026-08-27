@@ -1,0 +1,142 @@
+@keyframes faceTrackPendingBlink {
+	0%, 100% { background-color: #f8c885; }
+	50% { background-color: #fff; }
+}
+
+.widget.facetrack {
+
+	// Status dot + camera preview in the "more" panel push this past the
+	// default 94x110px .widgetBody (see Widget.scss) - same fix as
+	// Gesture's: let it grow and give it its own clearfix, since
+	// height:auto alone doesn't account for floated children's height.
+	.widgetBody {
+		height: auto;
+		min-height: 110px;
+		padding-bottom: 6px;
+
+		&:after {
+			content: '';
+			display: table;
+			clear: both;
+		}
+
+		.widgetBodyLeft {
+			width: 60px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+		}
+
+		.widgetBodyRight {
+			width: 34px;
+			// Nudges the whole label/value stack down to line up with the
+			// vertical center of each outlet nub next to it, rather than
+			// sitting slightly above them.
+			padding-top: 5px;
+		}
+
+		.outletValue {
+			// Wider than this widget's own 34px widgetBodyRight column (and
+			// overriding the global .outletValue{width:64px} from
+			// Widget.scss) so a label fits next to the value - same
+			// let-it-overflow-the-column approach as Gesture's out1-4,
+			// rather than widening .widgetBody itself (see CLAUDE.md's
+			// Widget CSS layout notes). Overflowing content here extends
+			// to the right regardless of widgetBodyRight's own float
+			// direction, which put the value text right under the
+			// outlet-nub column - margin-right wasn't enough clearance
+			// (confirmed: numbers were still hidden behind the nubs), so
+			// this uses an explicit position:relative shift instead.
+			width: 60px;
+			box-sizing: border-box;
+			display: flex;
+			justify-content: flex-start;
+			align-items: baseline;
+			font-size: 0.72em;
+			margin-bottom: 3px;
+			// Tuned down from 26px now that the dial (added after this was
+			// first tuned) also occupies widgetBodyLeft's right edge - 26px
+			// pulled the values back far enough to clear the outlet nubs on
+			// the right but far enough to start overlapping the dial on the
+			// left instead. 18px plus the dial shrinking from 60px to 50px
+			// wide (see the .knob() call in FaceTrack.js) is the balance
+			// between the two.
+			position: relative;
+			right: 18px;
+
+			color: #000;
+
+			.outletLabel {
+				// Fixed width (sized for "smile", the longest label) and
+				// right-aligned, so every row's value starts at the same
+				// x-position regardless of its own label's length - a
+				// short label like "x" just leaves blank space to its
+				// left instead of the value shifting left.
+				display: inline-block;
+				min-width: 30px;
+				text-align: right;
+				color: #000;
+				font-weight: bold;
+				margin-right: 4px;
+			}
+		}
+
+		.trackStatus {
+			width: 14px;
+			height: 14px;
+			border-radius: 50%;
+			background-color: #ccc;
+			margin-top: 6px;
+
+			// Camera open, no face in frame yet.
+			&.tracking {
+				background-color: #f8c885;
+			}
+
+			// Face actually detected - takes priority over the plain
+			// "tracking" color via selector order/specificity below.
+			&.tracking.detected {
+				background-color: #7CD97C;
+			}
+
+			&.pending {
+				animation: faceTrackPendingBlink 0.3s step-start infinite;
+			}
+		}
+
+		.statusMessage {
+			font-size: 0.7em;
+			color: #F25151;
+			text-align: center;
+			margin-top: 4px;
+		}
+	}
+
+	.widgetBottom .content {
+		width: 200px;
+
+		.cameraPreview {
+			// Fills .content's inner width (200px minus its 5px padding on
+			// each side, from the global .widgetBottom .content rule) at
+			// the same 4:3 aspect ratio as the actual getUserMedia capture
+			// (320x240), so the feed fills the panel without stretching.
+			position: relative;
+			margin-top: 6px;
+			width: 190px;
+			height: 143px;
+
+			.faceVideo, .faceCanvas {
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 190px;
+				height: 143px;
+			}
+
+			// Landmark dots drawn on top of the live feed.
+			.faceCanvas {
+				z-index: 1;
+			}
+		}
+	}
+}

@@ -15,6 +15,7 @@ define([
     'views/Boolean/Boolean',
     'views/Gate/Gate',
     'views/Gesture/Gesture',
+    'views/FaceTrack/FaceTrack',
     'views/Mix/Mix',
     'views/Splitter/Splitter',
     'views/Data/Data',
@@ -39,7 +40,7 @@ define([
     'views/DigitalIn/DigitalIn',
     'views/DigitalOut/DigitalOut',
 ],
-function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Gesture, Mix, Splitter, Data, Tween, Sequence, SpeechIn, SpeechOut, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn, OSCOut, DigitalIn, DigitalOut){
+function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Gesture, FaceTrack, Mix, Splitter, Data, Tween, Sequence, SpeechIn, SpeechOut, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn, OSCOut, DigitalIn, DigitalOut){
     'use strict';
 
 	return {
@@ -58,6 +59,7 @@ function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, 
         'Boolean': Boolean,
         'Gate': Gate,
         'Gesture': Gesture,
+        'FaceTrack': FaceTrack,
         'Mix': Mix,
 		'Splitter': Splitter,
         'Data': Data,

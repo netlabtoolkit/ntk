@@ -3,7 +3,18 @@
 <!--
   Hardened Runtime entitlements for the notarized, Developer ID-signed
   build (see buildScripts/packageElectron.js). Applied to the main app and
-  all helper processes/binaries.
+  all helper processes/binaries via osxSign.optionsForFile - this file
+  REPLACES @electron/osx-sign's own default entitlements set entirely, it
+  doesn't merge with it. Learned that the hard way: an earlier version of
+  this file only had the four `cs.*` keys below, which silently dropped
+  the device entitlements (camera included) that ship in
+  @electron/osx-sign's own default.darwin.plist. Without
+  com.apple.security.device.camera, hardened runtime lets AVFoundation
+  open the camera (indicator light on) but never surfaces a real TCC
+  permission prompt and delivers blank/white frames instead of real
+  video - no error, nothing in the console, camera looks "on" the whole
+  time. Confirmed via System Settings > Privacy & Security > Camera not
+  even listing the app at all.
 
   - allow-jit / allow-unsigned-executable-memory: required by V8's JIT
     (both the main process and renderer/GPU helpers use it).
@@ -12,6 +23,13 @@
   - disable-library-validation: required so the main process can load
     server/node_modules/@serialport/bindings' native .node binary, which
     isn't signed by Apple or with this same Team ID.
+  - device.camera / device.audio-input: needed for FaceTrack's
+    getUserMedia video and any future mic-based widget - see above.
+  - device.bluetooth / device.usb / device.print /
+    personal-information.location / personal-information.photos-library:
+    carried over from @electron/osx-sign's own default.darwin.plist so
+    nothing else that previously worked implicitly loses access now that
+    a custom entitlements file is in play at all.
 -->
 <plist version="1.0">
   <dict>
@@ -22,6 +40,20 @@
     <key>com.apple.security.cs.allow-dyld-environment-variables</key>
     <true/>
     <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.device.camera</key>
+    <true/>
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+    <key>com.apple.security.device.bluetooth</key>
+    <true/>
+    <key>com.apple.security.device.usb</key>
+    <true/>
+    <key>com.apple.security.device.print</key>
+    <true/>
+    <key>com.apple.security.personal-information.location</key>
+    <true/>
+    <key>com.apple.security.personal-information.photos-library</key>
     <true/>
   </dict>
 </plist>
