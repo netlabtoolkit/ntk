@@ -26,7 +26,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {
 			'change .getFromCloud': 'getFromCloud',
-            'change .cloudService': 'changeCloudService',
 		},
 
 
@@ -43,15 +42,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.model.set({
                 title: 'CloudIn',
                 getPeriod: 10000,
-                cloudService: 'sparkfun',
-                // sparkfun phant
-                phantPublicKey: '',
-                phantDataField: 'mydata',
-                phantUrl: 'https://data.sparkfun.com',
-                // spark.io
-                particlePin: 'A0',
-                particleDeviceId: '',
-                particleAccessToken: '',
+                // io.adafruit.com
+                aioUsername: '',
+                aioKey: '',
+                aioFeedKey: '',
                 //
                 getFromCloud: false,
                 displayTimerStart: false,
@@ -108,8 +102,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				$(el).val(value);
 				$(el).trigger('change');
 			};
-
-            this.init = false; // set up to do changeCloudService to make sure interface is correct
         },
 
 
@@ -122,25 +114,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         getFromCloud: function(e) {
             if (!app.server && !this.model.get('sendToCloud')) {
                 this.setDisplayText("Stopped");
-            }
-        },
-
-        changeCloudService: function(e) {
-            if(!app.server) {
-                var service = this.model.get('cloudService');
-                switch(service) {
-                    case 'sparkfun':
-                        //
-                        this.$('.sparkfun').show();
-                        this.$('.particle').hide();
-                        break;
-                    case 'particle':
-                        this.$('.sparkfun').hide();
-                        this.$('.particle').show();
-                        break;
-                    default:
-                        //
-                }
             }
         },
 
@@ -159,10 +132,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
 
         timeKeeper: function(frameCount) {
-            if (this.init == false) {
-                this.changeCloudService();
-                this.init = true;
-            }
             //console.log(frameCount);
             if (this.model.get('getFromCloud')) {
                 var self = this;
@@ -182,76 +151,40 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     this.lastTimeDiff = 0;
                     if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
                         // only send if we're the server and in server mode, or the browser in authoring mode
-                        switch(this.model.get('cloudService')) {
-                            case 'sparkfun':
-                                // DATA.SPARKFUN.COM
-                                //
-                                var pubKey = this.model.get('phantPublicKey');
-                                var dataField = this.model.get('phantDataField');
-                                var phantUrl = this.model.get('phantUrl');
-                                var url = phantUrl + '/output/' + pubKey + '.json';
-                                // possible fix for server exceeding files https://github.com/sparkfun/phant/issues/144
-                                // limit: 10 instead of page: 1
-                                $.ajax({
-                                    url: url,
-                                    jsonp: 'callback',
-                                    cache: false,
-                                    dataType: 'jsonp',
-                                    data: {
-                                        limit: 1
-                                    },
-                                    success: function(response) {
-                                        // check for success
-                                        if (response.success == false) {
-                                            console.log( "Connection to cloud service failed: " + response.message);
-                                            self.model.set('getFromCloud',false);
-                                            if (response.message == 'stream not found') {
-                                                self.setDisplayText("Invalid key");
-                                            } else {
-                                                self.setDisplayText("Can't connect");
-                                            }
-                                        } else {
-                                            if (response[0][dataField] === undefined) {
-                                                self.model.set('getFromCloud',false);
-                                                self.setDisplayText("Bad datafield");
-                                            } else {
-                                                self.model.set('in',response[0][dataField]);
-                                            }
-                                        }
-                                    },
-                                    fail: function( jqxhr, textStatus, error ) {
-                                        var err = textStatus + ", " + error;
-                                        console.log( "Connection to cloud servive failed: " + err );
-                                        self.model.set('getFromCloud',false);
-                                        this.setDisplayText("Can't connect");
-                                    }
-                                });
-                                break;
-                            case 'particle':
-                                // PARTICLE.IO
-                                //
-                                var url = "https://api.particle.io/v1/devices/" + this.model.get('particleDeviceId') + "/analogread";
-                                $.ajax({
-                                    //url: "https://api.particle.io/v1/devices/55ff6d066678505517151667/analogread",
-                                    url: url,
-                                    type: "POST",
-                                    timeout: 2000,
-                                    data: { access_token: this.model.get('particleAccessToken'), params: this.model.get('particlePin') }
-                                    })
-                                    .done(function( response ) {
-                                        //console.log(response);
-                                        var value = parseInt(response.return_value,10);
-                                        if (isNaN(value)) {
-                                            self.model.set('getFromCloud',false);
-                                            this.setDisplayText("Bad data");
-                                        } else {
-                                            self.model.set('in',value/4);
-                                        }
-                                });
-                                break;
-                            default:
-                                //
-                        }
+
+                        // IO.ADAFRUIT.COM
+                        // https://io.adafruit.com/api/docs/#data - GET the
+                        // most recent value from the feed.
+                        var username = this.model.get('aioUsername');
+                        var feedKey = this.model.get('aioFeedKey');
+                        var url = "https://io.adafruit.com/api/v2/" + username + "/feeds/" + feedKey + "/data/last";
+                        $.ajax({
+                            url: url,
+                            type: 'GET',
+                            headers: { 'X-AIO-Key': this.model.get('aioKey') },
+                            dataType: 'json',
+                            timeout: 5000,
+                            success: function(response) {
+                                var value = parseFloat(response && response.value);
+                                if (isNaN(value)) {
+                                    self.model.set('getFromCloud', false);
+                                    self.setDisplayText("Bad data");
+                                } else {
+                                    self.model.set('in', value);
+                                }
+                            },
+                            error: function(jqxhr, textStatus, error) {
+                                console.log("Connection to cloud service failed: " + textStatus + ", " + error);
+                                self.model.set('getFromCloud', false);
+                                if (jqxhr.status === 401 || jqxhr.status === 403) {
+                                    self.setDisplayText("Invalid key");
+                                } else if (jqxhr.status === 404) {
+                                    self.setDisplayText("Invalid feed");
+                                } else {
+                                    self.setDisplayText("Can't connect");
+                                }
+                            }
+                        });
                     }
                     this.inputCount = 0;
                     this.inputCumulative = 0;

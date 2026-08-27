@@ -39,21 +39,10 @@
             
             <label>get every</label> <input type="text" rv-value="widget:getPeriod">
             <hr>
-            <select class="cloudService" rv-value="widget:cloudService">
-              <option value="sparkfun">SparkfunPhant</option>
-              <option value="particle">Particle.io</option>
-            </select>
-              <br>
-            <div class="sparkfun">
-                <label for="dataField">data field</label> <input name="dataField" class="keys" type="text" rv-value="widget:phantDataField"><br>
-                <label>public key</label> <input class="keys" type="text" placeholder="Public Key" rv-value="widget:phantPublicKey"><br>
-                <label>server url</label> <input class="keys" type="text" placeholder="Server URL" rv-value="widget:phantUrl"><br>
-            </div>
-            <div class="particle">
-                <label>pin</label> <input class="keys" type="text" rv-value="widget:particlePin"><br>
-                <label for="particleDeviceId">device id</label> <input placeholder="Device ID" name="particleDeviceId" class="keys" type="text" rv-value="widget:particleDeviceId"><br>
-                <label>token</label> <input placeholder="Access Token" class="keys" type="text" rv-value="widget:particleAccessToken"><br>
-            </div>
+            io.adafruit.com<br>
+            <label for="aioUsername">username</label> <input name="aioUsername" class="keys" type="text" rv-value="widget:aioUsername"><br>
+            <label for="aioKey">AIO key</label> <input name="aioKey" class="keys" type="text" placeholder="AIO Key" rv-value="widget:aioKey"><br>
+            <label for="aioFeedKey">feed key</label> <input name="aioFeedKey" class="keys" type="text" placeholder="Feed Key" rv-value="widget:aioFeedKey"><br>
             <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/cloudin/" target="_blank">Widget help</a>
         </div>
