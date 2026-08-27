@@ -5,6 +5,7 @@ const app = electron.app;
 const BrowserWindow = electron.BrowserWindow;
 const dialog = electron.dialog;
 const ipcMain = electron.ipcMain;
+const shell = electron.shell;
 const path = require('path');
 const fs = require('fs');
 const ntk = require('./netlabServer.js')();
@@ -56,6 +57,14 @@ app.on('ready', function() {
   });
 
   mainWindow.loadURL('http://localhost:9001');
+
+  // Widget help links (target="_blank") should open in the user's real
+  // browser, not get silently denied (Electron's default for
+  // window.open/target=_blank) or load inside a chromeless BrowserWindow.
+  mainWindow.webContents.setWindowOpenHandler(function(details) {
+	  shell.openExternal(details.url);
+	  return {action: 'deny'};
+  });
 
   // Emitted when the window is closed.
   mainWindow.on('closed', function() {

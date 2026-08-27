@@ -32,6 +32,8 @@
             <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:outputCeiling"></td>
           </tr>
         </table>
+        <hr>
+        <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/keyboard/" target="_blank">Widget help</a>
         </div>
     </div>
 

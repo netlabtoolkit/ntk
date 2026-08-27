@@ -39,6 +39,8 @@
             <label>autoplay</label> <input type="checkbox" rv-checked="widget:autoPlay" /><br>
             <label>autocancel</label> <input type="checkbox" rv-checked="widget:autoCancel" /><br>
             <textarea class="database" rv-value="widget:in2" rows="4" cols="70"></textarea>
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/speechout/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

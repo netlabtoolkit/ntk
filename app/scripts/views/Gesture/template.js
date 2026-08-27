@@ -91,6 +91,8 @@
                     <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifMatch4 | rounded"></td>
                 </tr>
             </table>
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/gesture/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

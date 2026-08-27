@@ -45,7 +45,8 @@
                 <option value="auto">Auto-detect</option>
               </select>
             </div>
-
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/digitalout/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

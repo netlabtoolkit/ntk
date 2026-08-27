@@ -27,6 +27,8 @@
             <label>audio file</label> <input class="srcFile" type="text" rv-value="widget:srcFile"><br>
             <div class="browseAudio">Browse&hellip;</div>
             <div class="localAudioPath" rv-show="widget:localAudioPath" rv-text="widget:localAudioPath"></div>
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/audio/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

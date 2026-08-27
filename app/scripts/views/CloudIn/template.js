@@ -54,6 +54,8 @@
                 <label for="particleDeviceId">device id</label> <input placeholder="Device ID" name="particleDeviceId" class="keys" type="text" rv-value="widget:particleDeviceId"><br>
                 <label>token</label> <input placeholder="Access Token" class="keys" type="text" rv-value="widget:particleAccessToken"><br>
             </div>
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/cloudin/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

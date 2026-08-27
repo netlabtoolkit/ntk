@@ -50,6 +50,8 @@
             
             <label>time range</label> <input class="moreParam" type="text" rv-value="widget:randTimeLow">
             <input class="moreParam" type="text" rv-value="widget:randTimeHigh">
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/pulse/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

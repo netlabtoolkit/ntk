@@ -75,6 +75,8 @@
             <input name="sendTo3" type="radio" value='output3' rv-checked="widget:sendTo3"> 4 -->
             
             <textarea class="database" rv-value="widget:sequence3" rows="4" cols="70"></textarea>
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/sequence/" target="_blank">Widget help</a>
         </div>
         <div class="animateDiv"></div>
     </div>

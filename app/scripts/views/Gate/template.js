@@ -36,6 +36,8 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold">
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/gate/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

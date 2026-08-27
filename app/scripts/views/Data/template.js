@@ -61,6 +61,8 @@
                 <textarea rv-value="widget:orderedDatabase" rows="4" cols="70">
 
                 </textarea>
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/data/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

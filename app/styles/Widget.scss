@@ -447,6 +447,16 @@
                 width: 40px;
             }
 
+            // Shared across every widget's "more" panel (added per-widget
+            // in each one's own template.js) - keeps the look consistent
+            // without needing per-widget CSS for something this small.
+            .widgetHelpLink {
+                display: block;
+                margin-top: 4px;
+                font-size: 0.8em;
+                color: #6b9bd1;
+            }
+
             .deviceIp {
               display: none;
             }

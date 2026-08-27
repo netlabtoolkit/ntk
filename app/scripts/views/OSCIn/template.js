@@ -40,6 +40,8 @@
         <div class="content">
             <label class="narrowLabel">port</label> <input class="port" type="text" pattern="[0-9]*" rv-value="widget:port"><br>
             <label for="messageName">message</label> <input name="messageName" type="text" rv-value="widget:messageName">
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/oscin/" target="_blank">Widget help</a>
 		</div>
     </div>
 </div>

@@ -33,6 +33,8 @@
             <div class="localVideoPath" rv-show="widget:localVideoPath" rv-text="widget:localVideoPath"></div>
 <!--            <label>{widget:typeID} label</label> <input type="text" class="displayWidth" rv-value="widget:title"><br>-->
             <br>
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/video/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>
