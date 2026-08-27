@@ -1,6 +1,12 @@
 .widget.process {
 //	background-color: #ddd;
 
+	// Wide enough that the math operator dropdown + operand field fit on
+	// one row instead of the operand wrapping to the next line.
+	.widgetBottom .content {
+		width: 190px;
+	}
+
 	li.active {
 		color: #fff;
 		background-color: #666;

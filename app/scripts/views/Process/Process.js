@@ -37,12 +37,18 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				title: 'Process',
 				easing: false,
 				easingAmount: 30,
-				smoothingAmount: 60
+				smoothingAmount: 60,
+				mathOperator: 'none',
+				mathOperand: 0,
 
 			});
 
 			this.easingLast = 0;
 
+			// Applied first, ahead of scale/invert/easing/smoothing - "math
+			// on the input" means transforming the raw incoming value
+			// before everything else in the chain runs on the result.
+			this.signalChainFunctions.push(SignalChainFunctions.math);
 			this.signalChainFunctions.push(SignalChainFunctions.scale);
 			this.signalChainFunctions.push(SignalChainFunctions.invert);
             this.signalChainFunctions.push(this.easing);

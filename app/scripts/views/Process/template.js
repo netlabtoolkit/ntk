@@ -41,6 +41,15 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
+            <label class="narrowLabel">math</label>
+            <select rv-value="widget:mathOperator">
+                <option value="none">none</option>
+                <option value="+">+</option>
+                <option value="-">-</option>
+                <option value="*">*</option>
+                <option value="/">/</option>
+            </select>
+            <input class="moreParam" type="text" pattern="[0-9.\-]*" rv-value="widget:mathOperand"><br>
             input range<br>
             <label class="narrowLabel">min</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:inputFloor">
             <label class="narrowLabel">max</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:inputCeiling"><br>

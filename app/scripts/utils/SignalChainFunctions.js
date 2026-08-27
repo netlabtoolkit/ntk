@@ -43,6 +43,34 @@ function () {
 			return output;
 		},
 		/**
+		 * Applies a single arithmetic operation (+, -, *, /) with a fixed
+		 * operand to a signal. Requires model.mathOperator/mathOperand.
+		 * mathOperator: 'none' (or any other unrecognized value) passes
+		 * the input through unchanged. Division by zero also returns the
+		 * input unchanged rather than NaN/Infinity.
+		 *
+		 * @param {number} input
+		 * @return {number}
+		 */
+		math: function(input, model) {
+			var output = parseFloat(input, 10);
+			var operand = parseFloat(model.mathOperand, 10);
+
+			switch(model.mathOperator) {
+				case '+':
+					return output + operand;
+				case '-':
+					return output - operand;
+				case '*':
+					return output * operand;
+				case '/':
+					return operand === 0 ? output : output / operand;
+				case 'none':
+				default:
+					return output;
+			}
+		},
+		/**
 		 * Rounds a signal to a whole number when the widget is in int mode
 		 * Requires model.valueType to be present on the Widget's model
 		 *
