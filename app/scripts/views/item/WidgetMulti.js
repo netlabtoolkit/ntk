@@ -73,15 +73,24 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
             this.$( ".widgetBottom .content" ).hide();
             this.$( ".widgetBottom .tab" ).click(function() {
-				if (self.model.get("deviceType") == "mkr1000") {
-					self.$('.deviceIp').show();
-				}
-				else {
-					self.$('.deviceIp').hide();
-				}
+				// AnalogIn manages .deviceIp's visibility declaratively (a
+				// rivets rv-class-networkMode binding reacting to
+				// deviceType, see Widget.scss) - jQuery's .show()/.hide()
+				// here would set an inline style that permanently outlives
+				// this click and beats that class-based CSS rule, e.g. a
+				// .hide() while still in Serial mode would block the field
+				// from ever showing again even after switching to Network.
+				if (self.typeID !== 'AnalogIn') {
+					if (self.model.get("deviceType") == "mkr1000") {
+						self.$('.deviceIp').show();
+					}
+					else {
+						self.$('.deviceIp').hide();
+					}
 
-				if(self.typeID == 'OSCOut') {
-					self.$('.deviceIp').show();
+					if(self.typeID == 'OSCOut') {
+						self.$('.deviceIp').show();
+					}
 				}
 
                 self.$( ".widgetBottom .content" ).toggle();
@@ -529,19 +538,29 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			for(var i=sourceMappings.length-1; i>=0; i--) {
 				var mapping = sourceMappings[i];
 				if(thisWidgetModel.get('active') && thisWidgetModel.attributes[mapping.destinationField] !== undefined) {
-					var attributes = {},
-						value = externalModel.get(mapping.sourceField);
-					attributes[mapping.destinationField] = value == undefined ? 0 : value;
-                    // update the input of the widget
+					var value = externalModel.get(mapping.sourceField);
+					// A 'change' event on the source model fires for ANY of
+					// its attributes, not just this mapping's sourceField -
+					// if that specific field happens to be undefined on
+					// this particular change (e.g. a stale/unrelated
+					// mapping, or a source model that doesn't carry this
+					// field), there is no new data to apply. Previously
+					// this defaulted to 0, which meant an unrelated change
+					// elsewhere on the source could stomp the widget's
+					// input to 0 - leave it alone instead.
+					if(value !== undefined) {
+						var attributes = {};
+						attributes[mapping.destinationField] = value;
+						// update the input of the widget
 
+						var trigger = true;
+						if(this.deviceMode == 'in') {
+							trigger = false;
+						}
 
-					var trigger = true;
-					if(this.deviceMode == 'in') {
-						trigger = false;
+						// updateNoTrigger refers to the widget itself not being updated, while the trigger refers to the model not triggering an update
+						thisWidgetModel.set(attributes, {updateNoTrigger: true, trigger: trigger});
 					}
-
-					// updateNoTrigger refers to the widget itself not being updated, while the trigger refers to the model not triggering an update
-					thisWidgetModel.set(attributes, {updateNoTrigger: true, trigger: trigger});
 				}
 				//else if(thisWidgetModel.get('active') && thisWidgetModel.get('activeOut') && externalModel.attributes[mapping.destinationField] !== undefined) {
 				else if(thisWidgetModel.get('active') && thisWidgetModel.get('activeOut')) {

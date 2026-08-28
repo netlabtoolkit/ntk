@@ -9,12 +9,9 @@ function () {
 	 * @param {number} input
 	 * @return {number}
 	 */
-	var numOfHistoryItems = 1;
 	var Smoother = function(options) {
 
-		if(options && options.tolerance) {
-			numOfHistoryItems = options.tolerance;
-		}
+		this.numOfHistoryItems = (options && options.tolerance) || 1;
 		if(options && options.active) {
 			this.active = options.active;
 		}
@@ -33,12 +30,12 @@ function () {
          * @return {undefined}
          */
 		setBufferLength: function(size) {
-			numOfHistoryItems = size;
+			this.numOfHistoryItems = size;
 
 			// Reinitialize the buffer
 			var values = this.values;
 			values.length = 0;
-			for(var i=numOfHistoryItems-1; i>=0; i--) {
+			for(var i=this.numOfHistoryItems-1; i>=0; i--) {
 				values[i] = 0;
 			}
 		},
@@ -53,7 +50,7 @@ function () {
 			if(values.length === 0) {
 
 				// if we don't have values to work with, fill up the array with this value
-				for(var i=numOfHistoryItems-1; i>=0; i--) {
+				for(var i=this.numOfHistoryItems-1; i>=0; i--) {
 					values[i] = input;
 				}
 			}

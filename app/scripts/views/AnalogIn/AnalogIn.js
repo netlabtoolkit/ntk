@@ -116,16 +116,16 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 				if(changed.deviceType) {
 					this.model.set({deviceType: changed.deviceType, active: false});
-					if(!app.server) {
-						if (changed.deviceType == "mkr1000") {
-							this.$('.deviceIp, .devicePort').show();
-							this.$('.serialPortPicker').hide();
-						}
-						else {
-							this.$('.deviceIp, .devicePort').hide();
-							this.$('.serialPortPicker').show();
-							this.requestSerialPorts();
-						}
+					// Network vs. serial field visibility is handled declaratively
+					// in the template (rv-show/rv-hide on widget:deviceType), so it's
+					// correct on every render - not just when deviceType happens to
+					// fire as a Backbone "change" event, which used to leave a
+					// freshly-rendered Network-mode widget showing the serial picker
+					// instead of the ip/port fields (CSS's static default) until the
+					// user touched deviceType again. Serial port enumeration still
+					// needs an explicit request, though - rivets can't trigger that.
+					if(!app.server && changed.deviceType !== "mkr1000") {
+						this.requestSerialPorts();
 					}
 				}
 
@@ -189,6 +189,14 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		},
 
 		onRender: function() {
+			// Must be registered before WidgetView.prototype.onRender below -
+			// see CLAUDE.md's Rivets/Backbone gotcha.
+			if(!app.server) {
+				rivets.formatters.isNetworkDeviceType = function(deviceType) {
+					return deviceType === 'mkr1000';
+				};
+			}
+
 			WidgetView.prototype.onRender.call(this);
 			var self = this;
 

@@ -26,10 +26,42 @@ module.exports = function(attributes) {
 			//var socketClient = this;
 
 			//var io = new firmata.Board(socketClient);
-			var io = new firmata.Board(new EtherPortClient({
+			var etherPortClient = new EtherPortClient({
 				host: mkrHost,
 				port: mkrPort
-			}));
+			});
+
+			// nlMultiClientSync.js calls this (if present) when no widget
+			// references this device any more. etherport-client exposes no
+			// public teardown of its own (see server/node_modules/
+			// etherport-client/index.js) - every socket 'close'/'error'/
+			// 'timeout' event calls its internal _reconnect(), forever, with
+			// no way to opt out via its public API. Without this, the
+			// connection (and its reconnect loop) outlived every widget that
+			// ever referenced it for the lifetime of the server process.
+			self.close = function() {
+				etherPortClient._reconnectTimeoutSecs = 0;
+				if (etherPortClient._reconnectTimer) {
+					clearTimeout(etherPortClient._reconnectTimer);
+					etherPortClient._reconnectTimer = null;
+				}
+				if (etherPortClient._tcp) {
+					etherPortClient._tcp.destroy();
+				}
+			};
+
+			var io = new firmata.Board(etherPortClient, {
+				// firmata-io's default is 5000ms - it only starts
+				// querying the board's firmware/capabilities/analog
+				// mapping once this "haven't heard a version yet" timer
+				// expires (see firmata-io/lib/firmata.js), so the whole
+				// connection sits idle for that long by default. A WiFi
+				// socket connection is already fully established well
+				// before this fires, unlike a serial port waiting on an
+				// Arduino DTR-reset reboot, so there's no reason to wait
+				// nearly as long here.
+				reportVersionTimeout: 300
+			});
 
 			io.once('ready', function() {
 				self.board = new five.Board({

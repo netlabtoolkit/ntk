@@ -470,6 +470,28 @@
             .serialPortPicker {
               display: block;
             }
+
+            // Declarative device-type-visibility toggle (rv-class-networkmode
+            // in a widget's own template, e.g. AnalogIn) - a single class
+            // driven by one formatter, since Rivets' own rv-show/rv-hide
+            // binders can't reveal an element whose CSS default is
+            // `display:none`: `show`'s "true" branch only clears the inline
+            // style back to '' (falling through to that none default), it
+            // never sets an explicit visible value - verified against
+            // bower_components/rivets/dist/rivets.js. Higher specificity
+            // (two classes) than the bare-class defaults above, so these win
+            // without needing !important. Lowercase class name is
+            // deliberate: rv-class-* derives the class from the DOM
+            // attribute name, and HTML lowercases all attribute names -
+            // rv-class-networkMode would silently apply class "networkmode"
+            // regardless of how it's written, so the source must match.
+            .deviceIp.networkmode, .devicePort.networkmode {
+              display: block;
+            }
+
+            .serialPortPicker.networkmode {
+              display: none;
+            }
         }
 
 
