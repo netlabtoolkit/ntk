@@ -120,16 +120,15 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 				if(changed.deviceType) {
 					this.model.set({deviceType: changed.deviceType, activeOut: false});
-					if(!app.server) {
-						if (changed.deviceType == "mkr1000") {
-							this.$('.deviceIp, .devicePort').show();
-							this.$('.serialPortPicker').hide();
-						} else
-							{
-								this.$('.deviceIp, .devicePort').hide();
-								this.$('.serialPortPicker').show();
-								this.requestSerialPorts();
-							}
+					// Network vs. serial field visibility is handled declaratively
+					// in the template (rv-class-networkmode on widget:deviceType) -
+					// see AnalogIn.js for why this can't be an imperative
+					// $(...).show()/hide() toggle here (Rivets' own rv-show/rv-hide
+					// can't reveal an element whose CSS default is display:none).
+					// Serial port enumeration still needs an explicit request,
+					// though - rivets can't trigger that.
+					if(!app.server && changed.deviceType !== "mkr1000") {
+						this.requestSerialPorts();
 					}
 				}
 
@@ -165,6 +164,16 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		 * @return {void}
 		 */
         onRender: function() {
+			// Must be registered before WidgetView.prototype.onRender below -
+			// see CLAUDE.md's Rivets/Backbone gotcha. Same formatter name/
+			// definition as AnalogIn.js - reusing it here is harmless since
+			// rivets.formatters is a single global registry.
+			if(!app.server) {
+				rivets.formatters.isNetworkDeviceType = function(deviceType) {
+					return deviceType === 'mkr1000';
+				};
+			}
+
 			// always call the superclass
             WidgetView.prototype.onRender.call(this);
 

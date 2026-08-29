@@ -381,8 +381,19 @@ class FirmataServer:
             duty = int(min(max(value, 0), 255) / 255 * 65535)
             pin.io.duty_cycle = duty
         elif pin.mode == SERVO and pin.io is not None:
-            angle = min(max(value, 0), 180)
-            pulse_us = pin.servo_min_us + (pin.servo_max_us - pin.servo_min_us) * (angle / 180)
+            # johnny-five's own Servo component (what NTK's Servo widget
+            # uses under the hood) converts degrees to a microsecond pulse
+            # width itself before sending - server/node_modules/
+            # johnny-five/lib/servo.js maps degrees through its pwmRange
+            # (600-2400us by default) and calls servoWrite() with THAT
+            # microsecond value, not the raw 0-180 angle. Re-interpreting
+            # it as an angle here (the previous behavior) clamped every
+            # write to the 0-180 range, so a value like 1500 (a valid
+            # mid-range microsecond pulse) became angle=180 every time -
+            # the servo jumped to one extreme and then never moved again
+            # regardless of the actual dial position. Treat the incoming
+            # value as the pulse width directly instead.
+            pulse_us = min(max(value, pin.servo_min_us), pin.servo_max_us)
             period_us = 1000000 / SERVO_PWM_FREQUENCY
             pin.io.duty_cycle = int(pulse_us / period_us * 65535)
 

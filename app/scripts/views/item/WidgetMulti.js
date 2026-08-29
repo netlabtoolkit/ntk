@@ -73,14 +73,17 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
             this.$( ".widgetBottom .content" ).hide();
             this.$( ".widgetBottom .tab" ).click(function() {
-				// AnalogIn manages .deviceIp's visibility declaratively (a
-				// rivets rv-class-networkMode binding reacting to
-				// deviceType, see Widget.scss) - jQuery's .show()/.hide()
-				// here would set an inline style that permanently outlives
-				// this click and beats that class-based CSS rule, e.g. a
-				// .hide() while still in Serial mode would block the field
-				// from ever showing again even after switching to Network.
-				if (self.typeID !== 'AnalogIn') {
+				// Widgets in this list manage .deviceIp's visibility
+				// declaratively (a rivets rv-class-networkmode binding
+				// reacting to deviceType, see Widget.scss) - jQuery's
+				// .show()/.hide() here would set an inline style that
+				// permanently outlives this click and beats that
+				// class-based CSS rule, e.g. a .hide() while still in
+				// Serial mode would block the field from ever showing
+				// again even after switching to Network. Add a widget's
+				// typeID here once it's been converted to that pattern.
+				var usesDeclarativeDeviceVisibility = ['AnalogIn', 'Servo'].indexOf(self.typeID) !== -1;
+				if (!usesDeclarativeDeviceVisibility) {
 					if (self.model.get("deviceType") == "mkr1000") {
 						self.$('.deviceIp').show();
 					}

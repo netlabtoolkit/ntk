@@ -81,10 +81,23 @@ def connect_wifi():
             "(copy settings.toml.example and fill it in)"
         )
     print("Connecting to WiFi:", ssid)
-    if password:
-        wifi.radio.connect(ssid, password)
-    else:
-        wifi.radio.connect(ssid)
+    # wifi.radio.connect() is a single blocking hardware-level call that
+    # CircuitPython can't service a keyboard interrupt during - without a
+    # timeout it can block for a long, unpredictable time on a flaky
+    # network, making the board look completely unresponsive right after
+    # a reboot (Ctrl+C silently does nothing until this call returns).
+    # Bounding each attempt keeps that unresponsive window short and
+    # gives Ctrl+C a window to land between retries, while still
+    # eventually connecting on a flaky network same as before.
+    while True:
+        try:
+            if password:
+                wifi.radio.connect(ssid, password, timeout=10)
+            else:
+                wifi.radio.connect(ssid, timeout=10)
+            break
+        except ConnectionError as e:
+            print("WiFi connect attempt failed, retrying:", e)
     print("Connected. IP address:", wifi.radio.ipv4_address)
 
 
