@@ -127,7 +127,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 					// can't reveal an element whose CSS default is display:none).
 					// Serial port enumeration still needs an explicit request,
 					// though - rivets can't trigger that.
-					if(!app.server && changed.deviceType !== "mkr1000") {
+					if(!app.server && changed.deviceType !== "network") {
 						this.requestSerialPorts();
 					}
 				}
@@ -170,7 +170,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// rivets.formatters is a single global registry.
 			if(!app.server) {
 				rivets.formatters.isNetworkDeviceType = function(deviceType) {
-					return deviceType === 'mkr1000';
+					return deviceType === 'network';
 				};
 			}
 

@@ -153,7 +153,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				if(changed.deviceType) {
 					this.model.set({deviceType: changed.deviceType, activeOut: false});
 					if(!app.server) {
-						if (changed.deviceType == "mkr1000") {
+						if (changed.deviceType == "network") {
 							this.$('.deviceIp').show();
 						} else 
 							{

@@ -124,7 +124,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 					// instead of the ip/port fields (CSS's static default) until the
 					// user touched deviceType again. Serial port enumeration still
 					// needs an explicit request, though - rivets can't trigger that.
-					if(!app.server && changed.deviceType !== "mkr1000") {
+					if(!app.server && changed.deviceType !== "network") {
 						this.requestSerialPorts();
 					}
 				}
@@ -193,7 +193,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// see CLAUDE.md's Rivets/Backbone gotcha.
 			if(!app.server) {
 				rivets.formatters.isNetworkDeviceType = function(deviceType) {
-					return deviceType === 'mkr1000';
+					return deviceType === 'network';
 				};
 			}
 

@@ -84,7 +84,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				// typeID here once it's been converted to that pattern.
 				var usesDeclarativeDeviceVisibility = ['AnalogIn', 'Servo', 'AnalogOut', 'DigitalOut'].indexOf(self.typeID) !== -1;
 				if (!usesDeclarativeDeviceVisibility) {
-					if (self.model.get("deviceType") == "mkr1000") {
+					if (self.model.get("deviceType") == "network") {
 						self.$('.deviceIp').show();
 					}
 					else {

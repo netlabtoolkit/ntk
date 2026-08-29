@@ -124,7 +124,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				if(changed.deviceType) {
 					this.model.set({deviceType: changed.deviceType, active: false});
 					if(!app.server) {
-						if (changed.deviceType == "mkr1000") {
+						if (changed.deviceType == "network") {
 							this.$('.deviceIp, .devicePort').show();
 							this.$('.serialPortPicker').hide();
 						}

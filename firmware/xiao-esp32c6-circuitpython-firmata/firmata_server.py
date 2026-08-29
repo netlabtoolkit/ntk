@@ -18,6 +18,13 @@ a clear error.
 
 import time
 
+# Set to True to print every incoming pin-mode/digital/analog-write
+# command as it's dispatched - useful when a widget's commands don't
+# seem to be reaching a pin the way expected. Left False normally since
+# analog writes can arrive at up to ~50/sec per pin and flood the
+# console.
+DEBUG_WIRE = False
+
 # ---- Firmata wire protocol constants (byte-for-byte match to
 # firmata-io's own constants - see module docstring) ----
 DIGITAL_MESSAGE = 0x90
@@ -187,12 +194,18 @@ class FirmataServer:
     def _dispatch_command(self, buf):
         first = buf[0]
         if first == SET_PIN_MODE:
+            if DEBUG_WIRE:
+                print("DEBUG SET_PIN_MODE pin", buf[1], "mode", buf[2])
             self._apply_pin_mode(buf[1], buf[2])
             return
         top = first & 0xF0
         if top == 0x90:
+            if DEBUG_WIRE:
+                print("DEBUG DIGITAL_MESSAGE port", first & 0x0F, "value", buf[1] | (buf[2] << 7))
             self._handle_digital_message(first & 0x0F, buf[1] | (buf[2] << 7))
         elif top == 0xE0:
+            if DEBUG_WIRE:
+                print("DEBUG ANALOG_MESSAGE(write) pin", first & 0x0F, "value", buf[1] | (buf[2] << 7))
             self._handle_analog_write(first & 0x0F, buf[1] | (buf[2] << 7))
         elif top == 0xC0:
             self._handle_report_analog(first & 0x0F, buf[1])

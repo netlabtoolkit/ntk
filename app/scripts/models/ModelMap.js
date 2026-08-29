@@ -1,14 +1,14 @@
 define([
 	'models/ArduinoUno',
-	'models/MKR1000',
+	'models/Network',
 	'models/OSC',
 ],
-function( ArduinoUnoModel, MKR1000Model, OSCModel ) {
+function( ArduinoUnoModel, NetworkModel, OSCModel ) {
     'use strict';
 
 	return {
 		ArduinoUno: ArduinoUnoModel,
-		mkr1000: MKR1000Model,
+		network: NetworkModel,
 		OSC: OSCModel,
 	};
 });

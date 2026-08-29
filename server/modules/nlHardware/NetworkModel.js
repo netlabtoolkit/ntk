@@ -9,26 +9,25 @@ module.exports = function(attributes) {
 		net = require("net"),
 		firmata = require("firmata"),
 		events = require('events'),
-		mkrHost = argHostPort !== undefined ? argHostPort[0] : "192.168.1.113", // This default is based on the default in StandardFirmataWifi
-		mkrPort = argHostPort !== undefined ? parseInt(argHostPort[1],10) : 3030;
+		networkHost = argHostPort !== undefined ? argHostPort[0] : "192.168.1.113", // This default is based on the default in StandardFirmataWifi
+		networkPort = argHostPort !== undefined ? parseInt(argHostPort[1],10) : 3030;
 
 	var constructor = function() {
-		this.type = "mkr1000";
-		//this.type = "ArduinoUno";
+		this.type = "network";
 		var self = this;
 
 		// Load in the Standard Firmata model
 		var standardFirmataModel = require("./StandardFirmataModel")(five);
 		_.extend(constructor.prototype, standardFirmataModel);
 
-		console.log('Connecting to ...', mkrHost, mkrPort);
-		//var client = net.connect({host: mkrHost, port: mkrPort}, function() {
+		console.log('Connecting to ...', networkHost, networkPort);
+		//var client = net.connect({host: networkHost, port: networkPort}, function() {
 			//var socketClient = this;
 
 			//var io = new firmata.Board(socketClient);
 			var etherPortClient = new EtherPortClient({
-				host: mkrHost,
-				port: mkrPort
+				host: networkHost,
+				port: networkPort
 			});
 
 			// nlMultiClientSync.js calls this (if present) when no widget

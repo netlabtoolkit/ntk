@@ -6,16 +6,18 @@ function( Backbone, HardwareModel ) {
     'use strict';
 
     /**
-     * ArduinoUno Model containing Arduino Uno specific properties and defaults
+     * Client-side proxy for a Firmata device reached over a network
+     * transport (WiFi/TCP) - kept in sync with the server-side model
+     * (see server/modules/nlHardware/NetworkModel.js) purely so every
+     * connected browser client displays the same live pin values.
      *
      * @return
      */
-	var ArduinoUno = HardwareModel.extend({
+	var NetworkDevice = HardwareModel.extend({
 
 		// Need to update for separated inputs/outputs
 		defaults: {
-			//type: "mkr1000",
-			type: "ArduinoUno",
+			type: "network",
 			A0: 0,
 			A1: 0,
 			A2: 0,
@@ -73,5 +75,5 @@ function( Backbone, HardwareModel ) {
 
     });
 
-	return ArduinoUno;
+	return NetworkDevice;
 });

@@ -4,7 +4,7 @@ NTK Firmata bridge for the Seeed XIAO ESP32-C6, running CircuitPython.
 Speaks the same byte-level Firmata protocol as Arduino's official
 "StandardFirmataWiFi" sketch, over a plain TCP socket on port 3030 - so
 this is a drop-in replacement for a WiFi Firmata board as far as NTK is
-concerned (see server/modules/nlHardware/MKR1000Model.js in the NTK
+concerned (see server/modules/nlHardware/NetworkModel.js in the NTK
 repo, which already expects exactly this).
 
 Setup:
