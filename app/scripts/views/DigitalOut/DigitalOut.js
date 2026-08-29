@@ -35,9 +35,10 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				outputMapping: options.outputMapping,
                 activeOut: true,
 				port: this.model.get('port') || 3030,
+				threshold: this.model.get('threshold') || 512,
 			});
 
-            this.signalChainFunctions.push(this.limitRange);
+            this.signalChainFunctions.push(this.applyThreshold);
 
 			// This is here because this widget effectively does not output (only outputs to hardware and then, only on server)
 			// So we go ahead and process so the output can be shown in the widget
@@ -100,16 +101,15 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 				if(changed.deviceType) {
 					this.model.set({deviceType: changed.deviceType, activeOut: false});
-					if(!app.server) {
-						if (changed.deviceType == "mkr1000") {
-							this.$('.deviceIp, .devicePort').show();
-							this.$('.serialPortPicker').hide();
-						} else
-							{
-								this.$('.deviceIp, .devicePort').hide();
-								this.$('.serialPortPicker').show();
-								this.requestSerialPorts();
-							}
+					// Network vs. serial field visibility is handled declaratively
+					// in the template (rv-class-networkmode on widget:deviceType) -
+					// see AnalogIn.js for why this can't be an imperative
+					// $(...).show()/hide() toggle here (Rivets' own rv-show/rv-hide
+					// can't reveal an element whose CSS default is display:none).
+					// Serial port enumeration still needs an explicit request,
+					// though - rivets can't trigger that.
+					if(!app.server && changed.deviceType !== "mkr1000") {
+						this.requestSerialPorts();
 					}
 				}
 
@@ -186,9 +186,22 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				hasInput: hasInput
 			});
 
-			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel, modeRequested: 3});
+			// modeRequested: 1 (OUTPUT) - this widget's deviceMode is
+			// 'OUTPUT', not PWM (3, which is AnalogOut's value - this was
+			// copied from there and never updated).
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel, modeRequested: 1});
 		},
         onRender: function() {
+			// Must be registered before WidgetView.prototype.onRender below -
+			// see CLAUDE.md's Rivets/Backbone gotcha. Same formatter name/
+			// definition as AnalogIn.js - reusing it here is harmless since
+			// rivets.formatters is a single global registry.
+			if(!app.server) {
+				rivets.formatters.isNetworkDeviceType = function(deviceType) {
+					return deviceType === 'mkr1000';
+				};
+			}
+
 			// always call the superclass
             WidgetView.prototype.onRender.call(this);
 
@@ -207,7 +220,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				'font':"'Helvetica Neue', sans-serif",
 				'displayInput':false,
 				'min': 0,
-				'max': 255,
+				'max': 1023,
 				'change' : function (v) { this.model.set('in', parseInt(v)); }.bind(this)
 			});
 
@@ -218,11 +231,22 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			};
         },
 
-        limitRange: function(input) {
-            var output = input;
-            output = Math.max(output, 0);
-            output = Math.min(output, 255);
-            return Number(output);
+        /**
+         * Converts a continuous input into a clean binary output: 0
+         * below the configured threshold, 1023 above it. 1023 (not a
+         * literal 1) matches setHardwarePin's existing `value >= 255`
+         * on/off check in StandardFirmataModel.js and NTK's general
+         * convention of a 0-1023 "out" range, so no other code needs
+         * to change to recognize it as "on".
+         *
+         * @param {number} input
+         * @param {object} model
+         * @return {number}
+         */
+        applyThreshold: function(input, model) {
+            var value = parseFloat(input, 10);
+            var threshold = parseFloat(model.threshold, 10);
+            return value >= threshold ? 1023 : 0;
         },
 	});
 });

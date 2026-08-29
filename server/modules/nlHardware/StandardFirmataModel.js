@@ -211,7 +211,7 @@ module.exports = function(five) {
 				}
 				else if(mode === 'ANALOG') {
 				}
-				else if(mode === 'PWM' || mode === 'OUTPUT') {
+				else if(mode === 'PWM') {
 					var pinExists = this.outputs[pin] !== undefined;
 					if(pinExists) {
 						var currentPin = this.outputs[pin].pin;
@@ -222,6 +222,39 @@ module.exports = function(five) {
 							var outputPin = new five.Led(hardwarePin);
 							this.outputs[pin].pin = outputPin;
 						}
+					}
+				}
+				else if(mode === 'OUTPUT') {
+					var pinExists = this.outputs[pin] !== undefined;
+					if(pinExists) {
+						var hardwarePin = parseInt(pin.substr(1),10);
+						var boardIO = this.board.io;
+
+						// Deliberately not five.Led here (unlike the PWM
+						// case above) - Led's own constructor
+						// (server/node_modules/johnny-five/lib/led/led.js)
+						// independently decides to prefer PWM mode
+						// whenever the pin supports it, regardless of
+						// what mode was actually requested here, turning
+						// a plain digital on/off into a continuously
+						// fading PWM output. Drive the pin directly via
+						// the raw board so OUTPUT really means a clean
+						// HIGH/LOW, matching a DigitalOut widget's intent.
+						boardIO.pinMode(hardwarePin, this.PINMODES.OUTPUT);
+						this.outputs[pin].pin = {
+							// setHardwarePin's fallback (used whenever
+							// modeRequested isn't explicitly passed, which
+							// is every ongoing update after the first)
+							// reads the pin's current mode straight off
+							// this object via `.mode` (or `.board.pins[...]
+							// .mode` if `.board` is set) - without this,
+							// every update after the first-ever explicit
+							// mode request resolved to an undefined
+							// pinMode and silently did nothing.
+							mode: this.PINMODES.OUTPUT,
+							on: function() { boardIO.digitalWrite(hardwarePin, boardIO.HIGH); },
+							off: function() { boardIO.digitalWrite(hardwarePin, boardIO.LOW); },
+						};
 					}
 				}
 				else if(mode === 'SERVO') {

@@ -34,13 +34,13 @@
           <option selected value="ArduinoUno">Serial</option>
           <option selected value="mkr1000">Network</option>
         </select><br>
-            <div class="deviceIp">
+            <div class="deviceIp" rv-class-networkmode="widget:deviceType | isNetworkDeviceType">
               <label class="narrowLabel">ip</label> <input class="address" type="text" pattern="[0-9]*" rv-value="widget:server">
             </div>
-            <div class="devicePort">
+            <div class="devicePort" rv-class-networkmode="widget:deviceType | isNetworkDeviceType">
               <label class="narrowLabel">port</label> <input class="port" type="text" pattern="[0-9]*" rv-value="widget:port">
             </div>
-            <div class="serialPortPicker">
+            <div class="serialPortPicker" rv-class-networkmode="widget:deviceType | isNetworkDeviceType">
               <label class="narrowLabel">port</label> <select class="serialPortSelect" rv-value="widget:server">
                 <option value="auto">Auto-detect</option>
               </select>
