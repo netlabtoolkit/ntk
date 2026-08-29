@@ -18,6 +18,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
             'click .easing': 'toggleEasing',
             'change .smoothingAmount': 'smoothingAmtChange',
             'mousedown .serialPortPicker': 'requestSerialPorts',
+            'change .settings input': 'switchToInputMode',
 		},
 		ins: [
 			//{
@@ -75,9 +76,16 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 			window.app.timingController.registerFrameCallback(this.localTimeKeeperFunc, this);
 
+			// Unlike an analog pin (which addDefaultPins() on the server
+			// already configures unconditionally for every analog-capable
+			// pin the device reports, so it's already readable the moment
+			// you point a widget at it), a digital pin only becomes
+			// readable once the server explicitly calls
+			// setIOMode(pin, 'INPUT') to swap it for a five.Button - that
+			// round-trip has to be triggered here. Delayed so this.sources
+			// is populated (mapToModel runs after initialize()).
 			window.setTimeout(function() {
-				var modelType = this.sources[0].model.get('type');
-				window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: modelType, mode: 'INPUT', port: this.model.get('inputMapping'), hasInput: true });
+				this.switchToInputMode();
 			}.bind(this), 3000);
 
 			this.onSerialPortList = function(ports) {
@@ -88,6 +96,33 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			if(this.getDeviceModelType() === 'ArduinoUno') {
 				this.requestSerialPorts();
 			}
+		},
+		/**
+		 * switchToInputMode - tell the server to configure the currently
+		 * mapped pin as a digital INPUT (see the comment in initialize()).
+		 * Re-run whenever the mapped pin changes (the 'change .settings
+		 * input' widgetEvent), not just once at creation, since editing
+		 * that field only updates this.sources[0].map.sourceField - it
+		 * isn't a Backbone model attribute, so WidgetMulti's generic
+		 * checkOutputMappingUpdate (which only reacts to inputMapping/
+		 * outputMapping model changes) never sees it.
+		 *
+		 * @return {void}
+		 */
+		switchToInputMode: function() {
+			if(this.sources[0] === undefined) { return; }
+
+			window.app.vent.trigger('Widget:hardwareSwitch', {
+				// Must be the full "type:host:port" hardware key (matching
+				// WidgetMulti.checkOutputMappingUpdate) - the server looks
+				// this up directly in its hardwareModels map, and a bare
+				// type string (e.g. "network") never matches, silently
+				// dropping the mode switch.
+				deviceType: this.sources[0].model.get('type') + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),
+				port: this.sources[0].map.sourceField,
+				mode: 'INPUT',
+				hasInput: true,
+			});
 		},
 		requestSerialPorts: function() {
 			window.app.vent.trigger('listSerialPorts');
@@ -123,16 +158,17 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 				if(changed.deviceType) {
 					this.model.set({deviceType: changed.deviceType, active: false});
-					if(!app.server) {
-						if (changed.deviceType == "network") {
-							this.$('.deviceIp, .devicePort').show();
-							this.$('.serialPortPicker').hide();
-						}
-						else {
-							this.$('.deviceIp, .devicePort').hide();
-							this.$('.serialPortPicker').show();
-							this.requestSerialPorts();
-						}
+					// Network vs. serial field visibility is handled declaratively
+					// in the template (rv-class-networkmode on widget:deviceType),
+					// so it's correct on every render - not just when deviceType
+					// happens to fire as a Backbone "change" event, which used to
+					// leave a freshly-rendered Network-mode widget showing the
+					// serial picker instead of the ip/port fields (CSS's static
+					// default) until the user touched deviceType again. Serial
+					// port enumeration still needs an explicit request, though -
+					// rivets can't trigger that.
+					if(!app.server && changed.deviceType !== "network") {
+						this.requestSerialPorts();
 					}
 				}
 
@@ -195,6 +231,14 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			}
 		},
 		onRender: function() {
+			// Must be registered before WidgetView.prototype.onRender below -
+			// see CLAUDE.md's Rivets/Backbone gotcha.
+			if(!app.server) {
+				rivets.formatters.isNetworkDeviceType = function(deviceType) {
+					return deviceType === 'network';
+				};
+			}
+
 			WidgetView.prototype.onRender.call(this);
 			var self = this;
 

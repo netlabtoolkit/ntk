@@ -151,6 +151,41 @@ module.exports = function(five) {
 		setIOMode: function setPinMode(pin, mode) {
 			pin = pin.toUpperCase();
 
+			// The device connection (and the Firmata handshake after it)
+			// can take several seconds - a request to switch a pin's mode
+			// that arrives before then (e.g. DigitalIn's initial
+			// INPUT-mode switch, sent right after the widget is created)
+			// used to be silently dropped since there was no retry here,
+			// unlike set()'s equivalent guard below. Retry until connected
+			// instead of giving up.
+			if(!this.connected) {
+				// NOT "var self" - the rest of this function (and its
+				// nested callbacks, e.g. the digital-read listener below)
+				// already relies on the bare global `self` addDefaultPins()
+				// assigns (no "var" there either). Redeclaring it here
+				// would hoist a function-scoped `self` that only actually
+				// gets assigned on this branch, leaving it undefined on
+				// every call that skips this retry (i.e. the normal,
+				// already-connected path) - crashing anything below that
+				// reads `self`.
+				var retryModel = this;
+				setTimeout(function() {
+					retryModel.setIOMode(pin, mode);
+				}, 500);
+				return;
+			}
+
+			if(this.outputs[pin] === undefined) {
+				// A pin the device never reported (e.g. DigitalIn's D12
+				// default on a board that only has D0-D10) - previously
+				// this threw here uncaught (crashing the whole app) once
+				// the retry above actually got a chance to run against a
+				// connected board; nothing to switch modes on, so just
+				// give up on this pin quietly instead.
+				console.log('setIOMode: pin', pin, 'was never reported by this device - ignoring');
+				return;
+			}
+
 			if(this.connected == true) {
 
 				// Check if this mode is supported on this pin
@@ -171,42 +206,41 @@ module.exports = function(five) {
 					var pinExists = (this.inputs[pin] !== undefined || this.outputs[pin] !== undefined);
 
 					if(pinExists) {
-						var hardwarePinNumber = pin.split('D')[1];
-						// remove any listeners on the current pin
-						//this.inputs[pin] && this.inputs[pin].pin.off('data');
+						var hardwarePinNumber = parseInt(pin.substr(1), 10);
+						var boardIO = this.board.io;
 
 						// delete this pin if it exists in the outputs
 						delete this.outputs[pin].pin;
 
-						var button = new five.Button(hardwarePinNumber);
+						// Deliberately not five.Button here (unlike five.Led
+						// for OUTPUT above, for a different reason) -
+						// confirmed via the device's own wire-level debug
+						// log that Button's internal reportDigitalPin enable
+						// call never actually reached the device, even
+						// though its earlier pinMode(INPUT) call did -
+						// something about how it resolves its controller on
+						// this board/johnny-five combination skips it. Ask
+						// the raw board directly instead and mirror the
+						// pin's live HIGH/LOW state continuously, which is
+						// also a better match for what "DigitalIn" means
+						// than Button's press/release-edge abstraction.
+						var digitalReadEvent = 'digital-read-' + hardwarePinNumber;
+						boardIO.removeAllListeners(digitalReadEvent);
+						boardIO.on(digitalReadEvent, function(value) {
+							self.set(pin, value ? 1023 : 0);
+						});
 
-						var withinThrottleRange = false;
-						button.on("press", function() {
-							// Debounce and throttle button presses
-							if(!withinThrottleRange) {
-								withinThrottleRange = true;
+						boardIO.pinMode(hardwarePinNumber, this.PINMODES.INPUT);
+						boardIO.reportDigitalPin(hardwarePinNumber, 1);
 
-								setTimeout(function() {
-									withinThrottleRange = false;
-								}, 25);
-
-								self.set(pin, 1023);
-							}
-
-						}.bind(this) );
-						button.on("release", function() {
-							if(!withinThrottleRange) {
-								withinThrottleRange = true;
-
-								setTimeout(function() {
-									withinThrottleRange = false;
-								}, 25);
-
-								self.set(pin, 0);
-							}
-						}.bind(this) );
-
-						this.inputs[pin] = {pin: button, value: 0};
+						this.inputs[pin] = {
+							// setHardwarePin's fallback (see the OUTPUT case
+							// above) reads a pin's current mode off this
+							// object - harmless to set for an input, but
+							// kept for consistency.
+							pin: {mode: this.PINMODES.INPUT},
+							value: 0,
+						};
 					}
 				}
 				else if(mode === 'ANALOG') {

@@ -562,5 +562,12 @@
 }
 
 .dialwrapperUI {
-    margin-top: 5px;
+    // Was margin-top: 5px, which shifted the whole element's rendered
+    // position lower than its left/top model values said (the actual
+    // cause of it sitting lower than Button's detached display, which has
+    // no such margin). Zeroed so the anchor position matches Button's,
+    // and padding-top added instead - that adds breathing room above the
+    // dial graphic itself without moving where the element's box sits.
+    margin-top: 0;
+    padding-top: 10px;
 }

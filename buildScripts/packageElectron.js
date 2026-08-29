@@ -20,6 +20,7 @@
 // forced off with --no-sign. Notarization is skipped with --no-notarize,
 // or automatically if the keychain profile above hasn't been set up.
 
+const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { packager } = require('@electron/packager');
@@ -29,6 +30,82 @@ const TEAM_ID = '2E2K9GSX37'; // used only in the setup message below
 const SIGN_IDENTITY = 'Developer ID Application: Commotion New Media, Inc (2E2K9GSX37)';
 const NOTARIZE_KEYCHAIN_PROFILE = 'NTK-notarize';
 const ENTITLEMENTS = path.join(__dirname, 'entitlements.mac.plist');
+
+// Bundled into every release zip alongside NTK.app, so someone who only
+// downloaded the app still has everything needed to flash a matching
+// XIAO ESP32-C6 board - see firmware/xiao-esp32c6-circuitpython-firmata/
+// README.md for the full dev-facing version this is adapted from.
+const FIRMWARE_SRC_DIR = path.join(__dirname, '..', 'firmware', 'xiao-esp32c6-circuitpython-firmata');
+const FIRMWARE_FILES = ['code.py', 'firmata_server.py', 'pins.py', 'settings.toml.example'];
+const CIRCUITPYTHON_README = `# CircuitPython firmware for the Seeed XIAO ESP32-C6
+
+Turns a Seeed XIAO ESP32-C6 into an NTK "Network" device over WiFi - no
+Arduino IDE, no C++, just these files copied onto the board.
+
+## Install
+
+1. Install CircuitPython on the XIAO ESP32-C6 if it isn't already (see
+   https://circuitpython.org/board/seeed_xiao_esp32c6/). Unlike most
+   CircuitPython boards, this one doesn't mount a \`CIRCUITPY\` USB drive -
+   use [Thonny](https://thonny.org/) (Tools > Options > Interpreter >
+   CircuitPython, pick the board's serial port) to browse and transfer
+   files on the device over its serial/REPL connection instead.
+2. In Thonny's file browser, copy \`code.py\`, \`firmata_server.py\`, and
+   \`pins.py\` from this folder onto the board, overwriting any existing
+   \`code.py\`.
+3. Copy \`settings.toml.example\` to \`settings.toml\` on the board the
+   same way, and edit it there to fill in your WiFi network name and
+   password.
+4. The board resets and runs automatically. Watch its serial console
+   (e.g. \`screen /dev/tty.usbmodem* 115200\` on macOS) for:
+
+   \`\`\`
+   Connected. IP address: 192.168.1.42
+   Firmata server listening on port 3030
+   \`\`\`
+
+5. In NTK, open the **Add Widgets** panel (the "+" icon) and set its
+   **Device** picker at the top to **Network**, with that IP address and
+   port \`3030\` - every AnalogIn/AnalogOut/DigitalIn/DigitalOut/Servo
+   widget you add from then on defaults to this board automatically, so
+   you don't have to set Device/ip/port on each one individually. A
+   widget already on the canvas keeps whatever Device it already had -
+   change it directly in that widget's own "more" panel instead.
+
+## Pin mapping
+
+| Firmata pin | XIAO pin | Analog-capable |
+|---|---|---|
+| 0-5 | D0-D5 | yes (same physical pins as A0-A5) |
+| 6-10 | D6-D10 | no |
+
+If a pin doesn't behave as expected on your specific board unit, see
+\`pins.py\` - it's the single table controlling what each pin claims to
+support, and can be edited to match your hardware.
+
+## Troubleshooting
+
+- **NTK never shows "connected"**: check the IP printed on the serial
+  console is still current (it can change if your router reassigns a
+  lease), and that port 3030 isn't blocked by a firewall between your
+  computer and the board.
+- **Board prints an error and stops**: reconnect the serial console to
+  see the traceback - CircuitPython prints exceptions there, including
+  ones from a pin name that doesn't match your specific board (see
+  \`pins.py\`).
+- **Values look scaled wrong**: this reports analog values as 0-1023 and
+  expects PWM writes as 0-255, matching classic Arduino - if something
+  upstream assumes ESP32-native ranges (0-4095 ADC, 0-65535 PWM),
+  that's the mismatch to look for.
+`;
+
+function bundleCircuitPythonFirmware(destDir) {
+	fs.mkdirSync(destDir, { recursive: true });
+	for (const file of FIRMWARE_FILES) {
+		fs.copyFileSync(path.join(FIRMWARE_SRC_DIR, file), path.join(destDir, file));
+	}
+	fs.writeFileSync(path.join(destDir, 'readme.md'), CIRCUITPYTHON_README);
+}
 
 function identityIsAvailable(identity) {
 	try {
@@ -102,15 +179,33 @@ async function main() {
 	});
 
 	for (const outDir of appPaths) {
-		// packager() returns the containing output directory, not the .app
-		// bundle itself - zip the bundle so it's the top-level entry.
 		const appPath = path.join(outDir, 'NTK.app');
 		console.log('Packaged:', appPath);
 
-		// Zip with ditto (not Finder/Archive Utility) so the signature's
-		// extended attributes and resource forks survive for distribution.
+		// ditto's archive mode only accepts a single source path ("Can't
+		// archive multiple sources"), so NTK.app and the CircuitPython
+		// firmware folder are staged together under one directory first,
+		// then that whole directory is zipped - rather than zipping
+		// outDir itself, which would also pull in electron-packager's own
+		// LICENSE/LICENSES.chromium.html/version files that were never
+		// part of this zip before.
+		const stageDir = path.join(path.dirname(outDir), 'NTK');
+		fs.rmSync(stageDir, { recursive: true, force: true });
+		fs.mkdirSync(stageDir);
+		// -c (macOS-only): clonefile() on APFS, so this is an instant,
+		// space-efficient reflink rather than a real duplicate copy of the
+		// whole app bundle (falls back to a normal copy if that's
+		// unavailable, e.g. a non-APFS destination).
+		execFileSync('cp', ['-R', '-c', appPath, stageDir]);
+		bundleCircuitPythonFirmware(path.join(stageDir, 'CircuitPython'));
+		console.log('Bundled CircuitPython firmware:', path.join(stageDir, 'CircuitPython'));
+
+		// Zip with ditto (not Finder/Archive Utility) so the app's
+		// signature's extended attributes and resource forks survive for
+		// distribution.
 		const zipPath = `${outDir}.zip`;
-		execFileSync('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', appPath, zipPath]);
+		execFileSync('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', stageDir, zipPath]);
+		fs.rmSync(stageDir, { recursive: true, force: true });
 		console.log('Zipped:', zipPath);
 	}
 

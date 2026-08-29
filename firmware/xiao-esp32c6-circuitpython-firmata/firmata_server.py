@@ -448,6 +448,7 @@ class FirmataServer:
             pin.report = False
 
     def _handle_report_digital(self, port, enabled):
+        print(("Client requested" if enabled else "Client stopped") + " digital readings from port " + str(port))
         base = port * 8
         for bit in range(8):
             pin_index = base + bit

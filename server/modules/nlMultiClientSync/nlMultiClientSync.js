@@ -215,20 +215,21 @@ module.exports = function(options) {
 				var options = JSON.parse(options),
 					modelType = options.deviceType;
 
-
 				if(options.port && options.mode) {
-					//if(self.hardwareModels[modelType] == undefined) {
-						//var typeAndAddress = modelType.split(':');
-						//self.hardwareModels[modelType] = new nlHardware({deviceType: typeAndAddress[0], address: typeAndAddress[1] }).model;
-						//self.bindModelToTransport(self.hardwareModels[modelType]);
-
-						//self.hardwareModels[modelType].setIOMode(options.port, options.mode);
-					//}
-					//else {
-					if(self.hardwareModels[modelType] !== undefined) {
-						self.hardwareModels[modelType].setIOMode(options.port, options.mode);
+					// A widget can ask to switch a pin's mode (e.g. DigitalIn
+					// right after being created) before its own
+					// sendDeviceModelUpdate has round-tripped through
+					// SocketAdapter's throttle and actually created the
+					// hardware model below - instantiate it here too if
+					// needed, same as sendModelUpdate does, so this doesn't
+					// silently no-op on that race.
+					if(self.hardwareModels[modelType] == undefined) {
+						var typeAddressPort = modelType.split(':');
+						self.hardwareModels[modelType] = new nlHardware({deviceType: modelType, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+						self.bindModelToTransport(self.hardwareModels[modelType]);
 					}
-					//}
+
+					self.hardwareModels[modelType].setIOMode(options.port, options.mode);
 				}
 
 			});

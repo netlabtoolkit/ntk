@@ -34,6 +34,15 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		this.widgetModels = new WidgetsCollection();
 		this.hardwareModelInstances = {};
 
+		// Grid used to place freshly-placed (not loaded-from-patch)
+		// widgets - see placeNewWidget()/findFreeGridSlots(). occupiedSlots
+		// maps a slot index to true; widgetSlots maps a widget's wid to the
+		// slot indices it holds, so removeWidget() can free exactly those
+		// slots again when that widget is individually deleted, instead of
+		// only ever noticing when the whole canvas goes empty.
+		this.occupiedSlots = {};
+		this.widgetSlots = {};
+
 		// Create a patch loader / saver for reloading in JSON "patches"
 		this.patchLoader = new PatchLoader({
 			//serverAddress: 'localhost',
@@ -397,7 +406,12 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				// adding the c to maintain backwards compatibility
 				view.model.set('wid', "n" + this.largestCID);
 			}
+			// Loaded-from-patch widgets already carry their own saved
+			// position (applied via setFromModel) - only freshly-placed
+			// widgets need one, so they don't all stack on top of each
+			// other at .widget's static CSS default position.
 			if(!addedFromLoader) {
+				this.placeNewWidget(view);
 				window.app.vent.trigger('addWidget', view.model);
 			}
 			this.widgetModels.add(view.model);
@@ -405,6 +419,132 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 
 			return view;
+		},
+		WIDGETS_WITH_DETACHED_DISPLAY: ['Button', 'Knob', 'Video', 'Image', 'Text'],
+		// Image/Video's detached display is a preview that can be
+		// arbitrarily large (whatever image/video was loaded) - reserving
+		// grid space to avoid ever overlapping it isn't worth it, and it's
+		// fine for a new widget to land on top of one. Button/Knob's
+		// displays are small and fixed-size, so those still reserve room.
+		WIDGETS_RESERVING_EXTRA_GRID_SPACE: ['Button', 'Knob'],
+		// Vertical offset from a widget's own box to its detached display,
+		// per typeID - Text/Image/Video sit 5px lower than Button/Knob.
+		DETACHED_DISPLAY_TOP_OFFSET: {
+			Button: 150,
+			Knob: 150,
+			Video: 155,
+			Image: 155,
+			Text: 155,
+		},
+		GRID_STEP_X: 200,
+		GRID_STEP_Y: 190,
+		GRID_START_LEFT: 120,
+		GRID_START_TOP: 50,
+		/**
+		 * getGridColumns - how many grid columns fit in the canvas right
+		 * now (recomputed each time in case the window's been resized).
+		 * The Add Widgets panel (app/styles/toolBar.scss) is
+		 * position:fixed, 250px wide, docked over the right edge of
+		 * #patcherRegion rather than shrinking it - #patcherRegion's own
+		 * width doesn't know it's there, so it's subtracted here to keep
+		 * new widgets from landing underneath it.
+		 *
+		 * @return {number}
+		 */
+		getGridColumns: function() {
+			var ADD_WIDGETS_PANEL_WIDTH = 250,
+				canvasWidth = ($('#patcherRegion').width() || 900) - ADD_WIDGETS_PANEL_WIDTH;
+
+			return Math.max(1, Math.floor((canvasWidth - this.GRID_START_LEFT) / this.GRID_STEP_X));
+		},
+		/**
+		 * findFreeGridSlots - the first (row-major, top-left to
+		 * bottom-right) block of unoccupied grid cells big enough for a
+		 * widthxheight footprint, without wrapping mid-row.
+		 *
+		 * @param {number} width footprint width in grid cells
+		 * @param {number} height footprint height in grid cells
+		 * @return {Array} occupied slot indices, top-left cell first
+		 */
+		findFreeGridSlots: function(width, height) {
+			var cols = this.getGridColumns(),
+				occupiedSlots = this.occupiedSlots;
+
+			for(var start = 0; ; start++) {
+				var row0 = Math.floor(start / cols),
+					col0 = start % cols;
+
+				if(col0 + width > cols) {
+					continue;
+				}
+
+				var candidateSlots = [],
+					fits = true;
+
+				for(var r = 0; r < height && fits; r++) {
+					for(var c = 0; c < width && fits; c++) {
+						var index = (row0 + r) * cols + (col0 + c);
+
+						if(occupiedSlots[index]) {
+							fits = false;
+							break;
+						}
+
+						candidateSlots.push(index);
+					}
+				}
+
+				if(fits) {
+					return candidateSlots;
+				}
+			}
+		},
+		/**
+		 * placeNewWidget - claim a free spot in the placement grid for a
+		 * freshly-placed widget, so it doesn't land on top of another
+		 * widget still on the canvas. Reserves a 2x2 block instead of 1x1
+		 * for Button/Knob/Video/Image, which also have a second, floating
+		 * "detached" display (the actual big button/dial/player/image,
+		 * dragged independently of the small widget box) that can be far
+		 * larger than the widget box itself.
+		 *
+		 * Slots are tracked per-widget (this.widgetSlots) so
+		 * removeWidget() can free exactly this widget's slots again when
+		 * it's individually deleted - the next widget placed can then
+		 * reuse that same spot, rather than the grid only ever growing.
+		 *
+		 * @param {object} view the widget view, already rendered and in
+		 *   the DOM, with its wid already assigned
+		 * @return {void}
+		 */
+		placeNewWidget: function(view) {
+			var hasDetachedDisplay = this.WIDGETS_WITH_DETACHED_DISPLAY.indexOf(view.typeID) !== -1,
+				reservesExtraGridSpace = this.WIDGETS_RESERVING_EXTRA_GRID_SPACE.indexOf(view.typeID) !== -1,
+				cells = reservesExtraGridSpace ? 2 : 1,
+				slots = this.findFreeGridSlots(cells, cells),
+				cols = this.getGridColumns(),
+				topLeftRow = Math.floor(slots[0] / cols),
+				topLeftCol = slots[0] % cols,
+				position = {
+					left: this.GRID_START_LEFT + topLeftCol * this.GRID_STEP_X,
+					top: this.GRID_START_TOP + topLeftRow * this.GRID_STEP_Y,
+				};
+
+			_.each(slots, function(slot) { this.occupiedSlots[slot] = true; }, this);
+			this.widgetSlots[view.model.get('wid')] = slots;
+
+			view.$el.css({left: position.left, top: position.top});
+			view.model.set({offsetLeft: position.left, offsetTop: position.top});
+
+			if(hasDetachedDisplay) {
+				// Keep this widget type's traditional offset between its
+				// own box and its detached display (originally (120,50)
+				// vs (100,200) - 20px left, ~150px down), just relative to
+				// wherever this widget actually landed instead of a fixed
+				// spot.
+				var topOffset = this.DETACHED_DISPLAY_TOP_OFFSET[view.typeID] || 150;
+				view.model.set({left: position.left - 20, top: position.top + topOffset});
+			}
 		},
         /**
          * updateWidgetModelFromServer
@@ -462,6 +602,17 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		removeWidget: function(widgetView, calledFromLoader) {
 			this.widgets = _.reject(this.widgets, function(view) { return widgetView === view; });
 			this.widgetModels.remove(widgetView.model);
+
+			// Free this widget's placement-grid slots (see
+			// placeNewWidget()) so the next widget placed can reuse this
+			// exact spot instead of the grid only ever growing.
+			var widgetKey = widgetView.model.get('wid'),
+				vacatedSlots = this.widgetSlots[widgetKey];
+
+			if(vacatedSlots) {
+				_.each(vacatedSlots, function(slot) { delete this.occupiedSlots[slot]; }, this);
+				delete this.widgetSlots[widgetKey];
+			}
 
 			// Get any mappings related to this widget
 			var widgetID = widgetView.model.get('wid');

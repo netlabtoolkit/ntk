@@ -21,22 +21,31 @@ string messages. None of NTK's widgets need them.
 
 ## Setup
 
-1. Copy `code.py`, `firmata_server.py`, and `pins.py` onto the
-   `CIRCUITPY` drive (overwriting any existing `code.py`).
-2. Copy `settings.toml.example` to `settings.toml` on the same drive,
-   and fill in your WiFi SSID/password.
+This board doesn't mount a `CIRCUITPY` USB drive like most CircuitPython
+boards - use [Thonny](https://thonny.org/) (Tools > Options > Interpreter
+> CircuitPython, pick the board's serial port) to browse and transfer
+files on the device over its serial/REPL connection instead.
+
+1. In Thonny's file browser, copy `code.py`, `firmata_server.py`, and
+   `pins.py` onto the board (overwriting any existing `code.py`).
+2. Copy `settings.toml.example` to `settings.toml` on the board the same
+   way, and fill in your WiFi SSID/password.
 3. The board will reset and run `code.py` automatically. Watch the
    serial console (e.g. `screen /dev/tty.usbmodem* 115200` on macOS, or
-   the Mu editor's serial pane) for a line like:
+   Thonny's own Shell pane) for a line like:
 
    ```
    Connected. IP address: 192.168.1.42
    Firmata server listening on port 3030
    ```
 
-4. In NTK, add an AnalogIn/AnalogOut/DigitalIn/DigitalOut/Servo widget,
-   open its "more" panel, set **Device** to **Network**, and enter that
-   IP address with port `3030`.
+4. In NTK, open the **Add Widgets** panel (the "+" icon) and set its
+   **Device** picker at the top to **Network**, with that IP address and
+   port `3030` - every AnalogIn/AnalogOut/DigitalIn/DigitalOut/Servo
+   widget you add from then on defaults to this board automatically, so
+   you don't have to set Device/ip/port on each one individually. A
+   widget already on the canvas keeps whatever Device it already had -
+   change it directly in that widget's own "more" panel instead.
 
 ## Pin mapping
 

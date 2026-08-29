@@ -1,6 +1,6 @@
 {
-  "name": "netlab",
-  "version": "2026.0.4",
+  "name": "NTK",
+  "version": "2026.1.0",
   "dependencies": {
     "es6-shim": "^0.22.2",
     "express": "~4.4.5",
