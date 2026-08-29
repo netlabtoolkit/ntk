@@ -424,6 +424,15 @@
         }
 
         .content {
+            // Fixed so every widget's "more" panel lines up the same width
+            // regardless of what's inside it - without this, a panel
+            // containing e.g. a serial port dropdown (whose native width
+            // grows to fit its longest detected port name, like
+            // "/dev/tty.usbmodem1101 (Espressif)") stretched wider than
+            // every other widget's panel.
+            width: 190px;
+            box-sizing: border-box;
+
             padding: 5px;
             margin-left: 5px;
             border-radius: 5px;
@@ -445,6 +454,21 @@
 
             .moreParam {
                 width: 40px;
+            }
+
+            // Anything else text-like (address/port fields, the serial
+            // port select) fills the fixed content width above instead of
+            // sizing to its own content/native default.
+            input[type=text], select {
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+
+            .serialPortSelect {
+                width: 100%;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                overflow: hidden;
             }
 
             // Shared across every widget's "more" panel (added per-widget

@@ -136,11 +136,13 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					this.addWidgetToStage(newWidget, addedFromLoader);
 
 					if(!addedFromLoader) {
+						this.applyDefaultDeviceToModel(newModel);
+						var deviceMapping = this.getDefaultDeviceMapping(serverAddress);
 						this.mapToModel({
 							view: newWidget,
-							modelType: 'ArduinoUno',
+							modelType: deviceMapping.modelType,
 							IOMapping: {sourceField: "A0", destinationField: 'in'},
-							server: serverAddress,
+							server: deviceMapping.server,
 						}, addedFromLoader);
 					}
 
@@ -167,12 +169,13 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					this.addWidgetToStage(newWidget, addedFromLoader);
 
 					if(!addedFromLoader) {
-
+						this.applyDefaultDeviceToModel(newModel);
+						var deviceMapping = this.getDefaultDeviceMapping(serverAddress);
 						this.mapToModel({
 							view: newWidget,
-							modelType: 'ArduinoUno',
+							modelType: deviceMapping.modelType,
 							IOMapping: {sourceField: "out", destinationField: defaultOutputMapping},
-							server: serverAddress,
+							server: deviceMapping.server,
 						}, addedFromLoader);
 					}
 
@@ -187,11 +190,13 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					this.addWidgetToStage(newWidget, addedFromLoader);
 
 					if(!addedFromLoader) {
+						this.applyDefaultDeviceToModel(newModel);
+						var deviceMapping = this.getDefaultDeviceMapping(serverAddress);
 						this.mapToModel({
 							view: newWidget,
-							modelType: 'ArduinoUno',
+							modelType: deviceMapping.modelType,
 							IOMapping: {sourceField: "D12", destinationField: 'in'},
-							server: serverAddress,
+							server: deviceMapping.server,
 						}, addedFromLoader);
 					}
 
@@ -217,12 +222,13 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					this.addWidgetToStage(newWidget, addedFromLoader);
 
 					if(!addedFromLoader) {
-
+						this.applyDefaultDeviceToModel(newModel);
+						var deviceMapping = this.getDefaultDeviceMapping(serverAddress);
 						this.mapToModel({
 							view: newWidget,
 							IOMapping: {sourceField: "out", destinationField: defaultOutputMapping},
-							modelType: 'ArduinoUno',
-							server: serverAddress,
+							modelType: deviceMapping.modelType,
+							server: deviceMapping.server,
 						}, addedFromLoader);
 					}
 
@@ -244,11 +250,13 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					this.addWidgetToStage(newWidget, addedFromLoader);
 
 					if(!addedFromLoader) {
+						this.applyDefaultDeviceToModel(newModel);
+						var deviceMapping = this.getDefaultDeviceMapping(serverAddress);
 						this.mapToModel({
 							view: newWidget,
 							IOMapping: {sourceField: "out", destinationField: defaultMapping},
-							modelType: 'ArduinoUno',
-							server: serverAddress,
+							modelType: deviceMapping.modelType,
+							server: deviceMapping.server,
 						}, addedFromLoader);
 					}
 
@@ -320,6 +328,51 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			}
 
 			return false;
+		},
+		/**
+		 * getDefaultDeviceMapping - the {modelType, server} pair a freshly
+		 * placed hardware widget should map to, based on the left panel's
+		 * Settings > Device default (window.app.defaultDevice). Falls back
+		 * to the existing ArduinoUno/serverAddress behavior when the
+		 * default is still Serial, so nothing changes for that case.
+		 *
+		 * @param {string} fallbackServerAddress the serverAddress used for
+		 *   ArduinoUno (NTK's own web server host, not the device address)
+		 * @return {object} {modelType, server}
+		 */
+		getDefaultDeviceMapping: function(fallbackServerAddress) {
+			var defaultDevice = window.app.defaultDevice;
+
+			if(defaultDevice && defaultDevice.deviceType === 'network') {
+				return {
+					modelType: 'network',
+					server: (defaultDevice.server || '127.0.0.1') + ":" + (defaultDevice.port || 3030),
+				};
+			}
+
+			return {modelType: 'ArduinoUno', server: fallbackServerAddress};
+		},
+		/**
+		 * applyDefaultDeviceToModel - stamp a freshly created widget's model
+		 * with the left panel's Device default so its own Device/ip/port
+		 * fields show the same thing that's being mapped, instead of
+		 * silently mapping to Network while still displaying Serial. A
+		 * no-op when the default is still Serial (the widget's own model
+		 * already defaults there).
+		 *
+		 * @param {object} model the new widget's model
+		 * @return {void}
+		 */
+		applyDefaultDeviceToModel: function(model) {
+			var defaultDevice = window.app.defaultDevice;
+
+			if(defaultDevice && defaultDevice.deviceType === 'network') {
+				model.set({
+					deviceType: 'network',
+					server: defaultDevice.server,
+					port: defaultDevice.port,
+				});
+			}
 		},
 		existingMappingExists: function existingMappingExists(port, deviceType) {
 			// Check if we are already using this output pin, don't use it if we are

@@ -42,7 +42,7 @@
 	}
 
 
-    
+
 	.downloadPatch,
 	.loadPatch, .savePatch, .hideWidgets, .clearPatch, .fullScreen, .serverSwitch, .logo {
 		float: left;
@@ -117,6 +117,48 @@
 		color: whitesmoke;
 		margin: 0;
 	}
+
+	// Default Device picker - every newly-placed hardware widget inherits
+	// this as its own initial Device/ip/port so you don't have to re-enter
+	// the network address on every widget (see Patcher.js's
+	// applyDefaultDeviceToModel/getDefaultDeviceMapping). Mirrors a
+	// widget's own "more" panel Device fields (Widget.scss's .deviceIp/
+	// .devicePort/.serialPortPicker), but plain jQuery show()/hide() drives
+	// visibility here (in ToolBar.js) instead of a rivets binder, since
+	// this view doesn't otherwise use rivets.
+	.defaultDevice {
+		clear: both;
+		float: left;
+		width: calc(250px - 20px);
+		padding: 10px;
+
+		background-color: darkgrey;
+		border-bottom: 1px solid #bbb;
+
+		font-size: 0.8em;
+		color: #000;
+
+		label {
+			display: inline-block;
+			width: 35px;
+			color: #000;
+		}
+
+		select, input {
+			width: 150px;
+			font-size: 1em;
+			color: #333;
+		}
+
+		.defaultDeviceIp, .defaultDevicePort, .defaultDeviceSerialPortPicker {
+			margin-top: 4px;
+		}
+
+		.defaultDeviceIp, .defaultDevicePort {
+			display: none;
+		}
+	}
+
 	.category {
 		float: left;
 		width: calc(250px - 20px);

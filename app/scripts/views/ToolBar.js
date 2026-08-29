@@ -19,6 +19,11 @@ function( app, Backbone, Template, Widgets ) {
             'click .serverSwitch': 'toggleServer',
             'click .openAddWidgets': 'toggleAddWidgetsPanel',
             'click .openSettings': 'toggleSettingsPanel',
+            'change .defaultDeviceType': 'defaultDeviceTypeChange',
+            'change .defaultDeviceAddress': 'defaultDeviceServerChange',
+            'change .defaultDevicePortInput': 'defaultDevicePortChange',
+            'change .defaultSerialPortSelect': 'defaultDeviceServerChange',
+            'mousedown .defaultDeviceSerialPortPicker': 'requestDefaultSerialPorts',
 		},
 		subViews: [],
 		template: _.template(Template),
@@ -27,6 +32,7 @@ function( app, Backbone, Template, Widgets ) {
 
 		initialize: function initialize() {
 			window.app.vent.on('serverActive', this.indicateServerActive, this);
+			window.app.vent.on('serialPortList', this.updateDefaultSerialPortOptions, this);
 		},
 		render: function() {
 			this.el.innerHTML = this.template();
@@ -84,6 +90,65 @@ function( app, Backbone, Template, Widgets ) {
 			fileInput.addEventListener("change", this.loadPatch.bind(this) );
 
 			this.indicateServerActive(window.app.serverActive);
+			this.initDefaultDeviceUI();
+		},
+		/**
+		 * initDefaultDeviceUI - reflect window.app.defaultDevice in the
+		 * Settings drawer's Device controls, and kick off serial port
+		 * detection if it defaults to Serial.
+		 *
+		 * @return {void}
+		 */
+		initDefaultDeviceUI: function() {
+			var defaultDevice = window.app.defaultDevice;
+
+			this.$('.defaultDeviceType').val(defaultDevice.deviceType);
+			this.$('.defaultDeviceAddress').val(defaultDevice.deviceType === 'network' ? defaultDevice.server : '');
+			this.$('.defaultDevicePortInput').val(defaultDevice.port);
+			this.updateDefaultDeviceVisibility();
+
+			if(defaultDevice.deviceType === 'ArduinoUno') {
+				this.requestDefaultSerialPorts();
+			}
+		},
+		updateDefaultDeviceVisibility: function() {
+			var isNetwork = window.app.defaultDevice.deviceType === 'network';
+
+			this.$('.defaultDeviceIp, .defaultDevicePort').toggle(isNetwork);
+			this.$('.defaultDeviceSerialPortPicker').toggle(!isNetwork);
+		},
+		defaultDeviceTypeChange: function() {
+			window.app.defaultDevice.deviceType = this.$('.defaultDeviceType').val();
+			this.updateDefaultDeviceVisibility();
+
+			if(window.app.defaultDevice.deviceType === 'ArduinoUno') {
+				this.requestDefaultSerialPorts();
+			}
+		},
+		// Bound to both the ip text input (Network mode) and the serial port
+		// select (Serial mode) - like a widget's own Device panel, both
+		// write into the same underlying "server" field.
+		defaultDeviceServerChange: function(e) {
+			window.app.defaultDevice.server = $(e.currentTarget).val();
+		},
+		defaultDevicePortChange: function() {
+			window.app.defaultDevice.port = parseInt(this.$('.defaultDevicePortInput').val(), 10) || 3030;
+		},
+		requestDefaultSerialPorts: function() {
+			window.app.vent.trigger('listSerialPorts');
+		},
+		updateDefaultSerialPortOptions: function(ports) {
+			var $select = this.$('.defaultSerialPortSelect'),
+				currentValue = window.app.defaultDevice.server;
+
+			$select.find('option.detectedPort').remove();
+
+			_.each(ports, function(port) {
+				var label = port.manufacturer ? port.path + ' (' + port.manufacturer + ')' : port.path;
+				$select.append('<option class="detectedPort" value="' + port.path + '">' + label + '</option>');
+			});
+
+			$select.val(currentValue || 'auto');
 		},
 		/**
 		 * Sort all widgets into a categories object

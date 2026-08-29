@@ -14,6 +14,27 @@
 
 <div class="addWidgets open">
 <h1>Add Widgets</h1>
+<div class="defaultDevice">
+	<label class="narrowLabel">Device</label>
+	<select class="defaultDeviceType">
+		<option value="ArduinoUno">Serial</option>
+		<option value="network">Network</option>
+	</select>
+	<div class="defaultDeviceIp">
+		<label class="narrowLabel">ip</label>
+		<input class="defaultDeviceAddress" type="text">
+	</div>
+	<div class="defaultDevicePort">
+		<label class="narrowLabel">port</label>
+		<input class="defaultDevicePortInput" type="text" pattern="[0-9]*">
+	</div>
+	<div class="defaultDeviceSerialPortPicker">
+		<label class="narrowLabel">port</label>
+		<select class="defaultSerialPortSelect">
+			<option value="auto">Auto-detect</option>
+		</select>
+	</div>
+</div>
 <span id="messages"></span>
 </div>
 

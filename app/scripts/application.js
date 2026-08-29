@@ -13,6 +13,20 @@ function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule) {
 	var App = new Backbone.Marionette.Application();
 	window.app = App;
 
+	// Default Device settings, shown in the left-panel Settings drawer -
+	// every newly-placed hardware widget (AnalogIn/AnalogOut/DigitalIn/
+	// DigitalOut/Servo) picks these up as its own initial Device/ip/port
+	// so you don't have to re-enter the network address on every widget.
+	// Purely a creation-time default - has no effect on widgets already
+	// on the canvas. See ToolBar.js/ToolBar_tmpl.js for the UI and
+	// Patcher.js's applyDefaultDeviceToModel/getDefaultDeviceMapping for
+	// where it's consumed.
+	App.defaultDevice = {
+		deviceType: 'ArduinoUno',
+		server: 'auto',
+		port: 3030,
+	};
+
 	// Regions
 	App.addRegions({
 		patcherRegion: '#patcherRegion',
