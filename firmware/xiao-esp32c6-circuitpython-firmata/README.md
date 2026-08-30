@@ -47,6 +47,33 @@ files on the device over its serial/REPL connection instead.
    widget already on the canvas keeps whatever Device it already had -
    change it directly in that widget's own "more" panel instead.
 
+## SoftAP mode (no router needed)
+
+By default the board joins the WiFi named in `settings.toml`
+(`CIRCUITPY_WIFI_SSID`) and gets its address from that network's DHCP -
+which is why you have to read the IP off the serial console.
+
+Set `NTK_WIFI_MODE = "ap"` in `settings.toml` to instead have the board
+run **its own WiFi network**. It's then always reachable at a fixed
+**`192.168.4.1`, port `3030`** - nothing to discover. Good for workshops,
+demos, or any place with no usable/locked-down WiFi.
+
+```
+NTK_WIFI_MODE = "ap"
+NTK_AP_SSID = "NTK-Firmata"
+NTK_AP_PASSWORD = "netlabtoolkit"   # 8-63 chars; "" for an open network
+```
+
+Then join the WiFi network `NTK-Firmata` from your computer and point
+NTK's **Device** picker at `192.168.4.1` / port `3030`.
+
+Trade-offs: while your computer is on the board's network it has **no
+normal WiFi / internet** (use Ethernet if you need both), it's really
+**one board at a time**, and **range is shorter** than station mode - the
+link is now your computer talking straight to the XIAO's small antenna
+with no router to help. A XIAO ESP32-C6 with an external antenna helps if
+you rely on this.
+
 ## Pin mapping
 
 See `pins.py` for the authoritative table and how to adjust it if your

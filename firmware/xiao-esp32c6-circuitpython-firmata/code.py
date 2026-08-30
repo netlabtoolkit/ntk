@@ -15,6 +15,16 @@ Setup:
 3. In NTK, add an AnalogIn/AnalogOut/DigitalIn/DigitalOut/Servo widget,
    set its Device dropdown to "Network", and enter that IP with port
    3030.
+
+WiFi mode (settings.toml, NTK_WIFI_MODE):
+  "station" (default) - join the WiFi named in CIRCUITPY_WIFI_SSID, as
+    above; the board's address comes from that network's DHCP.
+  "ap" - the board makes its OWN WiFi network (SoftAP) and is always
+    reachable at a fixed 192.168.4.1, port 3030. Use this when there's no
+    usable router (workshops, demos, locked-down guest WiFi). The computer
+    joins the board's network and loses its normal WiFi/internet while
+    joined, and range is shorter than station mode. Configure the network
+    name/password with NTK_AP_SSID / NTK_AP_PASSWORD.
 """
 
 import errno
@@ -99,6 +109,51 @@ def connect_wifi():
         except ConnectionError as e:
             print("WiFi connect attempt failed, retrying:", e)
     print("Connected. IP address:", wifi.radio.ipv4_address)
+
+
+def start_ap():
+    """SoftAP mode: the board runs its own WiFi network instead of joining
+    one, so it's always reachable at a fixed 192.168.4.1 with no DHCP
+    address to discover. See the module docstring for when to use this."""
+    ssid = os.getenv("NTK_AP_SSID") or "NTK-Firmata"
+
+    # Absent key -> a sensible default password (keeps the network closed
+    # by default). An explicit empty string in settings.toml opts into an
+    # open network.
+    password = os.getenv("NTK_AP_PASSWORD")
+    if password is None:
+        password = "netlabtoolkit"
+
+    # WPA2 needs an 8-63 character passphrase. Rather than let start_ap()
+    # raise and leave the board unreachable, fall back to an open network
+    # with a loud warning if the configured password is out of range.
+    if password and not (8 <= len(password) <= 63):
+        print(
+            "NTK_AP_PASSWORD must be 8-63 characters (got %d) - starting an "
+            "OPEN network instead." % len(password)
+        )
+        password = ""
+
+    print("Starting SoftAP:", ssid, "(secured)" if password else "(open)")
+    if password:
+        wifi.radio.start_ap(ssid, password)
+    else:
+        wifi.radio.start_ap(ssid)
+
+    # Recent CircuitPython starts the AP DHCP server automatically inside
+    # start_ap(); older builds need it explicit. Harmless to call when it's
+    # already running or absent.
+    try:
+        wifi.radio.start_dhcp_server()
+    except Exception as e:
+        print("(start_dhcp_server not needed / unavailable:", e, ")")
+
+    ap_ip = wifi.radio.ipv4_address_ap
+    print("SoftAP started. IP address:", ap_ip)
+    print(
+        "Join WiFi '%s'%s, then point NTK (Device: Network) at %s port %d"
+        % (ssid, "" if password else " (open)", ap_ip, FIRMATA_PORT)
+    )
 
 
 def run_server():
@@ -191,5 +246,16 @@ def run_server():
             print("Client disconnected")
 
 
-connect_wifi()
+wifi_mode = str(os.getenv("NTK_WIFI_MODE") or "station").strip().lower()
+if wifi_mode == "ap":
+    try:
+        start_ap()
+    except Exception as e:
+        # If SoftAP can't start for any reason, fall back to joining the
+        # configured WiFi so the board is still reachable somehow rather
+        # than dead on the network.
+        print("start_ap() failed:", e, "- falling back to station mode")
+        connect_wifi()
+else:
+    connect_wifi()
 run_server()

@@ -72,6 +72,23 @@ Arduino IDE, no C++, just these files copied onto the board.
    widget already on the canvas keeps whatever Device it already had -
    change it directly in that widget's own "more" panel instead.
 
+## SoftAP mode (no router needed)
+
+Add \`NTK_WIFI_MODE = "ap"\` to \`settings.toml\` and the board runs its
+own WiFi network instead of joining yours. It's then always at a fixed
+**\`192.168.4.1\`, port \`3030\`** - no IP to read off the serial console.
+
+\`\`\`
+NTK_WIFI_MODE = "ap"
+NTK_AP_SSID = "NTK-Firmata"
+NTK_AP_PASSWORD = "netlabtoolkit"   # 8-63 chars; "" for an open network
+\`\`\`
+
+Join the \`NTK-Firmata\` network from your computer, then point NTK's
+**Device** picker at \`192.168.4.1\` / port \`3030\`. Note: while joined to
+the board's network your computer has no normal WiFi/internet, it's one
+board at a time, and range is shorter than joining a real router.
+
 ## Pin mapping
 
 | Firmata pin | XIAO pin | Analog-capable |

@@ -1,2 +1,10 @@
 CIRCUITPY_WIFI_SSID="your-wifi-name"
 CIRCUITPY_WIFI_PASSWORD="your-wifi-password"
+
+# --- Optional: SoftAP mode (board makes its own WiFi, fixed IP 192.168.4.1) ---
+# Use when there is no usable router. The computer joins the board's network
+# (and loses its normal WiFi / internet while joined). Range is shorter than
+# station mode - the board's small antenna with no router to help.
+# NTK_WIFI_MODE = "ap"
+# NTK_AP_SSID = "NTK-Firmata"
+# NTK_AP_PASSWORD = "netlabtoolkit"   # 8-63 chars; set to "" for an open network
