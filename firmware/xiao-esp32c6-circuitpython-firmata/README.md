@@ -74,6 +74,15 @@ link is now your computer talking straight to the XIAO's small antenna
 with no router to help. A XIAO ESP32-C6 with an external antenna helps if
 you rely on this.
 
+## Optional: show the IP on a Grove LCD RGB Backlight
+
+Wire a [Grove - LCD RGB Backlight](https://wiki.seeedstudio.com/Grove-LCD_RGB_Backlight/)
+to the board's I2C pins and it'll show the station-mode IP address (and
+turn the backlight green) once connected - no serial console needed.
+Nothing to configure - `grove_lcd.py` is used automatically if present,
+and if the display isn't attached (or wired wrong), it's skipped
+silently and the board boots normally either way.
+
 ## Pin mapping
 
 See `pins.py` for the authoritative table and how to adjust it if your

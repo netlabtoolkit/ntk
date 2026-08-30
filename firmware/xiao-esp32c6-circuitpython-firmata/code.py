@@ -25,6 +25,11 @@ WiFi mode (settings.toml, NTK_WIFI_MODE):
     joins the board's network and loses its normal WiFi/internet while
     joined, and range is shorter than station mode. Configure the network
     name/password with NTK_AP_SSID / NTK_AP_PASSWORD.
+
+Optional Grove LCD RGB Backlight (see grove_lcd.py): if wired up to the
+board's I2C pins, this shows the station-mode IP address (and turns the
+backlight green) once connected - purely a convenience so you don't have
+to watch the serial console for it. Not attached? It's skipped silently.
 """
 
 import errno
@@ -82,6 +87,42 @@ def send_all(conn, data):
         sent_total += n
 
 
+def _try_enable_internal_pullups(sda, scl):
+    # CircuitPython's I2C init refuses to open the bus at all if it
+    # doesn't see SDA/SCL already held high - genuinely correct, since
+    # I2C (an open-drain bus) can't work reliably without pull-ups
+    # somewhere. Most Grove I2C modules have their own onboard pull-ups,
+    # but an older/cheaper one might not. This briefly asks the
+    # microcontroller for its own internal pull-ups on those two pins
+    # right before opening the bus, as a best-effort substitute - NOT as
+    # reliable as real 4.7k-10k ohm resistors from SDA/SCL to 3.3V, but
+    # free to try and harmless if it doesn't help.
+    import digitalio
+
+    for pin in (sda, scl):
+        pull = digitalio.DigitalInOut(pin)
+        pull.switch_to_input(pull=digitalio.Pull.UP)
+        pull.deinit()
+
+
+def show_ip_on_lcd(ip_address):
+    """Best-effort: show this board's IP on an attached Grove LCD RGB
+    Backlight (see grove_lcd.py). Entirely optional - any failure (no
+    display wired up, wrong I2C address, no I2C bus on this board) is
+    swallowed here so a missing display never blocks booting into
+    run_server()."""
+    try:
+        import board
+        from grove_lcd import GroveLCD
+
+        _try_enable_internal_pullups(board.SDA, board.SCL)
+        lcd = GroveLCD(board.I2C())
+        lcd.show_lines("NTK Firmata", str(ip_address) + ":" + str(FIRMATA_PORT))
+        lcd.set_rgb(0, 255, 0)
+    except Exception as e:
+        print("Grove LCD not shown (not attached?):", e)
+
+
 def connect_wifi():
     ssid = os.getenv("CIRCUITPY_WIFI_SSID")
     password = os.getenv("CIRCUITPY_WIFI_PASSWORD")
@@ -109,6 +150,7 @@ def connect_wifi():
         except ConnectionError as e:
             print("WiFi connect attempt failed, retrying:", e)
     print("Connected. IP address:", wifi.radio.ipv4_address)
+    show_ip_on_lcd(wifi.radio.ipv4_address)
 
 
 def start_ap():
