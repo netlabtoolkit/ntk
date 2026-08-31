@@ -89,8 +89,22 @@ Wire a [Grove - LCD RGB Backlight](https://wiki.seeedstudio.com/Grove-LCD_RGB_Ba
 to the board's I2C pins and it'll show the station-mode IP address (and
 turn the backlight green) once connected - no serial console needed.
 Nothing to configure - `grove_lcd.py` is used automatically if present,
-and if the display isn't attached (or wired wrong), it's skipped
-silently and the board boots normally either way.
+and if the display isn't attached, wired wrong, or the bus lacks
+pull-ups (see Troubleshooting below), it's skipped silently and the
+board boots normally either way.
+
+## Optional: Grove - 3-Axis Digital Accelerometer (LIS3DHTR)
+
+Wire this to the board's I2C pins and copy this folder's `lib/` subfolder
+onto the device (Thonny, alongside `code.py`/`firmata_server.py`/
+`pins.py`) and it just works - no NTK-side changes needed. `pins.py`
+exposes its X/Y/Z acceleration as three ordinary-looking analog pins,
+**A3**, **A4**, and **A5** (unused by any real pin on this board), so an
+AnalogIn widget pointed at any of those reads live acceleration exactly
+like it would a potentiometer - 0 = -2g, the middle of the dial = flat
+and at rest (0g), 1023 = +2g. Not attached, wired wrong, or the bus
+lacks pull-ups (see Troubleshooting below)? It's skipped silently and
+those three pins just don't exist as far as NTK can tell.
 
 ## Pin mapping
 
@@ -123,3 +137,13 @@ widgets if you hit this.
   and expects PWM writes as 0-255, matching classic Arduino - if
   something upstream is assuming ESP32-native ranges (0-4095 ADC, 0-255
   vs 0-65535 PWM), that's the mismatch to look for.
+- **An I2C device (Grove LCD, accelerometer, etc.) prints "No pull up
+  found on SDA or SCL; check your wiring"**: a real electrical issue,
+  not a false-positive check - I2C is open-drain and genuinely can't
+  work without pull-up resistors somewhere on the bus. Most Grove I2C
+  modules supply their own, but an older/cheaper one might not, and not
+  every Grove expander's I2C port does either. Fix: two resistors
+  (4.7k-10k ohm) from SDA to 3V3 and from SCL to 3V3 - many Grove
+  expander boards expose individual SDA/SCL/3V3 pins on a breakout
+  header specifically for this, separate from the Grove connectors
+  themselves.

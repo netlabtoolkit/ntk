@@ -3,10 +3,16 @@ A Firmata protocol server, implemented from scratch for CircuitPython.
 
 Scope is deliberately narrow - digital I/O, analog input, PWM output, and
 servo output - matching exactly what NTK's AnalogIn/AnalogOut/DigitalIn/
-DigitalOut/Servo widgets use. Not implemented: I2C, one-wire, stepper,
-string data, serial-passthrough. None of NTK's widgets need them, and
-each one is a meaningful chunk of additional protocol surface to get
-right on hardware this hasn't been tested against.
+DigitalOut/Servo widgets use. Not implemented: generic I2C passthrough,
+one-wire, stepper, string data, serial-passthrough. None of NTK's
+widgets need generic I2C - instead, one small custom sysex extension
+(GROVE_SENSOR_REQUEST/GROVE_SENSOR_REPLY, see below) lets a NTK
+GroveSensor widget subscribe to specific I2C sensors that this firmware
+already knows how to read (see pins.py's GROVE_SENSOR_CATALOG) using
+their existing CircuitPython drivers - deliberately not a generic
+register-level I2C passthrough, which would mean reimplementing every
+sensor's driver logic in JavaScript on the host instead of reusing the
+CircuitPython ones already here.
 
 Every byte sequence here was checked against server/node_modules/
 firmata-io/lib/firmata.js in the NTK repo - the actual host-side parser
@@ -48,6 +54,24 @@ SERVO_CONFIG = 0x70
 SAMPLING_INTERVAL = 0x7A
 QUERY_FIRMWARE = 0x79
 
+# Custom sysex extension (not part of the Firmata spec) - from the
+# range Firmata reserves for user-defined commands (0x01-0x0F), since
+# every other sysex ID above is a real standard Firmata code. Lets a
+# GroveSensor widget subscribe to one of pins.py's GROVE_SENSOR_CATALOG
+# entries and receive its readings, without a generic I2C passthrough -
+# see the module docstring for why.
+GROVE_SENSOR_REQUEST = 0x01  # host -> device
+GROVE_SENSOR_REPLY = 0x02  # device -> host
+
+GROVE_SUBSCRIBE = 1
+GROVE_UNSUBSCRIBE = 2
+
+GROVE_READINGS = 1
+GROVE_STATUS = 2
+
+GROVE_STATUS_OK = 1
+GROVE_STATUS_ERROR = 2
+
 # Pin modes - matches board.MODES in firmata-io exactly (these values are
 # part of the wire protocol, not an internal implementation detail).
 INPUT = 0x00
@@ -82,22 +106,53 @@ class _Pin:
     """One Firmata pin's live state - which CircuitPython object (if any)
     currently owns the physical pin, its Firmata mode, and cached value."""
 
-    def __init__(self, board_pin, analog_channel=None):
-        self.board_pin = board_pin
+    def __init__(self, board_pin, analog_channel=None, virtual_read=None):
+        self.board_pin = board_pin  # None for a "virtual" pin - see virtual_read
         self.analog_channel = analog_channel  # None if not analog-capable
+        # For a pin with no real board_pin (e.g. one axis of an I2C sensor
+        # exposed as if it were an analog input - see pins.py and
+        # _VirtualAnalogIn below): a zero-arg function returning a raw
+        # 16-bit value (0-65535), called instead of sampling analogio.
+        self.virtual_read = virtual_read
         self.mode = None
-        self.io = None  # the live digitalio/analogio/pwmio object, or None
+        self.io = None  # the live digitalio/analogio/pwmio/_VirtualAnalogIn object, or None
         self.report = False
         self.value = 0
         self.servo_min_us = SERVO_MIN_PULSE_US_DEFAULT
         self.servo_max_us = SERVO_MAX_PULSE_US_DEFAULT
 
 
+class _VirtualAnalogIn:
+    """Duck-types analogio.AnalogIn's read-only 16-bit `.value` property
+    and its deinit(), computed by calling a pin's virtual_read() instead
+    of sampling a real ADC - lets update()'s existing ANALOG polling loop
+    (and release_all_pins()) treat a sensor-derived reading exactly like a
+    real analog pin, with no special-casing anywhere except
+    _handle_report_analog, where this gets constructed."""
+
+    def __init__(self, virtual_read):
+        self._virtual_read = virtual_read
+
+    @property
+    def value(self):
+        return self._virtual_read()
+
+    def deinit(self):
+        pass  # nothing to release - not a real hardware peripheral
+
+
 class FirmataServer:
-    def __init__(self, pin_table):
-        """pin_table: list of (board_pin_object, analog_channel_or_None),
-        in Firmata pin-index order - index 0 is Firmata pin 0, etc."""
-        self.pins = [_Pin(bp, ac) for (bp, ac) in pin_table]
+    def __init__(self, pin_table, grove_sensor_catalog=None):
+        """pin_table: list of (board_pin_object_or_None, analog_channel_or_None,
+        virtual_read_or_None) tuples, in Firmata pin-index order - index 0
+        is Firmata pin 0, etc. board_pin is None for a "virtual" pin (see
+        pins.py), which must then supply virtual_read instead.
+
+        grove_sensor_catalog: dict of sensor_id -> {"read": fn() -> list
+        of floats, "min_interval_ms": int}, see pins.py's
+        GROVE_SENSOR_CATALOG - the sensors reachable via
+        GROVE_SENSOR_REQUEST/GROVE_SENSOR_REPLY."""
+        self.pins = [_Pin(bp, ac, vr) for (bp, ac, vr) in pin_table]
         num_ports = (len(self.pins) + 7) // 8
         self.port_state = [0] * num_ports
         self.sampling_interval_ms = DEFAULT_SAMPLING_INTERVAL_MS
@@ -105,6 +160,11 @@ class FirmataServer:
         self._send = None
         self._rx_buffer = bytearray()
         self._in_sysex = False
+        self.grove_sensor_catalog = grove_sensor_catalog or {}
+        # Grove sensor ids a client has subscribed to, each mapped to
+        # when it was last reported so update() can honor that sensor's
+        # own min_interval_ms.
+        self._grove_subscriptions = {}
 
     # ---------------- connection lifecycle ----------------
 
@@ -238,7 +298,9 @@ class FirmataServer:
         elif cmd == SAMPLING_INTERVAL:
             interval = payload[1] | (payload[2] << 7)
             self.sampling_interval_ms = max(1, interval)
-        # Anything else (I2C/string/one-wire/stepper) - out of scope, ignore.
+        elif cmd == GROVE_SENSOR_REQUEST:
+            self._handle_grove_sensor_request(payload[1:])
+        # Anything else (generic I2C/string/one-wire/stepper) - out of scope, ignore.
 
     # ---------------- outgoing responses ----------------
 
@@ -305,6 +367,28 @@ class FirmataServer:
             (pin.value >> 7) & 0x7F,
         ]))
 
+    def _encode_grove_value(self, value):
+        # Fixed-point: x100 for 2 decimal places, then packed as 3x 7-bit
+        # bytes LSB-first (21-bit signed range, +/-10485.76 - comfortably
+        # covers anything in GROVE_SENSOR_CATALOG). Same style as Firmata's
+        # own multi-byte sysex values elsewhere in this protocol.
+        fixed = int(round(value * 100))
+        fixed &= 0x1FFFFF  # wrap into 21 bits rather than raise on overflow
+        return (fixed & 0x7F, (fixed >> 7) & 0x7F, (fixed >> 14) & 0x7F)
+
+    def _send_grove_reading(self, sensor_id, values):
+        data = [GROVE_SENSOR_REPLY, GROVE_READINGS, sensor_id & 0x7F, (sensor_id >> 7) & 0x7F, len(values)]
+        for value in values:
+            data.extend(self._encode_grove_value(value))
+        self._send(bytes([START_SYSEX]) + bytes(data) + bytes([END_SYSEX]))
+
+    def _send_grove_status(self, sensor_id, status):
+        self._send(bytes([
+            START_SYSEX, GROVE_SENSOR_REPLY, GROVE_STATUS,
+            sensor_id & 0x7F, (sensor_id >> 7) & 0x7F, status,
+            END_SYSEX,
+        ]))
+
     # ---------------- pin mode / hardware resource management ----------------
 
     def _release_pin_io(self, pin):
@@ -337,6 +421,18 @@ class FirmataServer:
         self._release_pin_io(pin)
         pin.mode = mode
         pin.report = False
+
+        if pin.board_pin is None:
+            # A "virtual" pin (e.g. one axis of an I2C sensor - see
+            # pins.py) has no real pin to put into INPUT/OUTPUT/PWM/SERVO
+            # mode. ANALOG is the only mode that makes sense for it, and
+            # that's handled entirely in _handle_report_analog, not here -
+            # so just ignore anything else instead of crashing on
+            # digitalio.DigitalInOut(None).
+            if mode not in (ANALOG, IGNORE):
+                print("Pin", pin_index, "has no physical pin - mode", mode, "not applicable")
+                pin.mode = None
+            return
 
         import digitalio
 
@@ -427,6 +523,20 @@ class FirmataServer:
         print(("Client requested" if enabled else "Client stopped") + " analog readings from A" + str(channel))
         if enabled:
             self._release_pin_io(pin)
+            if pin.board_pin is None:
+                # Virtual pin (e.g. an accelerometer axis - see pins.py) -
+                # value comes from virtual_read(), not a real analogio
+                # channel. Absent entirely (not even attempted) if the
+                # sensor wasn't found at boot - see pins.py.
+                if pin.virtual_read is not None:
+                    pin.io = _VirtualAnalogIn(pin.virtual_read)
+                    pin.mode = ANALOG
+                    pin.report = True
+                else:
+                    print("Pin", pin_index, "(analog channel", channel, ") has no physical pin and no virtual reader - nothing to report")
+                    pin.mode = None
+                    pin.report = False
+                return
             import analogio
             try:
                 pin.io = analogio.AnalogIn(pin.board_pin)
@@ -455,6 +565,25 @@ class FirmataServer:
             if pin_index >= len(self.pins):
                 break
             self.pins[pin_index].report = bool(enabled)
+
+    def _handle_grove_sensor_request(self, data):
+        if len(data) < 3:
+            return
+        subcmd = data[0]
+        sensor_id = data[1] | (data[2] << 7)
+        if subcmd == GROVE_SUBSCRIBE:
+            if sensor_id in self.grove_sensor_catalog:
+                # 0 forces update() to report on its very next pass,
+                # rather than waiting a full min_interval_ms for the
+                # first reading.
+                self._grove_subscriptions[sensor_id] = 0
+                print("Client subscribed to Grove sensor", sensor_id)
+            else:
+                print("Client subscribed to unknown Grove sensor", sensor_id)
+                self._send_grove_status(sensor_id, GROVE_STATUS_ERROR)
+        elif subcmd == GROVE_UNSUBSCRIBE:
+            if self._grove_subscriptions.pop(sensor_id, None) is not None:
+                print("Client unsubscribed from Grove sensor", sensor_id)
 
     def _handle_servo_config(self, pin_index, min_us, max_us):
         if pin_index < 0 or pin_index >= len(self.pins):
@@ -511,3 +640,22 @@ class FirmataServer:
             if any_reporting:
                 self.port_state[port] = port_value
                 self._send_digital_port(port)
+
+        for sensor_id, last_reported_ms in list(self._grove_subscriptions.items()):
+            entry = self.grove_sensor_catalog.get(sensor_id)
+            if entry is None:
+                continue  # subscribed before catalog was ready, or a bad id slipped through
+            if now_ms - last_reported_ms < entry["min_interval_ms"]:
+                continue
+            try:
+                values = entry["read"]()
+                self._send_grove_reading(sensor_id, values)
+            except Exception as e:
+                # A sensor read can legitimately fail transiently (I2C bus
+                # hiccup, sensor not ready yet) - report it to the client
+                # instead of crashing the whole connection over one bad
+                # read, matching this file's existing "keep the connection
+                # alive" convention (see _apply_pin_mode's except clause).
+                print("Grove sensor", sensor_id, "read failed:", e)
+                self._send_grove_status(sensor_id, GROVE_STATUS_ERROR)
+            self._grove_subscriptions[sensor_id] = now_ms

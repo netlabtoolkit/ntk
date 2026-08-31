@@ -27,6 +27,21 @@ function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule) {
 		port: 3030,
 	};
 
+	// Restore the last-saved default (see ToolBar.js's persistDefaultDevice,
+	// called whenever the Settings drawer's Device controls change) so the
+	// last IP/port entered is still there on the next launch, instead of
+	// resetting to the hardcoded fallback above every time. localStorage
+	// persists per-origin in Electron's renderer, same as any browser.
+	try {
+		var savedDefaultDevice = JSON.parse(localStorage.getItem('ntk.defaultDevice'));
+		if(savedDefaultDevice) {
+			_.extend(App.defaultDevice, savedDefaultDevice);
+		}
+	}
+	catch(e) {
+		// Corrupt/missing localStorage entry - just keep the hardcoded default.
+	}
+
 	// Regions
 	App.addRegions({
 		patcherRegion: '#patcherRegion',

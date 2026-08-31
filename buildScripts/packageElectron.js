@@ -100,7 +100,19 @@ button can force a harder interrupt.
 Wire a Grove - LCD RGB Backlight to the board's I2C pins and it'll show
 the station-mode IP address (and turn the backlight green) once
 connected - no serial console needed. Nothing to configure; if it isn't
-attached, it's skipped silently and the board boots normally either way.
+attached, wired wrong, or the bus lacks pull-ups (see Troubleshooting
+below), it's skipped silently and the board boots normally either way.
+
+## Optional: Grove - 3-Axis Digital Accelerometer (LIS3DHTR)
+
+Wire this to the board's I2C pins and copy this folder's \`lib/\`
+subfolder onto the device alongside the other files - it just works, no
+NTK-side changes needed. Its X/Y/Z acceleration shows up as three
+ordinary-looking analog pins, **A3**, **A4**, and **A5**, so an AnalogIn
+widget pointed at any of those reads live acceleration exactly like it
+would a potentiometer - 0 = -2g, the middle of the dial = flat and at
+rest (0g), 1023 = +2g. Not attached (or the bus lacks pull-ups)? It's
+skipped silently.
 
 ## Pin mapping
 
@@ -127,12 +139,25 @@ support, and can be edited to match your hardware.
   expects PWM writes as 0-255, matching classic Arduino - if something
   upstream assumes ESP32-native ranges (0-4095 ADC, 0-65535 PWM),
   that's the mismatch to look for.
+- **An I2C device (Grove LCD, accelerometer, etc.) prints "No pull up
+  found on SDA or SCL; check your wiring"**: a real electrical issue -
+  I2C can't work without pull-up resistors somewhere on the bus, and not
+  every Grove module or expander I2C port supplies its own. Fix: two
+  resistors (4.7k-10k ohm) from SDA to 3V3 and from SCL to 3V3.
 `;
 
 function bundleCircuitPythonFirmware(destDir) {
 	fs.mkdirSync(destDir, { recursive: true });
 	for (const file of FIRMWARE_FILES) {
 		fs.copyFileSync(path.join(FIRMWARE_SRC_DIR, file), path.join(destDir, file));
+	}
+	// Third-party CircuitPython driver .mpy files (adafruit_dht,
+	// adafruit_lis3dh, and their own dependencies) - a real directory
+	// tree, not flat files, so copied wholesale rather than listed
+	// individually like FIRMWARE_FILES above.
+	const libSrcDir = path.join(FIRMWARE_SRC_DIR, 'lib');
+	if (fs.existsSync(libSrcDir)) {
+		fs.cpSync(libSrcDir, path.join(destDir, 'lib'), { recursive: true });
 	}
 	fs.writeFileSync(path.join(destDir, 'readme.md'), CIRCUITPYTHON_README);
 }

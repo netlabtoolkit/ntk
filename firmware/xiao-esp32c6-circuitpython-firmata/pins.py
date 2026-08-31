@@ -1,12 +1,19 @@
 """
 XIAO ESP32-C6 pin map, in Firmata pin-index order.
 
-Each entry is (board_pin_object, analog_channel_or_None). XIAO boards
-keep pin names consistent across variants (D0-D10, with D0-D5 doubling
-as A0-A5 on the same physical pins) - this is what that naming is based
-on. If `import board; print(dir(board))` at the CircuitPython REPL shows
+Each entry is (board_pin_object_or_None, analog_channel_or_None,
+virtual_read_or_None). XIAO boards keep pin names consistent across
+variants (D0-D10, with D0-D5 doubling as A0-A5 on the same physical
+pins) - this is what that naming is based on. If
+`import board; print(dir(board))` at the CircuitPython REPL shows
 different names on your specific unit/CircuitPython version, edit this
 table to match - nothing else in this project needs to change.
+
+A pin with board_pin=None is "virtual" - not a real GPIO, just a
+sensor reading exposed through Firmata's ordinary analog-pin reporting
+(see firmata_server.py's _VirtualAnalogIn). virtual_read is then a
+zero-arg function returning a raw 16-bit value (0-65535); it's what
+makes that work. See the Grove LIS3DHTR block below for the first one.
 
 Firmata pin index -> XIAO pin:
   0-2  -> D0-D2 (also usable as ANALOG IN, via the same physical pins)
@@ -37,16 +44,78 @@ add a 7th will raise an error from pwmio.
 
 import board
 
+# GroveSensor widget catalog (see firmata_server.py's GROVE_SENSOR_REQUEST/
+# GROVE_SENSOR_REPLY) - sensor_id -> {"read": fn() -> list of floats,
+# "min_interval_ms": int}. Deliberately separate from PIN_TABLE/
+# analog_channel: this is a newer, less constrained path (real physical
+# units, not squeezed into Firmata's 0-1023 analog convention) for
+# sensors added from now on. Starts empty; populated below only for
+# sensors actually found attached, same graceful-skip-if-absent pattern
+# as everything else in this file.
+GROVE_SENSOR_CATALOG = {}
+
 PIN_TABLE = [
-    (board.D0, 0),
-    (board.D1, 1),
-    (board.D2, 2),
-    (board.D3, None),
-    (board.D4, None),
-    (board.D5, None),
-    (board.D6, None),
-    (board.D7, None),
-    (board.D8, None),
-    (board.D9, None),
-    (board.D10, None),
+    (board.D0, 0, None),
+    (board.D1, 1, None),
+    (board.D2, 2, None),
+    (board.D3, None, None),
+    (board.D4, None, None),
+    (board.D5, None, None),
+    (board.D6, None, None),
+    (board.D7, None, None),
+    (board.D8, None, None),
+    (board.D9, None, None),
+    (board.D10, None, None),
 ]
+
+# Optional: Grove - 3-Axis Digital Accelerometer (LIS3DHTR), I2C. Exposed
+# as three "virtual" analog pins (X/Y/Z, no real board_pin) using analog
+# channels 3-5 - unused by any real pin above (D3-D5 are digital-only on
+# this unit, see the comment above), so no collision. A widget just wires
+# up to A3/A4/A5 like any other analog input; nothing else in NTK or the
+# rest of this firmware needs to know these aren't real ADC pins.
+#
+# Entirely optional and silently skipped if the sensor isn't attached
+# (or the bus lacks pull-ups - see the Grove LCD memory note for that
+# exact failure mode) - PIN_TABLE just ends up three entries shorter,
+# same as if this whole block were never here.
+try:
+    import adafruit_lis3dh
+
+    _accel_i2c = board.I2C()
+    try:
+        _accelerometer = adafruit_lis3dh.LIS3DH_I2C(_accel_i2c, address=0x18)
+    except (ValueError, OSError):
+        _accelerometer = adafruit_lis3dh.LIS3DH_I2C(_accel_i2c, address=0x19)
+
+    # LIS3DH defaults to its +/-2g range; acceleration.value is in m/s^2,
+    # so full scale is ~19.6 (2 * standard gravity). Mapped onto the same
+    # raw 16-bit range a real analogio.AnalogIn would report, so the
+    # existing ANALOG polling/scaling code in firmata_server.py's
+    # update() needs no changes at all: -2g -> 0, 0g (flat, at rest) ->
+    # ~32768 (the middle of NTK's usual 0-1023 range), +2g -> 65535.
+    _ACCEL_FULL_SCALE_MS2 = 19.6
+
+    def _make_accel_axis_reader(axis_index):
+        def read():
+            g = _accelerometer.acceleration[axis_index]
+            raw16 = (g / _ACCEL_FULL_SCALE_MS2) * 32767 + 32768
+            return int(min(max(raw16, 0), 65535))
+        return read
+
+    PIN_TABLE.append((None, 3, _make_accel_axis_reader(0)))  # A3 = accel X
+    PIN_TABLE.append((None, 4, _make_accel_axis_reader(1)))  # A4 = accel Y
+    PIN_TABLE.append((None, 5, _make_accel_axis_reader(2)))  # A5 = accel Z
+
+    # Also reachable as GroveSensor catalog entry 0 - same underlying
+    # sensor object, just real m/s^2 units instead of squeezed into
+    # Firmata's 0-1023 analog convention. Both paths can be used at once
+    # (e.g. while transitioning existing AnalogIn widgets over to a
+    # dedicated GroveSensor widget) - reading .acceleration doesn't
+    # change any state, so there's no conflict between them.
+    GROVE_SENSOR_CATALOG[0] = {
+        "read": lambda: list(_accelerometer.acceleration),
+        "min_interval_ms": 20,
+    }
+except Exception as e:
+    print("Grove LIS3DHTR accelerometer not available (not attached?):", e)

@@ -1,6 +1,30 @@
 module.exports = function(five) {
 	var pollIntervalMod = 1;
 
+	// Custom sysex extension (not part of the Firmata spec) matching
+	// firmware/xiao-esp32c6-circuitpython-firmata/firmata_server.py's
+	// constants of the same name byte-for-byte - lets a GroveSensor
+	// widget subscribe to an I2C sensor the firmware already knows how
+	// to read (see that file's module docstring for why this exists
+	// instead of a generic I2C passthrough).
+	var GROVE_SENSOR_REQUEST = 0x01;
+	var GROVE_SENSOR_REPLY = 0x02;
+	var GROVE_SUBSCRIBE = 1;
+	var GROVE_UNSUBSCRIBE = 2;
+	var GROVE_READINGS = 1;
+	var GROVE_STATUS = 2;
+
+	// Decodes one of firmware's 3x-7-bit-byte, x100 fixed-point Grove
+	// sensor values (see _encode_grove_value in firmata_server.py) back
+	// into a float - the reverse of that exact encoding.
+	function decodeGroveValue(b0, b1, b2) {
+		var raw = (b0 & 0x7F) | ((b1 & 0x7F) << 7) | ((b2 & 0x7F) << 14);
+		if(raw & 0x100000) {
+			raw -= 0x200000; // sign-extend from a 21-bit two's complement field
+		}
+		return raw / 100;
+	}
+
 	var StandardFirmataModel = {
 		addDefaultPins: function addDefaultPins() {
 			self = this;
@@ -29,6 +53,37 @@ module.exports = function(five) {
 				}
 			}
 
+			// Firmata.SYSEX_RESPONSE (inside firmata-io) is a class-level
+			// registry shared across every Board instance, not per-board -
+			// addDefaultPins() runs again on every reconnect against a
+			// brand new Board, so without clearing first, sysexResponse()
+			// below throws "already registered" on the second connection
+			// onward.
+			this.board.io.clearSysexResponse(GROVE_SENSOR_REPLY);
+			this.board.io.sysexResponse(GROVE_SENSOR_REPLY, function(data) {
+				var subType = data[0];
+				var sensorId = data[1] | (data[2] << 7);
+
+				if(subType === GROVE_READINGS) {
+					var readingCount = data[3];
+					for(var i = 0; i < readingCount; i++) {
+						var offset = 4 + i * 3;
+						var value = decodeGroveValue(data[offset], data[offset + 1], data[offset + 2]);
+						// Numeric reading index, not a name - the catalog
+						// entry on the client side (sensorCatalog.js) is
+						// what maps index -> a human label/outlet.
+						var field = "grove-" + sensorId + "-" + i;
+
+						self.inputs[field] = {value: value};
+						self.emit('change', {field: field, value: value});
+					}
+				}
+				else if(subType === GROVE_STATUS) {
+					var field = "grove-" + sensorId + "-status";
+					self.inputs[field] = {value: data[3]};
+					self.emit('change', {field: field, value: data[3]});
+				}
+			});
 		},
 		get: function(field) {
 			field = field.toUpperCase();
@@ -172,6 +227,15 @@ module.exports = function(five) {
 				setTimeout(function() {
 					retryModel.setIOMode(pin, mode);
 				}, 500);
+				return;
+			}
+
+			if(mode === 'GROVE_SENSOR') {
+				// Not a real pin - "pin" here is a GroveSensor catalog id
+				// (see firmware pins.py's GROVE_SENSOR_CATALOG), so none of
+				// the outputs[pin]/supportedModes machinery below applies.
+				var sensorId = parseInt(pin, 10);
+				this.board.io.sysexCommand([GROVE_SENSOR_REQUEST, GROVE_SUBSCRIBE, sensorId & 0x7F, (sensorId >> 7) & 0x7F]);
 				return;
 			}
 

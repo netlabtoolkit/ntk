@@ -39,7 +39,7 @@ import wifi
 import socketpool
 
 from firmata_server import FirmataServer
-from pins import PIN_TABLE
+from pins import PIN_TABLE, GROVE_SENSOR_CATALOG
 
 FIRMATA_PORT = 3030
 
@@ -87,24 +87,6 @@ def send_all(conn, data):
         sent_total += n
 
 
-def _try_enable_internal_pullups(sda, scl):
-    # CircuitPython's I2C init refuses to open the bus at all if it
-    # doesn't see SDA/SCL already held high - genuinely correct, since
-    # I2C (an open-drain bus) can't work reliably without pull-ups
-    # somewhere. Most Grove I2C modules have their own onboard pull-ups,
-    # but an older/cheaper one might not. This briefly asks the
-    # microcontroller for its own internal pull-ups on those two pins
-    # right before opening the bus, as a best-effort substitute - NOT as
-    # reliable as real 4.7k-10k ohm resistors from SDA/SCL to 3.3V, but
-    # free to try and harmless if it doesn't help.
-    import digitalio
-
-    for pin in (sda, scl):
-        pull = digitalio.DigitalInOut(pin)
-        pull.switch_to_input(pull=digitalio.Pull.UP)
-        pull.deinit()
-
-
 def show_ip_on_lcd(ip_address):
     """Best-effort: show this board's IP on an attached Grove LCD RGB
     Backlight (see grove_lcd.py). Entirely optional - any failure (no
@@ -115,7 +97,19 @@ def show_ip_on_lcd(ip_address):
         import board
         from grove_lcd import GroveLCD
 
-        _try_enable_internal_pullups(board.SDA, board.SCL)
+        # board.I2C() is a shared, cached bus - pins.py's Grove sensor
+        # setup (imported before this ever runs) already calls it too, to
+        # claim the bus unconditionally even if no sensor responds. This
+        # MUST reuse that same call rather than separately claiming
+        # board.SDA/board.SCL as raw digitalio pins (a previous version of
+        # this function did exactly that, as a best-effort internal
+        # pull-up workaround for an old LCD with no pull-ups of its own) -
+        # a raw digitalio claim on a pin the I2C peripheral already holds
+        # fails outright ("D4 in use"), so that workaround stopped working
+        # the moment pins.py started using I2C too. If a display genuinely
+        # needs the internal-pullup nudge, it has to happen once, wherever
+        # the bus is first opened (currently pins.py) - not re-attempted
+        # here on an already-claimed bus.
         lcd = GroveLCD(board.I2C())
         lcd.show_lines("NTK Firmata", str(ip_address) + ":" + str(FIRMATA_PORT))
         lcd.set_rgb(0, 255, 0)
@@ -242,7 +236,7 @@ def run_server():
             pass  # not critical if unsupported on this CircuitPython build
         print("Client connected from", addr)
 
-        firmata = FirmataServer(PIN_TABLE)
+        firmata = FirmataServer(PIN_TABLE, GROVE_SENSOR_CATALOG)
         # on_connect() just registers the send callback - it deliberately
         # sends nothing itself (see the comment on FirmataServer.on_connect
         # in firmata_server.py for why: NTK's host-side firmata-io library

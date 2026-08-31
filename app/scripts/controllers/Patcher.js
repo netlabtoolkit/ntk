@@ -25,8 +25,9 @@ define([
     'views/OSCOut/OSCOut',
     'views/Splitter/Splitter',
     'views/item/RestrictiveOverlay',
+    'views/GroveSensor/GroveSensor',
 ],
-function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, SplitterView, RestrictiveOverlayView){
+function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, SplitterView, RestrictiveOverlayView, GroveSensorView){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -324,6 +325,28 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 					return newWidget;
                 }
+                else if(widgetType === 'GroveSensor') {
+					var newWidget = new GroveSensorView({
+						model: newModel,
+					});
+
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
+					if(!addedFromLoader) {
+						// Same Settings > Device default stamping every other
+						// hardware widget above gets - a no-op when the
+						// default is still Serial (GroveSensor's own model
+						// already defaults there via getDeviceModelType()).
+						this.applyDefaultDeviceToModel(newModel);
+
+						// Delegates to the widget's own remapSensor() (mapping
+						// + subscribe for whichever sensor it defaults to)
+						// rather than duplicating that logic here.
+						newWidget.remapSensor(newWidget.model.get('sensor'));
+					}
+
+					return newWidget;
+                }
 				else {
 					var newWidget = new Widgets[widgetType]({
 						model: newModel,
@@ -539,7 +562,15 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			this.widgetSlots[view.model.get('wid')] = slots;
 
 			view.$el.css({left: position.left, top: position.top});
-			view.model.set({offsetLeft: position.left, offsetTop: position.top});
+			// width: 148 matches the same hardcoded value WidgetMulti sets
+			// on drag (both the whole-widget drag handler and the outlet/
+			// inlet drag-stop handlers) - without it here too, a widget's
+			// model has no 'width' at all until the user drags it at least
+			// once, and connecting a cable from/to it before that makes
+			// WidgetMulti's onDrop compute `model.get('width') - 8` as
+			// NaN, which CableManager then can't turn into a valid SVG
+			// path ("Expected number" for the cable's `d` attribute).
+			view.model.set({offsetLeft: position.left, offsetTop: position.top, width: 148});
 
 			if(hasDetachedDisplay) {
 				// Keep this widget type's traditional offset between its

@@ -571,3 +571,87 @@
     margin-top: 0;
     padding-top: 10px;
 }
+
+// GroveSensor widget (app/scripts/views/GroveSensor/) - note that
+// per-widget styles.scss files (e.g. AnalogIn's) are never actually
+// imported anywhere into the build, so widget-specific rules live here
+// in the shared Widget.scss instead, same as .dialwrapperUI above.
+.groveSensor {
+    .widgetBody {
+        // Keep everything compact enough to fit the standard fixed 110px
+        // widgetBody height (see CLAUDE.md's widget layout notes) now that
+        // the invert/smoothing/easing options row (below) shares the box
+        // with the sensor picker and status readout.
+        .narrowLabel {
+            font-size: 0.7em;
+            line-height: 1;
+        }
+
+        .sensorSelect {
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 0.7em;
+            margin-top: 2px;
+        }
+
+        // The specific chip for whatever's selected above (e.g.
+        // "LIS3DHTR") - kept separate from the dropdown's own label since
+        // that stays generic ("Accelerometer") once more than one sensor
+        // of the same kind exists (see sensorCatalog.js).
+        .deviceId {
+            font-size: 0.85em;
+            font-weight: bold;
+            color: #000;
+            margin-top: 1px;
+        }
+
+        .groveStatus {
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+        }
+
+        .statusDot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+            background-color: #ccc; // fallback if none of the states below match
+
+            &.groveidle { background-color: #ccc; }
+            &.grovewaiting { background-color: #e0a030; }
+            &.groveok { background-color: #4caf50; }
+            &.groveerror { background-color: #e53935; }
+        }
+
+        .statusText {
+            font-size: 0.7em;
+            text-transform: capitalize;
+            color: #666;
+        }
+
+        // Overrides the base .options sizing (Widget.scss's shared inv/
+        // smo/eas block, sized for widgets with more room to spare) so
+        // the row fits under the sensor picker + status readout above it.
+        .options {
+            height: auto;
+            margin-top: 4px;
+
+            li {
+                font-size: 0.7em;
+                padding: 2px 0;
+            }
+        }
+    }
+
+    // Serial mode has no real port picker for this widget (see
+    // template.js's .serialPortPicker) - just an explanatory message in
+    // its place, since Grove sensor readings only ever arrive over the
+    // CircuitPython WiFi firmware's sysex extension.
+    .noSerialMessage {
+        display: block;
+        font-size: 1em;
+        font-style: italic;
+        color: #000;
+    }
+}

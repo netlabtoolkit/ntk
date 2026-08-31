@@ -82,7 +82,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				// Serial mode would block the field from ever showing
 				// again even after switching to Network. Add a widget's
 				// typeID here once it's been converted to that pattern.
-				var usesDeclarativeDeviceVisibility = ['AnalogIn', 'Servo', 'AnalogOut', 'DigitalOut'].indexOf(self.typeID) !== -1;
+				var usesDeclarativeDeviceVisibility = ['AnalogIn', 'Servo', 'AnalogOut', 'DigitalOut', 'GroveSensor'].indexOf(self.typeID) !== -1;
 				if (!usesDeclarativeDeviceVisibility) {
 					if (self.model.get("deviceType") == "network") {
 						self.$('.deviceIp').show();

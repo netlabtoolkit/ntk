@@ -39,8 +39,9 @@ define([
     'views/OSCOut/OSCOut',
     'views/DigitalIn/DigitalIn',
     'views/DigitalOut/DigitalOut',
+    'views/GroveSensor/GroveSensor',
 ],
-function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Gesture, FaceTrack, Mix, Splitter, Data, Tween, Sequence, SpeechIn, SpeechOut, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn, OSCOut, DigitalIn, DigitalOut){
+function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Gesture, FaceTrack, Mix, Splitter, Data, Tween, Sequence, SpeechIn, SpeechOut, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn, OSCOut, DigitalIn, DigitalOut, GroveSensor){
     'use strict';
 
 	return {
@@ -83,6 +84,7 @@ function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, 
 		'OSCOut': OSCOut,
 		'DigitalIn': DigitalIn,
 		'DigitalOut': DigitalOut,
+		'GroveSensor': GroveSensor,
 
 	};
 });
