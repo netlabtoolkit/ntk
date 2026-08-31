@@ -103,6 +103,7 @@ function( app, Backbone, Template, Widgets ) {
 			var defaultDevice = window.app.defaultDevice;
 
 			this.$('.defaultDeviceType').val(defaultDevice.deviceType);
+			this.prefillDefaultNetworkAddress();
 			this.$('.defaultDeviceAddress').val(defaultDevice.deviceType === 'network' ? defaultDevice.server : '');
 			this.$('.defaultDevicePortInput').val(defaultDevice.port);
 			this.updateDefaultDeviceVisibility();
@@ -117,8 +118,22 @@ function( app, Backbone, Template, Widgets ) {
 			this.$('.defaultDeviceIp, .defaultDevicePort').toggle(isNetwork);
 			this.$('.defaultDeviceSerialPortPicker').toggle(!isNetwork);
 		},
+		// 192.168.4.1 matches the CircuitPython Firmata firmware's SoftAP
+		// mode fixed IP (see Patcher.js's getDefaultDeviceMapping) - shown
+		// as an actual starting value here, not just a silent fallback,
+		// whenever Network mode is picked with no real address entered yet
+		// ("auto" is leftover from Serial mode, not a real IP).
+		prefillDefaultNetworkAddress: function() {
+			var defaultDevice = window.app.defaultDevice;
+
+			if(defaultDevice.deviceType === 'network' && (!defaultDevice.server || defaultDevice.server === 'auto')) {
+				defaultDevice.server = '192.168.4.1';
+			}
+		},
 		defaultDeviceTypeChange: function() {
 			window.app.defaultDevice.deviceType = this.$('.defaultDeviceType').val();
+			this.prefillDefaultNetworkAddress();
+			this.$('.defaultDeviceAddress').val(window.app.defaultDevice.deviceType === 'network' ? window.app.defaultDevice.server : '');
 			this.updateDefaultDeviceVisibility();
 
 			if(window.app.defaultDevice.deviceType === 'ArduinoUno') {

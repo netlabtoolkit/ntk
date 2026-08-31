@@ -355,7 +355,12 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			if(defaultDevice && defaultDevice.deviceType === 'network') {
 				return {
 					modelType: 'network',
-					server: (defaultDevice.server || '127.0.0.1') + ":" + (defaultDevice.port || 3030),
+					// 192.168.4.1 matches the CircuitPython Firmata firmware's
+					// SoftAP mode fixed IP (see firmware/xiao-esp32c6-
+					// circuitpython-firmata/code.py's start_ap()) - a
+					// reasonable default landing spot now that boards can be
+					// reached that way with nothing to discover.
+					server: (defaultDevice.server || '192.168.4.1') + ":" + (defaultDevice.port || 3030),
 				};
 			}
 

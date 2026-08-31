@@ -158,7 +158,10 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		getDeviceServerName: function() {
 			var server = this.model.get('server');
 			if(server !== undefined && server !== true) return server;
-			return this.getDeviceModelType() === 'ArduinoUno' ? 'auto' : '127.0.0.1';
+			// 192.168.4.1 matches the CircuitPython Firmata firmware's SoftAP
+			// mode fixed IP - a reasonable default now that boards can be
+			// reached that way with nothing to discover.
+			return this.getDeviceModelType() === 'ArduinoUno' ? 'auto' : '192.168.4.1';
 		},
 		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 3030 : this.model.get('port')},
 		inactiveModelsExist: function checkForInactiveModels() {
