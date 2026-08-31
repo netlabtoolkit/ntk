@@ -157,6 +157,15 @@ def start_ap():
     """SoftAP mode: the board runs its own WiFi network instead of joining
     one, so it's always reachable at a fixed 192.168.4.1 with no DHCP
     address to discover. See the module docstring for when to use this."""
+    # Unlike connect_wifi()'s wifi.radio.connect(), which takes a timeout
+    # so Ctrl-C gets a window to land between retries, wifi.radio.start_ap()
+    # has no such option - if it hangs, Ctrl-C cannot interrupt it (only
+    # Thonny's Stop button can). time.sleep() itself IS interruptible
+    # though, so this gives Ctrl-C an explicit window right before the
+    # one call that isn't.
+    print("Starting SoftAP in 4 seconds - press Ctrl-C now if you need to interrupt boot")
+    time.sleep(4)
+
     ssid = os.getenv("NTK_AP_SSID") or "NTK-Firmata"
 
     # Absent key -> a sensible default password (keeps the network closed

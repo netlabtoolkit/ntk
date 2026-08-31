@@ -74,6 +74,15 @@ link is now your computer talking straight to the XIAO's small antenna
 with no router to help. A XIAO ESP32-C6 with an external antenna helps if
 you rely on this.
 
+**If the board seems stuck on boot while starting SoftAP**: unlike
+`wifi.radio.connect()` (station mode), which takes a `timeout` so
+Ctrl-C gets a window to land between retries, `wifi.radio.start_ap()`
+has no such option - there's no way to bound or interrupt that specific
+call from Python if it hangs. There's a 4-second "press Ctrl-C now"
+window printed right before it starts, so Ctrl-C works if you catch
+that - but if it's already past that and hung inside `start_ap()`
+itself, only **Thonny's Stop button** can force a harder interrupt.
+
 ## Optional: show the IP on a Grove LCD RGB Backlight
 
 Wire a [Grove - LCD RGB Backlight](https://wiki.seeedstudio.com/Grove-LCD_RGB_Backlight/)

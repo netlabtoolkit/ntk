@@ -89,6 +89,12 @@ Join the \`NTK-Firmata\` network from your computer, then point NTK's
 the board's network your computer has no normal WiFi/internet, it's one
 board at a time, and range is shorter than joining a real router.
 
+If the board seems stuck on boot while starting SoftAP: there's a
+4-second "press Ctrl-C now" window printed right before it starts (this
+step has no built-in timeout the way joining a normal WiFi network
+does), but if it's already past that and hung, only Thonny's Stop
+button can force a harder interrupt.
+
 ## Optional: show the IP on a Grove LCD RGB Backlight
 
 Wire a Grove - LCD RGB Backlight to the board's I2C pins and it'll show
