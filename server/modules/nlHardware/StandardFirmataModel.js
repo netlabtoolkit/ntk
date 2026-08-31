@@ -203,7 +203,7 @@ module.exports = function(five) {
 
 			}
 		},
-		setIOMode: function setPinMode(pin, mode) {
+		setIOMode: function setPinMode(pin, mode, extraOptions) {
 			pin = pin.toUpperCase();
 
 			// The device connection (and the Firmata handshake after it)
@@ -225,7 +225,7 @@ module.exports = function(five) {
 				// reads `self`.
 				var retryModel = this;
 				setTimeout(function() {
-					retryModel.setIOMode(pin, mode);
+					retryModel.setIOMode(pin, mode, extraOptions);
 				}, 500);
 				return;
 			}
@@ -235,7 +235,25 @@ module.exports = function(five) {
 				// (see firmware pins.py's GROVE_SENSOR_CATALOG), so none of
 				// the outputs[pin]/supportedModes machinery below applies.
 				var sensorId = parseInt(pin, 10);
-				this.board.io.sysexCommand([GROVE_SENSOR_REQUEST, GROVE_SUBSCRIBE, sensorId & 0x7F, (sensorId >> 7) & 0x7F]);
+				var message = [GROVE_SENSOR_REQUEST, GROVE_SUBSCRIBE, sensorId & 0x7F, (sensorId >> 7) & 0x7F];
+
+				// A "needs_pin" sensor (e.g. DHT11 - not on the shared I2C
+				// bus, so the firmware can't probe it, only the widget
+				// knows which GPIO it's wired to) includes a 4th byte: the
+				// Firmata pin index (see pins.py's PIN_TABLE) to read from.
+				// extraOptions.pin arrives as NTK's usual "D6"-style pin
+				// name (see DigitalIn's own pin field/StandardFirmataModel
+				// .js's "D"+index convention in addDefaultPins) - strip the
+				// "D" to get the raw index the firmware's self.pins[] uses.
+				// Omitted entirely for I2C sensors, which don't need it.
+				if(extraOptions && extraOptions.pin) {
+					var pinIndex = parseInt(String(extraOptions.pin).replace(/^D/i, ''), 10);
+					if(!isNaN(pinIndex)) {
+						message.push(pinIndex & 0x7F);
+					}
+				}
+
+				this.board.io.sysexCommand(message);
 				return;
 			}
 

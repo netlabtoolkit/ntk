@@ -582,16 +582,21 @@
         // widgetBody height (see CLAUDE.md's widget layout notes) now that
         // the invert/smoothing/easing options row (below) shares the box
         // with the sensor picker and status readout.
-        .narrowLabel {
-            font-size: 0.7em;
-            line-height: 1;
-        }
+        //
+        // One font-size/color for every line in the main body - the
+        // per-element sizes/colors this replaced (0.65-0.85em, #000/
+        // #666/bold mixed) read as visually inconsistent line to line.
+        font-size: 0.85em;
+        color: #000;
 
         .sensorSelect {
             width: 100%;
             box-sizing: border-box;
-            font-size: 0.7em;
             margin-top: 2px;
+            // <select> doesn't reliably inherit font-size/color from its
+            // ancestor in every browser the way plain text elements do.
+            font-size: inherit;
+            color: inherit;
         }
 
         // The specific chip for whatever's selected above (e.g.
@@ -599,10 +604,10 @@
         // that stays generic ("Accelerometer") once more than one sensor
         // of the same kind exists (see sensorCatalog.js).
         .deviceId {
-            font-size: 0.85em;
-            font-weight: bold;
-            color: #000;
             margin-top: 1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .groveStatus {
@@ -625,23 +630,22 @@
         }
 
         .statusText {
-            font-size: 0.7em;
             text-transform: capitalize;
-            color: #666;
         }
 
-        // Overrides the base .options sizing (Widget.scss's shared inv/
-        // smo/eas block, sized for widgets with more room to spare) so
-        // the row fits under the sensor picker + status readout above it.
-        .options {
-            height: auto;
-            margin-top: 4px;
-
-            li {
-                font-size: 0.7em;
-                padding: 2px 0;
-            }
+        // Comma-joined outlet labels (e.g. "X, Y, Z") - which physical
+        // outlet nub (top to bottom, in .widgetRight) is which reading,
+        // without needing to hover each nub for its tooltip.
+        .outletLabels {
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
+
+        // No override here - inv/smo/eas use the same shared .options
+        // styling AnalogIn's do (see the base .options/.options li rules
+        // above), rather than a GroveSensor-specific smaller version.
     }
 
     // Serial mode has no real port picker for this widget (see
@@ -653,5 +657,19 @@
         font-size: 1em;
         font-style: italic;
         color: #000;
+    }
+
+    // Only shown for a "needsPin" sensor (e.g. DHT11 - single-wire
+    // digital, not on the shared I2C bus, so the firmware can't find it
+    // without being told which GPIO it's wired to). Same show/hide
+    // convention as .deviceIp/.devicePort's "networkmode" class (rivets'
+    // rv-show/rv-hide can't reveal an element whose CSS default is
+    // display:none - see Widget.scss's comment on that pattern above).
+    .pinField {
+        display: none;
+
+        &.visible {
+            display: block;
+        }
     }
 }

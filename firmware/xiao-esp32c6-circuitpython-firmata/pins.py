@@ -149,3 +149,47 @@ try:
     }
 except Exception as e:
     print("Grove VL53L0X distance sensor not available (not attached?):", e)
+
+# Optional: Grove - Temperature & Humidity Sensor (DHT11), single-wire
+# digital - NOT I2C, so unlike every entry above it isn't on the shared
+# bus and can't be probed at boot: it needs to know which GPIO pin it's
+# wired to. "needs_pin": True tells firmata_server.py to wait for a pin
+# number in the widget's own subscribe request (see GroveSensor.js's pin
+# field) instead of reading eagerly - "make_read" is called with the
+# real board pin object once that arrives, returning (read_fn,
+# cleanup_fn); cleanup_fn releases the sensor's PulseIn claim on that
+# pin when the widget unsubscribes, switches sensors, or picks a
+# different pin (see firmata_server.py's _unsubscribe_grove_sensor).
+#
+# Hardware-verified end-to-end (subscribe/pin-field/readings all the
+# way through the GroveSensor widget), wired to D7 on this unit - avoid
+# D0-D2, which NTK's server claims automatically as analog inputs the
+# moment it connects (see the addDefaultPins() limitation noted at the
+# top of this file), conflicting with the DHT11's own pin claim.
+try:
+    import adafruit_dht
+
+    def _make_dht11_read(pin):
+        sensor = adafruit_dht.DHT11(pin)
+
+        def read():
+            return [sensor.temperature, sensor.humidity]
+
+        def cleanup():
+            sensor.exit()
+
+        return read, cleanup
+
+    GROVE_SENSOR_CATALOG[2] = {
+        "needs_pin": True,
+        "make_read": _make_dht11_read,
+        # DHT11 can only be read reliably every ~1-2s; faster than that
+        # raises a checksum/timing error rather than returning bad data
+        # (see test_dht11.py's comment) - firmata_server.py already
+        # reports that as a normal per-read GROVE_STATUS_ERROR rather
+        # than dropping the connection, so this is just pacing, not
+        # error-avoidance.
+        "min_interval_ms": 2000,
+    }
+except Exception as e:
+    print("Grove DHT11 support not available:", e)

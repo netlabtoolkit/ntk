@@ -229,7 +229,12 @@ module.exports = function(options) {
 						self.bindModelToTransport(self.hardwareModels[modelType]);
 					}
 
-					self.hardwareModels[modelType].setIOMode(options.port, options.mode);
+					// 3rd arg carries anything beyond port/mode a specific
+					// mode needs - e.g. GroveSensor's "needs_pin" sensors
+					// (see StandardFirmataModel.js's setIOMode) include
+					// which physical pin they're wired to. Every other
+					// mode just ignores it.
+					self.hardwareModels[modelType].setIOMode(options.port, options.mode, options);
 				}
 
 			});

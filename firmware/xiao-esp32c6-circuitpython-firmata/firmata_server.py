@@ -3,16 +3,19 @@ A Firmata protocol server, implemented from scratch for CircuitPython.
 
 Scope is deliberately narrow - digital I/O, analog input, PWM output, and
 servo output - matching exactly what NTK's AnalogIn/AnalogOut/DigitalIn/
-DigitalOut/Servo widgets use. Not implemented: generic I2C passthrough,
-one-wire, stepper, string data, serial-passthrough. None of NTK's
-widgets need generic I2C - instead, one small custom sysex extension
-(GROVE_SENSOR_REQUEST/GROVE_SENSOR_REPLY, see below) lets a NTK
-GroveSensor widget subscribe to specific I2C sensors that this firmware
-already knows how to read (see pins.py's GROVE_SENSOR_CATALOG) using
-their existing CircuitPython drivers - deliberately not a generic
-register-level I2C passthrough, which would mean reimplementing every
-sensor's driver logic in JavaScript on the host instead of reusing the
-CircuitPython ones already here.
+DigitalOut/Servo widgets use. Not implemented: generic I2C/one-wire
+passthrough, stepper, string data, serial-passthrough. Instead, one small
+custom sysex extension (GROVE_SENSOR_REQUEST/GROVE_SENSOR_REPLY, see
+below) lets a NTK GroveSensor widget subscribe to specific sensors that
+this firmware already knows how to read (see pins.py's
+GROVE_SENSOR_CATALOG) using their existing CircuitPython drivers -
+deliberately not a generic register-level passthrough, which would mean
+reimplementing every sensor's driver logic in JavaScript on the host
+instead of reusing the CircuitPython ones already here. Most catalog
+entries are I2C sensors sharing the one board.I2C() bus (no pin needed),
+but the same mechanism also covers single-wire digital sensors (e.g. a
+DHT11) that need to know which GPIO pin they're wired to - see the
+"needs_pin" catalog entries below.
 
 Every byte sequence here was checked against server/node_modules/
 firmata-io/lib/firmata.js in the NTK repo - the actual host-side parser
@@ -414,6 +417,13 @@ class FirmataServer:
         for pin in self.pins:
             self._release_pin_io(pin)
 
+        # A "needs_pin" Grove sensor (e.g. DHT11) claims its pin through
+        # its own driver object, not pin.io, so the loop above doesn't
+        # reach it - without this, its pin stays claimed after a dropped
+        # connection, same "in use" failure the comment above describes.
+        for sensor_id in list(self._grove_subscriptions.keys()):
+            self._unsubscribe_grove_sensor(sensor_id)
+
     def _apply_pin_mode(self, pin_index, mode):
         if pin_index < 0 or pin_index >= len(self.pins):
             return
@@ -571,19 +581,65 @@ class FirmataServer:
             return
         subcmd = data[0]
         sensor_id = data[1] | (data[2] << 7)
+
         if subcmd == GROVE_SUBSCRIBE:
-            if sensor_id in self.grove_sensor_catalog:
-                # 0 forces update() to report on its very next pass,
-                # rather than waiting a full min_interval_ms for the
-                # first reading.
-                self._grove_subscriptions[sensor_id] = 0
-                print("Client subscribed to Grove sensor", sensor_id)
-            else:
+            entry = self.grove_sensor_catalog.get(sensor_id)
+            if entry is None:
                 print("Client subscribed to unknown Grove sensor", sensor_id)
                 self._send_grove_status(sensor_id, GROVE_STATUS_ERROR)
+                return
+
+            # Release whatever this sensor was previously using first -
+            # matters for a "needs_pin" sensor being re-subscribed on a
+            # different pin (the widget's pin field changed), so the old
+            # pin claim doesn't linger.
+            self._unsubscribe_grove_sensor(sensor_id)
+
+            if entry.get("needs_pin"):
+                # 4th byte is a Firmata pin index (see pins.py's PIN_TABLE/
+                # self.pins) - added for sensors that aren't on the shared
+                # I2C bus and need to know which GPIO they're wired to.
+                if len(data) < 4 or data[3] >= len(self.pins) or self.pins[data[3]].board_pin is None:
+                    print("Grove sensor", sensor_id, "needs a real pin, none given")
+                    self._send_grove_status(sensor_id, GROVE_STATUS_ERROR)
+                    return
+                try:
+                    read_fn, cleanup_fn = entry["make_read"](self.pins[data[3]].board_pin)
+                except Exception as e:
+                    print("Grove sensor", sensor_id, "failed to start on pin", data[3], ":", e)
+                    self._send_grove_status(sensor_id, GROVE_STATUS_ERROR)
+                    return
+            else:
+                read_fn, cleanup_fn = entry["read"], None
+
+            # last_ms=0 forces update() to report on its very next pass,
+            # rather than waiting a full min_interval_ms for the first
+            # reading.
+            self._grove_subscriptions[sensor_id] = {
+                "last_ms": 0,
+                "read": read_fn,
+                "min_interval_ms": entry["min_interval_ms"],
+                "cleanup": cleanup_fn,
+            }
+            print("Client subscribed to Grove sensor", sensor_id)
         elif subcmd == GROVE_UNSUBSCRIBE:
-            if self._grove_subscriptions.pop(sensor_id, None) is not None:
+            if self._unsubscribe_grove_sensor(sensor_id):
                 print("Client unsubscribed from Grove sensor", sensor_id)
+
+    def _unsubscribe_grove_sensor(self, sensor_id):
+        """Remove sensor_id's subscription, if any, releasing whatever
+        pin/resource a "needs_pin" sensor's cleanup function claimed.
+        Returns True if there was actually a subscription to remove."""
+        subscription = self._grove_subscriptions.pop(sensor_id, None)
+        if subscription is None:
+            return False
+        cleanup_fn = subscription.get("cleanup")
+        if cleanup_fn is not None:
+            try:
+                cleanup_fn()
+            except Exception:
+                pass
+        return True
 
     def _handle_servo_config(self, pin_index, min_us, max_us):
         if pin_index < 0 or pin_index >= len(self.pins):
@@ -641,21 +697,20 @@ class FirmataServer:
                 self.port_state[port] = port_value
                 self._send_digital_port(port)
 
-        for sensor_id, last_reported_ms in list(self._grove_subscriptions.items()):
-            entry = self.grove_sensor_catalog.get(sensor_id)
-            if entry is None:
-                continue  # subscribed before catalog was ready, or a bad id slipped through
-            if now_ms - last_reported_ms < entry["min_interval_ms"]:
+        for sensor_id, subscription in list(self._grove_subscriptions.items()):
+            if now_ms - subscription["last_ms"] < subscription["min_interval_ms"]:
                 continue
             try:
-                values = entry["read"]()
+                values = subscription["read"]()
                 self._send_grove_reading(sensor_id, values)
             except Exception as e:
                 # A sensor read can legitimately fail transiently (I2C bus
-                # hiccup, sensor not ready yet) - report it to the client
-                # instead of crashing the whole connection over one bad
-                # read, matching this file's existing "keep the connection
-                # alive" convention (see _apply_pin_mode's except clause).
+                # hiccup, sensor not ready yet, or - for a "needs_pin"
+                # sensor like DHT11 - a routine checksum/timing miss) -
+                # report it to the client instead of crashing the whole
+                # connection over one bad read, matching this file's
+                # existing "keep the connection alive" convention (see
+                # _apply_pin_mode's except clause).
                 print("Grove sensor", sensor_id, "read failed:", e)
                 self._send_grove_status(sensor_id, GROVE_STATUS_ERROR)
-            self._grove_subscriptions[sensor_id] = now_ms
+            subscription["last_ms"] = now_ms

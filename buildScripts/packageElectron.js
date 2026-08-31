@@ -105,11 +105,12 @@ below), it's skipped silently and the board boots normally either way.
 
 ## Optional: Grove sensors (NTK's GroveIn widget)
 
-Wire a supported Grove I2C sensor to the board's I2C pins and copy this
-folder's \`lib/\` subfolder onto the device alongside the other files -
-no other setup needed. Pick the sensor from a GroveIn widget's own
-dropdown in NTK; it's detected at boot and skipped silently if not
-attached (or the bus lacks pull-ups).
+Wire a supported Grove sensor to the board (I2C pins for most; a
+digital pin for the DHT11, see below) and copy this folder's \`lib/\`
+subfolder onto the device alongside the other files - no other setup
+needed. Pick the sensor from a GroveIn widget's own dropdown in NTK;
+I2C sensors are detected at boot and skipped silently if not attached
+(or the bus lacks pull-ups).
 
 Supported so far:
 
@@ -117,6 +118,10 @@ Supported so far:
   m/s^2, scaled to NTK's usual 0-1023 range.
 - **Time of Flight Distance Sensor (VL53L0X)** - single distance
   reading in mm. Not yet verified against real hardware.
+- **Temperature & Humidity Sensor (DHT11)** - single-wire digital, not
+  I2C - wire it to any free digital Grove socket (avoid D0-D2, which
+  NTK claims automatically as analog inputs) and enter that pin (e.g.
+  \`D7\`) in the widget's "more" panel pin field.
 
 An accelerometer can also still be read the older way, as three
 ordinary-looking analog pins, **A3**, **A4**, and **A5**, so an AnalogIn

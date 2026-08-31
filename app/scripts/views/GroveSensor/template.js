@@ -9,7 +9,6 @@
     </div>
 
     <div class="widgetBody">
-        <label class="narrowLabel">Sensor</label>
         <select class="sensorSelect"></select>
         <div class="deviceId" rv-text="widget:deviceId"></div>
         <div class="groveStatus">
@@ -20,6 +19,7 @@
                 rv-class-groveerror="widget:sensorStatus | isGroveStatus error"></div>
             <span class="statusText" rv-text="widget:sensorStatus"></span>
         </div>
+        <div class="outletLabels" rv-text="widget:outs | outletTitles"></div>
 
         <div class="options">
               <ul>
@@ -52,13 +52,16 @@
             <div class="serialPortPicker" rv-class-networkmode="widget:deviceType | isNetworkDeviceType">
                 <span class="noSerialMessage">Doesn't support serial</span>
             </div>
+            <div class="pinField" rv-class-visible="widget:needsPin">
+                <label class="narrowLabel">pin</label> <input class="pinInput" type="text" pattern="[A-Za-z0-9]*" rv-value="widget:pin" placeholder="D7">
+            </div>
             <hr>
             input range<br>
-            <label class="narrowLabel">min</label> <input class="moreParam" type="text" pattern="[-0-9]*" rv-value="widget:inputFloor">
-            <label class="narrowLabel">max</label> <input class="moreParam" type="text" pattern="[-0-9]*" rv-value="widget:inputCeiling"><br>
+            <label class="narrowLabel">min</label> <input class="moreParam" type="text" pattern="[0-9-]*" rv-value="widget:inputFloor">
+            <label class="narrowLabel">max</label> <input class="moreParam" type="text" pattern="[0-9-]*" rv-value="widget:inputCeiling"><br>
             output range<br>
-            <label class="narrowLabel">min</label> <input class="moreParam" type="text" pattern="[-0-9]*" rv-value="widget:outputFloor">
-            <label class="narrowLabel">max</label> <input class="moreParam" type="text" pattern="[-0-9]*" rv-value="widget:outputCeiling"><br>
+            <label class="narrowLabel">min</label> <input class="moreParam" type="text" pattern="[0-9-]*" rv-value="widget:outputFloor">
+            <label class="narrowLabel">max</label> <input class="moreParam" type="text" pattern="[0-9-]*" rv-value="widget:outputCeiling"><br>
             <label class="narrowLabel">ease</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:easingAmount"><br>
             <label class="narrowLabel">smooth</label> <input class='smoothingAmount moreParam' type="text" pattern="[0-9]*" rv-value="widget:smoothingAmount">
             <hr>

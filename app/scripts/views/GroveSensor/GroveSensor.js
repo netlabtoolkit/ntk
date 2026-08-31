@@ -18,6 +18,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			'click .smoothing': 'toggleSmoothing',
 			'click .easing': 'toggleEasing',
 			'change .smoothingAmount': 'smoothingAmtChange',
+			'change .pinInput': 'pinChanged',
 		},
 		ins: [],
 		outs: [
@@ -82,13 +83,17 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				// inputFloor/inputCeiling are seeded from the selected
 				// sensor's catalog range (see remapSensor()) since that's a
 				// property of the sensor, not something the user should
-				// have to look up; outputFloor/outputCeiling follow NTK's
-				// normal convention and stay user-adjustable in the "more"
-				// panel like every other scaled widget.
+				// have to look up. outputFloor/outputCeiling default to
+				// NTK's normal 0-1023 convention, UNLESS the catalog entry
+				// declares its own outputRange (e.g. DHT11's, which
+				// matches its input range 1:1 so readings show real
+				// temperature/humidity numbers instead of the 0-1023
+				// convention) - either way, still user-adjustable in the
+				// "more" panel afterward like every other scaled widget.
 				inputFloor: firstSensorEntry.range.floor,
 				inputCeiling: firstSensorEntry.range.ceiling,
-				outputFloor: this.model.get('outputFloor') === undefined ? 0 : this.model.get('outputFloor'),
-				outputCeiling: this.model.get('outputCeiling') === undefined ? 1023 : this.model.get('outputCeiling'),
+				outputFloor: this.model.get('outputFloor') === undefined ? (firstSensorEntry.outputRange || {floor: 0}).floor : this.model.get('outputFloor'),
+				outputCeiling: this.model.get('outputCeiling') === undefined ? (firstSensorEntry.outputRange || {ceiling: 1023}).ceiling : this.model.get('outputCeiling'),
 				// Just the outlet shape for this very first render - the
 				// actual hardware mapping + subscribe happens afterward,
 				// once this widget is on the canvas (Patcher.js's creation
@@ -105,7 +110,15 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				// Shown under the sensor dropdown (template.js) - the
 				// specific chip, not the generic catalog label (e.g.
 				// "LIS3DHTR", not "Accelerometer") - see sensorCatalog.js.
-				deviceId: firstSensorEntry.deviceId,
+				deviceId: this.getDeviceIdLabel(firstSensorEntry),
+				// Most sensors are on the shared I2C bus and need no pin
+				// info from the widget at all - needsPin (from the
+				// catalog) shows a pin field in the "more" panel only for
+				// sensors that do (e.g. a single-wire digital DHT11 -
+				// there's no bus to find it on, so the widget has to say
+				// which GPIO it's wired to). See remapSensor()/
+				// subscribeSensor() and template.js's pinField.
+				needsPin: !!firstSensorEntry.needsPin,
 			});
 
 			// AnalogIn's scale/invert/smoothing/easing chain assumes a
@@ -262,6 +275,17 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				return value === expected;
 			};
 
+			// Comma-joined outlet labels (e.g. "X, Y, Z" or "Temp,
+			// Humidity"), shown under the status readout (template.js) so
+			// it's clear which outlet nub (top to bottom) is which
+			// reading without needing to hover each one for its tooltip.
+			// Derived straight from widget:outs rather than a separate
+			// model field, since outs already has exactly this
+			// information and stays in sync automatically.
+			rivets.formatters.outletTitles = function(outs) {
+				return _.pluck(outs || [], 'title').join(', ');
+			};
+
 			// Shared with every other hardware widget's Device dropdown
 			// (AnalogIn etc.) - re-registered here too since GroveSensor
 			// may be the only hardware widget on the canvas, in which case
@@ -275,6 +299,21 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			WidgetView.prototype.onRender.call(this);
 
 			this.populateSensorSelect();
+		},
+
+		/**
+		 * getDeviceIdLabel - the text shown under the sensor dropdown:
+		 * the catalog entry's deviceId (e.g. "LIS3DHTR"), with "
+		 * (untested)" appended for a sensor not yet confirmed against
+		 * real hardware. Previously this suffix was on the dropdown
+		 * option itself; moved here so it sits next to the specific chip
+		 * instead of the generic sensor kind.
+		 *
+		 * @param {object} catalogEntry
+		 * @return {string}
+		 */
+		getDeviceIdLabel: function(catalogEntry) {
+			return catalogEntry.deviceId + (catalogEntry.tested ? '' : ' (untested)');
 		},
 
 		/**
@@ -293,8 +332,11 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			$select.empty();
 
 			_.each(this.sensorCatalog, function(entry, sensorId) {
-				var label = entry.label + (entry.tested ? '' : ' (untested)');
-				$select.append('<option value="' + sensorId + '">' + label + '</option>');
+				// "(untested)" now shows next to the device ID line
+				// instead (see initialize()/remapSensor()'s deviceId
+				// assignment) - the dropdown itself just shows the plain
+				// sensor label.
+				$select.append('<option value="' + sensorId + '">' + entry.label + '</option>');
 			});
 
 			$select.val(currentSensorId);
@@ -302,6 +344,18 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 		sensorChanged: function(e) {
 			this.remapSensor(this.$('.sensorSelect').val());
+		},
+
+		/**
+		 * pinChanged - the "more" panel's pin field (only shown/relevant
+		 * for a "needsPin" sensor, e.g. DHT11) changed - re-subscribe so
+		 * the new pin actually takes effect, instead of waiting for some
+		 * other trigger (sensor switch, reconnect) to happen to pick it up.
+		 *
+		 * @return {void}
+		 */
+		pinChanged: function(e) {
+			this.subscribeSensor(this.model.get('sensor'));
 		},
 
 		/**
@@ -336,19 +390,26 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				}),
 				// Shown under the sensor dropdown (template.js) - see
 				// sensorCatalog.js/initialize()'s identical comment.
-				deviceId: catalogEntry.deviceId,
+				deviceId: this.getDeviceIdLabel(catalogEntry),
+				// See initialize()'s identical comment.
+				needsPin: !!catalogEntry.needsPin,
 			};
 
 			// inputFloor/inputCeiling are a property of the sensor itself
 			// (e.g. an accelerometer's +/-2g range in m/s^2), so these are
-			// only re-seeded from the catalog on an actual sensor switch.
-			// outputFloor/outputCeiling are NEVER touched here - that's the
-			// user-facing 0-1023-by-default convention and stays whatever
-			// they've set, same as switching serial ports doesn't reset
-			// AnalogIn's output range.
+			// only re-seeded from the catalog on an actual sensor switch -
+			// same for outputFloor/outputCeiling when the catalog entry
+			// declares its own outputRange (e.g. DHT11's 1:1 passthrough).
+			// A sensor with no outputRange falls back to NTK's normal
+			// 0-1023 convention here too, same as switching serial ports
+			// doesn't reset AnalogIn's output range - this only fires on
+			// an actual switch, so a user's own adjustment in the "more"
+			// panel still survives a reconnect/patch reload either way.
 			if(isActualSensorSwitch) {
 				newAttrs.inputFloor = catalogEntry.range.floor;
 				newAttrs.inputCeiling = catalogEntry.range.ceiling;
+				newAttrs.outputFloor = (catalogEntry.outputRange || {floor: 0}).floor;
+				newAttrs.outputCeiling = (catalogEntry.outputRange || {ceiling: 1023}).ceiling;
 
 				// Per-axis smoother/easing state is tied to whichever
 				// physical sensor was previously selected - drop it on an
@@ -421,6 +482,18 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		subscribeSensor: function(sensorId) {
 			if(this.sources[0] === undefined) { return; }
 
+			// A "needs_pin" sensor (e.g. DHT11) can't be subscribed to
+			// without a pin to read - rather than sending a doomed
+			// request and leaving the status stuck on "waiting" forever
+			// (the device would reject it, but nothing currently wires
+			// that rejection back to this widget's own status field),
+			// catch it here so the status honestly reflects what's wrong.
+			var catalogEntry = this.sensorCatalog[sensorId];
+			if(catalogEntry && catalogEntry.needsPin && !this.model.get('pin')) {
+				this.model.set('sensorStatus', 'error');
+				return;
+			}
+
 			this.model.set('sensorStatus', 'waiting');
 
 			window.app.vent.trigger('Widget:hardwareSwitch', {
@@ -428,6 +501,10 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				port: sensorId,
 				mode: 'GROVE_SENSOR',
 				hasInput: true,
+				// Only meaningful for a "needsPin" sensor - see
+				// StandardFirmataModel.js's setIOMode, which only reads
+				// this for GROVE_SENSOR mode and otherwise ignores it.
+				pin: this.model.get('pin'),
 			});
 		},
 

@@ -68,5 +68,38 @@ define([], function() {
             // here) once tested.
             range: {floor: 0, ceiling: 1200},
         },
+        // Firmware side: pins.py's GROVE_SENSOR_CATALOG entry 2.
+        2: {
+            label: 'Temp & Humidity',
+            deviceId: 'DHT11',
+            tested: true,
+            // Single-wire digital, not I2C - unlike every sensor above,
+            // this one needs to know which GPIO pin it's wired to, since
+            // there's no shared bus to find it on. needsPin shows a pin
+            // field in the widget's "more" panel (see GroveSensor.js's
+            // remapSensor()/template.js) and gets sent along with the
+            // subscribe request (StandardFirmataModel.js's setIOMode).
+            needsPin: true,
+            readings: [
+                {key: 'temperature', label: 'Temp', unit: '°C'},
+                {key: 'humidity', label: 'Humidity', unit: '%'},
+            ],
+            // Temperature (DHT11 spec: 0-50°C) and humidity (20-90% RH)
+            // are different units on very different scales, but this
+            // widget only has one shared input range for every reading
+            // (same constraint the accelerometer's X/Y/Z share above) -
+            // 0-100 is a rough compromise covering both reasonably rather
+            // than either being precisely calibrated. If you only care
+            // about one of the two readings, narrow this range for that
+            // one in the "more" panel (it'll then over/under-scale the
+            // other).
+            range: {floor: 0, ceiling: 100},
+            // Matches `range` above (0-100) exactly, making the scale a
+            // 1:1 passthrough - so the outlets read the actual
+            // temperature/humidity numbers directly instead of NTK's
+            // usual 0-1023 convention, which would otherwise need mental
+            // math (divide by ~10.23) to get back to a real-world value.
+            outputRange: {floor: 0, ceiling: 100},
+        },
     };
 });

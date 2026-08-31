@@ -95,11 +95,12 @@ board boots normally either way.
 
 ## Optional: Grove sensors (NTK's GroveIn widget)
 
-Wire a supported Grove I2C sensor to the board's I2C pins and copy this
-folder's `lib/` subfolder onto the device (Thonny, alongside
+Wire a supported Grove sensor to the board (I2C pins for most; a
+digital pin for the DHT11, see below) and copy this folder's `lib/`
+subfolder onto the device (Thonny, alongside
 `code.py`/`firmata_server.py`/`pins.py`) - no other setup needed.
-`pins.py` detects each sensor at boot (skipped silently, no error, if
-not attached, wired wrong, or the bus lacks pull-ups - see
+`pins.py` detects each I2C sensor at boot (skipped silently, no error,
+if not attached, wired wrong, or the bus lacks pull-ups - see
 Troubleshooting below) and makes it available to add a **GroveIn**
 widget for in NTK, over the same connection as every other widget - no
 second board or separate connection required. Pick the sensor from the
@@ -115,6 +116,12 @@ Supported so far:
 - **Time of Flight Distance Sensor (VL53L0X)** - single distance
   reading in mm. **Not yet verified against real hardware** as of this
   writing - remove this note once tested.
+- **Temperature & Humidity Sensor (DHT11)** - single-wire digital, not
+  I2C, so it can't be auto-detected on the shared bus like the sensors
+  above - wire it to any free digital Grove socket (avoid D0-D2, which
+  NTK claims automatically as analog inputs) and enter that pin (e.g.
+  `D7`) in the widget's "more" panel pin field once DHT11 is selected
+  from the dropdown.
 
 An accelerometer can *also* still be read the older way - as three
 ordinary-looking analog pins, **A3**, **A4**, and **A5** (unused by any
