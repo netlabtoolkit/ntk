@@ -212,6 +212,25 @@ async function main() {
 		const appPath = path.join(outDir, 'NTK.app');
 		console.log('Packaged:', appPath);
 
+		// Leave a copy directly alongside the unpacked NTK.app - convenient
+		// for testing straight from outDir without unzipping anything.
+		const persistentFirmwareDir = path.join(outDir, 'CircuitPython');
+		fs.rmSync(persistentFirmwareDir, { recursive: true, force: true });
+		bundleCircuitPythonFirmware(persistentFirmwareDir);
+		console.log('Bundled CircuitPython firmware:', persistentFirmwareDir);
+
+		if (!canNotarize) {
+			// The zip only exists for distributing a signed + notarized
+			// release - package:dev always signs too (the identity is
+			// present in this machine's keychain regardless), so gating
+			// on canSign alone wouldn't actually skip anything for a dev
+			// build. canNotarize is what actually distinguishes a real
+			// release (npm run package) from an iterative dev build
+			// (npm run package:dev, which passes --no-notarize).
+			console.log('Not notarized - skipping zip (only needed for a signed + notarized release).');
+			continue;
+		}
+
 		// ditto's archive mode only accepts a single source path ("Can't
 		// archive multiple sources"), so NTK.app and the CircuitPython
 		// firmware folder are staged together under one directory first,
@@ -228,7 +247,6 @@ async function main() {
 		// unavailable, e.g. a non-APFS destination).
 		execFileSync('cp', ['-R', '-c', appPath, stageDir]);
 		bundleCircuitPythonFirmware(path.join(stageDir, 'CircuitPython'));
-		console.log('Bundled CircuitPython firmware:', path.join(stageDir, 'CircuitPython'));
 
 		// Zip with ditto (not Finder/Archive Utility) so the app's
 		// signature's extended attributes and resource forks survive for
