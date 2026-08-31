@@ -103,16 +103,26 @@ connected - no serial console needed. Nothing to configure; if it isn't
 attached, wired wrong, or the bus lacks pull-ups (see Troubleshooting
 below), it's skipped silently and the board boots normally either way.
 
-## Optional: Grove - 3-Axis Digital Accelerometer (LIS3DHTR)
+## Optional: Grove sensors (NTK's GroveIn widget)
 
-Wire this to the board's I2C pins and copy this folder's \`lib/\`
-subfolder onto the device alongside the other files - it just works, no
-NTK-side changes needed. Its X/Y/Z acceleration shows up as three
+Wire a supported Grove I2C sensor to the board's I2C pins and copy this
+folder's \`lib/\` subfolder onto the device alongside the other files -
+no other setup needed. Pick the sensor from a GroveIn widget's own
+dropdown in NTK; it's detected at boot and skipped silently if not
+attached (or the bus lacks pull-ups).
+
+Supported so far:
+
+- **3-Axis Digital Accelerometer (LIS3DHTR)** - X/Y/Z acceleration in
+  m/s^2, scaled to NTK's usual 0-1023 range.
+- **Time of Flight Distance Sensor (VL53L0X)** - single distance
+  reading in mm. Not yet verified against real hardware.
+
+An accelerometer can also still be read the older way, as three
 ordinary-looking analog pins, **A3**, **A4**, and **A5**, so an AnalogIn
 widget pointed at any of those reads live acceleration exactly like it
 would a potentiometer - 0 = -2g, the middle of the dial = flat and at
-rest (0g), 1023 = +2g. Not attached (or the bus lacks pull-ups)? It's
-skipped silently.
+rest (0g), 1023 = +2g.
 
 ## Pin mapping
 

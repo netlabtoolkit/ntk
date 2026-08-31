@@ -50,5 +50,23 @@ define([], function() {
             // can still widen inputFloor/inputCeiling in the "more" panel.
             range: {floor: -10, ceiling: 10},
         },
+        // NOT YET HARDWARE-TESTED - sensor was still on order as of this
+        // entry being added. Firmware side: pins.py's GROVE_SENSOR_CATALOG
+        // entry 1. Remove `tested: false` once verified against real
+        // hardware.
+        1: {
+            label: 'Distance',
+            deviceId: 'VL53L0X',
+            tested: false,
+            readings: [
+                {key: 'distance', label: 'Distance', unit: 'mm'},
+            ],
+            // The VL53L0X's rated range is up to ~1200mm under good
+            // conditions (shorter in bright ambient IR light) - best-guess
+            // default until real hardware confirms what "out of range"
+            // actually reads as; adjust in the widget's "more" panel (or
+            // here) once tested.
+            range: {floor: 0, ceiling: 1200},
+        },
     };
 });

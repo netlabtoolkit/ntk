@@ -93,18 +93,37 @@ and if the display isn't attached, wired wrong, or the bus lacks
 pull-ups (see Troubleshooting below), it's skipped silently and the
 board boots normally either way.
 
-## Optional: Grove - 3-Axis Digital Accelerometer (LIS3DHTR)
+## Optional: Grove sensors (NTK's GroveIn widget)
 
-Wire this to the board's I2C pins and copy this folder's `lib/` subfolder
-onto the device (Thonny, alongside `code.py`/`firmata_server.py`/
-`pins.py`) and it just works - no NTK-side changes needed. `pins.py`
-exposes its X/Y/Z acceleration as three ordinary-looking analog pins,
-**A3**, **A4**, and **A5** (unused by any real pin on this board), so an
-AnalogIn widget pointed at any of those reads live acceleration exactly
-like it would a potentiometer - 0 = -2g, the middle of the dial = flat
-and at rest (0g), 1023 = +2g. Not attached, wired wrong, or the bus
-lacks pull-ups (see Troubleshooting below)? It's skipped silently and
-those three pins just don't exist as far as NTK can tell.
+Wire a supported Grove I2C sensor to the board's I2C pins and copy this
+folder's `lib/` subfolder onto the device (Thonny, alongside
+`code.py`/`firmata_server.py`/`pins.py`) - no other setup needed.
+`pins.py` detects each sensor at boot (skipped silently, no error, if
+not attached, wired wrong, or the bus lacks pull-ups - see
+Troubleshooting below) and makes it available to add a **GroveIn**
+widget for in NTK, over the same connection as every other widget - no
+second board or separate connection required. Pick the sensor from the
+widget's own dropdown; readings arrive as soon as the device replies.
+
+Supported so far:
+
+- **3-Axis Digital Accelerometer (LIS3DHTR)** - X/Y/Z acceleration in
+  m/s^2, scaled by the widget to NTK's usual 0-1023 range (default
+  scaling assumes normal handling/tilting, roughly 1g of swing per
+  axis, not the sensor's full +/-2g range - adjust in the widget's
+  "more" panel if you need to capture harder shake/impact forces).
+- **Time of Flight Distance Sensor (VL53L0X)** - single distance
+  reading in mm. **Not yet verified against real hardware** as of this
+  writing - remove this note once tested.
+
+An accelerometer can *also* still be read the older way - as three
+ordinary-looking analog pins, **A3**, **A4**, and **A5** (unused by any
+real pin on this board) - so an AnalogIn widget pointed at any of those
+reads live acceleration exactly like it would a potentiometer (0 =
+-2g, middle of the dial = flat/at rest, 1023 = +2g). Both paths read
+the same physical sensor and can be used at once; the GroveIn widget
+is the newer, more general path and is what future sensors will use
+exclusively.
 
 ## Pin mapping
 

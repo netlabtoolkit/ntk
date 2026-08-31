@@ -119,3 +119,33 @@ try:
     }
 except Exception as e:
     print("Grove LIS3DHTR accelerometer not available (not attached?):", e)
+
+# Optional: Grove - Time of Flight Distance Sensor (VL53L0X), I2C, fixed
+# address 0x29 (41 decimal) - no address-pin strap to try alternates,
+# unlike the LIS3DH above. GroveSensor catalog entry 1 only - no
+# virtual-analog-pin fallback for this one (that path was the earlier,
+# now-superseded approach; every sensor added from here on only needs
+# the GroveSensor catalog). Single reading (distance in mm), so
+# GROVE_SENSOR_CATALOG's "read" returns a one-element list rather than
+# LIS3DH's three, matching however many readings the widget-side
+# sensorCatalog.js entry declares.
+#
+# NOT YET HARDWARE-TESTED as of this addition - the sensor was still on
+# order. Entirely optional and silently skipped if not attached, same
+# graceful-skip pattern as the accelerometer above - remove this note
+# once verified against real hardware.
+try:
+    import adafruit_vl53l0x
+
+    _tof_i2c = board.I2C()
+    _tof_sensor = adafruit_vl53l0x.VL53L0X(_tof_i2c)
+
+    GROVE_SENSOR_CATALOG[1] = {
+        "read": lambda: [_tof_sensor.range],
+        # VL53L0X's default measurement_timing_budget is ~33ms per
+        # reading - polling much faster than that would just re-send the
+        # same stale reading.
+        "min_interval_ms": 50,
+    }
+except Exception as e:
+    print("Grove VL53L0X distance sensor not available (not attached?):", e)
