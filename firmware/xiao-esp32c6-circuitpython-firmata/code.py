@@ -37,7 +37,81 @@ import os
 import time
 import wifi
 import socketpool
+import supervisor
 
+# wifi.radio.start_ap() further down can hang at a level Ctrl-C can't
+# reach - see _wait_for_ctrl_c_window()'s own docstring for why a plain
+# time.sleep() "press Ctrl-C now" window isn't actually good enough on
+# its own: the board starts running this file the instant it's powered
+# up, often well before anyone's even opened Thonny - by the time a
+# human is actually watching the console, a fixed few-second window
+# already counted down to nothing. Waiting for a real serial connection
+# first, then giving the countdown, means the window always lands while
+# someone's actually able to see and react to it.
+def _wait_for_ctrl_c_window(total_delay_s, action_description):
+    """Give Ctrl-C a real chance to land before a risky operation, even
+    if nobody's watching the console yet at the moment this runs.
+
+    First waits - fully interruptibly, via repeated short time.sleep()
+    calls - for an actual serial console connection
+    (supervisor.runtime.serial_connected), up to MAX_WAIT_FOR_SERIAL_S,
+    since that's a much better proxy for "a human might actually be
+    watching right now" than "some number of seconds since power-on".
+    Bounded so a genuinely unattended boot (no computer ever attached -
+    a permanent installation, say) doesn't stall forever waiting for a
+    connection that will never come.
+
+    Once someone's actually connected, re-prints the countdown message
+    every second for total_delay_s instead of once - if Thonny was
+    ALREADY open and connected before this boot (e.g. it auto-reconnects
+    across a reset/replug), serial_connected can already read True the
+    very instant this function runs, but Thonny's own reconnect-and-
+    redraw can still take a beat to catch up on screen; a single print
+    right at that instant risks landing in that gap and never actually
+    being seen. Repeating it every second keeps a fresh, visible
+    reminder on screen for the whole window regardless of exactly when
+    the console visually catches up.
+
+    total_delay_s: total seconds to keep prompting once a console is present.
+    action_description: e.g. "Starting SoftAP" - printed each second as
+      "<action_description> in <N>s - press Ctrl-C now...".
+    """
+    # This wait only ever DELAYS when the countdown starts (so it isn't
+    # wasted before anyone's watching) - it must never be a reason to
+    # skip the countdown altogether. Bailing out here if
+    # serial_connected never flips true within the bound (e.g. it
+    # doesn't reliably do so during some reconnect races - seen in
+    # practice after an unplug/replug while Thonny already had a session
+    # open) would silently drop the ENTIRE Ctrl-C protection right when
+    # it's needed most. So there's no early return: the countdown always
+    # runs unconditionally afterward, connected or not - worst case (truly
+    # nobody attached) the prints just go nowhere, harmlessly.
+    MAX_WAIT_FOR_SERIAL_S = 30
+    waited = 0
+    while not supervisor.runtime.serial_connected and waited < MAX_WAIT_FOR_SERIAL_S:
+        time.sleep(0.25)
+        waited += 0.25
+
+    remaining = total_delay_s
+    while remaining > 0:
+        print(action_description + " in " + str(remaining) + "s - press Ctrl-C now if you need to interrupt boot")
+        time.sleep(1)
+        remaining -= 1
+
+
+# pins.py probes each configured Grove I2C sensor (LIS3DHTR, VL53L0X) at
+# import time, via board.I2C() calls that can hang at the C driver level
+# rather than raising quickly if that bus currently has no pull-ups, a
+# disconnected sensor mid-transaction, or similar - a hang like that
+# blocks before CircuitPython's VM ever gets a chance to check for a
+# Ctrl-C, and can even keep Thonny's Stop button from working (same
+# class of problem as wifi.radio.start_ap() below). A "press Ctrl-C now"
+# countdown was tried here too, but in practice it didn't actually help
+# with the failure mode that mattered (Thonny reconnecting to a board
+# that's already mid-boot after an unplug/replug - a Thonny-side
+# connection race, not something a countdown printed from this side can
+# fix - see the README's Troubleshooting section for the actual
+# reliable recovery procedure). Removed rather than kept as dead weight.
 from firmata_server import FirmataServer
 from pins import PIN_TABLE, GROVE_SENSOR_CATALOG
 
@@ -154,11 +228,11 @@ def start_ap():
     # Unlike connect_wifi()'s wifi.radio.connect(), which takes a timeout
     # so Ctrl-C gets a window to land between retries, wifi.radio.start_ap()
     # has no such option - if it hangs, Ctrl-C cannot interrupt it (only
-    # Thonny's Stop button can). time.sleep() itself IS interruptible
-    # though, so this gives Ctrl-C an explicit window right before the
-    # one call that isn't.
-    print("Starting SoftAP in 4 seconds - press Ctrl-C now if you need to interrupt boot")
-    time.sleep(4)
+    # Thonny's Stop button can). See _wait_for_ctrl_c_window()'s docstring
+    # for why this waits for an actual console connection first, rather
+    # than just sleeping - a fixed sleep counts down from power-on, which
+    # has usually already elapsed by the time anyone's actually watching.
+    _wait_for_ctrl_c_window(8, "Starting SoftAP")
 
     ssid = os.getenv("NTK_AP_SSID") or "NTK-Firmata"
 

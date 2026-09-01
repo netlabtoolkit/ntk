@@ -89,11 +89,29 @@ Join the \`NTK-Firmata\` network from your computer, then point NTK's
 the board's network your computer has no normal WiFi/internet, it's one
 board at a time, and range is shorter than joining a real router.
 
-If the board seems stuck on boot while starting SoftAP: there's a
-4-second "press Ctrl-C now" window printed right before it starts (this
-step has no built-in timeout the way joining a normal WiFi network
-does), but if it's already past that and hung, only Thonny's Stop
-button can force a harder interrupt.
+If the board seems stuck on boot while starting SoftAP: there's an
+8-second "press Ctrl-C now" countdown printed right before it starts
+(this step has no built-in timeout the way joining a normal WiFi
+network does), but if it's already past that and hung, only Thonny's
+Stop button can force a harder interrupt.
+
+If the board seems stuck even before that (neither Ctrl-C nor Thonny's
+Stop button work): pins.py probes each configured Grove I2C sensor at
+import time, which can hang at the hardware driver level - before
+CircuitPython's VM ever checks for an interrupt - if that bus currently
+has no pull-ups or a sensor disconnected mid-transaction. There's no
+countdown before this specific import (one was tried and removed - see
+the next note below); if this happens, disconnect the Grove sensor(s)
+and power-cycle the board, then check wiring/pull-ups before
+reattaching.
+
+If you unplugged the board while Thonny was already connected and can't
+get a REPL back no matter what you press: this is a known Thonny quirk
+reconnecting to a board that's already mid-boot, not something this
+firmware controls. Reliable recovery: switch Thonny's interpreter away
+from the board's serial port, unplug the board, replug it and wait
+about 10 seconds without touching Thonny, then switch Thonny's
+interpreter back to that port.
 
 ## Optional: show the IP on a Grove LCD RGB Backlight
 

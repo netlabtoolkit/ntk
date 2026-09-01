@@ -78,10 +78,37 @@ you rely on this.
 `wifi.radio.connect()` (station mode), which takes a `timeout` so
 Ctrl-C gets a window to land between retries, `wifi.radio.start_ap()`
 has no such option - there's no way to bound or interrupt that specific
-call from Python if it hangs. There's a 4-second "press Ctrl-C now"
-window printed right before it starts, so Ctrl-C works if you catch
-that - but if it's already past that and hung inside `start_ap()`
-itself, only **Thonny's Stop button** can force a harder interrupt.
+call from Python if it hangs. There's an 8-second "press Ctrl-C now"
+countdown (re-printed every second) right before it starts, so Ctrl-C
+works if you catch that - but if it's already past that and hung inside
+`start_ap()` itself, only **Thonny's Stop button** can force a harder
+interrupt.
+
+**If the board seems stuck on boot before it even gets that far (neither
+Ctrl-C nor Thonny's Stop button work)**: `pins.py` probes each
+configured Grove I2C sensor at import time (`board.I2C()` calls), which
+can hang at the hardware driver level - not just raise an error - if
+that bus currently has no pull-ups, a sensor disconnected mid-
+transaction, or similar. A hang at that level blocks before
+CircuitPython's VM ever checks for an interrupt, which is what can make
+even Thonny's Stop button ineffective. There's no "press Ctrl-C now"
+countdown before this specific import (one was tried and removed - see
+the next note below for why it didn't actually help the failure mode
+that mattered) - if this happens, **disconnect the Grove sensor(s) and
+power-cycle the board** to get back in, then check wiring/pull-ups
+before reattaching.
+
+**If you unplugged the board while Thonny was already connected, and
+now can't get a REPL back no matter what you press**: this is a known
+Thonny quirk reconnecting to a board that's already mid-boot (Thonny's
+own auto-reconnect can race the board's boot in a way that leaves Ctrl-C
+not actually reaching it, even though the SoftAP countdown above still
+prints normally) - it isn't something this firmware can control from
+its side. Reliable recovery: **switch Thonny's interpreter away from the board's
+serial port, unplug the board, replug it and wait about 10 seconds
+without touching Thonny, then switch Thonny's interpreter back to that
+port** - the REPL comes back cleanly once Thonny only attaches after the
+board has already finished booting on its own, instead of racing it.
 
 ## Optional: show the IP on a Grove LCD RGB Backlight
 
