@@ -187,8 +187,12 @@ def show_ip_on_lcd(ip_address):
         lcd = GroveLCD(board.I2C())
         lcd.show_lines("NTK Firmata", str(ip_address) + ":" + str(FIRMATA_PORT))
         lcd.set_rgb(0, 255, 0)
-    except Exception as e:
-        print("Grove LCD not shown (not attached?):", e)
+        print("Grove LCD found")
+    except Exception:
+        # Silently skipped if not attached - "not attached" is the
+        # everyday case, not a real error worth printing every boot (see
+        # pins.py's matching _found_sensors summary for the same idea).
+        pass
 
 
 def connect_wifi():

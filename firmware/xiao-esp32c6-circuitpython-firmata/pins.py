@@ -54,6 +54,14 @@ import board
 # as everything else in this file.
 GROVE_SENSOR_CATALOG = {}
 
+# Names of Grove sensors actually detected below, printed as one summary
+# line once all the optional probes below have run (see the bottom of
+# this file) - each probe fails silently (bare `except Exception: pass`)
+# on its own, since "sensor not attached" is the everyday case, not a
+# real error worth a scary-looking traceback-adjacent print every single
+# boot; this list is what tells you what WAS found instead.
+_found_sensors = []
+
 PIN_TABLE = [
     (board.D0, 0, None),
     (board.D1, 1, None),
@@ -117,8 +125,9 @@ try:
         "read": lambda: list(_accelerometer.acceleration),
         "min_interval_ms": 20,
     }
-except Exception as e:
-    print("Grove LIS3DHTR accelerometer not available (not attached?):", e)
+    _found_sensors.append("LIS3DHTR accelerometer")
+except Exception:
+    pass
 
 # Optional: Grove - Time of Flight Distance Sensor (VL53L0X), I2C, fixed
 # address 0x29 (41 decimal) - no address-pin strap to try alternates,
@@ -130,10 +139,9 @@ except Exception as e:
 # LIS3DH's three, matching however many readings the widget-side
 # sensorCatalog.js entry declares.
 #
-# NOT YET HARDWARE-TESTED as of this addition - the sensor was still on
-# order. Entirely optional and silently skipped if not attached, same
-# graceful-skip pattern as the accelerometer above - remove this note
-# once verified against real hardware.
+# Hardware-verified: readings come back in mm as expected via the
+# GroveSensor widget. Entirely optional and silently skipped if not
+# attached, same graceful-skip pattern as the accelerometer above.
 try:
     import adafruit_vl53l0x
 
@@ -147,8 +155,9 @@ try:
         # same stale reading.
         "min_interval_ms": 50,
     }
-except Exception as e:
-    print("Grove VL53L0X distance sensor not available (not attached?):", e)
+    _found_sensors.append("VL53L0X distance sensor")
+except Exception:
+    pass
 
 # Optional: Grove - Temperature & Humidity Sensor (DHT11), single-wire
 # digital - NOT I2C, so unlike every entry above it isn't on the shared
@@ -191,5 +200,11 @@ try:
         # error-avoidance.
         "min_interval_ms": 2000,
     }
-except Exception as e:
-    print("Grove DHT11 support not available:", e)
+    # Not added to _found_sensors below - unlike the I2C sensors above,
+    # this only confirms the adafruit_dht library imported, not that a
+    # DHT11 is actually wired up (that isn't knowable until a widget
+    # subscribes with a real pin - see needs_pin above).
+except Exception:
+    pass
+
+print("Grove sensors found:", ", ".join(_found_sensors) if _found_sensors else "none")
