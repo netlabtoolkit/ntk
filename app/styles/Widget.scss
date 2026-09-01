@@ -673,3 +673,243 @@
         }
     }
 }
+
+// PoseTrack widget (app/scripts/views/PoseTrack/) - note that per-widget
+// styles.scss files (e.g. Gesture's, FaceTrack's) are never actually
+// imported anywhere into the build (same already-confirmed fact
+// GroveSensor's block above was written around), so this lives here in
+// the shared Widget.scss instead. Gesture's/FaceTrack's own record
+// button/camera preview markup currently renders unstyled for the same
+// reason - not fixed here, out of scope, but avoided for this widget.
+.posetrack {
+    .widgetBody {
+        font-size: 0.8em;
+        color: #000;
+
+        .trackModeSelect {
+            // NOT width:100% - .widgetBodyLeft (see the shared,
+            // undeclared-width .widgetBodyLeft{float:left} rule above in
+            // this file) shrink-wraps to its content's width; a 100%
+            // child fights that and forces it to expand full-width,
+            // pushing .widgetBodyRight's outlet values below instead of
+            // beside it. A fixed width lets it shrink-wrap correctly,
+            // same as Gesture's/FaceTrack's own dial does via its own
+            // fixed pixel size.
+            width: 58px;
+            box-sizing: border-box;
+            font-size: inherit;
+            color: inherit;
+            margin-top: 2px;
+        }
+
+        .transportControls {
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+
+            .recordIcon {
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                background-color: #c0392b;
+                margin-right: 5px;
+                cursor: pointer;
+
+                // Blinks while actively capturing a training burst -
+                // CLAUDE.md's "actively inform the user" principle: a
+                // silent capture window reads as broken.
+                &.recording {
+                    animation: poseTrackRecording 0.6s infinite;
+                }
+            }
+
+            .recordSlot {
+                width: 32px;
+                box-sizing: border-box;
+                font-size: inherit;
+                color: inherit;
+            }
+        }
+
+        .widgetBodyRight {
+            // Deliberately dots, not full numeric out1-4 readouts like
+            // Gesture's .outletValue (64px each) - .widgetBodyLeft's
+            // content (mode select + record controls) is already close
+            // to 94px's budget on its own, and .widgetBodyLeft/
+            // .widgetBodyRight are independent CSS floats with no
+            // declared width (see the shared rule above in this file) -
+            // if their combined natural widths exceed .widgetBody's
+            // declared 94px, the right float wraps below the left
+            // instead of sitting beside it (not just visually overflowing
+            // past the edge, which floats do tolerate - see GroveSensor's
+            // width note elsewhere in this file for that distinction).
+            // A narrow dot-per-slot column comfortably fits either way;
+            // wire an outlet to a Text widget for the actual number.
+            // Each dot's row is exactly as tall as one .outlet nub's own
+            // row (24px + 2px margin-bottom, see the shared .outlet,
+            // .inlet rule above in this file) so slot N's dot lines up
+            // with outlet N's nub - using height instead of vertical
+            // margins to get that 26px rhythm, since margins between
+            // sibling blocks collapse (the smaller of the two, not their
+            // sum), which would throw the spacing off by half.
+            .slotIndicator {
+                width: 22px;
+                height: 26px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-left: auto;
+
+                &::after {
+                    content: '';
+                    // Big enough to read as an actual status light rather
+                    // than a speck - still comfortably inside the 26px row
+                    // height that keeps it aligned with its outlet nub.
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 50%;
+                    // --matchColor is set per-frame by PoseTrack.js's
+                    // matchcolor rivets binder (matchLevelToColor()) - a
+                    // continuous blue (no match) -> yellow (halfway to
+                    // threshold) -> green (matched) live readout, shown
+                    // at all times (not only once officially "matched"),
+                    // so you can see a slot approaching a match, not just
+                    // whether it already has. The plain grey fallback is
+                    // for a slot with nothing recorded yet (see
+                    // evaluateFrame) - it never gets a --matchColor at all.
+                    background-color: var(--matchColor, #ccc);
+                }
+
+                &.pending::after {
+                    animation: poseTrackRecording 0.6s infinite;
+                    background-color: #e0a030;
+                }
+            }
+        }
+
+        .recordingMeter {
+            width: 100%;
+            height: 6px;
+            background-color: #ddd;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 4px;
+            box-sizing: border-box;
+        }
+
+        .recordingBar {
+            width: 0;
+            height: 100%;
+            background-color: #c0392b;
+        }
+
+        .recordingCountdown {
+            font-size: 0.75em;
+            color: #c0392b;
+            margin-top: 2px;
+        }
+
+        // The single most useful live readout once a widget is trained
+        // and actually in use (vs. .recognitionMeter/.exampleCount in the
+        // "more" panel, which matter while training) - see PoseTrack.js's
+        // commitMatched. Bold/green to read at a glance; ellipsis rather
+        // than wrapping since .widgetBodyLeft is only ~58-64px wide and a
+        // long typed-in slot name would otherwise push .widgetBody past
+        // its 110px height.
+        .currentMatch {
+            margin-top: 3px;
+            // Meant to be readable at a glance from across a room while
+            // actually using a trained widget - explicit px, not an em
+            // relative to .widgetBody's own 0.8em (that would still read
+            // as "just slightly bigger than everything else").
+            font-size: 15px;
+            font-weight: bold;
+            line-height: 1.1;
+            color: #2e7d32;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 64px;
+        }
+
+        .statusMessage {
+            margin-top: 4px;
+            font-size: 0.85em;
+            color: #b33;
+        }
+    }
+
+    @keyframes poseTrackRecording {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.25; }
+    }
+
+    .widgetBottom .content {
+        .recognitionMeter {
+            width: 100%;
+            height: 8px;
+            background-color: #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .recognitionBar {
+            height: 100%;
+            background-color: #4caf50;
+        }
+
+        .recognitionLabel, .exampleCount {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        // A small skeleton (dots + connecting lines, drawn from the
+        // slot's own recorded landmark data - see PoseTrack.js's
+        // drawSlotPreview) so it's clear at a glance what pose is
+        // trained into the currently-selected slot.
+        .slotPreview {
+            display: block;
+            margin-top: 6px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .slotNameInput {
+            width: 100px;
+            box-sizing: border-box;
+        }
+
+        // Overrides the shared table.rangeTable .range-input rule
+        // (Widget.scss's global block near the top of this file), which
+        // is only 8px tall - fine as a bare visual proportion bar in
+        // whatever widget it was originally sized for, but too small to
+        // actually read the number typed into it.
+        .gestureOutputsTable .range-input {
+            width: 40px;
+            height: 16px;
+            font-size: 0.85em;
+        }
+
+        .cameraPreview {
+            position: relative;
+            width: 190px;
+            height: 143px;
+            margin-top: 6px;
+
+            .poseVideo, .poseCanvas {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 190px;
+                height: 143px;
+            }
+
+            .poseCanvas {
+                z-index: 1;
+            }
+        }
+    }
+}

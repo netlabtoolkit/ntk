@@ -290,9 +290,14 @@ function( app, Backbone, Template, Widgets ) {
 			}
 		},
 		downloadPatch: function() {
-			window.app.vent.trigger('ToolBar:savePatch');
-			// window.location.href = "/patch.ntk";
-			// new method for exporting patch - doesn't use saved patch file
+			// Exporting a copy to a file should not have the side effect
+			// of also silently overwriting the live server-side patch -
+			// those are two different user intents (download a snapshot
+			// vs. persist the current state as what reloads next launch).
+			// This used to fire ToolBar:savePatch first "just in case" -
+			// removed; exportPatch() already reads directly from the
+			// live in-memory widget models, it was never depending on
+			// the save having happened first.
 			window.app.vent.trigger('ToolBar:exportPatch');
 		},
         hideWidgets: function() {

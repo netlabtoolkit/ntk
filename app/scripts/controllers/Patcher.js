@@ -893,12 +893,33 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			window.app.vent.trigger('savePatchToServer', {collection: this.widgetModels, mappings: this.widgetMappings});
 		},
     exportPatch: function() {
-			// send current patch to be exported by nlWebServer.js - should probably convert to POST
       var patch = {
         widgets: this.widgetModels.toJSON(),
         mappings: this.widgetMappings,
       };
-			window.location.href = "/patch.ntk?patch=" + encodeURIComponent(JSON.stringify(patch));
+
+			// Built and downloaded entirely client-side (Blob + a throwaway
+			// <a download>), NOT round-tripped through the server's
+			// GET /patch.ntk?patch=<entire JSON as a URL-encoded query
+			// string> the way this used to work - a widget with any real
+			// amount of data (e.g. PoseTrack's recorded training examples)
+			// can push the encoded patch past the request-line length
+			// limit most HTTP servers enforce (Node's own default is well
+			// under 100KB), which fails the request outright. Worse, the
+			// old code drove that GET via window.location.href - a full-
+			// page navigation - so a failed request didn't just fail to
+			// download, it tore down the entire running SPA (blank/white
+			// canvas, "net::ERR_CONNECTION_RESET"). A Blob URL has no such
+			// size ceiling and never leaves the page.
+			var blob = new Blob([JSON.stringify(patch)], {type: 'application/octet-stream'});
+			var blobURL = URL.createObjectURL(blob);
+			var link = document.createElement('a');
+			link.href = blobURL;
+			link.download = 'patch.ntk';
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			URL.revokeObjectURL(blobURL);
     },
 		clearPatch: function() {
 			var emptyPatch = {"widgets":[],"mappings":[]};
