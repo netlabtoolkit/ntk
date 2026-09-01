@@ -6,10 +6,27 @@ function () {
 		 * Scales a signal
 		 * Requires that the configuration options are present on the Widget's model
 		 *
+		 * A plain linear transform - an input outside [inputFloor,
+		 * inputCeiling] extrapolates straight through to an output outside
+		 * [outputFloor, outputCeiling] by default (matches the common
+		 * "map"-style convention, e.g. Arduino's own map()), which several
+		 * widgets (Process, OSCIn, CloudIn) may already rely on for
+		 * deliberate signal gain/extrapolation on values they don't fully
+		 * control the range of. Pass clampOutput=true to instead pin the
+		 * result to the output range - added for GroveSensor, where a raw
+		 * hardware sensor reading landing outside its expected range (e.g.
+		 * a ToF sensor's "no target" sentinel, or an accelerometer spike)
+		 * is a hazard, not a technique - see GroveSensor.js's call site.
+		 * Every other caller invokes this with just (input, model) via
+		 * WidgetMulti's generic signalChainFunctions loop, so clampOutput
+		 * is always undefined/false for them - no behavior change.
+		 *
 		 * @param {number} input
+		 * @param {object} model
+		 * @param {boolean} [clampOutput] pin the result to [outputFloor, outputCeiling]
 		 * @return {number}
 		 */
-		scale: function(input, model) {
+		scale: function(input, model, clampOutput) {
 			var output,
 				inputCeiling = parseInt(model.inputCeiling, 10),
 				outputCeiling = parseInt(model.outputCeiling, 10),
@@ -23,6 +40,15 @@ function () {
 			var scalingFactor = outputRange / inputRange;
 
 			output = ((parseFloat( input, 10) - inputFloor) * scalingFactor) + outputFloor;
+
+			if(clampOutput) {
+				// min/max rather than assuming outputFloor < outputCeiling -
+				// a widget could configure an inverted output range (floor
+				// above ceiling) to flip a signal via the range fields alone.
+				var lowerBound = Math.min(outputFloor, outputCeiling),
+					upperBound = Math.max(outputFloor, outputCeiling);
+				output = Math.min(upperBound, Math.max(lowerBound, output));
+			}
 
 			return output;
 		},

@@ -189,7 +189,13 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				var state = this.getAxisState(output.to);
 				var value = this.model.get(output.from);
 
-				value = SignalChainFunctions.scale(value, this.model.attributes);
+				// clampOutput=true - a raw hardware sensor reading landing
+				// outside its configured range (e.g. a ToF sensor's "no
+				// target" sentinel, an accelerometer spike) should pin to
+				// the output extreme, not extrapolate past it and spike
+				// whatever's wired downstream. See SignalChainFunctions.js's
+				// scale() comment for why this isn't the default everywhere.
+				value = SignalChainFunctions.scale(value, this.model.attributes, true);
 				value = SignalChainFunctions.invert(value, this.model.attributes);
 
 				state.easingNew = value;

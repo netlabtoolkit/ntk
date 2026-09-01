@@ -141,8 +141,19 @@ Supported so far:
   axis, not the sensor's full +/-2g range - adjust in the widget's
   "more" panel if you need to capture harder shake/impact forces).
 - **Time of Flight Distance Sensor (VL53L0X)** - single distance
-  reading in mm. **Not yet verified against real hardware** as of this
-  writing - remove this note once tested.
+  reading in mm. Hardware-verified; `pins.py` applies a fixed -50mm
+  calibration offset to this module's raw readings (measured
+  empirically - see its `_VL53L0X_OFFSET_MM` comment), so a different
+  physical module/housing may need that constant re-measured. Readings
+  well under ~50mm are inherently unreliable on this sensor regardless
+  of the offset - a near-field optical crosstalk limitation of the
+  VL53L0X itself, not something firmware can calibrate away. With
+  nothing in range at all, the sensor reports a large "no target"
+  sentinel value rather than 0 or an error - clamped in `pins.py` to
+  the sensor's rated ~1200mm max (`_VL53L0X_MAX_RANGE_MM`) so it reads
+  the same as "an object right at the edge of range" instead of
+  spiking the widget's scaled output several times past NTK's normal
+  0-1023 convention.
 - **Temperature & Humidity Sensor (DHT11)** - single-wire digital, not
   I2C, so it can't be auto-detected on the shared bus like the sensors
   above - wire it to any free digital Grove socket (avoid D0-D2, which

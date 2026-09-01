@@ -142,6 +142,38 @@ except Exception:
 # Hardware-verified: readings come back in mm as expected via the
 # GroveSensor widget. Entirely optional and silently skipped if not
 # attached, same graceful-skip pattern as the accelerometer above.
+#
+# Measured calibration offset: this particular module reads a
+# consistent ~50mm FAR of actual distance in its normal operating range
+# (150mm measured as ~200mm, 250mm measured as ~300mm - the same ~50mm
+# both times, not a percentage error), so it's corrected here with a
+# flat subtraction rather than in sensorCatalog.js/the widget, since
+# it's a property of this specific sensor module, not something NTK
+# should have to know about. Adafruit's adafruit_vl53l0x driver exposes
+# no built-in offset-calibration call (unlike some other ToF libraries),
+# so this is the only place to apply one. Right at contact (~0mm actual)
+# the raw reading jumps to ~80mm instead of following that same ~50mm
+# pattern - a known VL53L0X near-field limitation (optical crosstalk
+# between the emitter and receiver dominates the return signal at very
+# short range), not something a flat offset can correct; readings well
+# under ~50mm actual distance should be treated as unreliable regardless
+# of this correction. Re-measure and adjust this constant if a
+# different physical module/housing is ever swapped in.
+_VL53L0X_OFFSET_MM = 50
+
+# Measured: with nothing in range at all, the sensor doesn't report an
+# error or a small/zero value - it returns a large sentinel-ish raw
+# reading (~7030mm here, well past its ~1200mm rated max), which is
+# normal VL53L0X "no valid target" behavior, not a fault. Left
+# uncorrected, that would sail straight through sensorCatalog.js's
+# scale-to-0-1023 conversion (SignalChainFunctions.js's scale() does a
+# plain linear transform with NO clamping to the configured
+# inputCeiling) and spike the outlet to several times the normal 0-1023
+# range - clamped here instead so "nothing in range" reads the same as
+# "an object sitting right at the sensor's rated max distance", which
+# is the conventional way ToF sensors handle this case.
+_VL53L0X_MAX_RANGE_MM = 1200  # matches sensorCatalog.js's declared ceiling
+
 try:
     import adafruit_vl53l0x
 
@@ -149,7 +181,7 @@ try:
     _tof_sensor = adafruit_vl53l0x.VL53L0X(_tof_i2c)
 
     GROVE_SENSOR_CATALOG[1] = {
-        "read": lambda: [_tof_sensor.range],
+        "read": lambda: [min(_VL53L0X_MAX_RANGE_MM, max(0, _tof_sensor.range - _VL53L0X_OFFSET_MM))],
         # VL53L0X's default measurement_timing_budget is ~33ms per
         # reading - polling much faster than that would just re-send the
         # same stale reading.

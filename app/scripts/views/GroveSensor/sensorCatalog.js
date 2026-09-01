@@ -50,22 +50,29 @@ define([], function() {
             // can still widen inputFloor/inputCeiling in the "more" panel.
             range: {floor: -10, ceiling: 10},
         },
-        // NOT YET HARDWARE-TESTED - sensor was still on order as of this
-        // entry being added. Firmware side: pins.py's GROVE_SENSOR_CATALOG
-        // entry 1. Remove `tested: false` once verified against real
-        // hardware.
+        // Hardware-verified. Firmware side: pins.py's
+        // GROVE_SENSOR_CATALOG entry 1 - note that pins.py applies a
+        // fixed -50mm calibration offset to this specific module's raw
+        // readings before they ever reach here (see its
+        // _VL53L0X_OFFSET_MM comment), so values arriving at this widget
+        // should already read close to true distance in the sensor's
+        // normal operating range (readings well under ~50mm are
+        // inherently unreliable on this sensor - a near-field optical
+        // crosstalk limitation, not something either side can calibrate
+        // away).
         1: {
             label: 'Distance',
             deviceId: 'VL53L0X',
-            tested: false,
+            tested: true,
             readings: [
                 {key: 'distance', label: 'Distance', unit: 'mm'},
             ],
             // The VL53L0X's rated range is up to ~1200mm under good
-            // conditions (shorter in bright ambient IR light) - best-guess
-            // default until real hardware confirms what "out of range"
-            // actually reads as; adjust in the widget's "more" panel (or
-            // here) once tested.
+            // conditions (shorter in bright ambient IR light) - not yet
+            // confirmed against real hardware at the extremes, only in
+            // the ~150-250mm range actually tested so far; adjust here
+            // (or in the widget's "more" panel) if real-world max/out-
+            // of-range behavior turns out to differ.
             range: {floor: 0, ceiling: 1200},
         },
         // Firmware side: pins.py's GROVE_SENSOR_CATALOG entry 2.
