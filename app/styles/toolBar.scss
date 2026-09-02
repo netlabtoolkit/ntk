@@ -159,6 +159,28 @@
 		}
 	}
 
+	.networkInfo {
+		clear: both;
+		float: left;
+		width: calc(250px - 20px);
+		padding: 10px;
+		box-sizing: border-box;
+
+		background-color: darkgrey;
+		border-bottom: 1px solid #bbb;
+
+		font-size: 0.75em;
+		color: #333;
+
+		.softApInfo {
+			margin-top: 4px;
+		}
+
+		.localIpDisplay {
+			font-weight: bold;
+		}
+	}
+
 	.category {
 		float: left;
 		width: calc(250px - 20px);

@@ -5,6 +5,7 @@ var createRouter = (server) => {
 		http = require('http'),
 		path = require('path'),
 		fs = require('fs'),
+		os = require('os'),
 		events = require('events'),
 		formidable = require('formidable');
 
@@ -59,6 +60,32 @@ var createRouter = (server) => {
 	router.get('/devTools', function(req, res){
 		res.end('');
 		//res.sendfile( path.join( __dirname, '../../devTools/cssrefresh.js' ) );
+	});
+
+	// Lets the Add Widgets panel tell the user what to type into another
+	// device's browser to reach this same patch (see ToolBar_tmpl.js's
+	// .patchUrlInfo) - the client can't know this machine's own LAN-facing
+	// address itself (window.location.hostname is only useful once you're
+	// ALREADY on that address). Picks the first non-internal IPv4 address
+	// across all network interfaces - on a machine with more than one
+	// active interface (e.g. WiFi + Ethernet) this may not be the specific
+	// one a given remote device can actually reach, but it's a reasonable
+	// single best guess without asking the user to pick.
+	router.get('/localNetworkInfo', function(req, res){
+		var interfaces = os.networkInterfaces();
+		var address = null;
+
+		Object.keys(interfaces).some(function(name) {
+			return interfaces[name].some(function(iface) {
+				if(iface.family === 'IPv4' && !iface.internal) {
+					address = iface.address;
+					return true;
+				}
+				return false;
+			});
+		});
+
+		res.json({localIp: address});
 	});
 
 	// Streams a media file from anywhere on the local machine, chosen via the

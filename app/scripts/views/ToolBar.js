@@ -114,6 +114,26 @@ function( app, Backbone, Template, Widgets ) {
 
 			this.indicateServerActive(window.app.serverActive);
 			this.initDefaultDeviceUI();
+			this.showLocalNetworkInfo();
+		},
+		/**
+		 * showLocalNetworkInfo - fills in the "to see this patch in a
+		 * browser on any device" hint's IP address (see
+		 * ToolBar_tmpl.js's .patchUrlInfo). The client can't determine
+		 * this machine's own LAN-facing address itself, so it's asked of
+		 * the server (see routes.js's /localNetworkInfo) - the template's
+		 * own placeholder text stays in place if that request fails or
+		 * finds no usable address, rather than showing something broken.
+		 *
+		 * @return {void}
+		 */
+		showLocalNetworkInfo: function() {
+			var self = this;
+			$.getJSON('/localNetworkInfo', function(data) {
+				if(data && data.localIp) {
+					self.$('.localIpDisplay').text(data.localIp);
+				}
+			});
 		},
 		/**
 		 * initDefaultDeviceUI - reflect window.app.defaultDevice in the

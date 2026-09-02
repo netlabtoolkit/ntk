@@ -35,6 +35,10 @@
 		</select>
 	</div>
 </div>
+<div class="networkInfo">
+	<div class="patchUrlInfo">To see this patch in a browser on any device, go to <span class="localIpDisplay">this computer's IP</span>:9001.</div>
+	<div class="softApInfo">When your remote device is running SoftAP, use this IP: 192.168.4.1</div>
+</div>
 <span id="messages"></span>
 </div>
 
