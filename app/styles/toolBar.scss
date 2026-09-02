@@ -189,16 +189,21 @@
 	}
     
     .catI-O {
-    	border-left: 7px solid #E53935; 
+    	border-left: 7px solid #E53935;
     }
+    // #FF8A65 - matches .typeNetwork's own widget-header color exactly
+    // (Widget.scss), not a separate darker "Deep Orange 600" shade -
+    // that darker shade sat close enough to I/O's red to read as "also
+    // red" in the Add Widgets panel, even though the two are actually
+    // different Material color families.
     .catNETWORK {
-    	border-left: 7px solid #F4511E; 
+    	border-left: 7px solid #FF8A65;
     }
     .catMEDIA {
-    	border-left: 7px solid #00897B; 
+    	border-left: 7px solid #00897B;
     }
     .catGENERATOR {
-    	border-left: 7px solid #7CB342; 
+    	border-left: 7px solid #7CB342;
     }
     .catLOGIC {
     	border-left: 7px solid #1E88E5;
@@ -206,24 +211,30 @@
     .catUI {
     	border-left: 7px solid #8E24AA;
     }
-    .catNETWORK {
-        border-left: 7px solid #F4511E;
-    }
+    // #B8860B ("dark goldenrod") - checked contrast against this panel's
+    // actual backgrounds (#ddd list items, darkgrey category header): the
+    // original #FFB300 measured a 1.32:1 contrast ratio against #ddd, the
+    // worst of every category color here by a wide margin (the next-worst,
+    // Network's, is 1.70:1; several others sit at 2.7-5.2:1). This darker/
+    // more saturated gold measures ~2.4:1 - still clearly a gold/amber
+    // hue, not sliding toward Network's orange or I/O's red, but no longer
+    // washing out against the panel.
     .catAI {
-        border-left: 7px solid #FFB300;
+        border-left: 7px solid #B8860B;
     }
 
     .widgetI-O {
-    	color: #E53935; 
+    	color: #E53935;
     }
+    // See .catNETWORK's comment above.
     .widgetNETWORK {
-    	color: #F4511E; 
+    	color: #FF8A65;
     }
     .widgetMEDIA {
-    	color: #00897B; 
+    	color: #00897B;
     }
     .widgetGENERATOR {
-    	color: #7CB342; 
+    	color: #7CB342;
     }
     .widgetLOGIC {
     	color: #1E88E5;
@@ -231,11 +242,8 @@
     .widgetUI {
     	color: #8E24AA;
     }
-    .widgetNETWORK {
-        color: #F4511E;
-    }
     .widgetAI {
-        color: #FFB300;
+        color: #B8860B;
     }
 
 	ul {

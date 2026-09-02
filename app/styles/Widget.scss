@@ -569,6 +569,17 @@
     .typeUI {
     	background-color: #BA68C8;
     }
+    // #B8860B - matches the "AI" category's own Add Widgets panel swatch
+    // color exactly (toolBar.scss's .catAI/.widgetAI - see its comment for
+    // why this is darker/more saturated than a first attempt at #FFB300),
+    // rather than a paler tint the way the other type* colors relate to
+    // their own toolBar swatch - this is a brand-new category with no
+    // established widget-header color of its own yet, so the Add Widgets
+    // color (which already existed) is the one to match, not the other
+    // way around.
+    .typeAI {
+        background-color: #B8860B;
+    }
 }
 
 .detachedEl {
