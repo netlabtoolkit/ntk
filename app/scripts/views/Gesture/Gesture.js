@@ -4,8 +4,9 @@ define([
 	'views/item/WidgetMulti',
 	'text!./template.js',
 	'jqueryknob',
+	'utils/MatchColor',
 ],
-function(Backbone, rivets, WidgetView, Template, jqueryknob){
+function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 	'use strict';
 
 	// Dynamic time warping distance between two numeric sequences, normalized
@@ -41,6 +42,53 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 	var MOVEMENT_RANGE = 40;
 	// How many recent samples define "right now" for the moving/still check.
 	var STILLNESS_WINDOW_SAMPLES = 4;
+
+	/**
+	 * trimStillness - strips leading/trailing "not moving yet"/"already
+	 * stopped" samples from a just-recorded template, using the exact same
+	 * windowed movement check (MOVEMENT_RANGE over STILLNESS_WINDOW_SAMPLES)
+	 * frameTick's own live segment detector uses to decide when a gesture
+	 * starts/stops. Without this, a recorded template kept whatever idle
+	 * padding happened to fall between the Record/Stop clicks (recording
+	 * has no movement/stillness gating at all - it captures every sample
+	 * unconditionally), while a LIVE or played-back attempt is always
+	 * auto-trimmed to just the moving core by that same detector - a real,
+	 * structural asymmetry that permanently capped a template's own self-
+	 * match well below 100% if its recording had any meaningful padding
+	 * (found via live testing: a gesture with an unusually small movement
+	 * range relative to its padding self-matched at only ~81%, and it
+	 * didn't meaningfully improve by tuning stillnessMs, since that
+	 * governs mid-gesture pause detection, not this). Called once, when a
+	 * recording is committed - not a live/incremental operation.
+	 *
+	 * @param {Array} template raw recorded samples
+	 * @return {Array} the same array with non-moving ends stripped
+	 */
+	function trimStillness(template) {
+		if(template.length === 0) {
+			return template;
+		}
+
+		var start = 0;
+		while(start < template.length - 1) {
+			var leadingWindow = template.slice(start, start + STILLNESS_WINDOW_SAMPLES);
+			if(leadingWindow.length >= 2 && rangeOf(leadingWindow) >= MOVEMENT_RANGE) {
+				break;
+			}
+			start++;
+		}
+
+		var end = template.length - 1;
+		while(end > start) {
+			var trailingWindow = template.slice(Math.max(end - STILLNESS_WINDOW_SAMPLES + 1, 0), end + 1);
+			if(trailingWindow.length >= 2 && rangeOf(trailingWindow) >= MOVEMENT_RANGE) {
+				break;
+			}
+			end--;
+		}
+
+		return template.slice(start, end + 1);
+	}
 	// Safety cap so a signal that never settles doesn't capture forever.
 	var MAX_SEGMENT_SAMPLES = 400;
 	// Up to 4 independently-recorded gestures, each with its own output -
@@ -50,7 +98,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 	return WidgetView.extend({
 		typeID: 'Gesture',
-		categories: ['logic'],
+		categories: ['AI'],
 		className: 'gesture',
 		template: _.template(Template),
 
@@ -81,6 +129,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			this.activeSegment = [];
 			this.stillSince = null;
 			this.playTimer = undefined;
+			this.slotPreviewEl = null;
 
 			var defaults = {
 				title: 'Gesture',
@@ -106,6 +155,15 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				// field directly; this is kept in sync whenever recordSlot
 				// changes or the selected slot is recorded into.
 				selectedTemplateLength: 0,
+				// Same static-keypath mirroring as selectedTemplateLength above,
+				// for slotName<recordSlot> - lets the "more" panel show/edit a
+				// name for whichever slot is selected. Ported from PoseTrack's
+				// identical pattern.
+				selectedSlotName: '',
+				// Whichever slot most recently matched (see commitMatched) - the
+				// name shown prominently in the main body while actually using a
+				// trained widget, not just training it. Ported from PoseTrack.
+				currentMatchName: '',
 				capturing: false,
 				threshold: 70,
 				sampleIntervalMs: 50,
@@ -138,6 +196,28 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				// match/no-match value (e.g. different MIDI notes per gesture).
 				defaults['ifMatch' + i] = 1023;
 				defaults['ifNoMatch' + i] = 0;
+				// Ported from PoseTrack: an optional label for what's trained
+				// into this slot, shown in the "more" panel and in
+				// currentMatchName once this slot matches.
+				defaults['slotName' + i] = '';
+				// This slot's current outlet dot color (a CSS color string,
+				// computed by MatchColor.matchLevelToColor()) - updated once per
+				// evaluated segment (see evaluateSegment) for EVERY non-empty
+				// slot, not just whichever is selected for recording, so all 4
+				// dots react to a single gesture attempt. Unlike PoseTrack's
+				// continuous per-frame updates, Gesture only ever evaluates a
+				// finished movement segment as one discrete event - there's no
+				// meaningful "instantaneous" distance mid-segment or while idle,
+				// so a dot holds its last color between evaluations rather than
+				// animating continuously.
+				defaults['dotColor' + i] = '#ccc';
+				// The same raw 0-100 level dotColor<i> is computed from,
+				// exposed numerically too - lets you see exactly how close
+				// two slots are actually scoring against each other (e.g.
+				// both crossing into "green" doesn't mean they're equally
+				// close), not just the color band. Updated alongside
+				// dotColor<i> in evaluateSegment.
+				defaults['level' + i] = 0;
 				// out<i> is set below, once ifNoMatch<i> itself is set.
 			}
 
@@ -175,15 +255,30 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			rivets.binders.widthpercent = function(el, value) {
 				el.style.width = value + '%';
 			};
-			// Drives the .pending class (see styles.scss) so the blink while a
-			// match is waiting on waitTimeTrue is pure CSS, no JS timer needed.
+			// Drives the .pending class (see the .gesture block in the shared
+			// Widget.scss) so the blink while a match is waiting on
+			// waitTimeTrue is pure CSS, no JS timer needed.
 			rivets.formatters.pending = function(state) {
 				return state === 'trueWaitStart';
+			};
+			// Sets a CSS custom property (not a direct background-color style)
+			// because the visible dot is drawn on .slotIndicator's ::after
+			// pseudo-element (see Widget.scss) - JS can't set an inline style
+			// directly on a pseudo-element, but a custom property set on the
+			// real element IS visible to its own ::after via CSS's
+			// var(--matchColor, ...) fallback syntax. Ported from PoseTrack's
+			// identical binder - redefining it here is harmless (rivets.binders
+			// is one global registry) and necessary in case this widget renders
+			// before PoseTrack ever does in a given session.
+			rivets.binders.matchcolor = function(el, value) {
+				el.style.setProperty('--matchColor', value || '#ccc');
 			};
 
 			WidgetView.prototype.onRender.call(this);
 
 			if(!app.server) {
+				this.slotPreviewEl = this.$('.slotPreview').get(0);
+
 				// An in-widget dial to test/record with directly, without needing
 				// a separate widget wired into the 'in' inlet - same setup as
 				// AnalogOut/Knob's compact dial.
@@ -201,6 +296,11 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 					'max': 1023,
 					'change': function(v) { this.model.set('in', parseInt(v, 10)); }.bind(this)
 				});
+
+				// Reflect whichever slot is already selected (e.g. restoring a
+				// saved patch) rather than waiting for the user to first touch
+				// the slot selector.
+				this.onRecordSlotChange();
 			}
 		},
 
@@ -242,11 +342,25 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			'click .recordIcon': 'toggleRecord',
 			'click .playIcon': 'togglePlay',
 			'change .recordSlot': 'onRecordSlotChange',
+			'change .slotNameInput': 'onSlotNameInputChange',
 		},
 
 		onRecordSlotChange: function() {
 			var slot = parseInt(this.model.get('recordSlot'), 10);
-			this.model.set('selectedTemplateLength', this.model.get('templateLength' + slot));
+			this.model.set({
+				selectedTemplateLength: this.model.get('templateLength' + slot),
+				selectedSlotName: this.model.get('slotName' + slot),
+			});
+			this.drawSlotPreview();
+		},
+
+		// selectedSlotName is a plain mirror (see its comment in initialize())
+		// - rivets' rv-value on the "more" panel's text input keeps it in sync
+		// with what's typed, this writes that back to the actual per-slot
+		// field it's mirroring. Ported from PoseTrack's identical pattern.
+		onSlotNameInputChange: function() {
+			var slot = parseInt(this.model.get('recordSlot'), 10);
+			this.model.set('slotName' + slot, this.model.get('selectedSlotName'));
 		},
 
 		resetCapture: function() {
@@ -254,6 +368,66 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			this.recentSamples = [];
 			this.activeSegment = [];
 			this.stillSince = null;
+		},
+
+		/**
+		 * drawSlotPreview - draws a small line graph of the currently-
+		 * selected slot's recorded template, so it's clear at a glance what
+		 * shape/motion is actually trained into that slot without needing to
+		 * play it back. Ported from PoseTrack's identical-purpose
+		 * drawSlotPreview(), adapted for Gesture's data shape: a template
+		 * here is a flat array of scalar samples over time (a 1D sequence),
+		 * not a 2D landmark array, so the natural preview is a sparkline/
+		 * line graph rather than a skeleton. Called whenever the selected
+		 * slot changes or is (re-)recorded (see onRecordSlotChange).
+		 *
+		 * @return {void}
+		 */
+		drawSlotPreview: function() {
+			if(!this.slotPreviewEl) {
+				return;
+			}
+
+			var ctx = this.slotPreviewEl.getContext('2d');
+			var w = this.slotPreviewEl.width, h = this.slotPreviewEl.height;
+			ctx.clearRect(0, 0, w, h);
+
+			var slot = parseInt(this.model.get('recordSlot'), 10);
+			var template = this.model.get('template' + slot);
+			if(!template || template.length === 0) {
+				return;
+			}
+
+			// The stored template's exact numeric range isn't fixed or known
+			// in advance (it's whatever raw values were sampled), so fit it to
+			// the canvas dynamically each time rather than assuming a range -
+			// same reasoning as PoseTrack's drawSlotPreview.
+			var minValue = Math.min.apply(null, template);
+			var maxValue = Math.max.apply(null, template);
+			var valueRange = (maxValue - minValue) || 1;
+			var padding = 6;
+
+			function toCanvas(index, value) {
+				var x = padding + (index / ((template.length - 1) || 1)) * (w - padding * 2);
+				// Flip Y - canvas coordinates grow downward, but a graph
+				// reads naturally with higher values drawn higher up.
+				var y = h - padding - ((value - minValue) / valueRange) * (h - padding * 2);
+				return {x: x, y: y};
+			}
+
+			ctx.strokeStyle = '#4caf50';
+			ctx.lineWidth = 1.5;
+			ctx.beginPath();
+			for(var i = 0; i < template.length; i++) {
+				var p = toCanvas(i, template[i]);
+				if(i === 0) {
+					ctx.moveTo(p.x, p.y);
+				}
+				else {
+					ctx.lineTo(p.x, p.y);
+				}
+			}
+			ctx.stroke();
 		},
 
 		toggleRecord: function() {
@@ -266,7 +440,13 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			var lengthKey = 'templateLength' + slot;
 
 			if(this.model.get('recording')) {
-				var template = this.model.get(templateKey);
+				// Trimmed BEFORE the too-little-movement check below, so that
+				// check reflects the actual moving core that will be compared
+				// against going forward, not the raw capture inflated by
+				// whatever idle padding happened to fall between the Record/
+				// Stop clicks - see trimStillness's own comment for why this
+				// symmetry with live capture matters.
+				var template = trimStillness(this.model.get(templateKey));
 				var range = template.length ? rangeOf(template) : 0;
 
 				if(template.length < 3 || range < MOVEMENT_RANGE) {
@@ -277,13 +457,20 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 					var restore = {recording: false, statusMessage: 'Too little movement - try again'};
 					restore[templateKey] = this.previousTemplates[slot - 1];
 					restore[lengthKey] = this.previousTemplates[slot - 1].length;
-					restore.selectedTemplateLength = restore[lengthKey];
 					this.model.set(restore);
 				}
 				else {
-					this.model.set({recording: false, statusMessage: ''});
+					var committed = {recording: false, statusMessage: ''};
+					committed[templateKey] = template;
+					committed[lengthKey] = template.length;
+					this.model.set(committed);
 					this.resetCapture();
 				}
+
+				// Refreshes selectedTemplateLength (whichever branch above ran)
+				// and redraws the slot preview to match, same as PoseTrack's
+				// stopRecording().
+				this.onRecordSlotChange();
 			}
 			else {
 				this.previousTemplates[slot - 1] = this.model.get(templateKey);
@@ -359,11 +546,24 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			var self = this;
 			var outKey = 'out' + slot;
 
+			// Falls back to "Slot N" if the user hasn't typed a name in for
+			// this slot yet (see selectedSlotName/slotName<i>). Ported from
+			// PoseTrack's identical pattern.
+			var displayName = this.model.get('slotName' + slot) || ('Slot ' + slot);
+
 			if(isMatched) {
 				var trueUpdate = {};
 				trueUpdate['matched' + slot] = true;
 				trueUpdate['ifState' + slot] = 'trueOn';
 				trueUpdate[outKey] = this.model.get('ifMatch' + slot);
+				// Shown prominently in the main body (see template.js's
+				// .currentMatch) - the most useful live readout once you're
+				// actually using a trained widget, not just training it.
+				// Always overwrites with whichever slot most recently matched;
+				// see the else branch for why that's a reasonable
+				// simplification even though two slots' matched states could
+				// momentarily overlap (independent waitTimeFalse timers).
+				trueUpdate.currentMatchName = displayName;
 				this.model.set(trueUpdate);
 
 				clearTimeout(this.falseTimers[slot - 1]);
@@ -377,6 +577,12 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				falseUpdate['matched' + slot] = false;
 				falseUpdate['ifState' + slot] = 'falseOn';
 				falseUpdate[outKey] = this.model.get('ifNoMatch' + slot);
+				// Only clear the displayed name if THIS slot was the one being
+				// shown - otherwise this slot's own timeout expiring would wipe
+				// a *different*, still-active slot's name out from under it.
+				if(this.model.get('currentMatchName') === displayName) {
+					falseUpdate.currentMatchName = '';
+				}
 				this.model.set(falseUpdate);
 			}
 		},
@@ -396,6 +602,12 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			var selectedSlot = parseInt(this.model.get('recordSlot'), 10);
 			var bestSlot = -1;
 			var bestLevel = -1;
+			// Batched into one model.set() below rather than per-slot calls,
+			// same reasoning as PoseTrack's evaluateFrame(): every non-empty
+			// slot's dotColor updates from this one evaluated segment (not
+			// just the selected slot), so this would otherwise be up to 4
+			// separate 'change' events per gesture attempt.
+			var update = {};
 
 			for(var slot = 1; slot <= SLOT_COUNT; slot++) {
 				var template = this.model.get('template' + slot);
@@ -410,9 +622,12 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				// at a full-range-of-error distance or further, 100% at zero.
 				var templateScale = rangeOf(template);
 				var level = Math.max(0, Math.min(100, 100 * (1 - distance / templateScale)));
+				update['dotColor' + slot] = MatchColor.matchLevelToColor(level, matchThreshold);
+				update['level' + slot] = level;
 
 				if(slot === selectedSlot) {
-					this.model.set({distance: distance, recognitionLevel: level});
+					update.distance = distance;
+					update.recognitionLevel = level;
 				}
 
 				if(level >= matchThreshold && level > bestLevel) {
@@ -420,6 +635,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 					bestSlot = slot;
 				}
 			}
+
+			this.model.set(update);
 
 			if(bestSlot !== -1) {
 				this.startTrueTransition(bestSlot);

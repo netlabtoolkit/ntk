@@ -205,11 +205,14 @@
     }
     .catUI {
     	border-left: 7px solid #8E24AA;
-    }   
+    }
     .catNETWORK {
         border-left: 7px solid #F4511E;
     }
-    
+    .catAI {
+        border-left: 7px solid #FFB300;
+    }
+
     .widgetI-O {
     	color: #E53935; 
     }
@@ -227,9 +230,12 @@
     }
     .widgetUI {
     	color: #8E24AA;
-    }   
+    }
     .widgetNETWORK {
         color: #F4511E;
+    }
+    .widgetAI {
+        color: #FFB300;
     }
 
 	ul {

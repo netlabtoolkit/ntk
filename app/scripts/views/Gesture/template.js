@@ -32,12 +32,16 @@
                   <option value="4">4</option>
                 </select>
             </div>
+
+            <div class="currentMatch" rv-show="widget:currentMatchName" rv-text="widget:currentMatchName"></div>
+
+            <div class="statusMessage" rv-show="widget:statusMessage" rv-text="widget:statusMessage"></div>
         </div>
         <div class="widgetBodyRight">
-            <div class="outletValue"><span class="out1Value" rv-text="widget:out1 | rounded" rv-class-matched="widget:matched1" rv-class-pending="widget:ifState1 | pending">0</span></div>
-            <div class="outletValue"><span class="out2Value" rv-text="widget:out2 | rounded" rv-class-matched="widget:matched2" rv-class-pending="widget:ifState2 | pending">0</span></div>
-            <div class="outletValue"><span class="out3Value" rv-text="widget:out3 | rounded" rv-class-matched="widget:matched3" rv-class-pending="widget:ifState3 | pending">0</span></div>
-            <div class="outletValue"><span class="out4Value" rv-text="widget:out4 | rounded" rv-class-matched="widget:matched4" rv-class-pending="widget:ifState4 | pending">0</span></div>
+            <div class="slotIndicator" rv-class-matched="widget:matched1" rv-class-pending="widget:ifState1 | pending" rv-matchcolor="widget:dotColor1"></div>
+            <div class="slotIndicator" rv-class-matched="widget:matched2" rv-class-pending="widget:ifState2 | pending" rv-matchcolor="widget:dotColor2"></div>
+            <div class="slotIndicator" rv-class-matched="widget:matched3" rv-class-pending="widget:ifState3 | pending" rv-matchcolor="widget:dotColor3"></div>
+            <div class="slotIndicator" rv-class-matched="widget:matched4" rv-class-pending="widget:ifState4 | pending" rv-matchcolor="widget:dotColor4"></div>
         </div>
     </div>
 
@@ -58,8 +62,13 @@
                 <span rv-hide="widget:capturing">slot <span rv-text="widget:recordSlot">1</span>: <span rv-text="widget:recognitionLevel | rounded">0</span>%</span>
             </div>
 
+            <div class="allLevels">1: <span rv-text="widget:level1 | rounded">0</span>%&nbsp; 2: <span rv-text="widget:level2 | rounded">0</span>%&nbsp; 3: <span rv-text="widget:level3 | rounded">0</span>%&nbsp; 4: <span rv-text="widget:level4 | rounded">0</span>%</div>
+
             <div class="templateLength">slot <span rv-text="widget:recordSlot">1</span> template: <span rv-text="widget:selectedTemplateLength">0</span> samples</div>
-            <div class="statusMessage" rv-show="widget:statusMessage" rv-text="widget:statusMessage"></div>
+
+            <canvas class="slotPreview" width="70" height="70"></canvas>
+            <label class="wide-label">name</label> <input class="slotNameInput" type="text" rv-value="widget:selectedSlotName" placeholder="e.g. Wave hello"><br>
+
             <label class="wide-label">match threshold %</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
             <label class="wide-label">stillness ms</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:stillnessMs"><br>
             <label class="wide-label">wait time true</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:waitTimeTrue"><br>

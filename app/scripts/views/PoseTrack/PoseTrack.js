@@ -4,8 +4,9 @@ define([
 	'views/item/WidgetMulti',
 	'text!./template.js',
 	'./trackModeCatalog',
+	'utils/MatchColor',
 ],
-function(Backbone, rivets, WidgetView, Template, trackModeCatalog){
+function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 	'use strict';
 
 	// Up to 4 independently-trained poses, each with its own output -
@@ -17,6 +18,13 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog){
 	// bound the recording length by, so a fixed duration stands in for
 	// that. Can still be stopped early by clicking again.
 	var RECORD_BURST_MS = 2000;
+	// A "get ready" countdown before the actual capture burst starts, so
+	// there's time to get into position after clicking record instead of
+	// the burst starting the instant you click (Teachable Machine-style
+	// "hold the pose while it samples" only works if you're already
+	// holding it by the time sampling begins). Can be cancelled early by
+	// clicking again during the countdown, same as the burst itself can.
+	var PRE_RECORD_COUNTDOWN_MS = 3000;
 	// Fewer valid frames than this during a recording burst means the
 	// pose was barely ever actually detected (e.g. hand out of frame
 	// most of the time) - reject the same way Gesture rejects a
@@ -83,57 +91,14 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog){
 		return Math.sqrt(sum);
 	}
 
-	// Color stops for matchLevelToColor()'s blue -> yellow -> green sweep.
-	// Yellow/green picked to match colors already used elsewhere in this
-	// widget's own UI (#fbc02d-ish amber tones, #4caf50 for "matched").
-	var DOT_COLOR_LOW = {r: 30, g: 136, b: 229};   // blue, weak/no match
-	var DOT_COLOR_MID = {r: 251, g: 192, b: 45};   // yellow, right at threshold
-	var DOT_COLOR_HIGH = {r: 76, g: 175, b: 80};   // green, perfect match
-
-	function lerpChannel(a, b, t) {
-		return Math.round(a + (b - a) * t);
-	}
-
-	/**
-	 * matchLevelToColor - maps a match level to a blue -> yellow -> green
-	 * color for an outlet's slot dot, so it reads as a continuous live
-	 * "how close is this slot to matching" meter, not just a flat green
-	 * once officially matched. Scaled relative to the configured
-	 * threshold, not the raw 0-100 level: no match at all (level 0) is
-	 * blue, halfway to threshold is yellow, and reaching the threshold
-	 * itself (a real match) is green - level continuing past threshold
-	 * stays capped at green, since the slot is already fully "matched"
-	 * at that point.
-	 *
-	 * @param {number} level 0-100 raw match level
-	 * @param {number} threshold 0-100 configured match threshold
-	 * @return {string} CSS color, e.g. "rgb(140,165,60)"
-	 */
-	function matchLevelToColor(level, threshold) {
-		var clampedThreshold = Math.max(1, Math.min(100, threshold));
-		var relative = level / clampedThreshold;
-		relative = Math.max(0, Math.min(1, relative));
-
-		var from, to, localT;
-		if(relative <= 0.5) {
-			from = DOT_COLOR_LOW;
-			to = DOT_COLOR_MID;
-			localT = relative / 0.5;
-		}
-		else {
-			from = DOT_COLOR_MID;
-			to = DOT_COLOR_HIGH;
-			localT = (relative - 0.5) / 0.5;
-		}
-
-		return 'rgb(' + lerpChannel(from.r, to.r, localT) + ',' +
-			lerpChannel(from.g, to.g, localT) + ',' +
-			lerpChannel(from.b, to.b, localT) + ')';
-	}
+	// matchLevelToColor() itself now lives in utils/MatchColor.js - Gesture
+	// needed the exact same red -> yellow -> green confidence mapping for
+	// its own outlet dots, so it was lifted out into a shared module
+	// rather than kept as two copies of identical color math.
 
 	return WidgetView.extend({
 		typeID: 'PoseTrack',
-		categories: ['generator'],
+		categories: ['AI'],
 		className: 'posetrack',
 		template: _.template(Template),
 		trackModeCatalog: trackModeCatalog,
@@ -162,6 +127,8 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog){
 			this.recordingBuffer = [];
 			this.recordStopTimer = undefined;
 			this.recordStartMs = 0;
+			this.countdownTickTimer = undefined;
+			this.countdownStartMs = 0;
 			this.mediaStream = null;
 			this.landmarker = null;
 			this.loadingLandmarker = null;
@@ -179,6 +146,11 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog){
 				active: true,
 				trackMode: Object.keys(this.trackModeCatalog)[0],
 				recording: false,
+				// True only during the 3s "get ready" window before a
+				// recording burst actually starts - see startCountdown().
+				// Mutually exclusive with `recording` (never both true at
+				// once).
+				countingDown: false,
 				recordSlot: 1,
 				statusMessage: '',
 				distance: 0,
@@ -275,6 +247,13 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog){
 				};
 				rivets.formatters.isTrackMode = function(value, expected) {
 					return value === expected;
+				};
+				// Used by .recordingCountdown's rv-show below - it needs
+				// to stay visible across both the pre-record countdown
+				// and the capture burst itself (two mutually-exclusive
+				// booleans), and rivets has no built-in boolean-or.
+				rivets.formatters.or = function(a, b) {
+					return !!(a || b);
 				};
 				// Used by both .recognitionBar (match level) and
 				// .recordingBar (recording progress) below - rv-style-*
@@ -377,6 +356,7 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog){
 				clearTimeout(this.falseTimers[i]);
 			}
 			clearTimeout(this.recordStopTimer);
+			clearInterval(this.countdownTickTimer);
 			this.stopCamera();
 			if(this.landmarker) {
 				this.landmarker.close();
@@ -491,6 +471,12 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog){
 		 * @return {void}
 		 */
 		switchTrackMode: function() {
+			// A pending "get ready" countdown was aimed at whichever mode
+			// was selected when it started - switching mode out from
+			// under it mid-countdown wouldn't make sense to carry
+			// through. cancelCountdown() is a no-op if none is running.
+			this.cancelCountdown();
+
 			if(this.landmarker) {
 				this.landmarker.close();
 				this.landmarker = null;
@@ -521,19 +507,93 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog){
 		},
 
 		/**
-		 * toggleRecord - starts (or, called again, early-stops) a
-		 * recording burst for the currently-selected slot. See
-		 * RECORD_BURST_MS's comment for why this is a timed burst rather
-		 * than Gesture's manual start/stop toggle.
+		 * toggleRecord - clicking the record icon means something
+		 * different depending on the current phase: starts the 3s "get
+		 * ready" countdown if idle, cancels that countdown if it's
+		 * already running, or early-stops the actual capture burst if
+		 * that's already running. See PRE_RECORD_COUNTDOWN_MS/
+		 * RECORD_BURST_MS's comments for why each phase is timed rather
+		 * than a manual start/stop toggle like Gesture's.
 		 *
 		 * @return {void}
 		 */
 		toggleRecord: function() {
+			if(this.model.get('countingDown')) {
+				this.cancelCountdown();
+				return;
+			}
 			if(this.model.get('recording')) {
 				this.stopRecording();
 				return;
 			}
 
+			this.startCountdown();
+		},
+
+		/**
+		 * startCountdown - begins the 3s "get ready" window before the
+		 * actual recording burst starts. Ticks on a plain interval
+		 * (not tied to frameTick/applyDetectionResult like the burst's
+		 * own progress readout) so the countdown runs at a real, steady
+		 * pace regardless of whether a pose is currently detected -
+		 * during this phase nothing is being captured yet, so there's
+		 * nothing for detection to gate.
+		 *
+		 * @return {void}
+		 */
+		startCountdown: function() {
+			var self = this;
+			this.countdownStartMs = Date.now();
+			this.model.set({countingDown: true, statusMessage: '', recordingCountdownText: this.formatCountdown(PRE_RECORD_COUNTDOWN_MS)});
+
+			clearInterval(this.countdownTickTimer);
+			this.countdownTickTimer = setInterval(function() {
+				var remaining = PRE_RECORD_COUNTDOWN_MS - (Date.now() - self.countdownStartMs);
+				if(remaining <= 0) {
+					self.finishCountdown();
+				}
+				else {
+					self.model.set('recordingCountdownText', self.formatCountdown(remaining));
+				}
+			}, 100);
+		},
+
+		/**
+		 * cancelCountdown - clicking the record icon again during the
+		 * "get ready" countdown backs out entirely, same spirit as
+		 * early-stopping an actual recording burst - never starts a
+		 * capture at all.
+		 *
+		 * @return {void}
+		 */
+		cancelCountdown: function() {
+			clearInterval(this.countdownTickTimer);
+			this.model.set({countingDown: false, recordingCountdownText: ''});
+		},
+
+		/**
+		 * finishCountdown - the 3s "get ready" window elapsed on its own;
+		 * hand off to the actual capture burst.
+		 *
+		 * @return {void}
+		 */
+		finishCountdown: function() {
+			clearInterval(this.countdownTickTimer);
+			this.model.set('countingDown', false);
+			this.beginRecordingBurst();
+		},
+
+		/**
+		 * beginRecordingBurst - starts the actual capture burst for the
+		 * currently-selected slot (see RECORD_BURST_MS's comment for why
+		 * this is a timed burst rather than Gesture's manual start/stop
+		 * toggle). Split out from toggleRecord() so it can be triggered
+		 * either directly (no countdown wanted) or from
+		 * finishCountdown() once the "get ready" window elapses.
+		 *
+		 * @return {void}
+		 */
+		beginRecordingBurst: function() {
 			var slot = parseInt(this.model.get('recordSlot'), 10);
 			this.recordingBuffer = [];
 			this.previousExamples[slot - 1] = this.model.get(this.getModeFieldKey('examples', slot));
@@ -545,8 +605,9 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog){
 		},
 
 		/**
-		 * formatCountdown - "1.3s left"-style text for the recording
-		 * countdown readout.
+		 * formatCountdown - "1.3s left"-style text for both the pre-
+		 * record countdown and the recording burst's own progress
+		 * readout.
 		 *
 		 * @param {number} remainingMs
 		 * @return {string}
@@ -730,7 +791,7 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog){
 				}
 
 				var level = Math.max(0, Math.min(100, 100 * (1 - minDistance / MATCH_DISTANCE_SCALE)));
-				frameUpdate['dotColor' + slot] = matchLevelToColor(level, matchThreshold);
+				frameUpdate['dotColor' + slot] = MatchColor.matchLevelToColor(level, matchThreshold);
 
 				if(slot === selectedSlot) {
 					frameUpdate.distance = minDistance;

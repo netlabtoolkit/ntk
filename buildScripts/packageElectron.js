@@ -135,11 +135,14 @@ Supported so far:
 - **3-Axis Digital Accelerometer (LIS3DHTR)** - X/Y/Z acceleration in
   m/s^2, scaled to NTK's usual 0-1023 range.
 - **Time of Flight Distance Sensor (VL53L0X)** - single distance
-  reading in mm. Not yet verified against real hardware.
+  reading in mm, hardware-verified.
 - **Temperature & Humidity Sensor (DHT11)** - single-wire digital, not
   I2C - wire it to any free digital Grove socket (avoid D0-D2, which
   NTK claims automatically as analog inputs) and enter that pin (e.g.
   \`D7\`) in the widget's "more" panel pin field.
+- **Digital Light Sensor (TSL2561)** - a "more" panel mode dropdown
+  picks between Infrared, Full Spectrum, or Visible (lux) readings,
+  hardware-verified across all three.
 
 An accelerometer can also still be read the older way, as three
 ordinary-looking analog pins, **A3**, **A4**, and **A5**, so an AnalogIn

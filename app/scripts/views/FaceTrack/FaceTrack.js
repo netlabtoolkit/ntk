@@ -37,7 +37,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 
 	return WidgetView.extend({
 		typeID: 'FaceTrack',
-		categories: ['generator'],
+		categories: ['AI'],
 		className: 'facetrack',
 		template: _.template(Template),
 

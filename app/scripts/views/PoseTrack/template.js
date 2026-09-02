@@ -14,7 +14,7 @@
             <select class="trackModeSelect"></select>
 
             <div class="transportControls">
-                <div class="recordIcon" rv-class-recording="widget:recording" title="Record"></div>
+                <div class="recordIcon" rv-class-recording="widget:recording" rv-class-countingdown="widget:countingDown" title="Record"></div>
                 <select class="recordSlot" rv-value="widget:recordSlot">
                   <option value="1">1</option>
                   <option value="2">2</option>
@@ -26,7 +26,7 @@
             <div class="recordingMeter" rv-show="widget:recording">
                 <div class="recordingBar" rv-widthpercent="widget:recordingProgress"></div>
             </div>
-            <div class="recordingCountdown" rv-show="widget:recording" rv-text="widget:recordingCountdownText"></div>
+            <div class="recordingCountdown" rv-show="widget:recording | or widget:countingDown" rv-text="widget:recordingCountdownText"></div>
 
             <div class="currentMatch" rv-show="widget:currentMatchName" rv-text="widget:currentMatchName"></div>
 

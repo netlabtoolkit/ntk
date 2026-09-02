@@ -56,6 +56,26 @@ app.on('ready', function() {
 	  },
   });
 
+  // Explicit camera/mic permission handling, rather than relying on
+  // Electron's own default behavior for unhandled permission requests -
+  // this window only ever loads our own bundled local server
+  // (localhost:9001, never third-party/remote content), so unconditionally
+  // granting 'media' here is safe. Added after a real bug: PoseTrack's
+  // camera worked on first use, but unchecking its "active" box (stopping
+  // all tracks) and re-checking it (a fresh getUserMedia() call) failed
+  // outright with "Permission denied" and no OS dialog at all the second
+  // time - both setPermissionRequestHandler (the async "grant a NEW
+  // request" path) and setPermissionCheckHandler (the synchronous "is this
+  // CURRENTLY permitted" path Chromium also consults internally) need to
+  // agree, or a stale/inconsistent default on one of the two paths can
+  // silently deny a later request without ever prompting.
+  mainWindow.webContents.session.setPermissionRequestHandler(function(webContents, permission, callback) {
+	  callback(permission === 'media');
+  });
+  mainWindow.webContents.session.setPermissionCheckHandler(function(webContents, permission) {
+	  return permission === 'media';
+  });
+
   mainWindow.loadURL('http://localhost:9001');
 
   // Widget help links (target="_blank") should open in the user's real
