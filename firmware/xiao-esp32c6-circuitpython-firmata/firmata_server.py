@@ -609,6 +609,24 @@ class FirmataServer:
                     print("Grove sensor", sensor_id, "failed to start on pin", data[3], ":", e)
                     self._send_grove_status(sensor_id, GROVE_STATUS_ERROR)
                     return
+            elif entry.get("needs_mode"):
+                # 4th byte is a small integer selecting which of this
+                # sensor's several reading modes to use (e.g. TSL2561's
+                # infrared/full-spectrum/visible-lux) - unlike needs_pin,
+                # this never claims an exclusive hardware resource, so
+                # make_read() always returns a cleanup_fn of None. Missing
+                # entirely (rather than an error, unlike needs_pin above)
+                # falls back to mode 0 - every needs_mode sensor so far
+                # treats that as a sensible default rather than an error
+                # case, since (unlike a pin) there's always SOME valid
+                # mode to read even if the widget hasn't sent one yet.
+                mode = data[3] if len(data) >= 4 else 0
+                try:
+                    read_fn, cleanup_fn = entry["make_read"](mode)
+                except Exception as e:
+                    print("Grove sensor", sensor_id, "failed to start in mode", mode, ":", e)
+                    self._send_grove_status(sensor_id, GROVE_STATUS_ERROR)
+                    return
             else:
                 read_fn, cleanup_fn = entry["read"], None
 

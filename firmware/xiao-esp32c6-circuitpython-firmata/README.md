@@ -160,6 +160,14 @@ Supported so far:
   NTK claims automatically as analog inputs) and enter that pin (e.g.
   `D7`) in the widget's "more" panel pin field once DHT11 is selected
   from the dropdown.
+- **Digital Light Sensor (TSL2561)** - single lux reading, real-world
+  units (1:1 passthrough, same as DHT11 above, not NTK's usual 0-1023
+  convention). **Not yet hardware-tested** - remove this note once
+  verified. The underlying driver returns no reading at all (reported
+  here as 0) both when it's genuinely dark AND when the sensor is
+  saturated by too much light for its current settings - those read
+  identically for now; a bright-light test reading 0 would mean it's
+  hitting the saturation case, not real darkness.
 
 An accelerometer can *also* still be read the older way - as three
 ordinary-looking analog pins, **A3**, **A4**, and **A5** (unused by any

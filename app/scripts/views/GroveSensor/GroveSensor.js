@@ -19,6 +19,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			'click .easing': 'toggleEasing',
 			'change .smoothingAmount': 'smoothingAmtChange',
 			'change .pinInput': 'pinChanged',
+			'change .modeSelect': 'modeChanged',
 		},
 		ins: [],
 		outs: [
@@ -119,6 +120,14 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				// which GPIO it's wired to). See remapSensor()/
 				// subscribeSensor() and template.js's pinField.
 				needsPin: !!firstSensorEntry.needsPin,
+				// Same idea as needsPin, but for a sensor with several
+				// different REAL readings selectable from one dropdown
+				// instead of a physical wiring choice (e.g. TSL2561's
+				// infrared/full-spectrum/visible-lux) - see
+				// remapSensor()/subscribeSensor() and template.js's
+				// modeField.
+				needsMode: !!firstSensorEntry.needsMode,
+				mode: firstSensorEntry.modes ? firstSensorEntry.modes[0].value : undefined,
 			});
 
 			// AnalogIn's scale/invert/smoothing/easing chain assumes a
@@ -305,6 +314,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			WidgetView.prototype.onRender.call(this);
 
 			this.populateSensorSelect();
+			this.populateModeSelect();
 		},
 
 		/**
@@ -348,6 +358,35 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			$select.val(currentSensorId);
 		},
 
+		/**
+		 * populateModeSelect - fill the mode <select> (only shown/relevant
+		 * for a "needsMode" sensor, e.g. TSL2561's infrared/full-spectrum/
+		 * visible-lux) from the currently-selected catalog entry's own
+		 * `modes` list. Unlike populateSensorSelect (built once, the
+		 * sensor list itself never changes), this needs rebuilding
+		 * whenever the selected sensor changes - see remapSensor() - since
+		 * a different sensor's `modes` list is a completely different set
+		 * of options, not just a different current value within the same
+		 * list.
+		 *
+		 * @return {void}
+		 */
+		populateModeSelect: function() {
+			var $select = this.$('.modeSelect'),
+				catalogEntry = this.sensorCatalog[this.model.get('sensor')],
+				currentMode = this.model.get('mode');
+
+			$select.empty();
+
+			if(!catalogEntry || !catalogEntry.modes) { return; }
+
+			_.each(catalogEntry.modes, function(modeOption) {
+				$select.append('<option value="' + modeOption.value + '">' + modeOption.label + '</option>');
+			});
+
+			$select.val(currentMode);
+		},
+
 		sensorChanged: function(e) {
 			this.remapSensor(this.$('.sensorSelect').val());
 		},
@@ -361,6 +400,19 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		 * @return {void}
 		 */
 		pinChanged: function(e) {
+			this.subscribeSensor(this.model.get('sensor'));
+		},
+
+		/**
+		 * modeChanged - the "more" panel's mode dropdown (only shown/
+		 * relevant for a "needsMode" sensor, e.g. TSL2561) changed -
+		 * mirrors pinChanged exactly, just for the other kind of extra
+		 * per-sensor parameter (see StandardFirmataModel.js's setIOMode).
+		 *
+		 * @return {void}
+		 */
+		modeChanged: function(e) {
+			this.model.set('mode', parseInt(this.$('.modeSelect').val(), 10));
 			this.subscribeSensor(this.model.get('sensor'));
 		},
 
@@ -399,6 +451,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				deviceId: this.getDeviceIdLabel(catalogEntry),
 				// See initialize()'s identical comment.
 				needsPin: !!catalogEntry.needsPin,
+				needsMode: !!catalogEntry.needsMode,
 			};
 
 			// inputFloor/inputCeiling are a property of the sensor itself
@@ -411,11 +464,16 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// doesn't reset AnalogIn's output range - this only fires on
 			// an actual switch, so a user's own adjustment in the "more"
 			// panel still survives a reconnect/patch reload either way.
+			// mode follows the same "only reset on an actual switch"
+			// reasoning - a different sensor's modes list means a
+			// previously-chosen mode value likely doesn't even mean the
+			// same thing (or exist at all) for the new sensor.
 			if(isActualSensorSwitch) {
 				newAttrs.inputFloor = catalogEntry.range.floor;
 				newAttrs.inputCeiling = catalogEntry.range.ceiling;
 				newAttrs.outputFloor = (catalogEntry.outputRange || {floor: 0}).floor;
 				newAttrs.outputCeiling = (catalogEntry.outputRange || {ceiling: 1023}).ceiling;
+				newAttrs.mode = catalogEntry.modes ? catalogEntry.modes[0].value : undefined;
 
 				// Per-axis smoother/easing state is tied to whichever
 				// physical sensor was previously selected - drop it on an
@@ -426,6 +484,12 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			}
 
 			this.model.set(newAttrs);
+
+			// The mode dropdown's OPTIONS (not just its current value) are
+			// specific to whichever sensor is now selected - rebuild them
+			// every time, not just on first render (see populateModeSelect's
+			// own comment for why this differs from populateSensorSelect).
+			this.populateModeSelect();
 
 			// WidgetMulti.syncWithSource only applies an incoming value if
 			// the widget model ALREADY has the destination field defined
@@ -511,6 +575,15 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				// StandardFirmataModel.js's setIOMode, which only reads
 				// this for GROVE_SENSOR mode and otherwise ignores it.
 				pin: this.model.get('pin'),
+				// Only meaningful for a "needsMode" sensor (e.g. TSL2561) -
+				// same idea as pin above, but NOT named "mode": this
+				// object already has a `mode` key above (the Firmata IO-
+				// mode string, 'GROVE_SENSOR') - reusing that name here
+				// would silently overwrite it instead of adding a second
+				// value, since this is one flat object, not two. See
+				// StandardFirmataModel.js's setIOMode for where this is
+				// read back out.
+				sensorMode: this.model.get('mode'),
 			});
 		},
 

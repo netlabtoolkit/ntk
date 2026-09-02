@@ -239,4 +239,97 @@ try:
 except Exception:
     pass
 
+# Optional: Grove - Digital Light Sensor (TSL2561), I2C, fixed address
+# 0x29 on this specific Grove module (per Seeed's own wiki page for it -
+# NOT the adafruit_tsl2561 library's own default of 0x39, which is the
+# bare TSL2561 chip's floating-ADDR-pin address; the Grove breakout
+# hard-wires ADDR to GND instead, no address-select jumper exposed).
+# GroveSensor catalog entry 3 - single reading, same one-element-list
+# shape as VL53L0X's entry 1, but the VALUE that one reading carries
+# depends on a "mode" the widget's own dropdown selects (see
+# sensorCatalog.js's `modes` and GroveSensor.js's needsMode handling) -
+# the sensor has two separate photodiodes (one full-spectrum, one
+# infrared-only) and Seeed's own docs for this module describe three
+# ways to read it: infrared only, full-spectrum only, or "human visible"
+# (both diodes combined, calibrated to approximate the eye's response -
+# what adafruit_tsl2561's `.lux` property already computes). Hardware-
+# verified (address/wiring); the mode-selection wiring below itself is
+# new and untested against real hardware yet.
+#
+# needs_mode mirrors needs_pin (DHT11) below almost exactly - a 4th
+# sysex byte the widget sends at SUBSCRIBE time - except it never claims
+# an exclusive hardware resource, so make_read() always returns a
+# cleanup_fn of None; kept as the same (read_fn, cleanup_fn) tuple shape
+# purely so firmata_server.py's subscription bookkeeping doesn't need a
+# third code path.
+#
+# Deliberately numbered so VISIBLE is 0: firmata_server.py's needs_mode
+# handling falls back to mode 0 if a subscribe request arrives with no
+# mode byte at all (an older/simpler client, or a race before the
+# widget's own dropdown value has round-tripped) - lining that fallback
+# up with the already-verified-working reading, rather than the generic
+# protocol code needing to know anything TSL2561-specific about which
+# mode is "the good default".
+_TSL2561_MODE_VISIBLE = 0
+_TSL2561_MODE_FULL_SPECTRUM = 1
+_TSL2561_MODE_INFRARED = 2
+
+# firmata_server.py's _encode_grove_value() packs every reading as a
+# fixed-point x100 value into a 21-bit wire field - a hard ceiling of
+# +/-10485.76 that every OTHER Grove sensor's natural range happens to
+# fit safely under (VL53L0X's ~1200mm, LIS3DHTR's ~+/-20 m/s^2, DHT11's
+# 0-100). TSL2561 is the first one that doesn't: lux can reach ~40,000
+# per its own datasheet, and raw broadband/infrared channel counts go up
+# to 65535 (16-bit). Left uncorrected, a bright-light reading in ANY of
+# the three modes could silently wrap into a garbage (or seemingly
+# negative) value over the wire instead of erroring - clamped here
+# rather than raising the wire format's ceiling itself, which would
+# touch every other Grove sensor's encoding, not just this one.
+_TSL2561_WIRE_MAX = 10000
+
+try:
+    import adafruit_tsl2561
+
+    _light_i2c = board.I2C()
+    _light_sensor = adafruit_tsl2561.TSL2561(_light_i2c, address=0x29)
+
+    def _make_tsl2561_read(mode):
+        if mode == _TSL2561_MODE_INFRARED:
+            read = lambda: [min(_TSL2561_WIRE_MAX, _light_sensor.infrared)]
+        elif mode == _TSL2561_MODE_FULL_SPECTRUM:
+            read = lambda: [min(_TSL2561_WIRE_MAX, _light_sensor.broadband)]
+        else:
+            # Visible/lux is the default (see firmata_server.py's
+            # needs_mode handling for what happens with no mode byte at
+            # all) - the one of the three already confirmed working.
+            #
+            # adafruit_tsl2561's own `.lux` property returns None (not a
+            # number) in two different situations: genuinely no light at
+            # all (ch0 == 0), and sensor saturation (too bright for the
+            # current gain/integration settings) - the library doesn't
+            # expose a way to tell those apart without inspecting the raw
+            # broadband/infrared channel values and replicating its own
+            # saturation-threshold logic. Collapsed to 0 here for both
+            # cases as a simple starting point (accurate for "no light",
+            # misleading for "too bright" - reads as dark instead of
+            # blindingly bright) - revisit once real hardware shows which
+            # case actually comes up in practice; a bright-light test
+            # that reads 0 would confirm it's hitting the saturation
+            # case, not genuine darkness.
+            read = lambda: [min(_TSL2561_WIRE_MAX, _light_sensor.lux or 0)]
+        return read, None
+
+    GROVE_SENSOR_CATALOG[3] = {
+        "needs_mode": True,
+        "make_read": _make_tsl2561_read,
+        # Default integration_time (2/402ms) is the slowest/most precise
+        # of the driver's three presets - polling faster than that would
+        # just re-send the same stale reading, same reasoning as
+        # VL53L0X's min_interval_ms above.
+        "min_interval_ms": 500,
+    }
+    _found_sensors.append("TSL2561 light sensor")
+except Exception:
+    pass
+
 print("Grove sensors found:", ", ".join(_found_sensors) if _found_sensors else "none")

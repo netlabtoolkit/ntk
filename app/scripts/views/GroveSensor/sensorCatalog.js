@@ -108,5 +108,61 @@ define([], function() {
             // math (divide by ~10.23) to get back to a real-world value.
             outputRange: {floor: 0, ceiling: 100},
         },
+        // Hardware-verified (address/wiring, and the default Visible/lux
+        // reading) 2026-09-02. Firmware side: pins.py's
+        // GROVE_SENSOR_CATALOG entry 3.
+        3: {
+            label: 'Light',
+            deviceId: 'TSL2561',
+            tested: true,
+            // The sensor has two separate photodiodes (full-spectrum and
+            // infrared-only) - Seeed's own docs for this module describe
+            // three ways to read it: infrared only, full-spectrum only,
+            // or "human visible" (both combined, calibrated to
+            // approximate the eye's response). needsMode shows a mode
+            // dropdown in the "more" panel (see GroveSensor.js/
+            // template.js's modeField, mirroring needsPin's pinField)
+            // instead of a fixed reading - changing it re-subscribes with
+            // a different 4th sysex byte (see pins.py's needs_mode/
+            // StandardFirmataModel.js's setIOMode).
+            //
+            // First entry is the default (same "first is default"
+            // convention `sensor` itself uses) - Visible/lux, since
+            // that's the one already confirmed working end-to-end, and
+            // its numeric value (0) is also what firmata_server.py falls
+            // back to if a subscribe request ever arrives with no mode
+            // byte at all (see pins.py's _TSL2561_MODE_VISIBLE comment).
+            needsMode: true,
+            modes: [
+                {value: 0, label: 'Visible (lux)'},
+                {value: 1, label: 'Full Spectrum'},
+                {value: 2, label: 'Infrared'},
+            ],
+            // Only one reading regardless of mode (the dropdown changes
+            // WHAT it means, not how many outlets there are) - generic
+            // label/no fixed unit, since Visible/lux is in calibrated lux
+            // but Full Spectrum/Infrared are raw ADC channel counts (a
+            // very different scale - see range's comment below).
+            readings: [
+                {key: 'light', label: 'Light', unit: ''},
+            ],
+            // 0-10000, NOT the TSL2561's own native spec range (lux can
+            // reach ~40,000; raw broadband/infrared channel counts up to
+            // 65535) - the shared Grove sensor wire protocol's fixed-
+            // point encoding can only carry values up to ~10485.76 (see
+            // pins.py's _TSL2561_WIRE_MAX comment), so pins.py clamps
+            // every mode's reading to 10000 before it ever reaches this
+            // widget. Typical indoor light is only ~100-1000 lux, so
+            // Visible/lux mode comfortably fits well inside this; Full
+            // Spectrum/Infrared readings under bright light may clip at
+            // 10000 - a hard wire-format ceiling, not adjustable here.
+            range: {floor: 0, ceiling: 10000},
+            // 1:1 passthrough (matches `range` above exactly), same
+            // reasoning as DHT11's outputRange - Visible/lux mode's
+            // outlet reads the real lux value directly instead of NTK's
+            // usual 0-1023 convention. Only accurate for that mode - see
+            // range's comment above.
+            outputRange: {floor: 0, ceiling: 10000},
+        },
     };
 });

@@ -55,6 +55,9 @@
             <div class="pinField" rv-class-visible="widget:needsPin">
                 <label class="narrowLabel">pin</label> <input class="pinInput" type="text" pattern="[A-Za-z0-9]*" rv-value="widget:pin" placeholder="D7">
             </div>
+            <div class="modeField" rv-class-visible="widget:needsMode">
+                <label class="narrowLabel">mode</label> <select class="modeSelect"></select>
+            </div>
             <hr>
             input range<br>
             <label class="narrowLabel">min</label> <input class="moreParam" type="text" pattern="[0-9-]*" rv-value="widget:inputFloor">

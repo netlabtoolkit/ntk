@@ -672,6 +672,17 @@
             display: block;
         }
     }
+
+    // Only shown for a "needsMode" sensor (e.g. TSL2561's infrared/
+    // full-spectrum/visible-lux) - same show/hide convention as
+    // .pinField above.
+    .modeField {
+        display: none;
+
+        &.visible {
+            display: block;
+        }
+    }
 }
 
 // PoseTrack widget (app/scripts/views/PoseTrack/) - note that per-widget

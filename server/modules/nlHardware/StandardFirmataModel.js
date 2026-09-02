@@ -252,6 +252,28 @@ module.exports = function(five) {
 						message.push(pinIndex & 0x7F);
 					}
 				}
+				// A "needs_mode" sensor (e.g. TSL2561 - one I2C sensor
+				// with several different readings, selected by the
+				// widget's own mode dropdown rather than a physical
+				// wiring choice) includes the same 4th byte instead, as a
+				// small integer whose meaning is entirely up to that
+				// sensor's own pins.py entry (see its needs_mode
+				// handling). Named sensorMode, NOT mode - extraOptions IS
+				// this whole hardwareSwitch payload (see nlMultiClientSync
+				// .js's client:changeIOMode), and `mode` on it already
+				// means the Firmata IO-mode string this function's own
+				// `mode` parameter holds ('GROVE_SENSOR' here) - reusing
+				// that name for a per-sensor value would collide with it.
+				// Mutually exclusive with pin above - no sensor needs both
+				// today. !== undefined (not a truthy check) since a
+				// sensor's own mode 0 can be a real, meaningful selection,
+				// not "unset".
+				else if(extraOptions && extraOptions.sensorMode !== undefined) {
+					var sensorModeValue = parseInt(extraOptions.sensorMode, 10);
+					if(!isNaN(sensorModeValue)) {
+						message.push(sensorModeValue & 0x7F);
+					}
+				}
 
 				this.board.io.sysexCommand(message);
 				return;
