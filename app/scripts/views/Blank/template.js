@@ -1,3 +1,8 @@
+<!-- "typeLogic" below sets this widget's on-canvas header color (see the
+     .typeXXX classes in app/styles/Widget.scss) - it's separate from the
+     categories array in Blank.js, which only controls Add Widgets panel
+     grouping. Change this class to whichever .typeXXX matches the
+     category you pick there, or add a new one, so the two stay in sync. -->
 <div class="widgetAuthoring">
     <div class="widgetTop typeLogic">
         <div class="title dragHandle">
@@ -23,6 +28,18 @@
     <div class="widgetRight">
         <div class='outlets'>
             <div class="outlet" rv-each-outlet="widget:outs" rv-alt="outlet.title" rv-data-field="outlet.to">&middot;</div>
+        </div>
+    </div>
+
+    <!-- "more" panel: a tab + hidden content area, toggled open by the
+         user clicking the tab (WidgetView's base onRender wires that up -
+         no extra JS needed here). Put configuration/tuning fields that
+         aren't needed every time here instead of widening widgetBody
+         above - see CLAUDE.md's widget design principles. -->
+    <div class="widgetBottom">
+        <div class="tab"><p>more</p></div>
+        <div class="content">
+            <label class="narrowLabel">ceiling</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:limitCeiling">
         </div>
     </div>
 </div>

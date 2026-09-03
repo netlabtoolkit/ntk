@@ -75,6 +75,14 @@
 
 ## Widget CSS layout
 
+- **A per-widget `styles.scss` (e.g. `views/SomeWidget/styles.scss`) is
+  never actually loaded** - `app/styles/main.scss` only imports
+  `Widget.scss`, nothing per-widget. Found repeatedly this way (Grove
+  Sensor, PoseTrack, Gesture, FaceTrack, Blank all had one, silently
+  dead) before being fixed by deleting the file and moving its rules into
+  `app/styles/Widget.scss` under a `.yourwidgetclassname { }` block
+  instead - that's the only file that's actually built. Don't create a
+  new per-widget `styles.scss` for a new widget; add to `Widget.scss`.
 - Every widget's `.widgetBody` gets a hardcoded 94x110px box by default
   (`app/styles/Widget.scss`), with `.widgetBodyLeft`/`.widgetBodyRight`
   floated left/right inside it.
