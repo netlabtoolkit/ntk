@@ -42,7 +42,7 @@
             io.adafruit.com<br>
             <label for="aioUsername">username</label> <input name="aioUsername" class="keys" type="text" rv-value="widget:aioUsername"><br>
             <label for="aioKey">AIO key</label> <input name="aioKey" class="keys" type="text" placeholder="AIO Key" rv-value="widget:aioKey"><br>
-            <label for="aioFeedKey">feed key</label> <input name="aioFeedKey" class="keys" type="text" placeholder="Feed Key" rv-value="widget:aioFeedKey"><br>
+            <label for="aioFeedKey">feed name</label> <input name="aioFeedKey" class="keys" type="text" placeholder="Feed Name" rv-value="widget:aioFeedKey"><br>
             <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/cloudin/" target="_blank">Widget help</a>
         </div>
