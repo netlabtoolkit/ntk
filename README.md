@@ -5,11 +5,11 @@ NETLab Toolkit JavaScript Version
 
 NTK (the NETLab Toolkit) is a visual authoring system for designers, developers, makers, researchers and students who want to design and build tangible Internet of Things projects. With a simple drag and drop interface, connect sensors, actuators, media and networks with the smart widgets. Concepts can be prototyped quickly, encouraging iteration, experimentation and testing by sketching in hardware.
 
-NTK works with the original Arduino. And NTK can be easily adapted to do new things. The Code widget allows users to add custom Javascript. And with a bit more expertise, users can create their own, reusable widgets.
+NTK works with the original Arduino over USB, and also with WiFi-connected microcontrollers - see `firmware/` for a CircuitPython Firmata firmware for the Seeed XIAO ESP32-C6, supporting AnalogIn/Out, DigitalIn/Out, Servo, and Grove sensors. And NTK can be easily adapted to do new things. The Code widget allows users to add custom Javascript. And with a bit more expertise, users can create their own, reusable widgets.
 
 Go ahead, Drag and Drop the Internet of Things.
 
-This branch has been modernized to build and run natively on Apple Silicon Macs, updating the Electron and dependency toolchain accordingly. Other platforms (Intel Mac, Windows, Linux) are not currently built or tested - see the Build section below.
+This branch has been modernized to build and run natively on Apple Silicon Macs, updating the Electron and dependency toolchain accordingly. Other platforms (Intel Mac, Windows, Linux) are not currently built or tested - see "To Build a Distributable Application" below.
 
 Installation instructions below. For more information and documentation, please see the project website.
 
@@ -87,6 +87,8 @@ npm run package
 This will place the distributable builds in a folder named "packaged" in the main NTK directory.
 
 Note: this currently builds for Apple Silicon (arm64) Macs only - other platforms are not yet supported by the build script.
+
+Note: the packaged app bundles its own snapshot of the code (`app.asar`), separate from the `server/dist` folder used by `npm run electron`/`npm run dev`. Running `npm run build` on its own will *not* update an already-built package - rerun `npm run package` (or `npm run package:dev` for a faster unsigned build, skipping signing/notarization) any time you want a packaged build to reflect source changes.
 
 
 Creating a New Widget
