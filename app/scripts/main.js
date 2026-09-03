@@ -107,12 +107,24 @@ function (Backbone, App, rivets ) {
 		},
 		// It gets triggered whenever we want update a model using Rivets.js
 		publish: function(obj, keypath, value) {
-			obj.set(keypath, value);
+			if(parseInt(obj.get(keypath), 10) !== parseInt(value, 10) ) {
+				obj.set(keypath, value);
+			}
 		}
 	};
 
 	rivets.formatters.exists = function exists(value) {
 	  return value !== undefined && value.length > 0;
+	};
+
+	rivets.formatters.capitalize = {
+		read: function(outputMapping) {
+			return outputMapping.toUpperCase();
+		},
+		publish: function(outputMapping) {
+			return outputMapping.toUpperCase();
+		}
+
 	};
 
 	rivets.formatters.hardwareOutput = {

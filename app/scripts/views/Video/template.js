@@ -28,9 +28,13 @@
             <label>continuous</label> <input class="continuous" type="checkbox" rv-checked="widget:continuous" /><br>
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
             <label>width</label> <input class="displayWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth"><br>
-            <label>video file</label> <input class="srcFile" type="text" rv-value="widget:srcFile">
+            <label>video file</label> <input class="srcFile" type="text" rv-value="widget:srcFile"><br>
+            <div class="browseVideo">Browse&hellip;</div>
+            <div class="localVideoPath" rv-show="widget:localVideoPath" rv-text="widget:localVideoPath"></div>
 <!--            <label>{widget:typeID} label</label> <input type="text" class="displayWidth" rv-value="widget:title"><br>-->
             <br>
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/video/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

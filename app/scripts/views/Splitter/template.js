@@ -42,6 +42,8 @@
             <input class="min" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:outMin"><br>
             <label for="max">max</label>
             <input class="max" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:outMax">
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/splitter/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

@@ -5,10 +5,10 @@
         </div>
     </div>
     <div class="widgetLeft">
-        <div class=leftTab><input type="checkbox" rv-checked="widget:active" /></div>
-        <div class=leftTab>
+        <div class="leftTab"><input type="checkbox" rv-checked="widget:active" /></div>
+        <div class="leftTab">
             <div rv-each-source="sources" class="settings">
-                <input type='text' rv-value="source.map.sourceField">
+                <input type='text' rv-value="source.map.sourceField | capitalize">
             </div>
         </div>
     </div>
@@ -44,11 +44,29 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
+
+          <label class="narrowLabel">Device</label> <select type="text" rv-value="widget:deviceType">
+    				<option selected value="ArduinoUno">Serial</option>
+    				<option selected value="network">Network</option>
+    			</select><br>
+          <div class="deviceIp" rv-class-networkmode="widget:deviceType | isNetworkDeviceType">
+            <label class="narrowLabel">ip</label> <input class="address" type="text" pattern="[0-9]*" rv-value="widget:server">
+          </div>
+          <div class="devicePort" rv-class-networkmode="widget:deviceType | isNetworkDeviceType">
+            <label class="narrowLabel">port</label> <input class="port" type="text" pattern="[0-9]*" rv-value="widget:port">
+          </div>
+          <div class="serialPortPicker" rv-class-networkmode="widget:deviceType | isNetworkDeviceType">
+            <label class="narrowLabel">port</label> <select class="serialPortSelect" rv-value="widget:server">
+              <option value="auto">Auto-detect</option>
+            </select>
+          </div><hr>
             input range<br>
             <label class="narrowLabel">min</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:inputFloor">
             <label class="narrowLabel">max</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:inputCeiling"><br>
             <label class="narrowLabel">ease</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:easingAmount"><br>
             <label class="narrowLabel">smooth</label> <input class='smoothingAmount moreParam' type="text" pattern="[0-9]*" rv-value="widget:smoothingAmount">
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/analogin/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

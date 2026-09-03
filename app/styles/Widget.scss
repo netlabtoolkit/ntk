@@ -7,14 +7,14 @@
 
 
 	margin: 0;
-    
+
     hr {
         background-color: #eee;
         border: 0 none;
         color: #eee;
         height: 1px;
     }
-    
+
 	.remove {
 		float: right;
 		width: 0.7em;
@@ -179,7 +179,7 @@
 	.options li:hover {
 	    color: #FFF;
 	}
-    
+
     .operator {
         width: 44px;
     }
@@ -217,6 +217,13 @@
                 margin-bottom: 3px;
 
             }
+
+			.enableDevice {
+				width: 25px;
+				height: 25px;
+
+				background-color: #f00;
+			}
         }
     }
     .widgetLeft input[type='text'] {
@@ -225,8 +232,8 @@
         margin-left: 1px;
         width: 60%;
     }
-    
-    
+
+
 
     .widgetBody {
         background-color: whitesmoke;
@@ -237,41 +244,41 @@
         border-bottom-left-radius: 5px;
 		border: 2px solid #98a6ac;
 		border-top: 0;
-        
+
         .widgetBodyLeft {
-            float: left;   
+            float: left;
         }
-        
+
         .widgetBodyRight {
-            float: right;   
+            float: right;
         }
-        
+
         .inletValue {
-            
+
             margin-top: 6px;
             margin-left: 2px;
             height: 20px;
-            
+
             clear: both;
-            
+
         }
-        
+
         .inletValueInput {
-            
+
             margin-top: 6px;
             margin-left: 0px;
             height: 20px;
-            
+
             clear: both;
-            
+
             input {
                 margin-left: 0px;
             }
-            
+
         }
-        
+
         .outletValue {
-            
+
             margin-top: 4px;
             margin-bottom: 0px;
             height: 22px;
@@ -281,7 +288,7 @@
             padding-left: 0px;
             padding-right: 0px;
             clear: both;
-            
+
             .outputParam {
                 width: 25px;
                 margin-top: 0px;
@@ -291,34 +298,34 @@
                 padding-right: 0px;
             }
         }
-        
+
         .fullWidthInput {
             margin-top: 3px;
             width: 90% !important;
             text-align: center;
         }
-        
+
         .outputSingle {
-            padding-left: 32px; 
+            padding-left: 32px;
         }
-        
+
         .inletValueTop {
             margin-top: 20px;
         }
-        
+
         input[type='checkbox'] {
             width: 12px;
         }
-        
+
         .timeLeft {
             margin-top: 5px;
             margin-left: 5px;
         }
-        
+
         .ifFalse {
             background-color: #f8c885;
         }
-        
+
         .ifStatement {
             background-color: #c6c6c6;
             margin-left: 0px;
@@ -326,7 +333,7 @@
             margin-right: 0px;
             padding: 0px;
             text-align: right;
-            
+
             .outputParam {
                 width: 26px;
                 margin-top: 0px;
@@ -336,16 +343,16 @@
                 padding-right: 0px;
             }
         }
-    
+
         .ifTop {
             background-color: #c6c6c6;
         }
-        
+
         label {
             display: inline-block;
             width: 60px;
         }
-        
+
     }
 
     .widgetBody input[type='text'] {
@@ -356,8 +363,8 @@
         width: 25px;
         height: 12px;
     }
-    
-    
+
+
     .widgetOutput {
         width: 12px;
         height: 24px;
@@ -406,6 +413,29 @@
             margin-left: 5px;
             border-bottom-left-radius: 5px;
             border-bottom-right-radius: 5px;
+            // Fixes a real bug: on widgets whose .widgetBody content runs
+            // tall enough to overflow its box (confirmed on AnalogIn/
+            // DigitalIn - dial + range table + .options together exceed
+            // the standard 110px), .options' FLOATED <li> buttons
+            // (inv/smo/eas) spill down into this space. Per CSS's
+            // stacking rules, a floated box always paints above an
+            // ordinary non-positioned, non-floated block box REGARDLESS
+            // of DOM order - so even though this tab comes after
+            // .options in the markup, the floated buttons were winning
+            // both the paint order AND every click, except in the narrow
+            // gap between them (which happened to line up with the
+            // "more" text, since that's the one place the actual click
+            // handler on this whole div could ever fire). position:
+            // relative gives this its own stacking context, which
+            // (again per spec) always paints above floats - fixes the
+            // click-hotspot bug and the underlying visual glitch (a
+            // button bleeding through on top of the tab) in one change,
+            // without touching the widely-shared .options rule other
+            // widgets also depend on. Confirmed via
+            // document.elementFromPoint() at the tab's left/center/right
+            // edges in DevTools before and after.
+            position: relative;
+            z-index: 1;
 
             p {
                 font-size: 10px;
@@ -417,46 +447,121 @@
         }
 
         .content {
+            // Fixed so every widget's "more" panel lines up the same width
+            // regardless of what's inside it - without this, a panel
+            // containing e.g. a serial port dropdown (whose native width
+            // grows to fit its longest detected port name, like
+            // "/dev/tty.usbmodem1101 (Espressif)") stretched wider than
+            // every other widget's panel.
+            width: 190px;
+            box-sizing: border-box;
+
             padding: 5px;
             margin-left: 5px;
             border-radius: 5px;
-            
+
             background-color: #fff;
-            
+
             label {
                 display: inline-block;
                 width: 60px;
             }
-            
+
             label.wide-label {
                 width: 125px;
             }
-            
+
             .narrowLabel {
                 width: 30px;
             }
-            
+
             .moreParam {
                 width: 40px;
             }
+
+            // Anything else text-like (address/port fields, the serial
+            // port select) fills the fixed content width above instead of
+            // sizing to its own content/native default.
+            input[type=text], select {
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+
+            .serialPortSelect {
+                width: 100%;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                overflow: hidden;
+            }
+
+            // Shared across every widget's "more" panel (added per-widget
+            // in each one's own template.js) - keeps the look consistent
+            // without needing per-widget CSS for something this small.
+            .widgetHelpLink {
+                display: block;
+                margin-top: 4px;
+                font-size: 0.8em;
+                color: #6b9bd1;
+            }
+
+            .deviceIp {
+              display: none;
+            }
+
+            .devicePort {
+              display: none;
+            }
+
+            // Serial is the default device type, so this starts visible
+            // (opposite of .deviceIp/.devicePort, which are Network-only).
+            .serialPortPicker {
+              display: block;
+            }
+
+            // Declarative device-type-visibility toggle (rv-class-networkmode
+            // in a widget's own template, e.g. AnalogIn) - a single class
+            // driven by one formatter, since Rivets' own rv-show/rv-hide
+            // binders can't reveal an element whose CSS default is
+            // `display:none`: `show`'s "true" branch only clears the inline
+            // style back to '' (falling through to that none default), it
+            // never sets an explicit visible value - verified against
+            // bower_components/rivets/dist/rivets.js. Higher specificity
+            // (two classes) than the bare-class defaults above, so these win
+            // without needing !important. Lowercase class name is
+            // deliberate: rv-class-* derives the class from the DOM
+            // attribute name, and HTML lowercases all attribute names -
+            // rv-class-networkMode would silently apply class "networkmode"
+            // regardless of how it's written, so the source must match.
+            .deviceIp.networkmode, .devicePort.networkmode {
+              display: block;
+            }
+
+            .serialPortPicker.networkmode {
+              display: none;
+            }
         }
-        
-        
-        
-        
+
+
+
+
     }
 
+	.oscOut .deviceIp,
+	.oscOut .devicePort {
+		display: block;
+	}
+
     .typeIO {
-    	background-color: #E57373; 
+    	background-color: #E57373;
     }
     .typeNetwork {
-    	background-color: #FF8A65; 
+    	background-color: #FF8A65;
     }
     .typeMedia {
-    	background-color: #4DB6AC; 
+    	background-color: #4DB6AC;
     }
     .typeGenerator {
-    	background-color: #AED581; 
+    	background-color: #AED581;
     }
     .typeLogic {
     	background-color: #64B5F6;
@@ -464,21 +569,669 @@
     .typeUI {
     	background-color: #BA68C8;
     }
+    // #B8860B - matches the "AI" category's own Add Widgets panel swatch
+    // color exactly (toolBar.scss's .catAI/.widgetAI - see its comment for
+    // why this is darker/more saturated than a first attempt at #FFB300),
+    // rather than a paler tint the way the other type* colors relate to
+    // their own toolBar swatch - this is a brand-new category with no
+    // established widget-header color of its own yet, so the Add Widgets
+    // color (which already existed) is the one to match, not the other
+    // way around.
+    .typeAI {
+        background-color: #B8860B;
+    }
 }
 
 .detachedEl {
 	position: fixed;
-    
+
     .ui-button.ui-widget {
 /*        width: 200px !important;
         height: 200px !important;*/
     }
-    
+
     .ui-button .ui-button-text {
 /*        font-size: 2.0em !important;*/
     }
 }
 
 .dialwrapperUI {
-    margin-top: 5px;
+    // Was margin-top: 5px, which shifted the whole element's rendered
+    // position lower than its left/top model values said (the actual
+    // cause of it sitting lower than Button's detached display, which has
+    // no such margin). Zeroed so the anchor position matches Button's,
+    // and padding-top added instead - that adds breathing room above the
+    // dial graphic itself without moving where the element's box sits.
+    margin-top: 0;
+    padding-top: 10px;
+}
+
+// GroveSensor widget (app/scripts/views/GroveSensor/) - note that
+// per-widget styles.scss files (e.g. AnalogIn's) are never actually
+// imported anywhere into the build, so widget-specific rules live here
+// in the shared Widget.scss instead, same as .dialwrapperUI above.
+.groveSensor {
+    .widgetBody {
+        // Keep everything compact enough to fit the standard fixed 110px
+        // widgetBody height (see CLAUDE.md's widget layout notes) now that
+        // the invert/smoothing/easing options row (below) shares the box
+        // with the sensor picker and status readout.
+        //
+        // One font-size/color for every line in the main body - the
+        // per-element sizes/colors this replaced (0.65-0.85em, #000/
+        // #666/bold mixed) read as visually inconsistent line to line.
+        font-size: 0.85em;
+        color: #000;
+
+        .sensorSelect {
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 2px;
+            // <select> doesn't reliably inherit font-size/color from its
+            // ancestor in every browser the way plain text elements do.
+            font-size: inherit;
+            color: inherit;
+        }
+
+        // The specific chip for whatever's selected above (e.g.
+        // "LIS3DHTR") - kept separate from the dropdown's own label since
+        // that stays generic ("Accelerometer") once more than one sensor
+        // of the same kind exists (see sensorCatalog.js).
+        .deviceId {
+            margin-top: 1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .groveStatus {
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+        }
+
+        .statusDot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+            background-color: #ccc; // fallback if none of the states below match
+
+            &.groveidle { background-color: #ccc; }
+            &.grovewaiting { background-color: #e0a030; }
+            &.groveok { background-color: #4caf50; }
+            &.groveerror { background-color: #e53935; }
+        }
+
+        .statusText {
+            text-transform: capitalize;
+        }
+
+        // Comma-joined outlet labels (e.g. "X, Y, Z") - which physical
+        // outlet nub (top to bottom, in .widgetRight) is which reading,
+        // without needing to hover each nub for its tooltip.
+        .outletLabels {
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        // No override here - inv/smo/eas use the same shared .options
+        // styling AnalogIn's do (see the base .options/.options li rules
+        // above), rather than a GroveSensor-specific smaller version.
+    }
+
+    // Serial mode has no real port picker for this widget (see
+    // template.js's .serialPortPicker) - just an explanatory message in
+    // its place, since Grove sensor readings only ever arrive over the
+    // CircuitPython WiFi firmware's sysex extension.
+    .noSerialMessage {
+        display: block;
+        font-size: 1em;
+        font-style: italic;
+        color: #000;
+    }
+
+    // Only shown for a "needsPin" sensor (e.g. DHT11 - single-wire
+    // digital, not on the shared I2C bus, so the firmware can't find it
+    // without being told which GPIO it's wired to). Same show/hide
+    // convention as .deviceIp/.devicePort's "networkmode" class (rivets'
+    // rv-show/rv-hide can't reveal an element whose CSS default is
+    // display:none - see Widget.scss's comment on that pattern above).
+    .pinField {
+        display: none;
+
+        &.visible {
+            display: block;
+        }
+    }
+
+    // Only shown for a "needsMode" sensor (e.g. TSL2561's infrared/
+    // full-spectrum/visible-lux) - same show/hide convention as
+    // .pinField above.
+    .modeField {
+        display: none;
+
+        &.visible {
+            display: block;
+        }
+    }
+}
+
+// PoseTrack widget (app/scripts/views/PoseTrack/) - note that per-widget
+// styles.scss files (e.g. Gesture's, FaceTrack's) are never actually
+// imported anywhere into the build (same already-confirmed fact
+// GroveSensor's block above was written around), so this lives here in
+// the shared Widget.scss instead. Gesture's/FaceTrack's own record
+// button/camera preview markup currently renders unstyled for the same
+// reason - not fixed here, out of scope, but avoided for this widget.
+.posetrack {
+    .widgetBody {
+        font-size: 0.8em;
+        color: #000;
+
+        .trackModeSelect {
+            // NOT width:100% - .widgetBodyLeft (see the shared,
+            // undeclared-width .widgetBodyLeft{float:left} rule above in
+            // this file) shrink-wraps to its content's width; a 100%
+            // child fights that and forces it to expand full-width,
+            // pushing .widgetBodyRight's outlet values below instead of
+            // beside it. A fixed width lets it shrink-wrap correctly,
+            // same as Gesture's/FaceTrack's own dial does via its own
+            // fixed pixel size.
+            width: 58px;
+            box-sizing: border-box;
+            font-size: inherit;
+            color: inherit;
+            margin-top: 2px;
+        }
+
+        .transportControls {
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+
+            .recordIcon {
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                background-color: #c0392b;
+                margin-right: 5px;
+                cursor: pointer;
+
+                // Blinks while actively capturing a training burst -
+                // CLAUDE.md's "actively inform the user" principle: a
+                // silent capture window reads as broken.
+                &.recording {
+                    animation: poseTrackRecording 0.6s infinite;
+                }
+
+                // Distinct amber pulse (matches .slotIndicator.pending's
+                // color elsewhere in this widget) during the pre-record
+                // "get ready" countdown - deliberately different from
+                // .recording's faster red blink above, so "about to
+                // capture" and "capturing right now" don't look
+                // identical - and a slower ~1s pace that roughly matches
+                // a "3...2...1" cadence.
+                &.countingdown {
+                    animation: poseTrackRecording 1s infinite;
+                    background-color: #e0a030;
+                }
+            }
+
+            .recordSlot {
+                width: 32px;
+                box-sizing: border-box;
+                font-size: inherit;
+                color: inherit;
+            }
+        }
+
+        .widgetBodyRight {
+            // Deliberately dots, not full numeric out1-4 readouts like
+            // Gesture's .outletValue (64px each) - .widgetBodyLeft's
+            // content (mode select + record controls) is already close
+            // to 94px's budget on its own, and .widgetBodyLeft/
+            // .widgetBodyRight are independent CSS floats with no
+            // declared width (see the shared rule above in this file) -
+            // if their combined natural widths exceed .widgetBody's
+            // declared 94px, the right float wraps below the left
+            // instead of sitting beside it (not just visually overflowing
+            // past the edge, which floats do tolerate - see GroveSensor's
+            // width note elsewhere in this file for that distinction).
+            // A narrow dot-per-slot column comfortably fits either way;
+            // wire an outlet to a Text widget for the actual number.
+            // Each dot's row is exactly as tall as one .outlet nub's own
+            // row (24px + 2px margin-bottom, see the shared .outlet,
+            // .inlet rule above in this file) so slot N's dot lines up
+            // with outlet N's nub - using height instead of vertical
+            // margins to get that 26px rhythm, since margins between
+            // sibling blocks collapse (the smaller of the two, not their
+            // sum), which would throw the spacing off by half.
+            .slotIndicator {
+                width: 22px;
+                height: 26px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-left: auto;
+
+                &::after {
+                    content: '';
+                    // Big enough to read as an actual status light rather
+                    // than a speck - still comfortably inside the 26px row
+                    // height that keeps it aligned with its outlet nub.
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 50%;
+                    // --matchColor is set per-frame by PoseTrack.js's
+                    // matchcolor rivets binder (matchLevelToColor()) - a
+                    // continuous red (no match) -> yellow (halfway to
+                    // threshold) -> green (matched) live readout, shown
+                    // at all times (not only once officially "matched"),
+                    // so you can see a slot approaching a match, not just
+                    // whether it already has. The plain grey fallback is
+                    // for a slot with nothing recorded yet (see
+                    // evaluateFrame) - it never gets a --matchColor at all.
+                    background-color: var(--matchColor, #ccc);
+                }
+
+                &.pending::after {
+                    animation: poseTrackRecording 0.6s infinite;
+                    background-color: #e0a030;
+                }
+            }
+        }
+
+        .recordingMeter {
+            width: 100%;
+            height: 6px;
+            background-color: #ddd;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 4px;
+            box-sizing: border-box;
+        }
+
+        .recordingBar {
+            width: 0;
+            height: 100%;
+            background-color: #c0392b;
+        }
+
+        .recordingCountdown {
+            font-size: 0.75em;
+            color: #c0392b;
+            margin-top: 2px;
+        }
+
+        // The single most useful live readout once a widget is trained
+        // and actually in use (vs. .recognitionMeter/.exampleCount in the
+        // "more" panel, which matter while training) - see PoseTrack.js's
+        // commitMatched. Bold/green to read at a glance; ellipsis rather
+        // than wrapping since .widgetBodyLeft is only ~58-64px wide and a
+        // long typed-in slot name would otherwise push .widgetBody past
+        // its 110px height.
+        .currentMatch {
+            margin-top: 3px;
+            // Meant to be readable at a glance from across a room while
+            // actually using a trained widget - explicit px, not an em
+            // relative to .widgetBody's own 0.8em (that would still read
+            // as "just slightly bigger than everything else").
+            font-size: 15px;
+            font-weight: bold;
+            line-height: 1.1;
+            color: #2e7d32;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 64px;
+        }
+
+        .statusMessage {
+            margin-top: 4px;
+            font-size: 0.85em;
+            color: #b33;
+        }
+    }
+
+    @keyframes poseTrackRecording {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.25; }
+    }
+
+    .widgetBottom .content {
+        .recognitionMeter {
+            width: 100%;
+            height: 8px;
+            background-color: #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .recognitionBar {
+            height: 100%;
+            background-color: #4caf50;
+        }
+
+        .recognitionLabel, .exampleCount {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        // A small skeleton (dots + connecting lines, drawn from the
+        // slot's own recorded landmark data - see PoseTrack.js's
+        // drawSlotPreview) so it's clear at a glance what pose is
+        // trained into the currently-selected slot.
+        .slotPreview {
+            display: block;
+            margin-top: 6px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .slotNameInput {
+            width: 100px;
+            box-sizing: border-box;
+        }
+
+        // Overrides the shared table.rangeTable .range-input rule
+        // (Widget.scss's global block near the top of this file), which
+        // is only 8px tall - fine as a bare visual proportion bar in
+        // whatever widget it was originally sized for, but too small to
+        // actually read the number typed into it.
+        .gestureOutputsTable .range-input {
+            width: 40px;
+            height: 16px;
+            font-size: 0.85em;
+        }
+
+        .cameraPreview {
+            position: relative;
+            width: 190px;
+            height: 143px;
+            margin-top: 6px;
+
+            .poseVideo, .poseCanvas {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 190px;
+                height: 143px;
+            }
+
+            .poseCanvas {
+                z-index: 1;
+            }
+        }
+    }
+}
+
+// Gesture widget (app/scripts/views/Gesture/) - its own styles.scss was
+// never actually imported anywhere into the build (same already-confirmed
+// fact GroveSensor's/PoseTrack's own blocks above were written around),
+// so every gesture-specific class rendered completely unstyled the whole
+// time - no flashing record button, no matched/pending outlet coloring,
+// nothing. styles.scss has been deleted; its design intent (sizing,
+// layout, the height:auto+clearfix fix) is carried forward here, unified
+// with PoseTrack's later, actually-rendering conventions (.slotIndicator
+// confidence dots, .currentMatch, .statusMessage in the compact body,
+// .slotPreview) rather than reimplementing Gesture's original (also
+// never-rendered) matched/pending outletValue coloring.
+@keyframes gestureRecordFlash {
+    0%, 100% { background-color: #F25151; }
+    50% { background-color: #ffb3b3; }
+}
+
+.gesture {
+    // Dial + slot picker + record/play controls + currentMatch/status text
+    // add up to more than the 94x110px every widget's .widgetBody gets by
+    // default (see the base rule above in this file) - let it grow to fit
+    // instead of overflowing/overlapping .widgetBottom below it. Needs its
+    // own clearfix: .widgetBodyLeft/Right are floated (see the shared rule
+    // above), and height:auto alone doesn't make a container account for
+    // floated children's height (same gotcha CLAUDE.md documents).
+    .widgetBody {
+        height: auto;
+        min-height: 110px;
+        padding-bottom: 6px;
+        font-size: 0.85em;
+        color: #000;
+
+        &:after {
+            content: '';
+            display: table;
+            clear: both;
+        }
+
+        // NOT wider than the default 94px total (60px left + room for the
+        // right column's dots) - widening .widgetBody itself would push
+        // the outlet nubs (.widgetRight) further right, the same reasoning
+        // already established for PoseTrack/GroveSensor elsewhere in this
+        // file. Flex-centered (rather than left-aligned, PoseTrack's
+        // approach) because a round dial reads better centered than
+        // hugging one edge - .currentMatch/.statusMessage below inherit
+        // this centering too.
+        .widgetBodyLeft {
+            width: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .dialwrapper {
+            .display {
+                font-size: 0.85em;
+                text-align: center;
+            }
+        }
+
+        .recordControls {
+            text-align: center;
+            margin-top: 4px;
+            font-size: 0.85em;
+
+            .recordSlot {
+                width: 36px;
+                box-sizing: border-box;
+                font-size: inherit;
+                color: inherit;
+            }
+        }
+
+        .transportControls {
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .recordIcon {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background-color: #F25151;
+            margin-right: 6px;
+            cursor: pointer;
+
+            // Blinks while actively recording - CLAUDE.md's "actively
+            // inform the user" principle: a silent capture window reads as
+            // broken. Ported from the dead styles.scss (this animation
+            // never actually ran before, since that file was never loaded).
+            &.recording {
+                animation: gestureRecordFlash 0.6s step-start infinite;
+            }
+
+            &.playing {
+                opacity: 0.4;
+                cursor: default;
+            }
+        }
+
+        .playIcon {
+            width: 0;
+            height: 0;
+            border-top: 7px solid transparent;
+            border-bottom: 7px solid transparent;
+            border-left: 11px solid #4CAF50;
+            cursor: pointer;
+
+            &.playing {
+                opacity: 0.4;
+                cursor: default;
+            }
+        }
+
+        // The single most useful live readout once a widget is trained and
+        // actually in use (vs. .recognitionMeter/.templateLength in the
+        // "more" panel, which matter while training) - identical styling to
+        // PoseTrack's own .currentMatch, for a consistent look across both
+        // widgets.
+        .currentMatch {
+            margin-top: 3px;
+            font-size: 15px;
+            font-weight: bold;
+            line-height: 1.1;
+            color: #2e7d32;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 58px;
+        }
+
+        .statusMessage {
+            margin-top: 4px;
+            font-size: 0.85em;
+            color: #b33;
+            text-align: center;
+        }
+
+        // Deliberately dots, not numeric out1-4 readouts - same reasoning
+        // as PoseTrack's identical .slotIndicator: a narrow dot-per-slot
+        // column fits either way regardless of .widgetBodyLeft's own
+        // content width; wire an outlet to a Text widget for the actual
+        // output number (e.g. a custom MIDI note value). Each dot's row is
+        // exactly as tall as one .outlet nub's own row (24px + 2px
+        // margin-bottom, see the shared .outlet, .inlet rule above in this
+        // file) so slot N's dot lines up with outlet N's nub.
+        .widgetBodyRight .slotIndicator {
+            width: 22px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
+
+            &::after {
+                content: '';
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                // --matchColor is set once per evaluated gesture segment by
+                // Gesture.js's matchcolor rivets binder (see
+                // MatchColor.matchLevelToColor()) - a red (weak/no match)
+                // -> yellow (halfway to threshold) -> green (matched)
+                // readout, held at its last color between evaluations
+                // (Gesture only ever evaluates a finished movement segment
+                // as one discrete event, unlike PoseTrack's continuous
+                // per-frame updates - see Gesture.js's evaluateSegment
+                // comment). The plain grey fallback is for a slot with
+                // nothing recorded yet - it never gets a --matchColor at all.
+                background-color: var(--matchColor, #ccc);
+            }
+
+            &.pending::after {
+                animation: gestureRecordFlash 0.6s step-start infinite;
+                background-color: #e0a030;
+            }
+        }
+    }
+
+    .widgetBottom .content {
+        .recognitionMeter {
+            margin-top: 4px;
+            height: 8px;
+            background-color: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+            box-sizing: border-box;
+
+            &.capturing {
+                background-color: #ffe9b3;
+            }
+        }
+
+        .recognitionBar {
+            height: 100%;
+            width: 0%;
+            background-color: #7CD97C;
+            transition: width 0.1s linear;
+        }
+
+        .recognitionLabel {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 4px;
+            margin-bottom: 6px;
+        }
+
+        // All 4 slots' live match percentages at once, not just the
+        // selected slot's (.recognitionLabel above) - added after live
+        // testing showed two slots' outlet dots both reading green with no
+        // way to tell HOW close each one actually was without this.
+        .allLevels {
+            font-size: 0.75em;
+            color: #666;
+            margin-bottom: 6px;
+        }
+
+        .templateLength {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        // Same bordered/backgrounded canvas styling as PoseTrack's
+        // .slotPreview, for a consistent look - the drawing itself is a
+        // line graph of the recorded template's values (see Gesture.js's
+        // drawSlotPreview), not a skeleton, since a gesture template is a
+        // 1D sequence of scalar samples rather than 2D landmarks.
+        .slotPreview {
+            display: block;
+            margin-top: 6px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .slotNameInput {
+            width: 100px;
+        }
+
+        .gestureOutputsTable {
+            margin-top: 8px;
+            margin-bottom: 6px;
+
+            .tableHeader {
+                font-size: 0.75em;
+                color: #666;
+            }
+
+            // Overrides the shared table.rangeTable .range-input rule
+            // (Widget.scss's global block near the top of this file),
+            // which is only 8px tall - fine as a bare visual proportion
+            // bar in whatever widget it was originally sized for, but too
+            // small to actually read the number typed into it. Same fix
+            // as PoseTrack's identical override, for a consistent look.
+            .range-input {
+                width: 40px;
+                height: 16px;
+                font-size: 0.85em;
+            }
+        }
+    }
 }

@@ -18,7 +18,8 @@ define([
 				'change .continuous': 'continuousChange',
 				'change .displayWidth': 'setVideoDimensions',
 				'mouseup .detachedEl': 'imgMoved',
-        'change .srcFile': 'setSrc',
+        'change .srcFile': 'srcFileChange',
+        'click .browseVideo': 'browseVideo',
 			},
 
 			initialize: function(options) {
@@ -27,6 +28,7 @@ define([
 				this.model.set({
 					src: 'assets/video/nyc_people.mp4',
           srcFile: 'nyc_people.mp4',
+          localVideoPath: null,
 					ins: [{
 							title: 'Play',
 							to: 'play'
@@ -74,7 +76,6 @@ define([
 
 				});
 
-				this.lastTimeIn = 0;
 				this.playing = false;
 
 				this.domReady = false;
@@ -121,8 +122,15 @@ define([
 							videoEl.playbackRate = speed;
 						}
 
-						if (time != this.lastTimeIn && model.changedAttributes().time != undefined) {
-							var timeLimited = Math.min(time, Math.floor(videoEl.duration));
+						if (model.changedAttributes().time != undefined) {
+							// 'time' arrives in NTK's standard 0-1023 control range (see
+							// Knob.js), not in seconds - scale it onto the video's actual
+							// duration so the full range of an incoming knob/slider maps
+							// across the whole video, instead of almost every value
+							// clamping to the very end of a short clip.
+							var duration = videoEl.duration || 0;
+							var timeLimited = (time / 1023) * duration;
+							timeLimited = Math.min(timeLimited, duration);
 							timeLimited = Math.max(timeLimited, 0);
 							videoEl.currentTime = timeLimited;
 						}
@@ -141,8 +149,6 @@ define([
 							}
 						}
 					}
-
-					this.lastTimeIn = time;
 				}
 
 			},
@@ -184,11 +190,45 @@ define([
 				this.model.set('top', offset.top);
 			},
 
+			srcFileChange: function() {
+				// Typing a bundled asset filename should take back over from a
+				// previously browsed-to local file, not be silently ignored.
+				this.model.set('localVideoPath', null);
+				this.setSrc();
+			},
+
 			setSrc: function() {
-				this.model.set('src', 'assets/video/' + this.model.get('srcFile'));
+				var localVideoPath = this.model.get('localVideoPath');
+
+				if (localVideoPath) {
+					// Served through /localVideo (see routes.js) rather than as a direct
+					// file:// src - Chromium blocks file:// media loads from a page loaded
+					// over http, which is how this app's renderer is loaded.
+					this.model.set('src', '/localVideo?path=' + encodeURIComponent(localVideoPath));
+				}
+				else {
+					this.model.set('src', 'assets/video/' + this.model.get('srcFile'));
+				}
+
         this.$(".video")[0].load();
         this.setVideoDimensions();
         this.loopChange();
+			},
+
+			browseVideo: function() {
+				if (!window.ntkElectron) {
+					// Not running inside the Electron app (e.g. a remote browser client) -
+					// no local file picker available, fall back to the assets/video field.
+					return;
+				}
+
+				var self = this;
+				window.ntkElectron.pickVideoFile().then(function(filePath) {
+					if (filePath) {
+						self.model.set('localVideoPath', filePath);
+						self.setSrc();
+					}
+				});
 			},
 
 		});

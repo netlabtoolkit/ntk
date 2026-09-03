@@ -34,7 +34,7 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/knob/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

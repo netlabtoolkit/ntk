@@ -34,7 +34,9 @@
             Webhook: input url with &lt;1&gt;, &lt;2&gt;, or &lt;3&gt; for those inputs<br>
             <label>template</label> <input class="url" type="text" placeholder="https://zapier.com/hooks/catch/--/?temp=<1>" rv-value="widget:urlTemplate"><br>
             <label>output</label> <span rv-text="widget:urlComputed">
-                
+
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/webhook/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

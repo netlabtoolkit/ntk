@@ -58,17 +58,22 @@ function(app){
 						IOMapping: mappings[i].map,
 						view: widgetView,
 						inletOffsets: mappings[i].offsets,
-						server: window.location.host
+						server: window.location.host == "localhost:9001" ? "127.0.0.1:9001" : window.location.host
 					}, true);
 				}
 				// Otherwise we must be mapping a widget to a device model
 				else {
 
+					var typeServerPort = mappings[i].modelWID.split(":");
+					var modelType = typeServerPort[0],
+						server = typeServerPort[1],
+						port = typeServerPort[2];
+
 					this.mapFunction({
 						view: widgetView,
-						modelType: mappings[i].modelWID, // Expectin modeWID to be a descriptive string in this case
+						modelType: modelType, // Expectin modeWID to be a descriptive string in this case
 						IOMapping: mappings[i].map,
-						server: window.location.host
+						server: server + ":" + port
 					}, true);
 				}
 

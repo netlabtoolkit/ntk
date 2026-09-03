@@ -39,6 +39,8 @@
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
             <label>continuous</label> <input class="continuous" type="checkbox" rv-checked="widget:continuous" /><br>
             <textarea class="database" rv-value="widget:final_transcript" rows="4" cols="70"></textarea>
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/speechin/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

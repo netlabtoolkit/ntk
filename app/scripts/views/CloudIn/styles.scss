@@ -1,7 +1,18 @@
 .widget.cloudIn {
 
 	.title {
-		
+
+	}
+
+	// Wide enough for the AIO key/feed key fields (unconstrained .keys
+	// inputs default to their browser width) without wrapping - matches
+	// CloudOut's panel width so the two look consistent.
+	.widgetBottom .content {
+		width: 200px;
+
+		.keys {
+			width: 120px;
+		}
 	}
 
 }

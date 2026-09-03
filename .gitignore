@@ -11,4 +11,13 @@ npm-debug.log
 .sync
 *.vim
 packaged/*
+server/assets/mediapipe
 currentPatch.ntk
+notes.md
+.DS_Store
+.claude/settings.local.json
+__pycache__
+*.pyc
+# Real CircuitPython WiFi credentials - only settings.toml.example is
+# meant to be tracked.
+**/settings.toml

@@ -1,33 +1,45 @@
 {
-  "name": "netlab",
-  "version": "1.1.9",
+  "name": "NTK",
+  "version": "2026.2.1",
   "dependencies": {
     "es6-shim": "^0.22.2",
     "express": "~4.4.5",
     "formidable": "^1.0.16",
     "request": "~2.21.0",
     "socket.io": "~1.0.0",
-    "underscore": "~1.4.4"
+    "underscore": "^1.13.8"
   },
   "devDependencies": {
-    "electron-prebuilt": "^1.2.2",
-    "electron-packager": "^7.5.1",
+    "@electron/packager": "^20.3.0",
+    "@electron/rebuild": "^4.2.0",
+    "@mediapipe/tasks-vision": "^1.0.1",
+    "bower": "^1.8.14",
+    "chai": "^3.5.0",
+    "cheerio": "^0.22.0",
+    "electron": "^43.4.1",
     "gaze": "~0.5.2",
     "matchdep": "~0.1.2",
+    "mocha": "^3.2.0",
+    "requirejs": "^2.3.8",
+    "sass": "^1.103.0",
+    "supertest": "^3.0.0",
     "uglify-js": "~2.4.16"
   },
-  "engines": {
-    "node": "4.5.5"
-  },
   "scripts": {
-    "start": "pkill phantomjs & node server/cli.js",
+    "start": "node server/cli.js",
+    "electron": "electron ./server",
+    "debug": "node --inspect-brk server/cli.js",
+    "test": "mocha --recursive",
+    "setup": "./buildScripts/setup.sh",
     "build": "npm run clean && cp ./server/emptyPatch.ntk ./server/currentPatch.ntk && npm run optimizeRequire && npm run compileSCSS && cp ./package.json ./server/dist",
-    "package": "npm run build && ./buildScripts/packageElectron.sh",
+    "package": "npm run build && node ./buildScripts/packageElectron.js",
+    "package:dev": "npm run build && node ./buildScripts/packageElectron.js --no-notarize",
     "dev": "npm run clean && npm run copyAppToDist && npm run compileSCSS && node ./buildScripts/liveReload.js & open http://localhost:9001 & npm start",
     "copyAppToDist": "cp -r ./app/* ./server/dist && cp ./package.json ./server/dist",
     "clean": "./buildScripts/clean.sh",
     "optimizeRequire": "./buildScripts/optimizeRequire.sh",
     "compileSCSS": "./buildScripts/buildSCSS.sh",
-    "reset": "./buildScripts/resetPatch.sh"
+    "reset": "./buildScripts/resetPatch.sh",
+    "rebuild": "electron-rebuild --module-dir server --only @serialport/bindings"
   }
 }

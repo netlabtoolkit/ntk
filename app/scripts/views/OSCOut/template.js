@@ -26,9 +26,18 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label for="messageName">message</label> <input name="messageName" type="text" rv-value="widget:messageName"><br>
-            <label for="server">server</label> <input name="server" type="text" rv-value="widget:server"><br>
-            <label for="port">port</label> <input name="port" type="text" rv-value="widget:port">
+            <div class="deviceIp">
+              <label class="narrowLabel">ip</label> <input class="address" type="text" pattern="[0-9]*" rv-value="widget:server">
+            </div>
+            <div class="devicePort">
+              <label class="narrowLabel">port</label> <input class="port" type="text" pattern="[0-9]*" rv-value="widget:port">
 				</div>
+            <div class="valueType">
+              <label class="narrowLabel">float</label> <input type="radio" name="valueType" value="float" rv-checked="widget:valueType">
+              <label class="narrowLabel">int</label> <input type="radio" name="valueType" value="int" rv-checked="widget:valueType">
+				</div>
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/oscout/" target="_blank">Widget help</a>
     </div>
 
 </div>

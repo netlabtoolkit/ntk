@@ -5,8 +5,9 @@ define([
 	'text!./template.js',
     'jqueryknob',
 
+	'utils/SignalChainFunctions',
 ],
-function(Backbone, rivets, WidgetView, Template, jqueryknob){
+function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunctions){
 	'use strict';
 
 	return WidgetView.extend({
@@ -30,12 +31,14 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				title: "OSCOut",
                 server: "127.0.0.1",
                 port: 57120,
-				messageName: "/ntk/out/1",
+				messageName: options.outputMapping,
 				outputMapping: options.outputMapping,
-                activeOut: true,
+                activeOut: false,
+                valueType: 'float',
 			});
 
             //this.signalChainFunctions.push(this.limitRange);
+            this.signalChainFunctions.push(SignalChainFunctions.roundToInt);
 
 			// This is here because this widget effectively does not output (only outputs to hardware and then, only on server)
 			// So we go ahead and process so the output can be shown in the widget
@@ -56,9 +59,119 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			}, this);
 		},
 
+		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'OSC' : this.model.get('deviceType')},
+		getDeviceServerName: function() {return ((this.model.get('server') == undefined) || (this.model.get('server') === true) ) ? '127.0.0.1' : this.model.get('server')},
+		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
+		// this.model's "server"/"port" are the OUTBOUND message target (e.g. SuperCollider),
+		// not something to open a receiving socket on. The hardware-model instance this widget
+		// routes through (for sendDeviceModelUpdate/hardwareSwitch bookkeeping only - the actual
+		// send target is parsed out of the outputMapping field string, independent of this key)
+		// must instead match OSCIn's default receiving key, so OSCOut/OSCIn widgets share one
+		// server-side instance instead of each opening their own UDP socket.
+		getReceivingDeviceKey: function() {return this.getDeviceModelType() + ':127.0.0.1:57190'},
+		inactiveModelsExist: function checkForInactiveModels() {
+			var inactiveModels = false;
+
+			if(this.sources.length > 0) {
+				for(var i=this.sources.length-1; i>=0; i--) {
+					var source = this.sources[i];
+
+					if(source.model.active === false) {
+						inactiveModels = true;
+					}
+				}
+			}
+
+			return inactiveModels;
+		},
+		enableDevice: function enableHardware() {
+			var modelType = this.getReceivingDeviceKey();
+
+			var outputModel = {};
+			outputModel[this.model.get('outputMapping')] = this.model.get("out");
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel, modeRequested: 3});
+			//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 3});
+			var hasInput = (this.deviceMode == 'in');
+
+			window.app.vent.trigger('Widget:hardwareSwitch', {
+				deviceType: this.getReceivingDeviceKey(),
+				port: this.model.get("outputMapping"),
+				mode: this.deviceMode,
+				hasInput: hasInput
+			});
+
+
+			var messageAddress = this.model.get('outputMapping');
+			app.Patcher.Controller.hardwareModelInstances[this.getReceivingDeviceKey()].model.attributes.outputs[messageAddress] = this.model.get('in');
+			app.Patcher.Controller.hardwareModelInstances[this.getReceivingDeviceKey()].model.attributes[messageAddress] = this.model.get('in');
+		},
+		unMapHardwareInlet: function unMapHardwareInlet() {
+
+			this.sourceToRemove = this.sources[0];
+			this.sources.length = 0;
+			this.sources = [];
+
+			if(this.sourceToRemove) {
+				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
+			}
+		},
 		onModelChange: function(model) {
 			for(var i=this.sources.length-1; i>=0; i--) {
 				this.syncWithSource(this.sources[i].model);
+			}
+
+			var changed = model.changedAttributes();
+
+			if(changed) {
+
+				var inactiveModels = this.inactiveModelsExist();
+
+				if(changed.server) {
+					this.model.set({server: changed.server, activeOut: false});
+				}
+				if(changed.port) {
+					this.model.set({port: changed.port, activeOut: false});
+				}
+
+
+				// If we haven't made the hardware model yet, then we should bind everything together
+				if( inactiveModels && this.model.get("activeOut") == true ) {
+					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
+						modelType = this.getDeviceModelType();
+
+					this.unMapHardwareInlet();
+
+					var server = this.getDeviceServerName();
+					var port = this.getDeviceServerPort();
+
+					// We do NOT pass a "model" attribute indicating hardware widget
+					app.Patcher.Controller.mapToModel({
+						view: this,
+						modelType: modelType,
+						IOMapping: {sourceField: "out", destinationField: this.model.get('outputMapping')},
+						server: server + ":" + port,
+					}, true);
+
+					this.enableDevice();
+
+					//if(changed['messageName'] !== undefined || changed.server !== undefined || changed.port !== undefined) {
+						// add the message to the outputs of the OSC hardware device
+					//}
+				}
+
+				if(app.Patcher.Controller.hardwareModelInstances[this.getReceivingDeviceKey()] !== undefined) {
+					if((changed['messageName'] !== undefined) || (changed.server !== undefined) || (changed.port !== undefined) ) {
+						// add the message to the outputs of the OSC hardware device
+						var messageAddress = this.model.get('outputMapping');
+
+						app.Patcher.Controller.hardwareModelInstances[this.getReceivingDeviceKey()].model.attributes.outputs[messageAddress] = this.model.get('in');
+						app.Patcher.Controller.hardwareModelInstances[this.getReceivingDeviceKey()].model.attributes[messageAddress] = this.model.get('in');
+					}
+				}
+
+				if(changed.messageName == '/ntk/out/1:127.0.0.1:57120') {
+					this.model.set('messageName', '/ntk/out/1');
+				}
 			}
 		},
         onRender: function() {

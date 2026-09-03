@@ -48,10 +48,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.model.on('change', this.onModelChange, this);
 			this.model.on('change', this.checkOutputMappingUpdate, this);
 
-			window.app.on('Widget:removeMapping', this.removeMapping, this);
+			window.app.vent.on('Widget:removeMapping', this.removeMapping, this);
 
 			this.setWidgetBinders();
 			this.setTopZIndex();
+
+
+			this.lastQueuedSyncWithSource = undefined;
 		},
 		onRender: function() {
 			var self = this;
@@ -70,6 +73,29 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
             this.$( ".widgetBottom .content" ).hide();
             this.$( ".widgetBottom .tab" ).click(function() {
+				// Widgets in this list manage .deviceIp's visibility
+				// declaratively (a rivets rv-class-networkmode binding
+				// reacting to deviceType, see Widget.scss) - jQuery's
+				// .show()/.hide() here would set an inline style that
+				// permanently outlives this click and beats that
+				// class-based CSS rule, e.g. a .hide() while still in
+				// Serial mode would block the field from ever showing
+				// again even after switching to Network. Add a widget's
+				// typeID here once it's been converted to that pattern.
+				var usesDeclarativeDeviceVisibility = ['AnalogIn', 'Servo', 'AnalogOut', 'DigitalOut', 'GroveSensor'].indexOf(self.typeID) !== -1;
+				if (!usesDeclarativeDeviceVisibility) {
+					if (self.model.get("deviceType") == "network") {
+						self.$('.deviceIp').show();
+					}
+					else {
+						self.$('.deviceIp').hide();
+					}
+
+					if(self.typeID == 'OSCOut') {
+						self.$('.deviceIp').show();
+					}
+				}
+
                 self.$( ".widgetBottom .content" ).toggle();
             });
 
@@ -88,7 +114,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		checkOutputMappingUpdate: function checkOutputMappingUpdate(model) {
 
 			var outputMapping = model.changedAttributes().outputMapping,
-				hasInput = this.deviceMode == 'in';
+				hasInput = (this.deviceMode == 'in');
 
 			if(outputMapping) {
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
@@ -97,7 +123,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 					var deviceType = this.sources[i].model.get('type');
 					if(deviceType !== undefined) {
 						window.app.vent.trigger('Widget:hardwareSwitch', {
-							deviceType: deviceType,
+							deviceType: deviceType + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),
 							port: outputMapping,
 							mode: this.deviceMode,
 							hasInput: hasInput
@@ -111,10 +137,13 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
 				// Do this for all sources and include the address of the source
 				for(var i=this.sources.length-1; i>=0; i--) {
-					window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: this.sources[i].model.get('type'), port: inputMapping, mode: this.deviceMode} );
+					window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: this.sources[i].model.get('type') + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(), port: inputMapping, mode: this.deviceMode} );
 				}
 			}
 		},
+		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
+		getDeviceServerName: function() {return ((this.model.get('server') == undefined) || (this.model.get('server') === true) ) ? '127.0.0.1' : this.model.get('server')},
+		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
 		makeDraggable: function() {
 
 			var updateCables = function updateCables(e, object) {
@@ -328,7 +357,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				// Remove the cable and the reference to the cable from the cables array
 				var cableToRemove = _.find(this.cables, function(item) { return item.map.destinationField === inletField});
 
-				//window.app.vent.trigger('Widget:removeMapping', cableToRemove.map, this.model.get('wid') );
 				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
 
 				cableToRemove !== undefined && cableToRemove.cable.remove();
@@ -336,11 +364,22 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 
 		},
-		removeMapping: function removeMapping(modelWID) {
-			if(modelWID !== 'ArduinoUno') {
-				this.sources = _.reject(this.sources, function(source) {
-					return source.model.attributes.wid == modelWID;
-				});
+		removeMapping: function removeMapping(source, modelWID) {
+			if(source.viewWID == this.model.get('wid') ) {
+				var modelType = modelWID.split(":")[0];
+
+				if(modelType !== 'ArduinoUno') {
+					this.sources = _.reject(this.sources, function(source) {
+						return source.model.attributes.wid == modelWID;
+					});
+				}
+				else {
+					// IF the model is a hardware model
+					this.sources = _.reject(this.sources, function(source) {
+						//TODO: This seems sketchy. Doesn't allow for more than one type of device
+						return source.model.attributes.type == modelType;
+					});
+				}
 			}
 		},
 		/**
@@ -422,7 +461,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}
 			}
 
-			if(this.$('.settings input').parents('.rightTab') ) {
+			if(this.$('.settings input').parents('.rightTab').length > 0 ) {
 				this.model.set('outputMapping', inputVal);
 			}
 			else {
@@ -450,8 +489,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			// Check if we already have this mapping in sources
 			var duplicate = false;
 			for(var i=this.sources.length-1; i>=0; i--) {
-				if(this.sources[i].map.destinationField === map.map.destinationField 
+				if(
+					this.sources[i].map.destinationField === map.map.destinationField 
 				   && this.sources[i].map.sourceField === map.map.sourceField
+				   && this.sources[i].model.cid === map.model.cid
 				   && this.sources[i].model.get('wid') === map.model.get('wid') ) {
 					   duplicate = true;
 				   }
@@ -477,21 +518,52 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 		},
 		syncWithSource: function(externalModel, options) {
+			if(options && (options.noRetrigger == true) ) {
+				return false;
+			}
+
 			var thisWidgetModel = this.model;
 
 			var sourceMappings = _.map(_.where(this.sources, {model: externalModel}), function(source) {
 				return source.map;
 			});
 
+			// Trying to avoid duplicates caused my mouse events
+			if( this.lastQueuedSyncWithSource == JSON.stringify(externalModel.attributes) ) {
+				this.lastQueuedSyncWithSource = JSON.stringify(externalModel.attributes);
+
+				//return false;
+			}
+
+			this.lastQueuedSyncWithSource = JSON.stringify(externalModel.attributes);
+
 			// Map any incoming data to this model's data
 			for(var i=sourceMappings.length-1; i>=0; i--) {
 				var mapping = sourceMappings[i];
 				if(thisWidgetModel.get('active') && thisWidgetModel.attributes[mapping.destinationField] !== undefined) {
-					var attributes = {},
-						value = externalModel.get(mapping.sourceField);
-					attributes[mapping.destinationField] = value == undefined ? 0 : value;
-                    // update the input of the widget
-					thisWidgetModel.set(attributes, {updateNoTrigger: true});
+					var value = externalModel.get(mapping.sourceField);
+					// A 'change' event on the source model fires for ANY of
+					// its attributes, not just this mapping's sourceField -
+					// if that specific field happens to be undefined on
+					// this particular change (e.g. a stale/unrelated
+					// mapping, or a source model that doesn't carry this
+					// field), there is no new data to apply. Previously
+					// this defaulted to 0, which meant an unrelated change
+					// elsewhere on the source could stomp the widget's
+					// input to 0 - leave it alone instead.
+					if(value !== undefined) {
+						var attributes = {};
+						attributes[mapping.destinationField] = value;
+						// update the input of the widget
+
+						var trigger = true;
+						if(this.deviceMode == 'in') {
+							trigger = false;
+						}
+
+						// updateNoTrigger refers to the widget itself not being updated, while the trigger refers to the model not triggering an update
+						thisWidgetModel.set(attributes, {updateNoTrigger: true, trigger: trigger});
+					}
 				}
 				//else if(thisWidgetModel.get('active') && thisWidgetModel.get('activeOut') && externalModel.attributes[mapping.destinationField] !== undefined) {
 				else if(thisWidgetModel.get('active') && thisWidgetModel.get('activeOut')) {
@@ -506,7 +578,8 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 							trigger = false;
 						}
 
-						externalModel.set(attributes, {fromServer: false, trigger: trigger});
+						// SET!
+						externalModel.set(attributes, {fromServer: false, trigger: trigger, noRetrigger: true});
 					}
 
 				}
@@ -569,6 +642,12 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		setFromModel: function(model) {
 			this.$el.css({top: model.offsetTop, left: model.offsetLeft});
 			this.model.set(model);
+
+			// TODO: an eleventh hour hack to make sure that active and activeOut is properly set
+			this.model.set('active', model.active);
+			this.model.set('activeOut', model.activeOut);
+
+			(this.enableDevice !== undefined) && this.enableDevice();
 
 			return this;
 		},

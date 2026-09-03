@@ -8,20 +8,31 @@ module.exports = function(options) {
 
 	//domain.run(function() {
 
-		var deviceType = options.deviceType || 'ArduinoUno';
+	if(options === undefined) {
+		options = {deviceType: 'ArduinoUno'};
+	}
 
+	var deviceType = options.deviceType;
 		var modelMap = {
 			ArduinoUno: './ArduinoModel',
 			OSC: './OSC',
-			galileo: './Galileo2Model',
-			edison: './EdisonModel',
+			network: './NetworkModel',
 		};
 		var sensors = [],
 			outputs = {};
 
+		//this.outputs = outputs;
 
-		var model = new require(modelMap[deviceType])(options);
+
+		var deviceTypeParsed = deviceType.split(":");
+		deviceTypeParsed = deviceTypeParsed[0];
+		options.deviceType = deviceTypeParsed;
+
+		//console.log('modelMap chose', deviceTypeParsed, options);
+
+		var model = new require(modelMap[deviceTypeParsed])(options);
 		this.model = model;
+		this.model.address = deviceType;
 
 		var Hardware = {
 			model: model,

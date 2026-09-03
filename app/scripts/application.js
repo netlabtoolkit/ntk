@@ -13,6 +13,35 @@ function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule) {
 	var App = new Backbone.Marionette.Application();
 	window.app = App;
 
+	// Default Device settings, shown in the left-panel Settings drawer -
+	// every newly-placed hardware widget (AnalogIn/AnalogOut/DigitalIn/
+	// DigitalOut/Servo) picks these up as its own initial Device/ip/port
+	// so you don't have to re-enter the network address on every widget.
+	// Purely a creation-time default - has no effect on widgets already
+	// on the canvas. See ToolBar.js/ToolBar_tmpl.js for the UI and
+	// Patcher.js's applyDefaultDeviceToModel/getDefaultDeviceMapping for
+	// where it's consumed.
+	App.defaultDevice = {
+		deviceType: 'ArduinoUno',
+		server: 'auto',
+		port: 3030,
+	};
+
+	// Restore the last-saved default (see ToolBar.js's persistDefaultDevice,
+	// called whenever the Settings drawer's Device controls change) so the
+	// last IP/port entered is still there on the next launch, instead of
+	// resetting to the hardcoded fallback above every time. localStorage
+	// persists per-origin in Electron's renderer, same as any browser.
+	try {
+		var savedDefaultDevice = JSON.parse(localStorage.getItem('ntk.defaultDevice'));
+		if(savedDefaultDevice) {
+			_.extend(App.defaultDevice, savedDefaultDevice);
+		}
+	}
+	catch(e) {
+		// Corrupt/missing localStorage entry - just keep the hardcoded default.
+	}
+
 	// Regions
 	App.addRegions({
 		patcherRegion: '#patcherRegion',
@@ -53,6 +82,8 @@ function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule) {
 
 				i++;
 			}
+
+			$('#toolBarRegion .settings').append('<div class="versionBeta">Beta</div>');
 
 			if(versionIsCurrent) {
 				$('#toolBarRegion .settings').append('<div class="version">v'+localData.version+'</div>');

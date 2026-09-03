@@ -11,7 +11,8 @@ function( Backbone ) {
 
 	SocketAdapter.prototype = {
 		bindToSocketServer: function() {
-			var serverAddress = window.location.host,
+			//var serverAddress = window.location.host,
+			var serverAddress = "127.0.0.1:9001",
 				self = this;
 
 			console.log("SERVER ADDRESS", serverAddress);
@@ -60,6 +61,11 @@ function( Backbone ) {
 			});
 			//END MODEL AND PATCH UPDATES
 
+			// List of currently connected serial ports, for the Serial device port picker
+			socket.on("serialPortList", function(ports) {
+				window.app.vent.trigger('serialPortList', ports);
+			});
+
 			socket.on("disconnect", function() {
 				self.connected = false;
 			});
@@ -79,6 +85,7 @@ function( Backbone ) {
 			var sendQueue = [];
 			// DEVICE MODEL
 			window.app.vent.on('sendDeviceModelUpdate', function(options) {
+
 				if(window.app.server || !window.app.serverMode) {
 
 					// Queue and package multiple messages
@@ -88,7 +95,7 @@ function( Backbone ) {
 						return queueItem.modelType == options.modelType && _.findWhere(queueItem.model[field] ) !== undefined;
 					});
 
-					if(previouslyQueued !== undefined) {
+					if(previouslyQueued != undefined && previouslyQueued != null) {
 						sendQueue.push(options);
 					}
 					else {
@@ -107,7 +114,10 @@ function( Backbone ) {
 					}
 
 					deviceUpdateThrottleID = setTimeout(function() {
-						socket.emit('sendModelUpdate', sendQueue);
+						for(var i=sendQueue.length-1; i >=0; i--) {
+							socket.emit('sendModelUpdate', sendQueue[i]);
+						}
+
 						deviceUpdateThrottleID = undefined;
 
 						sendQueue.length = 0;
@@ -188,6 +198,10 @@ function( Backbone ) {
 			window.app.vent.on('ToolBar:toggleServer', function(options) {
 				socket.emit('client:toggleServer');
 				window.app.serverMode = !window.app.serverMode;
+			});
+
+			window.app.vent.on('listSerialPorts', function() {
+				socket.emit('client:listSerialPorts');
 			});
 		},
 	};

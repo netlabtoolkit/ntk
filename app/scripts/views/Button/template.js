@@ -38,6 +38,8 @@
             <label class="narrowLabel">width</label> <input class="buttonWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:buttonWidth"><br>
             <label class="narrowLabel">height</label> <input class="buttonHeight" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:buttonHeight"><br>
             <label class="narrowLabel">size</label> <input class="buttonFontSize" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:buttonFontSize"><br>
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/button/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

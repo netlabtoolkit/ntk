@@ -2,17 +2,21 @@
 module.exports = function(attributes) {
 
 	var _ = require('underscore'),
+		utils = require('../../utils')(),
 		osc = require('node-osc'),
 		events = require('events'),
 		es6 = require('es6-shim'),
-		address = attributes.address,
-		setThrottlerID;
+		address = attributes.address;
+	var setThrottlerID,
+		sendQueue = {},
+		QueueHandler = utils.QueueHandler;
+
 
 	var constructor = function() {
 		var options = attributes;
 
 		this.OSCClients = {};
-		var OSCServer = new osc.Server(57190);
+		var OSCServer = new osc.Server(parseInt(attributes.port, 10) || 57190);
 
 		OSCServer.on("message", function (msg, rinfo) {
 			var field = msg[0],
@@ -24,6 +28,8 @@ module.exports = function(attributes) {
 
 		this.OSCServer = OSCServer;
 
+		this.queueHandler = new QueueHandler( this.receiveOSCMessage.bind(this) );
+
 		return this;
 	};
 
@@ -33,41 +39,63 @@ module.exports = function(attributes) {
 			return this.receiving[field];
 		},
 		set: function(field, value) {
-			// If data is coming in TOO fast then we need to throttle it to avoid overloading NTK's network
-			if(setThrottlerID !== undefined) {
-				clearTimeout(setThrottlerID);
+
+			// Filter out anything that is not a valid OSC path
+			if(!field.match(/^\//) ) {
+				return false;
 			}
 
-			setThrottlerID = setTimeout(function() {
-
-				if(this.sending[field] !== undefined) {
-					if(parseFloat(this.sending[field],10) !== parseFloat(value,10)) {
-
-						var messageServerPort = field.split(':');
-						var serverPort = messageServerPort[1] + ":" + messageServerPort[2];
-						this.sending[field] = value;
-
-						var client = this.OSCClients[ serverPort ];
-
-						if(client == undefined) {
-							this.OSCClients[serverPort] = new osc.Client(messageServerPort[1], messageServerPort[2]);
-							client = this.OSCClients[serverPort];
-						}
-
-						client.send(messageServerPort[0], value);
-					}
+				// An outbound send (from a widget, e.g. OSCOut) encodes "address:ip:port"
+				// (see OSCOut.js's outputMapping); a real incoming OSC address (decoded off
+				// the network, or this app's own /ntk/in/N convention) never contains a colon.
+				// Route by that distinction instead of a fixed whitelist, so any OSC address
+				// - not just the predefined /ntk/in/N placeholders - can be received.
+				if(field.indexOf(':') === -1) {
+					this.queueHandler.addToQueue({field: field, value: value});
 				}
-				else if(this.receiving[field] !== undefined) {
-					if(parseFloat(this.receiving[field], 10) !== parseFloat( value, 10 )) {
-						this.receiving[field] = value;
-						this.emit('change', {field: field, value: this.receiving[field]});
-					}
+				else {
+					this.sendOSCMessage(field, value);
 				}
 
-				setThrottlerID = undefined;
-			}.bind(this), 10);
 
 			return this;
+		},
+		receiveOSCMessage: function(fieldValues) {
+			for(var i=fieldValues.length-1; i >= 0; i--) {
+				var field = fieldValues[i].field,
+					value = fieldValues[i].value;
+
+				// cycle through all fields and value and then set the corresponding field.
+				if(parseFloat(this.receiving[field], 10) !== parseFloat( value, 10 )) {
+					this.receiving[field] = value;
+
+					this.emit('change', {field: field, value: this.receiving[field]});
+				}
+			}
+
+		},
+		sendOSCMessage: function(field, value) {
+			// If there is no output field at this address yet then create one
+			if(this.sending[field] == undefined) {
+				this.sending[field] = 0;
+			}
+
+			if(parseFloat(this.sending[field],10) !== parseFloat(value,10)) {
+
+				var messageServerPort = field.split(':');
+				var serverPort = messageServerPort[1] + ":" + messageServerPort[2];
+				this.sending[field] = value;
+
+				var client = this.OSCClients[ serverPort ];
+
+				if(client == undefined) {
+					this.OSCClients[serverPort] = new osc.Client(messageServerPort[1], messageServerPort[2]);
+
+					client = this.OSCClients[serverPort];
+				}
+
+				client.send(messageServerPort[0], value);
+			}
 		},
 		setPollSpeed: function(highLow) {
 		},
@@ -79,6 +107,17 @@ module.exports = function(attributes) {
 			else if(mode == 'out') {
 				this.sending[pin] = 0;
 			}
+		},
+		// Releases the real OS sockets this instance opened - the receiving UDP socket and
+		// any per-target outbound clients - so the port is free again once nothing references
+		// this instance (see nlMultiClientSync.js, which calls this on widget deletion).
+		close: function close() {
+			this.OSCServer.kill();
+
+			for(var serverPort in this.OSCClients) {
+				this.OSCClients[serverPort].kill();
+			}
+			this.OSCClients = {};
 		},
 	};
 	_.extend(constructor.prototype, OSCHardwareModel);
@@ -92,9 +131,35 @@ module.exports = function(attributes) {
 		type: 'OSC',
 		receiving: {
 			'/ntk/in/1': 0,
+			'/ntk/in/2': 0,
+			'/ntk/in/3': 0,
+			'/ntk/in/4': 0,
+			'/ntk/in/5': 0,
+			'/ntk/in/6': 0,
+			'/ntk/in/7': 0,
+			'/ntk/in/8': 0,
+			'/ntk/in/9': 0,
+			'/ntk/in/10': 0,
+			'/ntk/in/11': 0,
+			'/ntk/in/12': 0,
+			'/ntk/in/13': 0,
+			'/ntk/in/14': 0,
 		},
 		sending: {
-			'ntkSendMsg:127.0.0.1:57120': 0,
+			'/ntk/out/1:127.0.0.1:57120': 0,
+			'/ntk/out/2:127.0.0.1:57120': 0,
+			'/ntk/out/3:127.0.0.1:57120': 0,
+			'/ntk/out/4:127.0.0.1:57120': 0,
+			'/ntk/out/5:127.0.0.1:57120': 0,
+			'/ntk/out/6:127.0.0.1:57120': 0,
+			'/ntk/out/7:127.0.0.1:57120': 0,
+			'/ntk/out/8:127.0.0.1:57120': 0,
+			'/ntk/out/9:127.0.0.1:57120': 0,
+			'/ntk/out/10:127.0.0.1:57120': 0,
+			'/ntk/out/11:127.0.0.1:57120': 0,
+			'/ntk/out/12:127.0.0.1:57120': 0,
+			'/ntk/out/13:127.0.0.1:57120': 0,
+			'/ntk/out/14:127.0.0.1:57120': 0,
 		},
 	});
 

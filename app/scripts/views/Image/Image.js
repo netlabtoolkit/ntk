@@ -17,7 +17,8 @@ function(Backbone, rivets, WidgetView, Template){
         widgetEvents: {
 			'mouseup .detachedEl': 'imgMoved',
       'change .displayWidth': 'setImageDimensions',
-      'change .srcFile': 'setSrc',
+      'change .srcFile': 'srcFileChange',
+      'click .browseImage': 'browseImage',
 		},
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
@@ -25,6 +26,7 @@ function(Backbone, rivets, WidgetView, Template){
 			this.model.set({
 				src: 'assets/images/ntk_logo.jpg',
         srcFile: 'ntk_logo.jpg',
+        localImagePath: null,
 				ins: [
 					//{name: 'in', to: 'in'},
 					{title: 'X Position', to: 'left'},
@@ -95,8 +97,41 @@ function(Backbone, rivets, WidgetView, Template){
             }
         },
 
+        srcFileChange: function() {
+          // Typing a bundled asset filename should take back over from a
+          // previously browsed-to local file, not be silently ignored.
+          this.model.set('localImagePath', null);
+          this.setSrc();
+        },
+
         setSrc: function() {
-          this.model.set('src','assets/images/' + this.model.get('srcFile'));
+          var localImagePath = this.model.get('localImagePath');
+
+          if (localImagePath) {
+            // Served through /localImage (see routes.js) rather than as a direct
+            // file:// src - Chromium blocks file:// loads from a page loaded
+            // over http, which is how this app's renderer is loaded.
+            this.model.set('src', '/localImage?path=' + encodeURIComponent(localImagePath));
+          }
+          else {
+            this.model.set('src','assets/images/' + this.model.get('srcFile'));
+          }
+        },
+
+        browseImage: function() {
+          if (!window.ntkElectron) {
+            // Not running inside the Electron app (e.g. a remote browser client) -
+            // no local file picker available, fall back to the assets/images field.
+            return;
+          }
+
+          var self = this;
+          window.ntkElectron.pickImageFile().then(function(filePath) {
+            if (filePath) {
+              self.model.set('localImagePath', filePath);
+              self.setSrc();
+            }
+          });
         },
 
 	});

@@ -41,6 +41,8 @@
             <hr>
             <strong>Displayed Text</strong><br>
             <textarea class="database" rv-value="widget:in" rows="4" cols="70"></textarea>
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/text/" target="_blank">Widget help</a>
         </div>
     </div>
 

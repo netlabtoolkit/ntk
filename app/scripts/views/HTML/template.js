@@ -37,6 +37,8 @@
             <textarea class="userHtml" rv-value="widget:userHtml" rows="6" cols="70"></textarea><br>
             CSS<br>
             <textarea class="userCss" rv-value="widget:userCss" rows="6" cols="70"></textarea>
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/html/" target="_blank">Widget help</a>
         </div>
     </div>
 

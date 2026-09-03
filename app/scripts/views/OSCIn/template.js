@@ -13,9 +13,9 @@
 
     <div class="widgetBody">
         <div class="dialwrapper" style="position:relative;">
-            <input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/>
-            <div class="display invalue" rv-text="widget:in | twodecimals">0</div>
-            <div class="display outvalue" rv-text="widget:out | twodecimals">180</div>
+            <div class="display invalue" rv-text="widget:in | rounded">100</div>
+            <div class="display outvalue" rv-text="widget:out | rounded">180</div>
+            <div style="position:relative;"><input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/></div>
         </div>
 
         <table class="rangeTable" border="0" cellspacing="3" cellpadding="0">
@@ -38,8 +38,10 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-            Receiving on port: <strong>57190</strong><br>
+            <label class="narrowLabel">port</label> <input class="port" type="text" pattern="[0-9]*" rv-value="widget:port"><br>
             <label for="messageName">message</label> <input name="messageName" type="text" rv-value="widget:messageName">
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/oscin/" target="_blank">Widget help</a>
 		</div>
     </div>
 </div>

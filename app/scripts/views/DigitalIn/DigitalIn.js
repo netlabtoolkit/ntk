@@ -17,6 +17,8 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			'click .smoothing': 'toggleSmoothing',
             'click .easing': 'toggleEasing',
             'change .smoothingAmount': 'smoothingAmtChange',
+            'mousedown .serialPortPicker': 'requestSerialPorts',
+            'change .settings input': 'switchToInputMode',
 		},
 		ins: [
 			//{
@@ -31,6 +33,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		typeID: 'DigitalIn',
 		deviceMode: 'INPUT',
 		className: 'digitalIn',
+		pinMode: 3,
 		categories: ['I/O'],
 		template: _.template(Template),
 		initialize: function(options) {
@@ -41,7 +44,9 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				title: 'DigitalIn',
 				easing: false,
 				easingAmount: 30,
-				smoothingAmount: 60
+				smoothingAmount: 60,
+				active: false,
+				port: this.model.get('port') || 3030,
 
 			});
 
@@ -71,16 +76,178 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 			window.app.timingController.registerFrameCallback(this.localTimeKeeperFunc, this);
 
+			// Unlike an analog pin (which addDefaultPins() on the server
+			// already configures unconditionally for every analog-capable
+			// pin the device reports, so it's already readable the moment
+			// you point a widget at it), a digital pin only becomes
+			// readable once the server explicitly calls
+			// setIOMode(pin, 'INPUT') to swap it for a five.Button - that
+			// round-trip has to be triggered here. Delayed so this.sources
+			// is populated (mapToModel runs after initialize()).
 			window.setTimeout(function() {
-				var modelType = this.sources[0].model.get('type');
-				window.app.vent.trigger('Widget:hardwareSwitch', {deviceType: modelType, mode: 'INPUT', port: this.model.get('inputMapping'), hasInput: true });
+				this.switchToInputMode();
 			}.bind(this), 3000);
 
+			this.onSerialPortList = function(ports) {
+				this.updateSerialPortOptions(ports);
+			}.bind(this);
+			window.app.vent.on('serialPortList', this.onSerialPortList);
+
+			if(this.getDeviceModelType() === 'ArduinoUno') {
+				this.requestSerialPorts();
+			}
+		},
+		/**
+		 * switchToInputMode - tell the server to configure the currently
+		 * mapped pin as a digital INPUT (see the comment in initialize()).
+		 * Re-run whenever the mapped pin changes (the 'change .settings
+		 * input' widgetEvent), not just once at creation, since editing
+		 * that field only updates this.sources[0].map.sourceField - it
+		 * isn't a Backbone model attribute, so WidgetMulti's generic
+		 * checkOutputMappingUpdate (which only reacts to inputMapping/
+		 * outputMapping model changes) never sees it.
+		 *
+		 * @return {void}
+		 */
+		switchToInputMode: function() {
+			if(this.sources[0] === undefined) { return; }
+
+			window.app.vent.trigger('Widget:hardwareSwitch', {
+				// Must be the full "type:host:port" hardware key (matching
+				// WidgetMulti.checkOutputMappingUpdate) - the server looks
+				// this up directly in its hardwareModels map, and a bare
+				// type string (e.g. "network") never matches, silently
+				// dropping the mode switch.
+				deviceType: this.sources[0].model.get('type') + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),
+				port: this.sources[0].map.sourceField,
+				mode: 'INPUT',
+				hasInput: true,
+			});
+		},
+		requestSerialPorts: function() {
+			window.app.vent.trigger('listSerialPorts');
+		},
+		updateSerialPortOptions: function(ports) {
+			var $select = this.$('.serialPortSelect'),
+				currentValue = this.model.get('server');
+
+			$select.find('option.detectedPort').remove();
+
+			_.each(ports, function(port) {
+				var label = port.manufacturer ? port.path + ' (' + port.manufacturer + ')' : port.path;
+				$select.append('<option class="detectedPort" value="' + port.path + '">' + label + '</option>');
+			});
+
+			if(ports.length === 1 && (currentValue === undefined || currentValue === 'auto')) {
+				this.model.set('server', ports[0].path);
+			}
+
+			$select.val(this.model.get('server') || 'auto');
 		},
 
+		onModelChange: function(model) {
+			var changed = model.changedAttributes();
+
+			if(changed) {
+				if(changed.server) {
+					this.model.set({server: changed.server, active: false});
+				}
+				if(changed.port) {
+					this.model.set({port: changed.port, active: false});
+				}
+
+				if(changed.deviceType) {
+					this.model.set({deviceType: changed.deviceType, active: false});
+					// Network vs. serial field visibility is handled declaratively
+					// in the template (rv-class-networkmode on widget:deviceType),
+					// so it's correct on every render - not just when deviceType
+					// happens to fire as a Backbone "change" event, which used to
+					// leave a freshly-rendered Network-mode widget showing the
+					// serial picker instead of the ip/port fields (CSS's static
+					// default) until the user touched deviceType again. Serial
+					// port enumeration still needs an explicit request, though -
+					// rivets can't trigger that.
+					if(!app.server && changed.deviceType !== "network") {
+						this.requestSerialPorts();
+					}
+				}
+
+				// Check if there are any inactive models that we will need to activate
+				var inactiveModels = this.inactiveModelsExist();
+
+				if( inactiveModels && this.model.get("active") == true ) {
+					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
+						modelType = this.getDeviceModelType();
+
+					//this.unMapHardwareInlet();
+
+					var server = this.getDeviceServerName();
+					var port = this.getDeviceServerPort();
+
+					app.Patcher.Controller.mapToModel({
+						view: this,
+						modelType: modelType,
+						IOMapping: {sourceField: sourceField, destinationField: 'in'},
+						server: server + ":" + port,
+					}, true);
+
+					this.enableDevice();
+
+				}
+
+			}
+		},
+		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
+		getDeviceServerName: function() {
+			var server = this.model.get('server');
+			if(server !== undefined && server !== true) return server;
+			// 192.168.4.1 matches the CircuitPython Firmata firmware's SoftAP
+			// mode fixed IP - a reasonable default now that boards can be
+			// reached that way with nothing to discover.
+			return this.getDeviceModelType() === 'ArduinoUno' ? 'auto' : '192.168.4.1';
+		},
+		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 3030 : this.model.get('port')},
+		inactiveModelsExist: function checkForInactiveModels() {
+			var inactiveModels = false;
+
+			if(this.sources.length > 0) {
+				for(var i=this.sources.length-1; i>=0; i--) {
+					var source = this.sources[i];
+
+					//if(!source.model.get("active") ) {
+					if(!source.model.active ) {
+						inactiveModels = true;
+					}
+				}
+			}
+
+			return inactiveModels;
+		},
+		unMapHardwareInlet: function unMapHardwareInlet() {
+
+			this.sourceToRemove = this.sources[0];
+			this.sources.length = 0;
+			this.sources = [];
+
+			if(this.sourceToRemove) {
+				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
+			}
+		},
 		onRender: function() {
+			// Must be registered before WidgetView.prototype.onRender below -
+			// see CLAUDE.md's Rivets/Backbone gotcha.
+			if(!app.server) {
+				rivets.formatters.isNetworkDeviceType = function(deviceType) {
+					return deviceType === 'network';
+				};
+			}
+
 			WidgetView.prototype.onRender.call(this);
 			var self = this;
+
+			if(this.getDeviceModelType() === 'ArduinoUno') {
+				this.requestSerialPorts();
+			}
 
 			this.$('.dial').knob({
 				'fgColor':'#000000',
@@ -115,6 +282,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		onRemove: function() {
 			window.app.timingController.removeFrameCallback(this.localProcessSignalChain, this);
             window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
+			window.app.vent.off('serialPortList', this.onSerialPortList);
 		},
 		toggleInvert: function(e) {
 			e.preventDefault();
@@ -171,6 +339,25 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			this.smoother.setBufferLength(this.model.get('smoothingAmount'));
 		},
 
+		enableDevice: function enableHardware() {
+			console.log('ENABLE DEVICE');
+			// TODO: Hack for now due to hardware usually being triggered from edit mode.
+			// Temporarily dipping into edit mode for now. See SocketAdapter:registerOutboundClientEvents
+			var switchBack = false;
+			if(window.app.serverMode == true) {
+				window.app.serverMode = false;
+				switchBack = true;
+			}
+
+			var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
+
+			//var outputModel = {};
+			//outputModel[this.model.get('outputMapping')] = this.model.get("out");
+			//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel });
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
+
+			(switchBack === true) && (window.app.serverMode = true);
+		},
 	});
 });
 

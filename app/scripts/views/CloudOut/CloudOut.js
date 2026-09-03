@@ -26,7 +26,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {
 			'change .sendToCloud': 'sendToCloud',
-            'change .cloudService': 'changeCloudService',
 		},
 		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'CloudOut',
@@ -42,35 +41,19 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.model.set({
                 title: 'CloudOut',
                 sendPeriod: 10000,
-                cloudService: 'ioadafruit',
-                // sparkfun phant
-                phantPrivateKey: '',
-                phantPublicKey: '',
-                phantDataField: 'mydata',
-                phantUrl: 'https://data.sparkfun.com',
-                // particle.io
-                particlePin: 'D0',
-                particleDeviceId: '',
-                particleAccessToken: '',
-								// thingspeak.com
-								thingspeakWriteApiKey: '',
-								// io.adafruit.com
-								ioAdafruitAioKey: '',
-								ioAdafruitUsername: '',
-								ioAdafruitFeedKey: 'mydata',
+                // io.adafruit.com
+                aioUsername: '',
+                aioKey: '',
+                aioFeedKey: '',
                 //
                 averageInputs: false,
                 roundOutput: true,
                 sendToCloud: false,
                 displayTimerStart: false,
                 displayText: "Stopped",
-								dataLimitWaiting: false,
                 //
                 lastValueSentToCloud: "-1000",
                 lastTimeSentToCloud: 0,
-                repeatSameCount: 0,
-                resendRepeatSameInterval: 5,
-								dataLimitWaiting: false,
 
             });
 
@@ -127,8 +110,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				$(el).val(value);
 				$(el).trigger('change');
 			};
-
-            this.init = false; // set up to do changeCloudService to make sure interface is correct
         },
 
 
@@ -137,41 +118,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		onRemove: function() {
 			window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
 		},
-
-        changeCloudService: function(e) {
-            // update the more section to show options only for the current cloud service
-            if(!app.server) {
-                var service = this.model.get('cloudService');
-                switch(service) {
-                    case 'sparkfun':
-                        this.$('.sparkfun').show();
-                        this.$('.particle').hide();
-												this.$('.thingspeak').hide();
-												this.$('.ioadafruit').hide();
-                        break;
-                    case 'particle':
-                        this.$('.sparkfun').hide();
-                        this.$('.particle').show();
-												this.$('.thingspeak').hide();
-												this.$('.ioadafruit').hide();
-                        break;
-										case 'thingspeak':
-                        this.$('.sparkfun').hide();
-                        this.$('.particle').hide();
-												this.$('.thingspeak').show();
-												this.$('.ioadafruit').hide();
-                        break;
-										case 'ioadafruit':
-												this.$('.ioadafruit').show();
-                        this.$('.sparkfun').hide();
-                        this.$('.particle').hide();
-												this.$('.thingspeak').hide();
-                        break;
-                    default:
-                        //
-                }
-            }
-        },
 
         watchData: function(input) {
             var value = input;
@@ -204,12 +150,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
 
         timeKeeper: function(frameCount) {
-            //console.log('sending: ' + this.model.get('sendToCloud') + this.model.get('phantDataField'));
-
-            if (this.init == false) {
-                this.changeCloudService();
-                this.init = true;
-            }
             if (this.model.get('sendToCloud')) {
                 var self = this;
                 var period = this.model.get('sendPeriod');
@@ -224,10 +164,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 var timeDiff = Date.now() - this.startTime;
                 var lastTimeSentTimeDiff = Date.now() - this.model.get('lastTimeSentToCloud');
                 var theValue = (this.model.get('out')).toString();
-								var timeMessage = " Send in: ";
-								if (this.model.get('dataLimitWaiting')) {
-									timeMessage = "Lmt Wait: ";
-								}
 
                 if (timeDiff >= period ||
                     (this.model.get('lastValueSentToCloud') != theValue && lastTimeSentTimeDiff >= period)) {
@@ -235,144 +171,61 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
                     this.startTime = Date.now();
                     if(!app.server) this.$('.outvalue').css('color','#ff0000'); // start the RED pulse
-
-										this.setDisplayText(timeMessage + (period / 1000).toFixed(1) + 's');
+                    this.setDisplayText(' Send in: ' + (period / 1000).toFixed(1) + 's');
 
                     this.lastTimeDiff = 0;
 
 
-                    if (this.model.get('lastValueSentToCloud') != theValue ||
-                        this.model.get('repeatSameCount') >= this.model.get('resendRepeatSameInterval') - 1) {
-                        // only send changed values
+                    if (this.model.get('lastValueSentToCloud') != theValue) {
+                        // Only send changed values - no periodic resend of
+                        // an unchanged value. Adafruit IO's REST API is
+                        // stateless (no connection/session to keep alive),
+                        // and resending unchanged values just burns into
+                        // the free tier's 30-points/minute rate limit for
+                        // no benefit other than a slightly more continuous-
+                        // looking dashboard chart.
                         console.log('actually sending: ' + theValue);
 
                         if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
                             this.model.set('lastTimeSentToCloud', Date.now());
-                            this.model.set('repeatSameCount',0);
                             // only send if we're the server and in server mode, or the browser and in authoring mode
                             //console.log("sending to cloud service, app.serverMode: " + app.serverMode);
-                            switch(this.model.get('cloudService')) {
-                                case 'sparkfun':
-                                    // DATA.SPARKFUN.COM
-                                    //
-                                    var priKey = this.model.get('phantPrivateKey');
-                                    var pubKey = this.model.get('phantPublicKey');
-                                    var dataField = this.model.get('phantDataField');
-                                    var phantUrl = this.model.get('phantUrl');
 
-                                    var url = phantUrl + '/input/' + pubKey + '?private_key=' + priKey + '&' + dataField + '=' + theValue;
-                                    $.getJSON(url)
-                                        .done(function( json ) {
-                                            console.log( "JSON Data: " + JSON.stringify(json) );
-                                        })
-                                        .fail(function( jqxhr, textStatus, error ) {
-                                            var response = JSON.parse(jqxhr.responseText);
-                                            var err = textStatus + ", " + error + ', ' + response.message;
-                                            console.log( "Connection to cloud service failed: " + err );
-                                            self.model.set('sendToCloud',false);
-                                            if (response.message.indexOf('is not a valid field') >= 0) {
-                                                self.setDisplayText("Invalid datafield");
-                                            } else if (error == "Unauthorized") {
-                                                self.setDisplayText("Invalid key");
-                                            } else {
-                                                self.setDisplayText("Can't connect");
-                                            }
-                                    });
-                                    break;
-                                case 'particle':
-                                    // PARTICLE.IO
-                                    //
-                                    var url = "https://api.particle.io/v1/devices/" + this.model.get('particleDeviceId') + "/analogwrite";
-                                    $.ajax({
-                                        url: url,
-                                        type: "POST",
-                                        timeout: 2000,
-                                        data: { access_token: this.model.get('particleAccessToken'), params: this.model.get('particlePin') + ',' + theValue }
-                                        })
-                                        .done(function( response ) {
-                                            //console.log(response);
-                                    });
-                                    break;
-																case 'thingspeak':
-		                                // thingspeak.com
-		                                //
-																		var apiKey = "api_key=" + this.model.get('thingspeakWriteApiKey');
-		                                var url = "https://api.thingspeak.com/update?" + apiKey + "&field1=" + theValue;
-																		//console.log(url);
-
-																		$.getJSON(url)
-																			.done(function( json ) {
-																					var responseValue = parseInt(JSON.stringify(json));
-																					//console.log( "JSON Data: " + responseValue );
-																					if (responseValue == 0) {
-																						self.model.set('dataLimitWaiting',true);
-																						self.setDisplayText("Exceeded Data Limit");
-																						console.log("Exceeded Data Limit");
-																						//self.model.set('repeatSameCount',self.model.get('resendRepeatSameInterval'));
-																					} else {
-																						self.model.set('dataLimitWaiting',false);
-																						console.log("Update success, added message: " + responseValue);
-																					}
-																			})
-																			.fail(function( jqxhr, textStatus, error ) {
-																					//var response = JSON.parse(jqxhr.responseText);
-																					self.model.set('dataLimitWaiting',false);
-																					self.model.set('sendToCloud',false);
-																					self.setDisplayText("Invalid key");
-																					var err = textStatus + ", " + error;
-																					console.log( "Connection to cloud service failed: " + err);
-																		});
-		                                break;
-																case 'ioadafruit':
-																		jQuery.ajax({
-																		    url: "https://io.adafruit.com/api/v2/" + self.model.get('ioAdafruitUsername') + "/feeds/" + self.model.get('ioAdafruitFeedKey') + "/data",
-																		    type: "POST",
-																		    headers: {
-																		        "x-aio-key": self.model.get('ioAdafruitAioKey'),
-																		        "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
-																		    },
-																		    contentType: "application/x-www-form-urlencoded",
-																		    data: {
-																		        "value": theValue,
-																		    },
-																		})
-																		.done(function(data, textStatus, jqXHR) {
-																				self.model.set('dataLimitWaiting',false);
-																				console.log("HTTP Request Succeeded: " + jqXHR.status);
-																		    console.log(data);
-																		})
-																		.fail(function(jqXHR, textStatus, errorThrown) {
-																		    //console.log("HTTP Request Failed");
-																				var err = textStatus + ", " + errorThrown;
-																				if (errorThrown.indexOf("Too Many Requests") >= 0) {
-																					self.model.set('dataLimitWaiting',true);
-																					console.log(err + ", trying again");
-																				} else {
-																					self.model.set('sendToCloud',false);
-																					self.setDisplayText("Bad key/user");
-																					console.log( err);
-																				}
-																		})
-																		break;
-
-                                default:
-                            }
+                            // IO.ADAFRUIT.COM
+                            // https://io.adafruit.com/api/docs/#data - POST
+                            // a new value onto the feed.
+                            var username = this.model.get('aioUsername');
+                            var feedKey = this.model.get('aioFeedKey');
+                            var url = "https://io.adafruit.com/api/v2/" + username + "/feeds/" + feedKey + "/data";
+                            $.ajax({
+                                url: url,
+                                type: 'POST',
+                                headers: { 'X-AIO-Key': this.model.get('aioKey') },
+                                contentType: 'application/json',
+                                data: JSON.stringify({ value: theValue }),
+                                timeout: 5000,
+                            })
+                                .done(function(response) {
+                                    //console.log(response);
+                                })
+                                .fail(function(jqxhr, textStatus, error) {
+                                    console.log("Connection to cloud service failed: " + textStatus + ", " + error);
+                                    self.model.set('sendToCloud', false);
+                                    if (jqxhr.status === 401 || jqxhr.status === 403) {
+                                        self.setDisplayText("Invalid key");
+                                    } else if (jqxhr.status === 404) {
+                                        self.setDisplayText("Invalid feed");
+                                    } else {
+                                        self.setDisplayText("Can't connect");
+                                    }
+                                });
                             this.model.set('lastValueSentToCloud',theValue);
                             this.inputCount = 0;
                             this.inputCumulative = 0;
                         }
-                    } else {
-                        if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
-														//console.log(theValue + " " + this.model.get('lastValueSentToCloud'));
-                            console.log('not sending due to repeat: '  + this.model.get('repeatSameCount'));
-                            this.model.set('repeatSameCount',this.model.get('repeatSameCount') + 1);
-                        }
                     }
-                    // this.model.set('lastValueSentToCloud',theValue);
-                    // this.inputCount = 0;
-                    // this.inputCumulative = 0;
                 } else if (timeDiff - this.lastTimeDiff >= 100) {
-                    this.setDisplayText(timeMessage + ((period - timeDiff) / 1000).toFixed(1) + 's');
+                    this.setDisplayText(' Send in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
                     if (!app.server && timeDiff >= 300) this.$('.outvalue').css('color','#000000'); // stop the RED pulse
                     this.lastTimeDiff = timeDiff;
                 }

@@ -1,5 +1,23 @@
 .widget.oscOut {
 
+	.widgetBottom .content .deviceIp,
+	.widgetBottom .content .devicePort {
+		display: block;
+	}
+
+	.widgetBottom .content .valueType {
+		margin-top: 6px;
+
+		.narrowLabel {
+			width: auto;
+			margin-right: 4px;
+		}
+
+		input[type="radio"] {
+			margin-right: 10px;
+		}
+	}
+
 	.title {
 		
 	}

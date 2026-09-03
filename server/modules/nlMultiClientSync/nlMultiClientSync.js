@@ -1,10 +1,26 @@
 module.exports = function(options) {
 
+	var deviceUpdateThrottleID = undefined;
 	var fs = require('fs'),
 		_ = require('underscore'),
 		events = require('events'),
 		nlHardware = require('../nlHardware/Hardware'),
+		utils = require('../../utils')(),
 		self;
+
+
+	var QueueHandler = utils.QueueHandler;
+
+	// An OSC hardware-model instance opens a real UDP socket on whatever port its key
+	// encodes (see nlHardware/OSC.js), so distinct OSCIn widgets configured with distinct
+	// receiving ports correctly get distinct instances/sockets - and OSCIn widgets sharing
+	// a port correctly share one instance, since equal key strings hash to the same entry.
+	// OSCOut has no receiving-port semantics (its own "port" field is an outbound message
+	// target, unrelated to any local socket) - see OSCOut.js's getReceivingDeviceKey(),
+	// which reports a fixed key here instead of its own configurable target, so it always
+	// routes through the same shared instance as a default-configuration OSCIn rather than
+	// opening its own redundant listener.
+
 
 	var MultiClientSync = function(options) {
 		_.extend(this, events.EventEmitter.prototype);
@@ -20,7 +36,8 @@ module.exports = function(options) {
 
 
 		this.masterPatch = [];
-		this.serverActive = true;
+		// Starts unlocked (Edit ON) -- must match netlabServer.js's initial `serverActivated`
+		this.serverActive = false;
 
 		this.loadPatchFromServer();
 		this.transport.on('connection', this.registerClient);
@@ -30,6 +47,20 @@ module.exports = function(options) {
 			this.transport.emit('serverActive', serverActive);
 		}, this);
 
+
+		this.queueHandler = new QueueHandler( this.sendNetworkSet.bind(this) );
+		this.queueHandler.interval = 30;
+		this.queueHandler.next = function() {
+			if(this.queue.length > 0) {
+
+				setTimeout(function() {
+					this.sendCallback(this.queue);
+
+					//this.queue.length = 0;
+				}.bind(this), this.interval);
+
+			}
+		};
 
 	};
 
@@ -73,8 +104,12 @@ module.exports = function(options) {
 		 */
 		bindModelToTransport: function(model) {
 			// Listen for changes made on the hardware to update the front-end
+			// model.address is the exact key this instance was created under (see
+			// nlHardware/Hardware.js), so broadcasting under it always reaches whichever
+			// client-side hardwareModelInstances entry (same key) the change came from -
+			// for OSC in particular, that's now the widget's real configured receiving port.
 			model.on('change', function(options) {
-				this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: model.type, field: options.field, value: options.value}));
+				this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: model.address, field: options.field, value: options.value}));
 			}.bind(this));
 		},
 		/**
@@ -122,24 +157,57 @@ module.exports = function(options) {
 			socket.emit('serverActive', self.serverActive);
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			socket.on('sendModelUpdate', function(options) {
-				for(var i=options.length-1; i >= 0; i--) {
-					var typeAddressPort = options[i].modelType.split(':');
-					var modelType = typeAddressPort[0];
 
-					for(var field in options[i].model) {
-						var selectedModel = self.hardwareModels[modelType];
 
-						//if(selectedModel == undefined) {
+
+				var typeAddressPort = options.modelType.split(':');
+				var modelType = typeAddressPort[0];
+				var hardwareKey = options.modelType;
+
+				for(var field in options.model) {
+					//var selectedModel = self.hardwareModels[modelType];
+					var selectedModel = self.hardwareModels[hardwareKey];
+					var networkDevice = typeAddressPort[1].match(/^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/);
+
+
+					if(typeAddressPort[1] == "127.0.0.1") {
+						networkDevice = false;
+					}
+
+
+					// If there is no model to update, try to instantiate one
+					if(selectedModel == undefined) {
+
 						//self.hardwareModels[modelType] = new nlHardware({deviceType: typeAddressPort[0], address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+						self.hardwareModels[hardwareKey] = new nlHardware({deviceType: hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
 
-						//self.bindModelToTransport(self.hardwareModels[modelType]);
-						//self.hardwareModels[modelType].set(field, parseInt(options.model[field], 10));
-						//}
-						//else {
-						selectedModel.set(field, parseFloat(options[i].model[field], 10));
-						//}
+						console.log('MAKING NEW ', hardwareKey, self.hardwareModels[hardwareKey].type, self.hardwareModels);
+						self.bindModelToTransport(self.hardwareModels[hardwareKey]);
+						self.hardwareModels[hardwareKey].set(field, parseInt(options.model[field], 10), options.modeRequested);
+					}
+					else {
+						// Extra throttling for network latency
+						if(networkDevice) {
+							if(deviceUpdateThrottleID !== undefined) {
+								clearTimeout(deviceUpdateThrottleID);
+							}
+
+							self.queueHandler.addToQueue({field: field, value: parseFloat(options.model[field], 10), model: selectedModel, modeRequested: options.modeRequested});
+						}
+						else {
+							selectedModel.set(field, parseFloat(options.model[field], 10), options.modeRequested);
+						}
 					}
 				}
+			});
+
+			// Enumerate currently connected serial ports, for the Serial device port picker
+			socket.on('client:listSerialPorts', function() {
+				require('serialport').list().then(function(ports) {
+					socket.emit('serialPortList', ports);
+				}).catch(function(err) {
+					socket.emit('serialPortList', []);
+				});
 			});
 
 			// Allow the front-end to switch IO modes on the device
@@ -148,16 +216,25 @@ module.exports = function(options) {
 					modelType = options.deviceType;
 
 				if(options.port && options.mode) {
-					//if(self.hardwareModels[modelType] == undefined) {
-						//var typeAndAddress = modelType.split(':');
-						//self.hardwareModels[modelType] = new nlHardware({deviceType: typeAndAddress[0], address: typeAndAddress[1] }).model;
-						//self.bindModelToTransport(self.hardwareModels[modelType]);
+					// A widget can ask to switch a pin's mode (e.g. DigitalIn
+					// right after being created) before its own
+					// sendDeviceModelUpdate has round-tripped through
+					// SocketAdapter's throttle and actually created the
+					// hardware model below - instantiate it here too if
+					// needed, same as sendModelUpdate does, so this doesn't
+					// silently no-op on that race.
+					if(self.hardwareModels[modelType] == undefined) {
+						var typeAddressPort = modelType.split(':');
+						self.hardwareModels[modelType] = new nlHardware({deviceType: modelType, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+						self.bindModelToTransport(self.hardwareModels[modelType]);
+					}
 
-						//self.hardwareModels[modelType].setIOMode(options.port, options.mode);
-					//}
-					//else {
-						self.hardwareModels[modelType].setIOMode(options.port, options.mode);
-					//}
+					// 3rd arg carries anything beyond port/mode a specific
+					// mode needs - e.g. GroveSensor's "needs_pin" sensors
+					// (see StandardFirmataModel.js's setIOMode) include
+					// which physical pin they're wired to. Every other
+					// mode just ignores it.
+					self.hardwareModels[modelType].setIOMode(options.port, options.mode, options);
 				}
 
 			});
@@ -178,6 +255,21 @@ module.exports = function(options) {
 			socket.on('client:removeWidget', function(wid) {
 				self.masterPatch.widgets = _.reject(self.masterPatch.widgets, function(view) { return wid === view.wid; });
 				this.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
+
+				// Release any hardware-model instance (e.g. an OSC listening socket) that no
+				// widget references any more - the client already removed this widget's own
+				// mappings (see Patcher.js's removeWidget) before sending this event, so
+				// masterPatch.mappings reflects what's still in use.
+				var stillReferencedKeys = _.pluck(self.masterPatch.mappings, 'modelWID');
+				for(var key in self.hardwareModels) {
+					if(!_.contains(stillReferencedKeys, key)) {
+						var model = self.hardwareModels[key];
+						if(typeof model.close === 'function') {
+							model.close();
+						}
+						delete self.hardwareModels[key];
+					}
+				}
 			});
 
 			socket.on('client:addWidget', function(view) {
@@ -206,6 +298,31 @@ module.exports = function(options) {
 			socket.on('disconnect', function() {
 				self.emit('clientDisconnected');
 			});
+
+		},
+		sendNetworkSet: function(fieldValues) {
+			for(var i=fieldValues.length-1; i >= 0; i--) {
+
+				var closedFunction = function(i) {
+					return function() {
+						var field = fieldValues[i].field,
+							value = fieldValues[i].value,
+							modeRequested = fieldValues[i].modeRequested,
+							model = fieldValues[i].model;
+
+						model.set(field, value, modeRequested);
+
+						if(i == self.queueHandler.queue.length-1) {
+							self.queueHandler.queue.length = 0;
+						}
+
+					}
+				};
+
+				closedFunction = closedFunction(i);
+
+				setTimeout(closedFunction, 30*(i+1));
+			}
 
 		},
 		loadPatch: function(options) {
@@ -292,15 +409,21 @@ module.exports = function(options) {
 		},
     getPatchPath: function() {
       var commandLineDir = "server/modules/nlMultiClientSync";
-      var patchFileName = __dirname;
       var str = __dirname.substr(-1*(commandLineDir.length));
+
       if (str == commandLineDir) { // running from the command line
-        patchFileName += '/../../currentPatch.ntk';
-      } else { // running from the app package
-        //patchFileName += '/../../../../../../currentPatch.ntk';
-        patchFileName += '/../../currentPatch.ntk';
+        return __dirname + '/../../currentPatch.ntk';
       }
-      return patchFileName;
+      else if (process.versions.electron) {
+        // A packaged build runs out of app.asar, a read-only archive - writing
+        // "into" it (e.g. __dirname + '/../../currentPatch.ntk') silently fails
+        // (ENOTDIR), so save/load never actually persist. Use Electron's real
+        // per-user writable data directory instead.
+        return require('electron').app.getPath('userData') + '/currentPatch.ntk';
+      }
+      else { // running from the built app package outside Electron (e.g. plain node)
+        return __dirname + '/../../currentPatch.ntk';
+      }
     }
 	};
 

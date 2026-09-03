@@ -26,7 +26,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {
 			'change .getFromCloud': 'getFromCloud',
-            'change .cloudService': 'changeCloudService',
 		},
 
 
@@ -43,22 +42,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             this.model.set({
                 title: 'CloudIn',
                 getPeriod: 10000,
-                cloudService: 'ioadafruit',
-                // sparkfun phant
-                phantPublicKey: '',
-                phantDataField: 'mydata',
-                phantUrl: 'https://data.sparkfun.com',
-                // spark.io
-                particlePin: 'A0',
-                particleDeviceId: '',
-                particleAccessToken: '',
-								// thingspeak.com
-								thingspeakReadApiKey: "",
-								thingspeakChannelId: "",
-								// io.adafruit.com
-								ioAdafruitAioKey: '',
-								ioAdafruitUsername: '',
-								ioAdafruitFeedKey: 'mydata',
+                // io.adafruit.com
+                aioUsername: '',
+                aioKey: '',
+                aioFeedKey: '',
                 //
                 getFromCloud: false,
                 displayTimerStart: false,
@@ -115,8 +102,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				$(el).val(value);
 				$(el).trigger('change');
 			};
-
-            this.init = false; // set up to do changeCloudService to make sure interface is correct
         },
 
 
@@ -129,40 +114,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         getFromCloud: function(e) {
             if (!app.server && !this.model.get('sendToCloud')) {
                 this.setDisplayText("Stopped");
-            }
-        },
-
-        changeCloudService: function(e) {
-            if(!app.server) {
-                var service = this.model.get('cloudService');
-                switch(service) {
-									case 'sparkfun':
-											this.$('.sparkfun').show();
-											this.$('.particle').hide();
-											this.$('.thingspeak').hide();
-											this.$('.ioadafruit').hide();
-											break;
-									case 'particle':
-											this.$('.sparkfun').hide();
-											this.$('.particle').show();
-											this.$('.thingspeak').hide();
-											this.$('.ioadafruit').hide();
-											break;
-									case 'thingspeak':
-											this.$('.sparkfun').hide();
-											this.$('.particle').hide();
-											this.$('.thingspeak').show();
-											this.$('.ioadafruit').hide();
-											break;
-									case 'ioadafruit':
-											this.$('.sparkfun').hide();
-											this.$('.particle').hide();
-											this.$('.thingspeak').hide();
-											this.$('.ioadafruit').show();
-											break;
-                  default:
-                        //
-                }
             }
         },
 
@@ -181,10 +132,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         },
 
         timeKeeper: function(frameCount) {
-            if (this.init == false) {
-                this.changeCloudService();
-                this.init = true;
-            }
             //console.log(frameCount);
             if (this.model.get('getFromCloud')) {
                 var self = this;
@@ -195,145 +142,54 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     //console.log("reset");
                 }
                 var timeDiff = Date.now() - this.startTime;
-								var timeMessage = " Get in: ";
-								if (this.model.get('dataLimitWaiting')) {
-									timeMessage = "Lmt Wait: ";
-								}
                 if (timeDiff > period) { // get from cloud
                     //console.log("getting");
                     this.startTime = Date.now();
                     if(!app.server) this.$('.outvalue').css('color','#ff0000'); // start the RED pulse
-                    this.setDisplayText(timeMessage + (period / 1000).toFixed(1) + 's');
+                    this.setDisplayText(' Get in: ' + (period / 1000).toFixed(1) + 's');
 
                     this.lastTimeDiff = 0;
                     if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
                         // only send if we're the server and in server mode, or the browser in authoring mode
-                        switch(this.model.get('cloudService')) {
-                            case 'sparkfun':
-                                // DATA.SPARKFUN.COM
-                                //
-                                var pubKey = this.model.get('phantPublicKey');
-                                var dataField = this.model.get('phantDataField');
-                                var phantUrl = this.model.get('phantUrl');
-                                var url = phantUrl + '/output/' + pubKey + '.json';
-                                // possible fix for server exceeding files https://github.com/sparkfun/phant/issues/144
-                                // limit: 10 instead of page: 1
-                                $.ajax({
-                                    url: url,
-                                    jsonp: 'callback',
-                                    cache: false,
-                                    dataType: 'jsonp',
-                                    data: {
-                                        limit: 1
-                                    },
-                                    success: function(response) {
-                                        // check for success
-                                        if (response.success == false) {
-                                            console.log( "Connection to cloud service failed: " + response.message);
-                                            self.model.set('getFromCloud',false);
-                                            if (response.message == 'stream not found') {
-                                                self.setDisplayText("Invalid key");
-                                            } else {
-                                                self.setDisplayText("Can't connect");
-                                            }
-                                        } else {
-                                            if (response[0][dataField] === undefined) {
-                                                self.model.set('getFromCloud',false);
-                                                self.setDisplayText("Bad datafield");
-                                            } else {
-                                                self.model.set('in',response[0][dataField]);
-                                            }
-                                        }
-                                    },
-                                    fail: function( jqxhr, textStatus, error ) {
-                                        var err = textStatus + ", " + error;
-                                        console.log( "Connection to cloud servive failed: " + err );
-                                        self.model.set('getFromCloud',false);
-                                        this.setDisplayText("Can't connect");
-                                    }
-                                });
-                                break;
-                            case 'particle':
-                                // PARTICLE.IO
-                                //
-                                var url = "https://api.particle.io/v1/devices/" + this.model.get('particleDeviceId') + "/analogread";
-                                $.ajax({
-                                    //url: "https://api.particle.io/v1/devices/55ff6d066678505517151667/analogread",
-                                    url: url,
-                                    type: "POST",
-                                    timeout: 2000,
-                                    data: { access_token: this.model.get('particleAccessToken'), params: this.model.get('particlePin') }
-                                    })
-                                    .done(function( response ) {
-                                        //console.log(response);
-                                        var value = parseInt(response.return_value,10);
-                                        if (isNaN(value)) {
-                                            self.model.set('getFromCloud',false);
-                                            this.setDisplayText("Bad data");
-                                        } else {
-                                            self.model.set('in',value/4);
-                                        }
-                                });
-                                break;
-														case 'thingspeak':
-                                // thingspeak.com
-                                //
 
-																var apiKey = "api_key=" + this.model.get('thingspeakReadApiKey');
-																var channelId = this.model.get('thingspeakChannelId');
-                                var url = "http://api.thingspeak.com/channels/" + channelId + "/feed/last.json?" + apiKey + "&callback=?";
-																$.getJSON(url, function(data) {
-
-																	// if the field1 has data update widget
-																	if (data.field1 && !isNaN(data.field1)) {
-																		//console.log(data.field1);
-																		var value = parseInt(data.field1,10);
-																		self.model.set("in",value);
-																	} else { // stop getting data
-																		self.model.set('getFromCloud',false);
-                                    this.setDisplayText("Bad data");
-																	}
-																});
-                                break;
-
-														case 'ioadafruit':
-																jQuery.ajax({
-																		url: "https://io.adafruit.com/api/v2/" + self.model.get('ioAdafruitUsername') + "/feeds/" + self.model.get('ioAdafruitFeedKey') + "/data/last",
-																    type: "GET",
-																    headers: {
-																        "x-aio-key": self.model.get('ioAdafruitAioKey'),
-																        "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
-																    },
-																})
-																.done(function(data, textStatus, jqXHR) {
-																    //console.log("HTTP Request Succeeded: " + jqXHR.status);
-																    //console.log(data);
-																		var value = parseInt(data.value,10);
-																		//console.log("VALUE: " + value);
-																		self.model.set("in",value);
-																		self.model.set('dataLimitWaiting',false);
-																})
-																.fail(function(jqXHR, textStatus, errorThrown) {
-																		if (errorThrown.indexOf("Too Many Requests") >= 0) {
-																			self.model.set('dataLimitWaiting',true);
-																			console.log(errorThrown + ", trying again");
-																		} else {
-																			self.model.set('getFromCloud',false);
-																			self.setDisplayText("Bad key/user");
-																			var err = textStatus + ", " + errorThrown;
-																			console.log( "Connection to cloud service failed: " + err);
-																		}
-																});
-																break;
-
-                            default:
-                                //
-                        }
+                        // IO.ADAFRUIT.COM
+                        // https://io.adafruit.com/api/docs/#data - GET the
+                        // most recent value from the feed.
+                        var username = this.model.get('aioUsername');
+                        var feedKey = this.model.get('aioFeedKey');
+                        var url = "https://io.adafruit.com/api/v2/" + username + "/feeds/" + feedKey + "/data/last";
+                        $.ajax({
+                            url: url,
+                            type: 'GET',
+                            headers: { 'X-AIO-Key': this.model.get('aioKey') },
+                            dataType: 'json',
+                            timeout: 5000,
+                            success: function(response) {
+                                var value = parseFloat(response && response.value);
+                                if (isNaN(value)) {
+                                    self.model.set('getFromCloud', false);
+                                    self.setDisplayText("Bad data");
+                                } else {
+                                    self.model.set('in', value);
+                                }
+                            },
+                            error: function(jqxhr, textStatus, error) {
+                                console.log("Connection to cloud service failed: " + textStatus + ", " + error);
+                                self.model.set('getFromCloud', false);
+                                if (jqxhr.status === 401 || jqxhr.status === 403) {
+                                    self.setDisplayText("Invalid key");
+                                } else if (jqxhr.status === 404) {
+                                    self.setDisplayText("Invalid feed");
+                                } else {
+                                    self.setDisplayText("Can't connect");
+                                }
+                            }
+                        });
                     }
                     this.inputCount = 0;
                     this.inputCumulative = 0;
                 } else if (timeDiff - this.lastTimeDiff >= 100) {
-                    this.setDisplayText(timeMessage + ((period - timeDiff) / 1000).toFixed(1) + 's');
+                    this.setDisplayText(' Get in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
                     if (!app.server && timeDiff >= 300) this.$('.outvalue').css('color','#000000'); // stop the RED pulse
                     this.lastTimeDiff = timeDiff;
                 }
