@@ -43,6 +43,7 @@ add a 7th will raise an error from pwmio.
 """
 
 import board
+import time
 
 # GroveSensor widget catalog (see firmata_server.py's GROVE_SENSOR_REQUEST/
 # GROVE_SENSOR_REPLY) - sensor_id -> {"read": fn() -> list of floats,
@@ -331,5 +332,136 @@ try:
     _found_sensors.append("TSL2561 light sensor")
 except Exception:
     pass
+
+# Optional: Grove - Ultrasonic Ranger, single-wire digital (one SIG pin
+# doing double duty as trigger output AND echo input) - NOT I2C, same
+# "needs_pin" shape as DHT11 above: no shared bus to find it on, so it
+# needs to know which GPIO it's wired to, and can't be probed at boot.
+# GroveSensor catalog entry 4 - single reading (distance in mm), same
+# one-element-list shape as VL53L0X's entry 1.
+#
+# No Adafruit/CircuitPython driver exists for this specific 1-pin Grove
+# module (adafruit_hcsr04 is for the 2-pin trigger+echo HC-SR04), so this
+# bit-bangs the protocol directly.
+#
+# Protocol (per Seeed's wiki for this module): pull SIG low briefly, then
+# high for >=10us to trigger a ping, then switch the same pin to input
+# and time how long it stays high during the echo - that duration times
+# the speed of sound (343 m/s), halved for the round trip, is the
+# distance.
+#
+# HARDWARE HISTORY (2026-09-05, several rounds against real hardware):
+#   1. First version used pulseio.PulseIn for echo capture - tearing down
+#      the trigger's digitalio object and building a brand-new PulseIn
+#      (an RMT peripheral) on every read. Pinned at max range always -
+#      RMT setup/teardown took long enough that a close object's echo
+#      (as short as ~120us) was over before capture even started.
+#      Rewritten to reuse ONE persistent digitalio.DigitalInOut object,
+#      just flipping .direction between OUTPUT (trigger) and INPUT
+#      (echo) and busy-waiting on .value directly - Arduino's pulseIn()
+#      technique, spelled out by hand.
+#   2. That fixed capture, but close-range readings jittered between ~0
+#      and the real value. Tried a pull-down on the echo pin (electrical
+#      noise theory) - didn't help. Tried time.monotonic_ns() instead of
+#      time.monotonic() (CircuitPython's Python floats are 32-bit, losing
+#      precision on sub-millisecond gaps once the board's uptime grows -
+#      kept, since it's strictly more correct, but didn't fix the jitter
+#      alone either).
+#   3. Tried median-of-3 samples per read() (theory: the ESP32's WiFi
+#      stack, a separate higher-priority FreeRTOS task, briefly
+#      preempting the busy-wait). This stabilized the jitter but
+#      introduced a NEW, large, inconsistent-direction error (160mm
+#      measured as ~125mm, then ~45mm after adding inter-ping delays -
+#      got WORSE, not better) - ruled out as the wrong theory entirely.
+#   4. A standalone script (test_ultrasonic.py, single ping every 300ms,
+#      none of the median/delay complexity) measured 160mm as 146.5mm -
+#      accurate. This isolated the real cause: 60ms between pings (both
+#      the inter-sample gap tried in step 3, AND min_interval_ms below)
+#      is simply too fast for this transducer's own mechanical ringing
+#      to settle - not WiFi preemption, not float precision. Simplified
+#      back to a single ping per read() (median-of-3 was solving the
+#      wrong problem) with a much longer min_interval_ms below, matching
+#      what the standalone test proved works.
+_ULTRASONIC_MAX_RANGE_MM = 3500  # Seeed's rated max for this module is ~350cm
+_ULTRASONIC_ECHO_TIMEOUT_S = 0.05  # 50ms >> the ~20ms a max-range echo takes
+
+try:
+    _ultrasonic_now_ns = time.monotonic_ns
+except AttributeError:
+    def _ultrasonic_now_ns():
+        return int(time.monotonic() * 1000000000)
+
+def _make_ultrasonic_read(pin):
+    import digitalio
+
+    # Created once per subscription, not per read - reused across every
+    # call below by flipping .direction, which is a cheap register-level
+    # operation. Idles as an input between reads/trigger pulses. Pull.DOWN
+    # (not left floating) - cheap hardening against the pin picking up
+    # noise during the brief gap before the sensor starts driving its
+    # response, though the float-precision issue above (not noise) turned
+    # out to be the real cause of the 0mm jitter seen on real hardware.
+    io = digitalio.DigitalInOut(pin)
+    io.switch_to_input(pull=digitalio.Pull.DOWN)
+
+    def _ping():
+        # Trigger: briefly drive the same pin high for >=10us.
+        io.switch_to_output(value=False)
+        time.sleep(0.000002)
+        io.value = True
+        time.sleep(0.00001)
+        io.value = False
+        io.switch_to_input(pull=digitalio.Pull.DOWN)
+
+        # Echo: busy-wait for the pin to go high (echo pulse starts),
+        # then busy-wait for it to go low again (echo pulse ends), timing
+        # the high duration directly - the same thing Arduino's
+        # pulseIn() does, just spelled out by hand, using an integer
+        # nanosecond clock (see above) instead of time.monotonic()'s
+        # imprecise float.
+        timeout_at_ns = _ultrasonic_now_ns() + int(_ULTRASONIC_ECHO_TIMEOUT_S * 1000000000)
+        while not io.value:
+            if _ultrasonic_now_ns() > timeout_at_ns:
+                # No echo ever started - nothing in range (or nothing
+                # wired up correctly). Same "read as max distance, not
+                # an error" convention as VL53L0X's no-target sentinel
+                # above, since this is normal sensor behavior, not a
+                # fault.
+                return _ULTRASONIC_MAX_RANGE_MM
+        pulse_start_ns = _ultrasonic_now_ns()
+        while io.value:
+            if _ultrasonic_now_ns() > timeout_at_ns:
+                return _ULTRASONIC_MAX_RANGE_MM
+        pulse_end_ns = _ultrasonic_now_ns()
+
+        echo_us = (pulse_end_ns - pulse_start_ns) / 1000
+        return min(_ULTRASONIC_MAX_RANGE_MM, (echo_us * 0.343) / 2)
+
+    def read():
+        # Single ping, no median/retry - see the HARDWARE HISTORY note
+        # above for why simpler turned out to be more accurate here.
+        # Hardware-confirmed accurate 2026-09-05 (via test_ultrasonic.py):
+        # 160mm measured as 146.5mm, well within reasonable tolerance.
+        return [_ping()]
+
+    def cleanup():
+        io.deinit()
+
+    return read, cleanup
+
+GROVE_SENSOR_CATALOG[4] = {
+    "needs_pin": True,
+    "make_read": _make_ultrasonic_read,
+    # Hardware-confirmed 2026-09-05 (see HARDWARE HISTORY above): this
+    # transducer's own mechanical ringing needs meaningfully longer than
+    # Seeed's own quoted ">=60ms" to fully settle between pings on this
+    # unit - 60ms produced large, inconsistent errors; 300ms (matching
+    # test_ultrasonic.py, which measured accurately) did not.
+    "min_interval_ms": 300,
+}
+# Not added to _found_sensors below, same reasoning as DHT11 above - this
+# entry is always registered (no optional library import to fail), but
+# whether a sensor is actually wired up isn't knowable until a widget
+# subscribes with a real pin.
 
 print("Grove sensors found:", ", ".join(_found_sensors) if _found_sensors else "none")

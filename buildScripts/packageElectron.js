@@ -143,6 +143,13 @@ Supported so far:
 - **Digital Light Sensor (TSL2561)** - a "more" panel mode dropdown
   picks between Infrared, Full Spectrum, or Visible (lux) readings,
   hardware-verified across all three.
+- **Ultrasonic Ranger** - single distance reading in mm (roughly
+  2cm-350cm range). Single-wire digital like the DHT11 above (one pin
+  handles both trigger and echo) - wire it to any free digital Grove
+  socket (avoid D0-D2) and enter that pin in the widget's "more" panel
+  pin field. Hardware-verified; updates roughly every 300ms (slower than
+  most sensors here - this module needs more settle time between pings
+  than its own datasheet suggests).
 
 An accelerometer can also still be read the older way, as three
 ordinary-looking analog pins, **A3**, **A4**, and **A5**, so an AnalogIn

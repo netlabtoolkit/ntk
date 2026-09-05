@@ -1,6 +1,6 @@
 {
   "name": "NTK",
-  "version": "2026.2.1",
+  "version": "2026.2.2",
   "dependencies": {
     "es6-shim": "^0.22.2",
     "express": "~4.4.5",

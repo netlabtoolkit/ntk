@@ -164,5 +164,40 @@ define([], function() {
             // range's comment above.
             outputRange: {floor: 0, ceiling: 10000},
         },
+        // Firmware side: pins.py's GROVE_SENSOR_CATALOG entry 4. Single-
+        // wire digital (one SIG pin does both trigger and echo), same
+        // needsPin shape as DHT11 (entry 2) above - no shared bus to
+        // find it on, so the widget must say which pin it's wired to.
+        //
+        // Hardware-verified 2026-09-05 (added same day) - the firmware
+        // side bit-bangs the trigger/echo protocol directly (no
+        // CircuitPython driver exists for this specific 1-pin Grove
+        // module). Took several rounds to get the timing right - see
+        // pins.py's GROVE_SENSOR_CATALOG[4] HARDWARE HISTORY comment for
+        // the full debugging story - confirmed accurate to within
+        // reasonable tolerance (~150mm measured for a real ~150-160mm
+        // distance) once settled.
+        4: {
+            // "Distance" alone is already taken by the Time-of-Flight
+            // sensor (entry 1) - distinguished here since both can be in
+            // the dropdown at once.
+            label: 'Distance (Ultrasonic)',
+            deviceId: 'Ultrasonic Ranger',
+            tested: true,
+            needsPin: true,
+            readings: [
+                {key: 'distance', label: 'Distance', unit: 'mm'},
+            ],
+            // Seeed's rated range for this module is ~2cm-350cm; no
+            // target in range reads as this ceiling (see pins.py's
+            // _ULTRASONIC_MAX_RANGE_MM). Unlike VL53L0X's entry 1 (which
+            // has no outputRange and so defaults to NTK's abstract
+            // 0-1023 scale), this one matches `range` exactly - a 1:1
+            // passthrough, same as DHT11/TSL2561 above - so the outlet
+            // reads real millimeters directly rather than needing mental
+            // math to convert back from 0-1023.
+            range: {floor: 0, ceiling: 3500},
+            outputRange: {floor: 0, ceiling: 3500},
+        },
     };
 });
