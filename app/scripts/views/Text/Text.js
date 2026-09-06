@@ -33,6 +33,15 @@ function(Backbone, rivets, WidgetView, Template){
 					{title: 'Y Position', to: 'top'},
                     {title: 'opacity', to: 'opacity'},
 				],
+				// Pass-through: whatever arrives on the 'in' inlet (or is
+				// typed into the text box) is also emitted from the outlet,
+				// so a Text widget can sit inline in a chain of
+				// text-consuming widgets without being a dead end.
+				// WidgetMulti's processSignalChain (bound to model 'change')
+				// copies `from` -> `to` automatically.
+				outs: [
+					{title: 'out', from: 'in', to: 'out1'},
+				],
 				title: 'Text',
 
                 activeControlParameter: 'left',
