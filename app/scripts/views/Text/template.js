@@ -18,7 +18,13 @@
             <div class="inletValue"><span rv-text="widget:opacity | rounded">100</span> Opacity</div>
         </div>
     </div>
-            
+
+    <div class="widgetRight">
+        <div class='outlets'>
+            <div class="outlet" rv-each-outlet="widget:outs" rv-title="outlet.title" rv-data-field="outlet.to">&middot;</div>
+        </div>
+    </div>
+
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
