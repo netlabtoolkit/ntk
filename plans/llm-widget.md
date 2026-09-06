@@ -1,6 +1,6 @@
 # LLM widget
 
-**Status:** planned, not started.
+**Status:** planned, not started. Part of the [NTK plans](README.md).
 
 A widget that calls an LLM. **Text prompt in the inlet → the model's text
 response out the outlet.** The user sets the provider and picks a model
