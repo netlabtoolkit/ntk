@@ -162,12 +162,21 @@ Supported so far:
   from the dropdown.
 - **Digital Light Sensor (TSL2561)** - single lux reading, real-world
   units (1:1 passthrough, same as DHT11 above, not NTK's usual 0-1023
-  convention). **Not yet hardware-tested** - remove this note once
-  verified. The underlying driver returns no reading at all (reported
-  here as 0) both when it's genuinely dark AND when the sensor is
-  saturated by too much light for its current settings - those read
-  identically for now; a bright-light test reading 0 would mean it's
-  hitting the saturation case, not real darkness.
+  convention). Hardware-verified. The underlying driver returns no
+  reading at all (reported here as 0) both when it's genuinely dark AND
+  when the sensor is saturated by too much light for its current
+  settings - those read identically for now; a bright-light test reading
+  0 would mean it's hitting the saturation case, not real darkness.
+- **Ultrasonic Ranger** - single distance reading in mm, roughly 2cm-350cm
+  range. Single-wire digital like DHT11 above (one pin does both trigger
+  and echo) - wire it to any free digital Grove socket (avoid D0-D2) and
+  enter that pin in the widget's "more" panel pin field. Hardware-
+  verified. No CircuitPython driver exists for this specific 1-pin
+  module, so `pins.py` bit-bangs the trigger/echo timing directly, with a
+  slower ~300ms update interval than most sensors here since this module
+  needs more settle time between pings than its own datasheet suggests;
+  with nothing in range, it reads as maximum distance rather than 0 or an
+  error, same convention as the Time of Flight sensor above.
 
 An accelerometer can *also* still be read the older way - as three
 ordinary-looking analog pins, **A3**, **A4**, and **A5** (unused by any

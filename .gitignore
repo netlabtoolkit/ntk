@@ -21,3 +21,6 @@ __pycache__
 # Real CircuitPython WiFi credentials - only settings.toml.example is
 # meant to be tracked.
 **/settings.toml
+# Scratch area for drafting widget-help doc pages before pasting them
+# into the WordPress site - not meant to live in the repo itself.
+docs/

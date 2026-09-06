@@ -60,11 +60,11 @@
             </div>
             <hr>
             input range<br>
-            <label class="narrowLabel">min</label> <input class="moreParam" type="text" pattern="[0-9-]*" rv-value="widget:inputFloor">
-            <label class="narrowLabel">max</label> <input class="moreParam" type="text" pattern="[0-9-]*" rv-value="widget:inputCeiling"><br>
+            <label class="narrowLabel">min</label> <input class="moreParam" type="text" pattern="[0-9\-]*" rv-value="widget:inputFloor">
+            <label class="narrowLabel">max</label> <input class="moreParam" type="text" pattern="[0-9\-]*" rv-value="widget:inputCeiling"><br>
             output range<br>
-            <label class="narrowLabel">min</label> <input class="moreParam" type="text" pattern="[0-9-]*" rv-value="widget:outputFloor">
-            <label class="narrowLabel">max</label> <input class="moreParam" type="text" pattern="[0-9-]*" rv-value="widget:outputCeiling"><br>
+            <label class="narrowLabel">min</label> <input class="moreParam" type="text" pattern="[0-9\-]*" rv-value="widget:outputFloor">
+            <label class="narrowLabel">max</label> <input class="moreParam" type="text" pattern="[0-9\-]*" rv-value="widget:outputCeiling"><br>
             <label class="narrowLabel">ease</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:easingAmount"><br>
             <label class="narrowLabel">smooth</label> <input class='smoothingAmount moreParam' type="text" pattern="[0-9]*" rv-value="widget:smoothingAmount">
             <hr>
