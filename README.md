@@ -22,7 +22,13 @@ Sign up for NTK news here:
 Installation
 ---------------------
 
-If you only want to run NTK, there are double-clickable app and command line versions, and there is a simple installation procedure:
+If you only want to run NTK, download the latest pre-built, signed and notarized macOS (Apple Silicon) app from the GitHub releases page:
+
+<https://github.com/netlabtoolkit/ntk/releases/latest>
+
+Each release's `NTK-darwin-arm64.zip` contains `NTK.app` plus the `CircuitPython/` firmware folder for flashing a matching Seeed XIAO ESP32-C6 board.
+
+Older double-clickable app and command line versions, and the original installation procedure, are on the project website:
 
 <http://netlabtoolkit.org/download/>  
 <http://www.netlabtoolkit.org/install-ntk/>
