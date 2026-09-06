@@ -11,83 +11,156 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const ntk = require('./netlabServer.js')();
 
-// ---- SpeechIn: Apple Speech (SFSpeechRecognizer) helper ----
-// One speechhelper child process per SpeechIn widget, keyed by widget id.
-// See server/speechHelper/speechhelper.swift for the stdin/stdout protocol.
-// macOS only - on other platforms speechAvailable() is false and the
-// SpeechIn widget shows "not available".
+// ---- Apple speech helpers (macOS only) ----
+// SpeechIn -> speechhelper.swift (SFSpeechRecognizer); SpeechOut ->
+// ttshelper.swift (AVSpeechSynthesizer, reaches the Enhanced/Premium
+// voices Chromium's speechSynthesis can't). One child process per widget,
+// keyed by widget id. On other platforms *Available() is false and the
+// widgets fall back (SpeechIn -> "not available", SpeechOut -> browser
+// speechSynthesis). The binaries can't run from inside app.asar, so
+// packageElectron.js unpacks them; in dev (__dirname = .../server) the
+// .replace is a no-op.
+function helperPath(name) {
+	return path.join(__dirname, 'speechHelper', name)
+		.replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
+}
 
-// The binary can't run from inside app.asar, so packageElectron.js unpacks
-// it; in dev (__dirname = .../server) the .replace is a no-op.
-const SPEECH_HELPER_PATH = path
-	.join(__dirname, 'speechHelper', 'speechhelper')
-	.replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
-const speechHelperAvailable = process.platform === 'darwin' && fs.existsSync(SPEECH_HELPER_PATH);
+// Makes a { available, childFor, quit, quitAll } manager for one helper
+// binary. `resultChannel` is the ipc channel each JSON line is forwarded
+// on (with {wid} added); `onMessage` is an optional main-process hook.
+function makeHelperManager(binaryName, resultChannel, onMessage) {
+	const binPath = helperPath(binaryName);
+	const available = process.platform === 'darwin' && fs.existsSync(binPath);
+	const procs = new Map(); // wid -> ChildProcess
 
-const speechHelpers = new Map(); // wid -> ChildProcess
+	function childFor(wid) {
+		let child = procs.get(wid);
+		if (child && !child.killed) return child;
 
-function speechHelperFor(wid) {
-	let child = speechHelpers.get(wid);
-	if (child && !child.killed) return child;
+		child = spawn(binPath, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+		procs.set(wid, child);
 
-	child = spawn(SPEECH_HELPER_PATH, [], { stdio: ['pipe', 'pipe', 'pipe'] });
-	speechHelpers.set(wid, child);
-
-	let buf = '';
-	child.stdout.on('data', function(chunk) {
-		buf += chunk.toString();
-		let nl;
-		while ((nl = buf.indexOf('\n')) !== -1) {
-			const line = buf.slice(0, nl).trim();
-			buf = buf.slice(nl + 1);
-			if (!line) continue;
-			let msg;
-			try { msg = JSON.parse(line); } catch (e) { continue; }
-			// Log everything except the per-word partial stream.
-			if (msg.type !== 'partial') console.log('speechhelper[' + wid + ']', line);
-			if (mainWindow && !mainWindow.isDestroyed()) {
-				mainWindow.webContents.send('speech-result', Object.assign({ wid: wid }, msg));
+		let buf = '';
+		child.stdout.on('data', function(chunk) {
+			buf += chunk.toString();
+			let nl;
+			while ((nl = buf.indexOf('\n')) !== -1) {
+				const line = buf.slice(0, nl).trim();
+				buf = buf.slice(nl + 1);
+				if (!line) continue;
+				let msg;
+				try { msg = JSON.parse(line); } catch (e) { continue; }
+				if (onMessage) onMessage(wid, msg);
+				if (msg.type !== 'partial' && msg.type !== 'word' && msg.type !== 'voices') {
+					console.log(binaryName + '[' + wid + ']', line);
+				}
+				if (mainWindow && !mainWindow.isDestroyed()) {
+					mainWindow.webContents.send(resultChannel, Object.assign({ wid: wid }, msg));
+				}
 			}
-		}
-	});
-	child.stderr.on('data', function(chunk) {
-		console.log('speechhelper[' + wid + '] stderr:', chunk.toString().trim());
-	});
-	child.on('exit', function() {
-		speechHelpers.delete(wid);
-	});
-	return child;
+		});
+		child.stderr.on('data', function(chunk) {
+			console.log(binaryName + '[' + wid + '] stderr:', chunk.toString().trim());
+		});
+		child.on('exit', function() { procs.delete(wid); });
+		return child;
+	}
+
+	function quit(wid) {
+		const child = procs.get(wid);
+		if (!child) return;
+		try { child.stdin.write('quit\n'); } catch (e) {}
+		setTimeout(function() { try { child.kill(); } catch (e) {} }, 500);
+		procs.delete(wid);
+	}
+
+	return {
+		available: available,
+		childFor: childFor,
+		write: function(wid, line) {
+			const child = childFor(wid);
+			try { child.stdin.write(line + '\n'); return true; } catch (e) { return false; }
+		},
+		writeExisting: function(wid, line) {
+			const child = procs.get(wid);
+			if (child) { try { child.stdin.write(line + '\n'); } catch (e) {} }
+		},
+		quit: quit,
+		quitAll: function() { for (const wid of procs.keys()) quit(wid); },
+	};
 }
 
-function quitSpeechHelper(wid) {
-	const child = speechHelpers.get(wid);
-	if (!child) return;
-	try { child.stdin.write('quit\n'); } catch (e) {}
-	setTimeout(function() { try { child.kill(); } catch (e) {} }, 500);
-	speechHelpers.delete(wid);
+// Spawn a throwaway helper just to grab one startup message (the locale
+// list / voice list, both reported before any TCC prompt), then quit it.
+function queryHelperOnce(binaryName, wantType, key) {
+	return new Promise(function(resolve) {
+		const child = spawn(helperPath(binaryName), [], { stdio: ['pipe', 'pipe', 'ignore'] });
+		let buf = '';
+		const done = function(v) { try { child.stdin.write('quit\n'); } catch (e) {} resolve(v || []); };
+		const t = setTimeout(function() { done([]); }, 3000);
+		child.stdout.on('data', function(c) {
+			buf += c.toString();
+			let nl;
+			while ((nl = buf.indexOf('\n')) !== -1) {
+				const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+				try {
+					const m = JSON.parse(line);
+					if (m.type === wantType) { clearTimeout(t); done(m[key]); return; }
+				} catch (e) {}
+			}
+		});
+		child.on('error', function() { clearTimeout(t); done([]); });
+	});
 }
 
-ipcMain.handle('speech-available', function() {
-	return speechHelperAvailable;
+// --- SpeechIn ---
+let sttLocalesCache = null;
+const stt = makeHelperManager('speechhelper', 'speech-result', function(wid, msg) {
+	if (msg.type === 'locales' && Array.isArray(msg.locales)) sttLocalesCache = msg.locales;
+});
+ipcMain.handle('speech-available', function() { return stt.available; });
+ipcMain.handle('speech-locales', function() {
+	if (sttLocalesCache) return sttLocalesCache;
+	if (!stt.available) return [];
+	return queryHelperOnce('speechhelper', 'locales', 'locales').then(function(v) {
+		if (Array.isArray(v) && v.length) sttLocalesCache = v;
+		return sttLocalesCache || [];
+	});
 });
 ipcMain.handle('speech-start', function(event, opts) {
-	if (!speechHelperAvailable) return false;
-	const child = speechHelperFor(opts.wid);
-	try { child.stdin.write('start ' + (opts.locale || 'en-US') + '\n'); } catch (e) { return false; }
-	return true;
+	if (!stt.available) return false;
+	return stt.write(opts.wid, 'start ' + (opts.locale || 'en-US'));
 });
-ipcMain.handle('speech-stop', function(event, opts) {
-	const child = speechHelpers.get(opts.wid);
-	if (child) { try { child.stdin.write('stop\n'); } catch (e) {} }
-	return true;
+ipcMain.handle('speech-stop', function(event, opts) { stt.writeExisting(opts.wid, 'stop'); return true; });
+ipcMain.handle('speech-quit', function(event, opts) { stt.quit(opts.wid); return true; });
+
+// --- SpeechOut ---
+let ttsVoicesCache = null;
+const tts = makeHelperManager('ttshelper', 'tts-result', function(wid, msg) {
+	if (msg.type === 'voices' && Array.isArray(msg.voices)) ttsVoicesCache = msg.voices;
 });
-ipcMain.handle('speech-quit', function(event, opts) {
-	quitSpeechHelper(opts.wid);
-	return true;
+ipcMain.handle('tts-available', function() { return tts.available; });
+ipcMain.handle('tts-voices', function() {
+	if (ttsVoicesCache) return ttsVoicesCache;
+	if (!tts.available) return [];
+	return queryHelperOnce('ttshelper', 'voices', 'voices').then(function(v) {
+		if (Array.isArray(v) && v.length) ttsVoicesCache = v;
+		return ttsVoicesCache || [];
+	});
 });
-app.on('will-quit', function() {
-	for (const wid of speechHelpers.keys()) quitSpeechHelper(wid);
+ipcMain.handle('tts-speak', function(event, opts) {
+	if (!tts.available) return false;
+	return tts.write(opts.wid, 'speak ' + JSON.stringify({
+		text: opts.text || '',
+		voice: opts.voice || '',
+		rate: opts.rate,
+		pitch: opts.pitch,
+	}));
 });
+ipcMain.handle('tts-stop', function(event, opts) { tts.writeExisting(opts.wid, 'stop'); return true; });
+ipcMain.handle('tts-quit', function(event, opts) { tts.quit(opts.wid); return true; });
+
+app.on('will-quit', function() { stt.quitAll(); tts.quitAll(); });
 
 var pickFile = async function(dialogName, extensions) {
 	var result = await dialog.showOpenDialog(mainWindow, {
@@ -234,6 +307,13 @@ app.on('ready', function() {
 		  ]}, {
 		  label: "View",
 		  submenu: [
+			  { label: "Reload", accelerator: "CmdOrCtrl+R", click: function() {
+				  if(mainWindow) { mainWindow.webContents.reload(); }
+			  }},
+			  { label: "Force Reload", accelerator: "Shift+CmdOrCtrl+R", click: function() {
+				  if(mainWindow) { mainWindow.webContents.reloadIgnoringCache(); }
+			  }},
+			  { type: "separator" },
 			  { label: "Toggle Developer Tools", accelerator: "CmdOrCtrl+Alt+I", click: function() {
 				  if(mainWindow) {
 					  mainWindow.webContents.toggleDevTools();

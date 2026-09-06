@@ -57,7 +57,27 @@ final class SpeechHelper {
         }
     }
 
+    // Auth is requested here on the first `start`, NOT at launch - so a
+    // helper spawned just to list supported locales doesn't fire the
+    // mic / speech-recognition permission prompts.
+    private var authorized = false
     func start(locale localeID: String) {
+        if authorized {
+            beginListening(locale: localeID)
+        } else {
+            requestAuthorization { [weak self] granted in
+                if granted {
+                    self?.authorized = true
+                    self?.beginListening(locale: localeID)
+                } else {
+                    emit(["type": "error", "message": "microphone or speech-recognition permission was denied"])
+                    emit(["type": "final", "text": ""])
+                }
+            }
+        }
+    }
+
+    private func beginListening(locale localeID: String) {
         if listening { forceStop() }
 
         let id = localeID.isEmpty ? "en-US" : localeID
@@ -152,15 +172,20 @@ final class SpeechHelper {
     }
 }
 
+func reportLocales() {
+    let locales = SFSpeechRecognizer.supportedLocales()
+        .map { $0.identifier }
+        .sorted()
+    emit(["type": "locales", "locales": locales])
+}
+
 // ---- main ----
 
 let helper = SpeechHelper()
 emit(["type": "starting"])
-helper.requestAuthorization { granted in
-    if !granted {
-        emit(["type": "error", "message": "microphone or speech-recognition permission was denied"])
-    }
-}
+reportLocales()
+// Permission is requested lazily on the first `start` command (see
+// SpeechHelper.start) so listing locales doesn't trigger a TCC prompt.
 
 // Read commands off stdin on a background thread; the main thread runs the
 // run loop that AVAudioEngine / SFSpeechRecognizer callbacks need.
@@ -172,10 +197,11 @@ DispatchQueue.global(qos: .userInitiated).async {
         let cmd = parts[0]
         let arg = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespaces) : ""
         switch cmd {
-        case "start": DispatchQueue.main.async { helper.start(locale: arg) }
-        case "stop":  DispatchQueue.main.async { helper.stop() }
-        case "quit":  exit(0)
-        default:      emit(["type": "error", "message": "unknown command: \(cmd)"])
+        case "start":   DispatchQueue.main.async { helper.start(locale: arg) }
+        case "stop":    DispatchQueue.main.async { helper.stop() }
+        case "locales": reportLocales()
+        case "quit":    exit(0)
+        default:        emit(["type": "error", "message": "unknown command: \(cmd)"])
         }
     }
     // stdin closed - parent process is gone.

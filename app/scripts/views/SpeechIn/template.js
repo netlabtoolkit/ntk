@@ -30,7 +30,6 @@
         <div class="content">
             <label class="narrowLabel">language</label>
             <select class="localeSelect"></select><br>
-            <input class="localeInput moreParam" type="text" placeholder="BCP-47, e.g. en-US"><br>
             <label class="narrowLabel">threshold</label>
             <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
             <hr>

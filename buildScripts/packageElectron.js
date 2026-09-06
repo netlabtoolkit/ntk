@@ -344,7 +344,7 @@ async function main() {
 		// app.asar, so keep it (and .node native modules, which packager
 		// unpacks by default) out of the archive. electronApp.js resolves
 		// the path with an app.asar -> app.asar.unpacked swap.
-		asar: { unpack: '{**/*.node,**/speechHelper/speechhelper}' },
+		asar: { unpack: '{**/*.node,**/speechHelper/speechhelper,**/speechHelper/ttshelper}' },
 		afterCopy: noSerial ? [makeSerialFreeAfterCopy()] : [],
 		// Top-level osxSign.entitlements/hardenedRuntime are silently ignored by
 		// @electron/osx-sign (its per-file codesign pass only reads whatever

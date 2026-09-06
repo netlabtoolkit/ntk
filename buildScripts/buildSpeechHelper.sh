@@ -1,14 +1,13 @@
 #!/bin/bash
-# Compiles the SpeechIn widget's Apple Speech helper (macOS only).
-# No-op with a warning on non-macOS - the SpeechIn widget just reports
-# "not available" there (whisper.cpp is the deferred cross-platform path,
-# see plans/ / the speech-to-text memory note).
+# Compiles the SpeechIn / SpeechOut Apple helpers (macOS only). No-op with
+# a warning on non-macOS - those widgets fall back to the browser APIs
+# there (SpeechIn to "not available", SpeechOut to window.speechSynthesis).
 set -e
 
 DIR="$(cd "$(dirname "$0")/../server/speechHelper" && pwd)"
 
 if [ "$(uname)" != "Darwin" ]; then
-	echo "buildSpeechHelper: not macOS, skipping (SpeechIn will report 'not available')"
+	echo "buildSpeechHelper: not macOS, skipping"
 	exit 0
 fi
 
@@ -17,9 +16,12 @@ if ! command -v swiftc >/dev/null 2>&1; then
 	exit 0
 fi
 
-# -sectcreate embeds Info.plist into the Mach-O so TCC can read the
-# NS*UsageDescription strings for this bare CLI (no .app bundle).
+# speechhelper (SpeechIn): -sectcreate embeds Info.plist so TCC can read
+# the mic / speech-recognition usage strings for this bare CLI.
 swiftc -O "$DIR/speechhelper.swift" -o "$DIR/speechhelper" \
 	-Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker "$DIR/Info.plist"
-
 echo "buildSpeechHelper: built $DIR/speechhelper"
+
+# ttshelper (SpeechOut): output-only, no mic, no TCC prompt - no plist.
+swiftc -O "$DIR/ttshelper.swift" -o "$DIR/ttshelper"
+echo "buildSpeechHelper: built $DIR/ttshelper"

@@ -25,3 +25,4 @@ __pycache__
 # into the WordPress site - not meant to live in the repo itself.
 docs/
 server/speechHelper/speechhelper
+server/speechHelper/ttshelper

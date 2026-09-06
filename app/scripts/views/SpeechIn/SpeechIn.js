@@ -10,27 +10,25 @@ define([
 function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalChainClasses){
 	'use strict';
 
-	// BCP-47 locales for the "more" panel dropdown. Apple's actual
-	// supported set is SFSpeechRecognizer.supportedLocales() and which are
-	// available on-device depends on the user's downloaded dictation
-	// languages - this is just a common shortlist; the free-text field
-	// below it accepts any BCP-47 id.
-	var LOCALES = [
-		['English (US)', 'en-US'],
-		['English (UK)', 'en-GB'],
-		['Spanish (Spain)', 'es-ES'],
-		['Spanish (Mexico)', 'es-MX'],
-		['French', 'fr-FR'],
-		['German', 'de-DE'],
-		['Italian', 'it-IT'],
-		['Portuguese (Brazil)', 'pt-BR'],
-		['Japanese', 'ja-JP'],
-		['Chinese (Simplified)', 'zh-CN'],
-		['Korean', 'ko-KR'],
-		['Russian', 'ru-RU'],
-		['Arabic', 'ar-SA'],
-		['Hindi', 'hi-IN'],
-	];
+	// The common shortlist - pinned to the top of the dropdown in this
+	// order, and used on its own as a fallback before the helper reports
+	// the full SFSpeechRecognizer.supportedLocales() set (~63 ids).
+	var COMMON_LOCALES = ['en-US', 'en-GB', 'es-ES', 'es-MX', 'fr-FR', 'de-DE',
+		'it-IT', 'pt-BR', 'ja-JP', 'zh-CN', 'ko-KR', 'ru-RU', 'ar-SA', 'hi-IN'];
+
+	// Prettify a BCP-47 id using the browser's own locale data.
+	var displayNames = (typeof Intl !== 'undefined' && Intl.DisplayNames)
+		? new Intl.DisplayNames(['en'], { type: 'language' }) : null;
+	function localeLabel(id) {
+		if(!displayNames) { return id; }
+		try {
+			var parts = id.split('-');
+			var lang = displayNames.of(parts[0]);
+			var region = parts[1] && parts[1].length === 2
+				? new Intl.DisplayNames(['en'], { type: 'region' }).of(parts[1]) : null;
+			return region ? lang + ' (' + region + ')  —  ' + id : lang + '  —  ' + id;
+		} catch(e) { return id; }
+	}
 
 	return WidgetView.extend({
 		ins: [
@@ -45,7 +43,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			'mouseup .recordButton': 'recordButtonUp',
 			'mouseleave .recordButton': 'recordButtonUp',
 			'change .localeSelect': 'localeSelectChange',
-			'change .localeInput': 'localeInputChange',
 		},
 		sources: [],
 		typeID: 'SpeechIn',
@@ -78,6 +75,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			var self = this;
 			this.$('.recordButton').css('cursor', 'pointer');
 
+			this.availableLocales = COMMON_LOCALES.slice();
 			this.populateLocaleSelect();
 
 			var ntkElectron = window.ntkElectron;
@@ -89,6 +87,15 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			ntkElectron.speechAvailable().then(function(ok) {
 				if(!ok) {
 					self.setStatus('unavailable', 'macOS only');
+					return;
+				}
+				if(ntkElectron.speechLocales) {
+					ntkElectron.speechLocales().then(function(locales) {
+						if(Array.isArray(locales) && locales.length) {
+							self.availableLocales = locales;
+							self.populateLocaleSelect();
+						}
+					});
 				}
 			});
 
@@ -152,6 +159,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 		onSpeechMessage: function(msg) {
 			switch(msg.type) {
+				case 'locales':
+					if(Array.isArray(msg.locales) && msg.locales.length) {
+						this.availableLocales = msg.locales;
+						this.populateLocaleSelect();
+					}
+					break;
 				case 'listening':
 					this.setStatus('recording', '');
 					break;
@@ -188,39 +201,50 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this.stopRecording();
 		},
 
-		// ---- locale UI ----
+		// ---- locale dropdown (populated from the helper's supported set) ----
 
 		populateLocaleSelect: function() {
 			var select = this.$('.localeSelect').get(0);
 			if(!select) { return; }
+
+			var current = this.model.get('locale');
+			var available = this.availableLocales;
+
+			// "Common" group: the shortlist, in its fixed order, limited to
+			// what the helper actually supports.
+			var common = COMMON_LOCALES.filter(function(id) { return available.indexOf(id) !== -1; });
+			// "All other languages" group: everything else, alphabetical by
+			// display name.
+			var rest = available
+				.filter(function(id) { return common.indexOf(id) === -1; })
+				.sort(function(a, b) {
+					var la = localeLabel(a), lb = localeLabel(b);
+					return la < lb ? -1 : (la > lb ? 1 : 0);
+				});
+			// A saved patch could hold a locale this build's helper doesn't
+			// list (a different macOS version) - keep it selectable.
+			if(current && available.indexOf(current) === -1) { common.unshift(current); }
+
 			select.innerHTML = '';
-			var current = this.model.get('locale'), matched = false;
-			for(var i = 0; i < LOCALES.length; i++) {
-				var opt = new Option(LOCALES[i][0], LOCALES[i][1]);
-				select.options[i] = opt;
-				if(LOCALES[i][1] === current) { matched = true; }
+			var gCommon = document.createElement('optgroup');
+			gCommon.label = 'Common';
+			common.forEach(function(id) { gCommon.appendChild(new Option(localeLabel(id), id)); });
+			select.appendChild(gCommon);
+
+			if(rest.length) {
+				var gRest = document.createElement('optgroup');
+				gRest.label = 'All other languages';
+				rest.forEach(function(id) { gRest.appendChild(new Option(localeLabel(id), id)); });
+				select.appendChild(gRest);
 			}
-			select.options[LOCALES.length] = new Option('Other…', '__other__');
-			if(matched) {
-				select.value = current;
-				this.$('.localeInput').hide();
-			} else {
-				select.value = '__other__';
-				this.$('.localeInput').val(current).show();
-			}
+
+			var all = common.concat(rest);
+			select.value = all.indexOf(current) !== -1 ? current : all[0];
+			this.model.set('locale', select.value);
 		},
+
 		localeSelectChange: function() {
-			var val = this.$('.localeSelect').val();
-			if(val === '__other__') {
-				this.$('.localeInput').val(this.model.get('locale')).show();
-			} else {
-				this.$('.localeInput').hide();
-				this.model.set('locale', val);
-			}
-		},
-		localeInputChange: function() {
-			var val = this.$('.localeInput').val().trim();
-			if(val) { this.model.set('locale', val); }
+			this.model.set('locale', this.$('.localeSelect').val());
 		},
 
 	});

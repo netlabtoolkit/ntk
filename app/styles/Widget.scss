@@ -1286,3 +1286,78 @@
         margin: 2px 0;
     }
 }
+
+.speechout {
+    .widgetBody {
+        text-align: center;
+    }
+
+    // Play triangle -> stop square (when .speaking)
+    .playButton {
+        width: 0;
+        height: 0;
+        border-style: solid;
+        border-width: 14px 0 14px 22px;
+        border-color: transparent transparent transparent #3a7d3a;
+        margin: 10px auto 6px;
+        cursor: pointer;
+        transition: border-color 0.15s;
+
+        &.speaking {
+            width: 26px;
+            height: 26px;
+            border: none;
+            background-color: #c94a4a;
+            margin: 4px auto 6px;
+            animation: speechinRecordPulse 1s ease-in-out infinite;
+        }
+    }
+
+    .ttsEngine {
+        font-size: 0.7em;
+        color: #888;
+        text-transform: capitalize;
+    }
+
+    .speechTranscript {
+        font-size: 0.8em;
+        color: #333;
+        max-height: 34px;
+        overflow: hidden;
+        padding: 0 4px;
+        word-break: break-word;
+    }
+
+    // "more" panel layout - the shared .content rules assume short
+    // labels + narrow fields; this widget has a full-width voice select,
+    // a range slider, and checkbox rows with real sentences.
+    .speechOutMore {
+        .voice {
+            display: block;
+            width: 100%;
+            margin-bottom: 4px;
+        }
+        .rate {
+            width: 110px;
+            vertical-align: middle;
+        }
+        // checkbox + its label text as one clickable row, not the
+        // fixed-width inline-block the shared `label` rule gives
+        label.checkRow {
+            display: block;
+            width: auto;
+            margin: 3px 0;
+            font-size: 0.85em;
+
+            input {
+                width: auto;
+                margin-right: 4px;
+                vertical-align: middle;
+            }
+        }
+        textarea.database {
+            width: 100%;
+            box-sizing: border-box;
+        }
+    }
+}
