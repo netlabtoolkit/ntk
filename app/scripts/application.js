@@ -4,14 +4,20 @@ define([
 	'routers/Main',
 	'modules/Patcher',
 	'modules/ToolBar',
+	'buildConfig',
 ],
 
-function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule) {
+function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule, buildConfig) {
     'use strict';
 
 
 	var App = new Backbone.Marionette.Application();
 	window.app = App;
+
+	// Build-time config (see app/scripts/buildConfig.js). serial:false on
+	// Windows/Linux builds and any --no-serial build - the UI drops the
+	// "Serial" device option and new widgets default to Network.
+	App.buildConfig = buildConfig;
 
 	// Default Device settings, shown in the left-panel Settings drawer -
 	// every newly-placed hardware widget (AnalogIn/AnalogOut/DigitalIn/
@@ -22,7 +28,7 @@ function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule) {
 	// Patcher.js's applyDefaultDeviceToModel/getDefaultDeviceMapping for
 	// where it's consumed.
 	App.defaultDevice = {
-		deviceType: 'ArduinoUno',
+		deviceType: buildConfig.serial ? 'ArduinoUno' : 'network',
 		server: 'auto',
 		port: 3030,
 	};

@@ -44,6 +44,13 @@ function( app, Backbone, Template, Widgets ) {
 		render: function() {
 			this.el.innerHTML = this.template();
 
+			// Serial-free build: drop "Serial" from the Settings-drawer
+			// Device picker and hide its serial port dropdown.
+			if (app.buildConfig && app.buildConfig.serial === false) {
+				this.$('.defaultDeviceType option[value="ArduinoUno"]').remove();
+				this.$('.defaultDeviceSerialPortPicker').hide();
+			}
+
 			var sortedWidgets = this.sortWidgetCategories();
 
 			for(var categoryName in sortedWidgets) {

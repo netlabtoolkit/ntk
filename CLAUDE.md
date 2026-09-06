@@ -116,6 +116,25 @@
   gracefully (warn + skip) if the identity/profile aren't present on the
   machine, so it's still safe to run on a machine that only needs an
   unsigned dev build; `--no-sign`/`--no-notarize` force that.
+- **Cross-platform / serial-free builds.** `packageElectron.js` takes
+  `--platform` / `--arch` (default `darwin` / `arm64`) and `--no-serial`.
+  `--no-serial` (also forced automatically for any non-`darwin` target,
+  since `@serialport/bindings`' native binary can't be cross-compiled
+  here) runs an `afterCopy` hook that deletes the real serialport
+  packages from the bundle, drops in an inert stub (johnny-five / firmata
+  only `require("serialport")` lazily, and never on the WiFi path), and
+  rewrites the bundled `dist/scripts/buildConfig.js` to `serial: false` -
+  which makes the client hide the "Serial" device option and default new
+  hardware widgets to Network (see `app/scripts/buildConfig.js`,
+  `application.js`, `WidgetMulti.js`, `ToolBar.js`). Result is a pure-JS
+  bundle with no `.node` files. `npm run package:win` builds
+  `NTK-win32-x64.zip` from macOS (unsigned - no Windows Authenticode cert
+  set up, so first-run SmartScreen prompt). `@electron/packager` v20 uses
+  pure-JS `resedit` for the `.exe` icon/metadata, so no wine needed; it
+  does require `win32metadata.CompanyName` in the packager opts since
+  `server/package.json` has no `author`. **Not yet smoke-tested on real
+  Windows** - the cross-build produces a well-formed bundle but nobody
+  has run `NTK.exe` yet.
 - **`@electron/osx-sign`'s top-level `osxSign.entitlements` and
   `osxSign.hardenedRuntime` options are silently ignored** - its per-file
   codesign pass (`sign.js`) only reads whatever `osxSign.optionsForFile()`

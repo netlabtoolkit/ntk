@@ -223,13 +223,83 @@ function notarizeProfileIsAvailable(profile) {
 	}
 }
 
+function getFlagValue(args, name) {
+	const eq = args.find((a) => a.startsWith(name + '='));
+	if (eq) return eq.slice(name.length + 1);
+	const i = args.indexOf(name);
+	if (i !== -1 && args[i + 1] && !args[i + 1].startsWith('--')) return args[i + 1];
+	return undefined;
+}
+
+// afterCopy hook: turn the copied app into a serial-free build. NTK's
+// serial (USB Arduino) support pulls in @serialport/bindings, a native
+// module that can't be cross-compiled from this machine for Windows /
+// Linux - so those targets are always serial-free, and --no-serial can
+// also be used for a macOS build. This: (1) removes the real serialport
+// packages from the bundle, (2) drops in an inert stub so the lazy
+// `require("serialport")` in johnny-five / firmata still resolves (the
+// WiFi/Network path never actually uses it), (3) flips the client's
+// buildConfig so the UI drops the "Serial" device option and defaults
+// new widgets to Network.
+function makeSerialFreeAfterCopy() {
+	// @electron/packager v20 hook API: one { buildPath, ... } arg, returns
+	// a promise (throw to abort). Runs after the app dir is copied,
+	// before prune/asar.
+	return async ({ buildPath }) => {
+		const nodeModules = path.join(buildPath, 'node_modules');
+		for (const dir of ['@serialport', 'serialport', 'bindings', 'node-gyp-build', '@mapbox/node-pre-gyp']) {
+			fs.rmSync(path.join(nodeModules, dir), { recursive: true, force: true });
+		}
+
+		const stubDir = path.join(nodeModules, 'serialport');
+		fs.mkdirSync(stubDir, { recursive: true });
+		fs.writeFileSync(path.join(stubDir, 'package.json'),
+			JSON.stringify({ name: 'serialport', version: '0.0.0-ntk-stub', main: 'index.js' }, null, 2));
+		fs.writeFileSync(path.join(stubDir, 'index.js'),
+			'"use strict";\n' +
+			'// Inert stub for serial-free NTK builds - see buildScripts/packageElectron.js.\n' +
+			'const EventEmitter = require("events");\n' +
+			'class SerialPort extends EventEmitter {\n' +
+			'  constructor() { super(); this.isOpen = false; }\n' +
+			'  open(cb) { if (cb) cb(new Error("This NTK build has no serial support")); }\n' +
+			'  write() { return false; }\n' +
+			'  close(cb) { if (cb) cb(); }\n' +
+			'  static list() { return Promise.resolve([]); }\n' +
+			'}\n' +
+			'module.exports = SerialPort;\n' +
+			'module.exports.SerialPort = SerialPort;\n');
+
+		// Flip the client build config that ships in the bundle.
+		const clientConfig = path.join(buildPath, 'dist', 'scripts', 'buildConfig.js');
+		if (fs.existsSync(clientConfig)) {
+			fs.writeFileSync(clientConfig,
+				"define([], function() {\n\t'use strict';\n\t// Serial-free build (see buildScripts/packageElectron.js).\n\treturn { serial: false };\n});\n");
+		} else {
+			console.warn('  (no dist/scripts/buildConfig.js in the bundle - run "npm run build" first)');
+		}
+
+		console.log('  serial-free: removed serialport native modules, wrote stub + client buildConfig');
+	};
+}
+
 async function main() {
 	const args = process.argv.slice(2);
 	const forceNoSign = args.includes('--no-sign');
 	const forceNoNotarize = args.includes('--no-notarize');
 
-	const canSign = !forceNoSign && identityIsAvailable(SIGN_IDENTITY);
-	if (!forceNoSign && !canSign) {
+	const platform = getFlagValue(args, '--platform') || 'darwin';
+	const arch = getFlagValue(args, '--arch') || (platform === 'darwin' ? 'arm64' : 'x64');
+	// Non-macOS targets can't get the @serialport/bindings native module
+	// built here, so they're always serial-free. --no-serial also works
+	// for a macOS build.
+	const noSerial = args.includes('--no-serial') || platform !== 'darwin';
+	if (noSerial) console.log(`Building serial-free (${platform}/${arch}).`);
+
+	// Signing / notarization is macOS-only. A Windows build needs a
+	// separate Authenticode cert (not set up); it ships unsigned for now,
+	// which means a SmartScreen "unknown publisher" prompt on first run.
+	const canSign = platform === 'darwin' && !forceNoSign && identityIsAvailable(SIGN_IDENTITY);
+	if (platform === 'darwin' && !forceNoSign && !canSign) {
 		console.warn(`Signing identity not found in keychain ("${SIGN_IDENTITY}") - building unsigned.`);
 	}
 
@@ -245,13 +315,19 @@ async function main() {
 	const appPaths = await packager({
 		dir: './server',
 		name: 'NTK',
-		platform: 'darwin',
-		arch: 'arm64',
+		platform,
+		arch,
 		electronVersion,
 		overwrite: true,
 		out: 'packaged',
-		icon: 'server/icons/icon.icns',
+		icon: path.join('server', 'icons', platform === 'win32' ? 'icon.ico' : 'icon.icns'),
 		appVersion: pkg.version,
+		appCopyright: `Commotion New Media, Inc`,
+		// Satisfies @electron/packager's "author required for win32" check
+		// (server/package.json has no author field) and sets the .exe's
+		// company metadata. Ignored on other platforms.
+		win32metadata: { CompanyName: 'Commotion New Media, Inc', FileDescription: 'NTK (NETLab Toolkit)' },
+		afterCopy: noSerial ? [makeSerialFreeAfterCopy()] : [],
 		// Top-level osxSign.entitlements/hardenedRuntime are silently ignored by
 		// @electron/osx-sign (its per-file codesign pass only reads whatever
 		// osxSign.optionsForFile() returns) - so entitlements must be applied
@@ -277,23 +353,34 @@ async function main() {
 	});
 
 	for (const outDir of appPaths) {
-		const appPath = path.join(outDir, 'NTK.app');
-		console.log('Packaged:', appPath);
+		console.log('Packaged:', outDir);
 
-		// Leave a copy directly alongside the unpacked NTK.app - convenient
+		// Leave a copy directly alongside the unpacked app - convenient
 		// for testing straight from outDir without unzipping anything.
 		const persistentFirmwareDir = path.join(outDir, 'CircuitPython');
 		fs.rmSync(persistentFirmwareDir, { recursive: true, force: true });
 		bundleCircuitPythonFirmware(persistentFirmwareDir);
 		console.log('Bundled CircuitPython firmware:', persistentFirmwareDir);
 
+		if (platform !== 'darwin') {
+			// Non-macOS: the whole outDir is the app (NTK.exe + files).
+			// Always produce a zip - it's the distributable. No signing.
+			const zipPath = `${outDir}.zip`;
+			fs.rmSync(zipPath, { force: true });
+			execFileSync('ditto', ['-c', '-k', '--keepParent', outDir, zipPath]);
+			console.log('Zipped:', zipPath);
+			continue;
+		}
+
+		const appPath = path.join(outDir, 'NTK.app');
+
 		if (!canNotarize) {
 			// The zip only exists for distributing a signed + notarized
-			// release - package:dev always signs too (the identity is
-			// present in this machine's keychain regardless), so gating
-			// on canSign alone wouldn't actually skip anything for a dev
-			// build. canNotarize is what actually distinguishes a real
-			// release (npm run package) from an iterative dev build
+			// macOS release - package:dev always signs too (the identity
+			// is present in this machine's keychain regardless), so
+			// gating on canSign alone wouldn't actually skip anything for
+			// a dev build. canNotarize is what actually distinguishes a
+			// real release (npm run package) from an iterative dev build
 			// (npm run package:dev, which passes --no-notarize).
 			console.log('Not notarized - skipping zip (only needed for a signed + notarized release).');
 			continue;
@@ -325,7 +412,9 @@ async function main() {
 		console.log('Zipped:', zipPath);
 	}
 
-	if (canSign) {
+	if (platform !== 'darwin') {
+		console.log(`Unsigned ${platform}/${arch} build (serial-free).`);
+	} else if (canSign) {
 		console.log(canNotarize ? 'Signed and notarized.' : 'Signed (not notarized).');
 	} else {
 		console.log('Unsigned build.');
