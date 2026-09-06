@@ -1,291 +1,258 @@
 define([
 	'backbone',
-    'rivets',
+	'rivets',
 	'views/item/WidgetMulti',
 	'text!./template.js',
 
-	// If you would like signal processing classes and functions include them here
 	'utils/SignalChainFunctions',
 	'utils/SignalChainClasses',
 ],
 function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalChainClasses){
-    'use strict';
+	'use strict';
+
+	// Preferred default when its voice is installed (System Settings ->
+	// Accessibility -> Spoken Content -> System Voice -> Manage Voices).
+	var PREFERRED_APPLE_VOICE = 'com.apple.voice.premium.en-US.Zoe';
+	var QUALITY_ORDER = { premium: 0, enhanced: 1, 'default': 2 };
+	var QUALITY_LABEL = { premium: 'Premium', enhanced: 'Enhanced', 'default': 'Default' };
 
 	return WidgetView.extend({
-		// Map inputs to model
 		ins: [
-			// title: decorative, to: <widget model field>
-			{title: 'in1', to: 'in1'},
-            {title: 'in2', to: 'in2'},
+			{title: 'trigger', to: 'in1'},
+			{title: 'text', to: 'in2'},
 		],
 		outs: [
-			// title: decorative, from: <widget model field>, to: <widget model field being listened to>
 			{title: 'out1', from: 'output', to: 'out1'},
 		],
-        
-        widgetEvents: {
-            'change .select_language': 'updateCountry',
-            'change .voice': 'updateLang',
-            'mousedown .speak': 'speakStart',
-            'mouseup .speak': 'speakStop',
-        },
+
+		widgetEvents: {
+			'click .playButton': 'playButtonClick',
+			'change .voice': 'voiceChange',
+		},
 		sources: [],
 		typeID: 'SpeechOut',
 		className: 'speechout',
-        categories: ['generator'],
+		categories: ['AI'],
 		template: _.template(Template),
 
 		initialize: function(options) {
-
-			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
-            
-            // Call any custom DOM events here
-            this.model.set({
-                title: 'SpeechOut',
-                in1: 0,
-                in2: 'Hello world, this is a test',
-                voice: 'Samantha',
-                language: 6,
-                dialect: 'en-US',
-                lang: 'en-US',
-                threshold: 512,
-                autoPlay: true,
-                autoCancel: false,
-                lastIn: -1,
-                start_timestamp: 0,
-                continuous: false,
-                domReady: false,
-                
-            });
-            
 
+			this.model.set({
+				title: 'SpeechOut',
+				in1: 0,
+				in2: 'Hello world, this is a test',
+				voice: PREFERRED_APPLE_VOICE,
+				rate: 0.5,
+				engine: '',        // 'apple' | 'web'
+				speaking: false,
+				lang: 'en-US',
+				dialect: 'en-US',
+				language: 6,
+				threshold: 512,
+				autoPlay: true,
+				autoCancel: false,
+				lastIn: -1,
+				domReady: false,
+			});
 		},
-        /**
-         * called when widget is rendered
-         *
-         * @return
-         */
+
 		onRender: function() {
 			WidgetView.prototype.onRender.call(this);
+			if(app.server) { this.model.set('domReady', true); return; }
 
-            var self = this;
-            
-            if(!app.server) {
-                this.$( '.speak' ).css( 'cursor', 'pointer' );
-            
-                // setup speach recognition
-                if (!('speechSynthesis' in window)) {
-                    alert("Browser not supported for speech synthesis");
-                } else {
-                    this.voiceSelect = this.$( '.voice' ).get(0);
-                    this.select_language = this.$( '.select_language' ).get(0);
-                    this.select_dialect = this.$( '.select_dialect' ).get(0);
-                    this.voiceDialects = {};
-                    //this.loadVoices();
-                    this.setLanguages();
-                    //this.voiceSelect.value = this.model.get('voice');
-                    //this.updateLang();
+			var self = this;
+			this.$('.playButton').css('cursor', 'pointer');
+			this.voiceSelect = this.$('.voice').get(0);
 
-                    this.msg = new SpeechSynthesisUtterance();
-                    //this.voices = window.speechSynthesis.getVoices();
-                    //msg.voice = voices[10]; // Note: some voices don't support altering params
-                    //this.msg.voiceURI = 'native';
-                    this.msg.volume = 1; // 0 to 1
-                    this.msg.rate = 1; // 0.1 to 10
-                    this.msg.lang = 'en-US';
+			var ntkElectron = window.ntkElectron;
+			if(ntkElectron && ntkElectron.ttsAvailable) {
+				ntkElectron.ttsAvailable().then(function(ok) {
+					if(ok) { self.setupAppleEngine(); }
+					else { self.setupWebEngine(); }
+				});
+			} else {
+				this.setupWebEngine();
+			}
 
-                    window.speechSynthesis.onvoiceschanged = function(e) {
-                        if (!self.voiceSelect.value) {
-                            self.loadVoices();
-                            self.voiceSelect.value = self.model.get('voice');
-                            self.updateLang();
-                        }
-                    };
-                    this.msg.onend = function(e) {
-                      //console.log('Finished in ' + e.elapsedTime + ' seconds.');
-                    };
-
-                    //speechSynthesis.speak(msg);
-                }
-            }
-            
-            this.model.set('domReady',true); 
-
+			this.model.set('domReady', true);
 		},
-        
-        onModelChange: function(model) {
 
-            if(!app.server && this.model.get('domReady')) {
-                if (!this.voiceSelect.value) {
-                    this.loadVoices();
-                    this.voiceSelect.value = this.model.get('voice');
-                    this.updateLang();
-                }
-                if(model.changedAttributes().in1 !== undefined) {
+		onRemove: function() {
+			if(this.unsubscribeTts) { this.unsubscribeTts(); }
+			if(window.ntkElectron && window.ntkElectron.ttsQuit) {
+				window.ntkElectron.ttsQuit(this.model.get('wid'));
+			}
+			if(this.engine === 'web' && window.speechSynthesis) { window.speechSynthesis.cancel(); }
+		},
 
-                    var input = parseFloat(this.model.get('in1'));  
-                    var threshold = this.model.get('threshold');
+		// ---- Apple AVSpeechSynthesizer engine ----
 
-                    if (this.model.get('lastIn') < threshold && input >= threshold) {
-                        // start speach recognition
-                        this.speak();
-                    } else if (this.model.get('lastIn') >= threshold && input < threshold) {
-                        if (this.model.get('autoCancel')) {
-                            window.speechSynthesis.cancel();
-                        }
-                    }
+		setupAppleEngine: function() {
+			var self = this;
+			this.engine = 'apple';
+			this.model.set('engine', 'apple');
 
-                    this.model.set('lastIn',input); 
-                }
-                if(model.changedAttributes().in2 !== undefined) {
-                    if (this.model.get('autoPlay')) {
-                        this.speak();
-                    }
-                }
-            }
-        },
-        
-        speak: function() {
-            var self = this;
-            window.speechSynthesis.cancel();
-            //this.msg.lang = 'en-US';
-            this.msg.lang = this.select_dialect.value;
-            this.msg.text = this.model.get('in2');
-                
-            if (this.voiceSelect.value) {
-		      this.msg.voice = window.speechSynthesis.getVoices().filter(function(voice) { return voice.name == self.voiceSelect.value; })[0];
-            }
-            
-            window.speechSynthesis.speak(this.msg);
-        },
-        
-        loadVoices: function() {
-            var self = this;
-            // Fetch the available voices.
-            var voices = window.speechSynthesis.getVoices();
-            
+			this.unsubscribeTts = window.ntkElectron.onTtsResult(function(msg) {
+				if(msg.wid !== self.model.get('wid')) { return; }
+				if(msg.type === 'started') { self.model.set('speaking', true); }
+				else if(msg.type === 'done') { self.model.set('speaking', false); }
+				else if(msg.type === 'error') { self.model.set({speaking: false, statusText: msg.message || 'error'}); }
+			});
 
-            // Loop through each of the voices.
-            voices.forEach(function(voice, i) {
-                // Create a new option element.
-                var option = document.createElement('option');
+			window.ntkElectron.ttsVoices().then(function(voices) {
+				self.appleVoices = voices || [];
+				self.populateAppleVoices();
+			});
+		},
 
-                // Set the options value and text.
-                option.value = voice.name;
-                option.innerHTML = voice.name;
-                self.voiceDialects[voice.name] = voice.lang;
-                //console.log(voice.name + ' ' + voice.lang)
+		populateAppleVoices: function() {
+			var select = this.voiceSelect;
+			if(!select) { return; }
+			select.innerHTML = '';
 
-                // Add the option to the voice selector.
-                self.voiceSelect.appendChild(option);
-            });
-        },
-        
-        speakStart: function() {
-            this.model.set('in1',1023);
-        },
-        
-        speakStop: function() {
-            this.model.set('in1',0);
-        },
-        
-        setLanguages: function() {
-            
-            this.langs =
-                [['Afrikaans',       ['af-ZA']],
-                 ['Bahasa Indonesia',['id-ID']],
-                 ['Bahasa Melayu',   ['ms-MY']],
-                 ['Català',          ['ca-ES']],
-                 ['Čeština',         ['cs-CZ']],
-                 ['Deutsch',         ['de-DE']],
-                 ['English',         ['en-AU', 'Australia'],
-                                     ['en-CA', 'Canada'],
-                                     ['en-IN', 'India'],
-                                     ['en-NZ', 'New Zealand'],
-                                     ['en-ZA', 'South Africa'],
-                                     ['en-GB', 'United Kingdom'],
-                                     ['en-US', 'United States']],
-                 ['Español',         ['es-AR', 'Argentina'],
-                                     ['es-BO', 'Bolivia'],
-                                     ['es-CL', 'Chile'],
-                                     ['es-CO', 'Colombia'],
-                                     ['es-CR', 'Costa Rica'],
-                                     ['es-EC', 'Ecuador'],
-                                     ['es-SV', 'El Salvador'],
-                                     ['es-ES', 'España'],
-                                     ['es-US', 'Estados Unidos'],
-                                     ['es-GT', 'Guatemala'],
-                                     ['es-HN', 'Honduras'],
-                                     ['es-MX', 'México'],
-                                     ['es-NI', 'Nicaragua'],
-                                     ['es-PA', 'Panamá'],
-                                     ['es-PY', 'Paraguay'],
-                                     ['es-PE', 'Perú'],
-                                     ['es-PR', 'Puerto Rico'],
-                                     ['es-DO', 'República Dominicana'],
-                                     ['es-UY', 'Uruguay'],
-                                     ['es-VE', 'Venezuela']],
-                 ['Euskara',         ['eu-ES']],
-                 ['Français',        ['fr-FR']],
-                 ['Galego',          ['gl-ES']],
-                 ['Hrvatski',        ['hr_HR']],
-                 ['IsiZulu',         ['zu-ZA']],
-                 ['Íslenska',        ['is-IS']],
-                 ['Italiano',        ['it-IT', 'Italia'],
-                                     ['it-CH', 'Svizzera']],
-                 ['Magyar',          ['hu-HU']],
-                 ['Nederlands',      ['nl-NL']],
-                 ['Norsk bokmål',    ['nb-NO']],
-                 ['Polski',          ['pl-PL']],
-                 ['Português',       ['pt-BR', 'Brasil'],
-                                     ['pt-PT', 'Portugal']],
-                 ['Română',          ['ro-RO']],
-                 ['Slovenčina',      ['sk-SK']],
-                 ['Suomi',           ['fi-FI']],
-                 ['Svenska',         ['sv-SE']],
-                 ['Türkçe',          ['tr-TR']],
-                 ['български',       ['bg-BG']],
-                 ['Pусский',         ['ru-RU']],
-                 ['Српски',          ['sr-RS']],
-                 ['한국어',            ['ko-KR']],
-                 ['中文',             ['cmn-Hans-CN', '普通话 (中国大陆)'],
-                                     ['cmn-Hans-HK', '普通话 (香港)'],
-                                     ['cmn-Hant-TW', '中文 (台灣)'],
-                                     ['yue-Hant-HK', '粵語 (香港)']],
-                 ['日本語',           ['ja-JP']],
-                 ['Lingua latīna',   ['la']]];
-            
-                for (var i = 0; i < this.langs.length; i++) {
-                    this.select_language.options[i] = new Option(this.langs[i][0], i);
-                }
+			var voices = (this.appleVoices || []).slice().sort(function(a, b) {
+				var q = (QUALITY_ORDER[a.quality] || 9) - (QUALITY_ORDER[b.quality] || 9);
+				if(q) { return q; }
+				var ae = a.lang.indexOf('en') === 0, be = b.lang.indexOf('en') === 0;
+				if(ae !== be) { return ae ? -1 : 1; }
+				if(a.lang !== b.lang) { return a.lang < b.lang ? -1 : 1; }
+				return a.name < b.name ? -1 : 1;
+			});
 
-                this.select_language.selectedIndex = this.model.get('language');
-                this.updateCountry();
-                //this.select_dialect.selectedIndex = 6;
-                this.select_dialect.value = this.model.get('dialect');
-            },
-        
-            updateCountry: function() {
-                for (var i = this.select_dialect.options.length - 1; i >= 0; i--) {
-                    this.select_dialect.remove(i);
-                }
-                var list = this.langs[this.select_language.selectedIndex];
-                for (var i = 1; i < list.length; i++) {
-                    this.select_dialect.options.add(new Option(list[i][1], list[i][0]));
-                }
-                this.select_dialect.style.visibility = list[1].length == 1 ? 'hidden' : 'visible';
-            },
-            
-            updateLang: function() {
-                //var voiceLang = this.voiceDialects[this.voiceSelect.selectedIndex];
-                //this.$('.voiceLang').text(this.voiceDialects[this.model.get('voice')]);
-                //console.log(this.model.get('voice'));
-                this.model.set('lang', this.voiceDialects[this.model.get('voice')])
-                //this.$('.voiceLang').text(this.voiceDialects[this.voiceSelect.value]);
-            }
+			var groups = {}, order = [];
+			voices.forEach(function(v) {
+				if(!groups[v.quality]) { groups[v.quality] = document.createElement('optgroup'); groups[v.quality].label = QUALITY_LABEL[v.quality] || v.quality; order.push(v.quality); }
+				var opt = new Option(v.name + '  —  ' + v.lang, v.id);
+				groups[v.quality].appendChild(opt);
+			});
+			['premium', 'enhanced', 'default'].forEach(function(q) { if(groups[q]) { select.appendChild(groups[q]); } });
+			order.forEach(function(q) { if(['premium','enhanced','default'].indexOf(q) === -1 && groups[q]) { select.appendChild(groups[q]); } });
 
-        
+			// Pick a default the widget's saved value, else the preferred
+			// voice, else best available.
+			var want = this.model.get('voice');
+			var ids = voices.map(function(v) { return v.id; });
+			var pick = ids.indexOf(want) !== -1 ? want
+				: ids.indexOf(PREFERRED_APPLE_VOICE) !== -1 ? PREFERRED_APPLE_VOICE
+				: (voices[0] && voices[0].id) || '';
+			select.value = pick;
+			this.model.set('voice', pick);
 
-    });
+			if(!voices.some(function(v) { return v.quality === 'premium' || v.quality === 'enhanced'; })) {
+				this.model.set('statusText', 'Tip: download Premium voices in System Settings');
+			}
+		},
+
+		// ---- browser speechSynthesis engine (Windows/Linux fallback) ----
+
+		setupWebEngine: function() {
+			var self = this;
+			this.engine = 'web';
+			this.model.set('engine', 'web');
+
+			if(!('speechSynthesis' in window)) {
+				this.model.set('statusText', 'no speech synthesis available');
+				return;
+			}
+			this.msg = new SpeechSynthesisUtterance();
+			this.msg.volume = 1;
+			this.msg.lang = 'en-US';
+			this.msg.onstart = function() { self.model.set('speaking', true); };
+			this.msg.onend = function() { self.model.set('speaking', false); };
+			this.msg.onerror = function() { self.model.set('speaking', false); };
+
+			this.webVoiceLangs = {};
+			this.loadWebVoices();
+			window.speechSynthesis.onvoiceschanged = function() { self.loadWebVoices(); };
+		},
+
+		loadWebVoices: function() {
+			var self = this, select = this.voiceSelect;
+			if(!select) { return; }
+			var voices = window.speechSynthesis.getVoices();
+			if(!voices.length) { return; }
+			select.innerHTML = '';
+			voices.forEach(function(v) {
+				self.webVoiceLangs[v.name] = v.lang;
+				select.appendChild(new Option(v.name + '  —  ' + v.lang, v.name));
+			});
+			// Web mode: model.voice may hold an Apple id from a Mac-made
+			// patch - fall back to Samantha / first voice.
+			var names = voices.map(function(v) { return v.name; });
+			var want = this.model.get('voice');
+			var pick = names.indexOf(want) !== -1 ? want
+				: names.indexOf('Samantha') !== -1 ? 'Samantha'
+				: names[0];
+			select.value = pick;
+			this.model.set('voice', pick);
+		},
+
+		// ---- speak / stop (engine-agnostic entry points) ----
+
+		speak: function() {
+			if(app.server) { return; }
+			var text = String(this.model.get('in2') || '');
+			if(!text.trim()) { return; }
+
+			if(this.engine === 'apple') {
+				window.ntkElectron.ttsSpeak(this.model.get('wid'), {
+					text: text,
+					voice: this.model.get('voice'),
+					rate: parseFloat(this.model.get('rate')) || 0.5,
+				});
+				this.model.set('speaking', true);
+			} else if(this.engine === 'web' && this.msg) {
+				window.speechSynthesis.cancel();
+				this.msg.text = text;
+				this.msg.rate = (parseFloat(this.model.get('rate')) || 0.5) * 2; // web rate 0.1..10, ~1 = normal
+				var voices = window.speechSynthesis.getVoices();
+				var v = voices.filter(function(x) { return x.name === this.model.get('voice'); }.bind(this))[0];
+				if(v) { this.msg.voice = v; this.msg.lang = v.lang; }
+				window.speechSynthesis.speak(this.msg);
+			}
+		},
+
+		stop: function() {
+			if(this.engine === 'apple') {
+				if(window.ntkElectron) { window.ntkElectron.ttsStop(this.model.get('wid')); }
+			} else if(window.speechSynthesis) {
+				window.speechSynthesis.cancel();
+			}
+			this.model.set('speaking', false);
+		},
+
+		// ---- UI + inlets ----
+
+		playButtonClick: function() {
+			if(this.model.get('speaking')) { this.stop(); }
+			else { this.speak(); }
+		},
+
+		voiceChange: function() {
+			this.model.set('voice', this.$('.voice').val());
+		},
+
+		onModelChange: function(model) {
+			if(app.server || !this.model.get('domReady')) { return; }
+			var changed = model.changedAttributes();
+			if(!changed) { return; }
+
+			if(changed.in1 !== undefined) {
+				var input = parseFloat(this.model.get('in1')),
+					threshold = parseFloat(this.model.get('threshold')),
+					lastIn = parseFloat(this.model.get('lastIn'));
+				if(lastIn < threshold && input >= threshold) {
+					this.speak();
+				} else if(lastIn >= threshold && input < threshold) {
+					if(this.model.get('autoCancel')) { this.stop(); }
+				}
+				this.model.set('lastIn', input);
+			}
+			if(changed.in2 !== undefined && this.model.get('autoPlay')) {
+				this.speak();
+			}
+		},
+
+	});
 });

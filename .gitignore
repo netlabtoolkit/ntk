@@ -24,3 +24,5 @@ __pycache__
 # Scratch area for drafting widget-help doc pages before pasting them
 # into the WordPress site - not meant to live in the repo itself.
 docs/
+server/speechHelper/speechhelper
+server/speechHelper/ttshelper

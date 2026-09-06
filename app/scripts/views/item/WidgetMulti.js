@@ -65,6 +65,15 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			// Bind/rebind rivets to the models
 			rivets.bind(this.$el, {widget: this.model, sources: this.sources});
 
+			// Serial-free build (Windows/Linux, or --no-serial): drop the
+			// "Serial" option from any Device dropdown and hide the serial
+			// port picker. New widgets already default to Network (see
+			// application.js's App.defaultDevice).
+			if (window.app.buildConfig && window.app.buildConfig.serial === false) {
+				this.$('option[value="ArduinoUno"]').remove();
+				this.$('.serialPortPicker').hide();
+			}
+
 			if(this.sourceModel) {
 				this.listenTo(this.sourceModel, 'change', this.syncWithSourceModel);
 			}
