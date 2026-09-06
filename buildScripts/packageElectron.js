@@ -312,6 +312,11 @@ async function main() {
 	// can't auto-detect it from the ./server source dir, so read it explicitly.
 	const electronVersion = pkg.devDependencies.electron.replace(/^[^0-9]*/, '');
 
+	// SpeechIn's Apple Speech helper - macOS only, no-op elsewhere.
+	if (platform === 'darwin') {
+		execFileSync(path.join(__dirname, 'buildSpeechHelper.sh'), [], { stdio: 'inherit' });
+	}
+
 	const appPaths = await packager({
 		dir: './server',
 		name: 'NTK',
@@ -327,6 +332,19 @@ async function main() {
 		// (server/package.json has no author field) and sets the .exe's
 		// company metadata. Ignored on other platforms.
 		win32metadata: { CompanyName: 'Commotion New Media, Inc', FileDescription: 'NTK (NETLab Toolkit)' },
+		// macOS TCC needs these to prompt for mic / speech-recognition
+		// access for the SpeechIn widget's helper. The helper also carries
+		// them in its own embedded Info.plist (belt and suspenders - TCC
+		// attribution for a spawned child isn't fully predictable).
+		extendInfo: platform === 'darwin' ? {
+			NSMicrophoneUsageDescription: "NTK uses the microphone for the SpeechIn widget's speech-to-text.",
+			NSSpeechRecognitionUsageDescription: "NTK uses on-device speech recognition for the SpeechIn widget's speech-to-text.",
+		} : undefined,
+		// The speech helper is a real executable - it can't run from inside
+		// app.asar, so keep it (and .node native modules, which packager
+		// unpacks by default) out of the archive. electronApp.js resolves
+		// the path with an app.asar -> app.asar.unpacked swap.
+		asar: { unpack: '{**/*.node,**/speechHelper/speechhelper}' },
 		afterCopy: noSerial ? [makeSerialFreeAfterCopy()] : [],
 		// Top-level osxSign.entitlements/hardenedRuntime are silently ignored by
 		// @electron/osx-sign (its per-file codesign pass only reads whatever

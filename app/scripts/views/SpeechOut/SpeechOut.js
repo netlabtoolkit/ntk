@@ -32,7 +32,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		sources: [],
 		typeID: 'SpeechOut',
 		className: 'speechout',
-        categories: ['generator'],
+        categories: ['AI'],
 		template: _.template(Template),
 
 		initialize: function(options) {

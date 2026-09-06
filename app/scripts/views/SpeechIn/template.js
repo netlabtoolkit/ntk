@@ -1,5 +1,5 @@
 <div class="widgetAuthoring">
-    <div class="widgetTop typeGenerator">
+    <div class="widgetTop typeAI">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
         </div>
@@ -12,17 +12,11 @@
     </div>
 
     <div class="widgetBody">
-        <div class="widgetBodyLeft">
-            <div class="inletValue"><span rv-text="widget:in1 | rounded">0</span></div>
-        </div>
-        <div class="widgetBodyRight">
-            <div class="inletValue"><span class="listen outputSingle">listen</span></div>
-        </div>
-            <br><br>
-            <span class='transcript' rv-text="widget:final_transcript"> </span>
-            <br>
-        
-
+        <div class="recordButton" rv-class-recording="widget:recording" title="Hold to record"></div>
+        <div class="speechStatus" rv-text="widget:status"></div>
+        <div class="speechTranscript" rv-show="widget:partial" rv-text="widget:partial"></div>
+        <div class="speechTranscript" rv-hide="widget:partial" rv-text="widget:output"></div>
+        <div class="speechError" rv-show="widget:statusText" rv-text="widget:statusText"></div>
     </div>
 
     <div class="widgetRight">
@@ -34,11 +28,11 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-            <label for="select_language">language</label><select name="select_language" class="select_language" rv-value="widget:language"></select>&nbsp;&nbsp;
-            <select class="select_dialect" rv-value="widget:dialect"></select><br>
-            <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
-            <label>continuous</label> <input class="continuous" type="checkbox" rv-checked="widget:continuous" /><br>
-            <textarea class="database" rv-value="widget:final_transcript" rows="4" cols="70"></textarea>
+            <label class="narrowLabel">language</label>
+            <select class="localeSelect"></select><br>
+            <input class="localeInput moreParam" type="text" placeholder="BCP-47, e.g. en-US"><br>
+            <label class="narrowLabel">threshold</label>
+            <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
             <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/speechin/" target="_blank">Widget help</a>
         </div>

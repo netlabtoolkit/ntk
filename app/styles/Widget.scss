@@ -1235,3 +1235,54 @@
         }
     }
 }
+
+@keyframes speechinRecordPulse {
+    0%, 100% { background-color: #F25151; box-shadow: 0 0 0 0 rgba(242, 81, 81, 0.6); }
+    50%      { background-color: #ff8080; box-shadow: 0 0 0 6px rgba(242, 81, 81, 0); }
+}
+
+.speechin {
+    .widgetBody {
+        text-align: center;
+    }
+
+    .recordButton {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background-color: #c94a4a;
+        border: 2px solid #8a2f2f;
+        margin: 8px auto 4px;
+        cursor: pointer;
+
+        &.recording {
+            animation: speechinRecordPulse 1s ease-in-out infinite;
+        }
+    }
+
+    .speechStatus {
+        font-size: 0.8em;
+        color: #000;
+        text-transform: capitalize;
+    }
+
+    .speechTranscript {
+        font-size: 0.8em;
+        color: #333;
+        max-height: 40px;
+        overflow: hidden;
+        padding: 0 4px;
+        word-break: break-word;
+    }
+
+    .speechError {
+        font-size: 0.75em;
+        color: #b00;
+        padding: 0 4px;
+    }
+
+    .localeInput {
+        width: 90%;
+        margin: 2px 0;
+    }
+}

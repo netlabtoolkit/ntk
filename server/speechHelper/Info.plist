@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Embedded (via -sectcreate __TEXT __info_plist) into the speechhelper
+  binary so macOS TCC can read the usage strings when the helper - a
+  bare CLI, not an .app bundle - requests microphone / speech-recognition
+  access. The same two NS*UsageDescription keys are also added to
+  NTK.app's own Info.plist by packageElectron.js (extendInfo), since TCC
+  attribution for a spawned child process is not fully predictable.
+-->
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>org.netlabtoolkit.ntk.speechhelper</string>
+    <key>CFBundleName</key>
+    <string>NTK Speech Helper</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>NTK uses the microphone for the SpeechIn widget's speech-to-text.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>NTK uses on-device speech recognition for the SpeechIn widget's speech-to-text.</string>
+</dict>
+</plist>

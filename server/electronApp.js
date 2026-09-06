@@ -8,7 +8,86 @@ const ipcMain = electron.ipcMain;
 const shell = electron.shell;
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const ntk = require('./netlabServer.js')();
+
+// ---- SpeechIn: Apple Speech (SFSpeechRecognizer) helper ----
+// One speechhelper child process per SpeechIn widget, keyed by widget id.
+// See server/speechHelper/speechhelper.swift for the stdin/stdout protocol.
+// macOS only - on other platforms speechAvailable() is false and the
+// SpeechIn widget shows "not available".
+
+// The binary can't run from inside app.asar, so packageElectron.js unpacks
+// it; in dev (__dirname = .../server) the .replace is a no-op.
+const SPEECH_HELPER_PATH = path
+	.join(__dirname, 'speechHelper', 'speechhelper')
+	.replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
+const speechHelperAvailable = process.platform === 'darwin' && fs.existsSync(SPEECH_HELPER_PATH);
+
+const speechHelpers = new Map(); // wid -> ChildProcess
+
+function speechHelperFor(wid) {
+	let child = speechHelpers.get(wid);
+	if (child && !child.killed) return child;
+
+	child = spawn(SPEECH_HELPER_PATH, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+	speechHelpers.set(wid, child);
+
+	let buf = '';
+	child.stdout.on('data', function(chunk) {
+		buf += chunk.toString();
+		let nl;
+		while ((nl = buf.indexOf('\n')) !== -1) {
+			const line = buf.slice(0, nl).trim();
+			buf = buf.slice(nl + 1);
+			if (!line) continue;
+			let msg;
+			try { msg = JSON.parse(line); } catch (e) { continue; }
+			// Log everything except the per-word partial stream.
+			if (msg.type !== 'partial') console.log('speechhelper[' + wid + ']', line);
+			if (mainWindow && !mainWindow.isDestroyed()) {
+				mainWindow.webContents.send('speech-result', Object.assign({ wid: wid }, msg));
+			}
+		}
+	});
+	child.stderr.on('data', function(chunk) {
+		console.log('speechhelper[' + wid + '] stderr:', chunk.toString().trim());
+	});
+	child.on('exit', function() {
+		speechHelpers.delete(wid);
+	});
+	return child;
+}
+
+function quitSpeechHelper(wid) {
+	const child = speechHelpers.get(wid);
+	if (!child) return;
+	try { child.stdin.write('quit\n'); } catch (e) {}
+	setTimeout(function() { try { child.kill(); } catch (e) {} }, 500);
+	speechHelpers.delete(wid);
+}
+
+ipcMain.handle('speech-available', function() {
+	return speechHelperAvailable;
+});
+ipcMain.handle('speech-start', function(event, opts) {
+	if (!speechHelperAvailable) return false;
+	const child = speechHelperFor(opts.wid);
+	try { child.stdin.write('start ' + (opts.locale || 'en-US') + '\n'); } catch (e) { return false; }
+	return true;
+});
+ipcMain.handle('speech-stop', function(event, opts) {
+	const child = speechHelpers.get(opts.wid);
+	if (child) { try { child.stdin.write('stop\n'); } catch (e) {} }
+	return true;
+});
+ipcMain.handle('speech-quit', function(event, opts) {
+	quitSpeechHelper(opts.wid);
+	return true;
+});
+app.on('will-quit', function() {
+	for (const wid of speechHelpers.keys()) quitSpeechHelper(wid);
+});
 
 var pickFile = async function(dialogName, extensions) {
 	var result = await dialog.showOpenDialog(mainWindow, {
