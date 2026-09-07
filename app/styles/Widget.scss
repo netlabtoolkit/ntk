@@ -1545,123 +1545,6 @@
         .topWords { display: block; }
     }
 
-    // The movable on-canvas text display. Width/height are set inline by
-    // updateDisplay() from the model (and by drag-resize); text long
-    // enough to overflow scrolls inside the box.
-    .detachedEl {
-        // The box itself does NOT scroll - an inner .displayScroll does -
-        // so the absolutely-positioned resize handles stay pinned to the
-        // box edges instead of scrolling away with the text.
-        overflow: hidden;
-        // Make the box clearly a box: it's a click target (drag/resize)
-        // that floats over the canvas, so a near-invisible one reads as a
-        // dead zone sitting on top of whatever's under it. Solid border +
-        // near-opaque background + a soft shadow so it's obvious where it
-        // is and that it can be moved.
-        border: 1px solid #b5b5b5;
-        background: rgba(255, 255, 255, 0.92);
-        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.15);
-        box-sizing: border-box;
-
-        // Passive display: the box must never eat clicks meant for a
-        // widget it happens to overlap. Only the drag bar and the resize
-        // handles are interactive.
-        pointer-events: none;
-        .detachedDrag,
-        .ui-resizable-handle { pointer-events: auto; }
-
-        // Thin grab bar across the top - the only place you drag from.
-        .detachedDrag {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 11px;
-            cursor: move;
-            background:
-                repeating-linear-gradient(90deg,
-                    #999 0, #999 2px, transparent 2px, transparent 5px)
-                    center / 34px 3px no-repeat,
-                #ececec;
-            border-bottom: 1px solid #d0d0d0;
-        }
-
-        .displayScroll {
-            position: absolute;
-            top: 11px;      // clear the drag bar
-            left: 0;
-            right: 0;
-            bottom: 0;
-            box-sizing: border-box;
-            overflow-y: auto;
-            overflow-x: hidden;
-        }
-
-        // Markdown-rendered content: keep block elements tidy inside the box.
-        .displaytext {
-            h1, h2, h3, h4, h5, h6 { margin: 0.4em 0 0.2em; line-height: 1.2; }
-            h1 { font-size: 1.6em; }
-            h2 { font-size: 1.4em; }
-            h3 { font-size: 1.2em; }
-            p { margin: 0 0 0.5em; }
-            ul, ol { margin: 0 0 0.5em; padding-left: 1.3em; }
-            li { margin: 0.1em 0; }
-            blockquote {
-                margin: 0 0 0.5em;
-                padding-left: 0.6em;
-                border-left: 3px solid rgba(0, 0, 0, 0.2);
-                color: rgba(0, 0, 0, 0.7);
-            }
-            pre {
-                margin: 0 0 0.5em;
-                padding: 0.4em 0.6em;
-                background: rgba(0, 0, 0, 0.05);
-                border-radius: 3px;
-                overflow-x: auto;
-            }
-            code { font-family: "Courier New", monospace; font-size: 0.9em; }
-            pre code { font-size: 1em; }
-            hr { border: 0; border-top: 1px solid rgba(0, 0, 0, 0.2); margin: 0.6em 0; }
-            a { color: #2a6ac0; }
-            > :first-child { margin-top: 0; }
-            > :last-child { margin-bottom: 0; }
-        }
-
-        // jQuery UI's own stylesheet isn't loaded in NTK, so the
-        // resizable handles it injects have no styling - position and
-        // size them here.
-        .ui-resizable-handle {
-            position: absolute;
-            display: block;
-            font-size: 0.1px;
-            z-index: 90;
-        }
-        .ui-resizable-s {
-            left: 0;
-            bottom: 0;
-            width: 100%;
-            height: 7px;
-            cursor: s-resize;
-        }
-        .ui-resizable-e {
-            top: 0;
-            right: 0;
-            width: 7px;
-            height: 100%;
-            cursor: e-resize;
-        }
-        .ui-resizable-se {
-            right: 2px;
-            bottom: 2px;
-            width: 14px;
-            height: 14px;
-            border-right: 3px solid #888;
-            border-bottom: 3px solid #888;
-            cursor: se-resize;
-        }
-        &.ui-resizable-resizing { opacity: 0.9; }
-    }
-
     .widgetBottom .content {
         // A bit wider than the shared 190px - this panel has a text
         // editing area, import/export, and the stats readout.
@@ -1687,4 +1570,119 @@
             word-break: break-word;
         }
     }
+}
+
+// The Text widget's movable on-canvas display. Text.js re-parents this
+// out of the widget into the shared .widgets layer (so its drag bar
+// stays grabbable over any widget) and floats it at z-index 30, so
+// these rules can't be nested under .text - they're keyed off the
+// extra .textDisplay class instead. Width/height are set inline by
+// Text.js (from the model, and by drag-resize).
+.detachedEl.textDisplay {
+    // The box itself does NOT scroll - an inner .displayScroll does - so
+    // the absolutely-positioned resize handles stay pinned to the box
+    // edges instead of scrolling away with the text.
+    overflow: hidden;
+    // Make it clearly a box: solid border + near-opaque background + a
+    // soft shadow, so it reads as a movable panel, not a dead zone.
+    border: 1px solid #b5b5b5;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.15);
+    box-sizing: border-box;
+
+    // Passive display: the box must never eat clicks meant for a widget
+    // it overlaps. Only the drag bar and the resize handles are live.
+    pointer-events: none;
+    .detachedDrag,
+    .ui-resizable-handle { pointer-events: auto; }
+
+    // Thin grab bar across the top - the only place you drag from.
+    .detachedDrag {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 11px;
+        cursor: move;
+        background:
+            repeating-linear-gradient(90deg,
+                #999 0, #999 2px, transparent 2px, transparent 5px)
+                center / 34px 3px no-repeat,
+            #ececec;
+        border-bottom: 1px solid #d0d0d0;
+    }
+
+    .displayScroll {
+        position: absolute;
+        top: 11px;      // clear the drag bar
+        left: 0;
+        right: 0;
+        bottom: 0;
+        box-sizing: border-box;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    // Markdown-rendered content: keep block elements tidy inside the box.
+    .displaytext {
+        h1, h2, h3, h4, h5, h6 { margin: 0.4em 0 0.2em; line-height: 1.2; }
+        h1 { font-size: 1.6em; }
+        h2 { font-size: 1.4em; }
+        h3 { font-size: 1.2em; }
+        p { margin: 0 0 0.5em; }
+        ul, ol { margin: 0 0 0.5em; padding-left: 1.3em; }
+        li { margin: 0.1em 0; }
+        blockquote {
+            margin: 0 0 0.5em;
+            padding-left: 0.6em;
+            border-left: 3px solid rgba(0, 0, 0, 0.2);
+            color: rgba(0, 0, 0, 0.7);
+        }
+        pre {
+            margin: 0 0 0.5em;
+            padding: 0.4em 0.6em;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        code { font-family: "Courier New", monospace; font-size: 0.9em; }
+        pre code { font-size: 1em; }
+        hr { border: 0; border-top: 1px solid rgba(0, 0, 0, 0.2); margin: 0.6em 0; }
+        a { color: #2a6ac0; }
+        > :first-child { margin-top: 0; }
+        > :last-child { margin-bottom: 0; }
+    }
+
+    // jQuery UI's own stylesheet isn't loaded in NTK, so the resizable
+    // handles it injects have no styling - position and size them here.
+    .ui-resizable-handle {
+        position: absolute;
+        display: block;
+        font-size: 0.1px;
+        z-index: 90;
+    }
+    .ui-resizable-s {
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        height: 7px;
+        cursor: s-resize;
+    }
+    .ui-resizable-e {
+        top: 0;
+        right: 0;
+        width: 7px;
+        height: 100%;
+        cursor: e-resize;
+    }
+    .ui-resizable-se {
+        right: 2px;
+        bottom: 2px;
+        width: 14px;
+        height: 14px;
+        border-right: 3px solid #888;
+        border-bottom: 3px solid #888;
+        cursor: se-resize;
+    }
+    &.ui-resizable-resizing { opacity: 0.9; }
 }

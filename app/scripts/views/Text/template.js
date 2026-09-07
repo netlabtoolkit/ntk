@@ -64,7 +64,7 @@
 </div>
         
 <% if(!server) { %>
-	<div class="detachedEl" rv-style-opacity="widget:opacity"
+	<div class="detachedEl textDisplay" rv-style-opacity="widget:opacity"
         rv-positionx="widget:left"
         rv-positiony="widget:top">
         <div class="detachedDrag" title="drag to move"></div>

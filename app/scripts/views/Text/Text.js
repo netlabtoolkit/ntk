@@ -15,7 +15,8 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
 		template: _.template(Template),
 		sources: [],
         widgetEvents: {
-            'mouseup .detachedEl': 'imgMoved',
+            // .detachedEl is re-parented out of this.$el in onRender, so
+            // its mouseup is bound directly there, not delegated here.
             'change .displayWidth': 'updateDisplay',
             'change .displayHeight': 'updateDisplay',
             'change .displayFontFamily': 'updateDisplay',
@@ -94,18 +95,26 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
             var self = this;
             if(!app.server) {
                 var $box = this.$( '.detachedEl' );
+
+                // The box is a passive display floating over the canvas.
+                // Its body is pointer-events:none (never blocks a widget),
+                // but its drag bar / resize handles must stay grabbable
+                // even where it overlaps a widget - which means it can't
+                // live inside the widget's own stacking context. Re-parent
+                // it to the shared widget layer and float it above the
+                // widgets (toolbar is z-index 100, so 30 is clear).
+                this.$box = $box;
+                var $layer = this.$el.closest('.widgets');
+                if($layer.length) { $box.appendTo($layer); }
                 // Concrete box size before jQuery UI initialises, so the
                 // se handle has a real height to grow from (not "auto").
                 $box.css({
                     position: 'fixed',
+                    zIndex: 30,
                     width: (parseInt(this.model.get('displayWidth'), 10) || 260) + 'px',
                     height: (parseInt(this.model.get('displayHeight'), 10) || 110) + 'px',
                     overflow: 'hidden',  // inner .displayScroll scrolls, not the box
                 });
-                // The box is a passive display: CSS sets pointer-events:none
-                // on it so it never blocks a widget behind it, and only the
-                // top drag bar / resize handles take clicks. Drag from the
-                // bar (not the whole box) to match.
                 $box.draggable({ handle: '.detachedDrag', cancel: '.ui-resizable-handle' });
                 $box.resizable({
                     handles: 'se, s, e',
@@ -116,20 +125,24 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
                         self.model.set('displayHeight', Math.round(ui.size.height));
                     },
                 });
+                // .detachedEl is no longer inside this.$el, so the
+                // delegated 'mouseup .detachedEl' widgetEvent can't reach
+                // it - bind the position save directly.
+                $box.on('mouseup', function(e) { self.imgMoved(e); });
 
-                this.textDiv = this.$('.displaytext');
+                this.textDiv = $box.find('.displaytext');
+                this.$scroll = $box.find('.displayScroll');
                 this.domReady = true;
                 this.updateDisplay();
                 this.renderDisplay();
                 this.updateStats();
 
-                // The box is pointer-events:none (so it never blocks a
-                // widget behind it), which also disables native wheel
-                // scrolling. Re-add it manually: scroll .displayScroll
+                // pointer-events:none also disables native wheel scrolling
+                // on the box - re-add it manually: scroll .displayScroll
                 // when the pointer is within its bounds, without ever
                 // consuming a click.
                 this._onWheel = function(e) {
-                    var el = self.$('.displayScroll').get(0);
+                    var el = self.$scroll && self.$scroll.get(0);
                     if(!el || el.scrollHeight <= el.clientHeight) { return; }
                     var r = el.getBoundingClientRect();
                     if(e.clientX < r.left || e.clientX > r.right ||
@@ -143,6 +156,9 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
 
         onRemove: function() {
             if(this._onWheel) { document.removeEventListener('wheel', this._onWheel, { passive: false }); }
+            // The box lives outside this.$el now, so this.remove() won't
+            // take it - clear it explicitly.
+            if(this.$box) { this.$box.remove(); }
         },
 
         onModelChange: function(model) {
@@ -211,9 +227,9 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
         },
 
         updateDisplay: function(e) {
-            if(app.server) { return; }
-            this.$( '.detachedEl' ).css( 'width', parseInt(this.model.get('displayWidth'), 10) || 260 );
-            this.$( '.detachedEl' ).css( 'height', parseInt(this.model.get('displayHeight'), 10) || 110 );
+            if(app.server || !this.$box) { return; }
+            this.$box.css( 'width', parseInt(this.model.get('displayWidth'), 10) || 260 );
+            this.$box.css( 'height', parseInt(this.model.get('displayHeight'), 10) || 110 );
             this.applyFontStyles();
         },
 
@@ -248,7 +264,7 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
         },
         
         imgMoved: function(e) {
-            var $box = this.$('.detachedEl');
+            var $box = this.$box || this.$('.detachedEl');
             // The box is position:fixed, so use the raw css left/top (what
             // draggable actually set, and what the rv-positionx/y binders
             // write back). .offset() adds page scroll and would make the
