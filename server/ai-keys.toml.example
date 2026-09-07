@@ -1,0 +1,12 @@
+# NTK AI keys — for the LLM widget.
+#
+# Copy this file to "ai-keys.toml" in the same folder (NTK's user-data
+# directory — the LLM widget's "set up key" button opens it for you) and
+# fill in your key. Never commit a real key to a repo.
+
+[anthropic]
+api_key = "sk-ant-..."
+# base_url = "https://api.anthropic.com"   # optional (e.g. a proxy)
+
+# Ollama (local models) needs no key. Point the LLM widget's "base URL"
+# field at it — default is http://localhost:11434.

@@ -11,6 +11,9 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const ntk = require('./netlabServer.js')();
 
+// LLM widget proxy (Anthropic / Ollama). Registers ipcMain.handle('llm-*').
+require('./llmProxy.js')();
+
 // ---- Apple speech helpers (macOS only) ----
 // SpeechIn -> speechhelper.swift (SFSpeechRecognizer); SpeechOut ->
 // ttshelper.swift (AVSpeechSynthesizer, reaches the Enhanced/Premium

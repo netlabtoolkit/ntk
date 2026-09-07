@@ -1361,3 +1361,94 @@
         }
     }
 }
+
+@keyframes llmCallingPulse {
+    0%, 100% { background-color: #B8860B; }
+    50%      { background-color: #e0b352; }
+}
+
+.llm {
+    .widgetBody { text-align: center; }
+
+    .modeSelect {
+        width: 88%;
+        margin: 3px 0 4px;
+        font-size: 0.8em;
+    }
+    .sendButton {
+        display: inline-block;
+        padding: 3px 16px;
+        background-color: #B8860B;
+        color: #fff;
+        border-radius: 4px;
+        font-size: 0.85em;
+        cursor: pointer;
+
+        &.calling { animation: llmCallingPulse 1s ease-in-out infinite; }
+    }
+    .llmStatus {
+        font-size: 0.75em;
+        color: #888;
+        text-transform: capitalize;
+        margin-top: 2px;
+    }
+    .llmPreview {
+        font-size: 0.75em;
+        color: #333;
+        max-height: 32px;
+        overflow: hidden;
+        padding: 0 4px;
+        word-break: break-word;
+    }
+    .llmError {
+        font-size: 0.72em;
+        color: #b00;
+        padding: 0 4px;
+        word-break: break-word;
+    }
+
+    .llmMore {
+        label {
+            display: block;
+            width: auto;
+            margin-top: 5px;
+            font-weight: bold;
+            font-size: 0.8em;
+        }
+        label.checkRow {
+            font-weight: normal;
+            margin-top: 6px;
+            input { width: auto; margin-right: 4px; vertical-align: middle; }
+        }
+        select,
+        input[type=text],
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        input.moreParam { width: 70px; }
+        .modelInput { margin-top: 2px; }
+
+        .llmKey {
+            font-size: 0.75em;
+            color: #666;
+            margin-top: 4px;
+
+            button {
+                font-size: 0.9em;
+                margin: 2px 4px 0 0;
+            }
+        }
+        .assembledSystem {
+            font-size: 0.75em;
+            color: #444;
+            white-space: pre-wrap;
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 4px;
+            max-height: 90px;
+            overflow-y: auto;
+        }
+    }
+}

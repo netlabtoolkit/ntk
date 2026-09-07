@@ -24,6 +24,7 @@ define([
     'views/Sequence/Sequence',
     'views/SpeechIn/SpeechIn',
     'views/SpeechOut/SpeechOut',
+    'views/LLM/LLM',
 	'views/Blank/Blank',
     
     'views/Image/Image',
@@ -42,7 +43,7 @@ define([
     'views/DigitalOut/DigitalOut',
     'views/GroveSensor/GroveSensor',
 ],
-function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Gesture, FaceTrack, PoseTrack, Mix, Splitter, Data, Tween, Sequence, SpeechIn, SpeechOut, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn, OSCOut, DigitalIn, DigitalOut, GroveSensor){
+function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Gesture, FaceTrack, PoseTrack, Mix, Splitter, Data, Tween, Sequence, SpeechIn, SpeechOut, LLM, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn, OSCOut, DigitalIn, DigitalOut, GroveSensor){
     'use strict';
 
 	return {
@@ -70,6 +71,7 @@ function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, 
         'Sequence': Sequence,
         'SpeechIn': SpeechIn,
         'SpeechOut': SpeechOut,
+        'LLM': LLM,
 		'Blank': Blank,
 
 		'Image': Image,

@@ -26,3 +26,7 @@ __pycache__
 docs/
 server/speechHelper/speechhelper
 server/speechHelper/ttshelper
+
+# real AI keys file for the LLM widget (never commit)
+ai-keys.toml
+**/ai-keys.toml

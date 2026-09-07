@@ -62,4 +62,19 @@ contextBridge.exposeInMainWorld('ntkElectron', {
 		ipcRenderer.on('tts-result', listener);
 		return function() { ipcRenderer.removeListener('tts-result', listener); };
 	},
+
+	// LLM widget (Anthropic / Ollama proxy in the main process). See
+	// server/llmProxy.js.
+	llmKeyStatus: function(provider) {
+		return ipcRenderer.invoke('llm-key-status', { provider: provider });
+	},
+	llmOpenKeysFile: function() {
+		return ipcRenderer.invoke('llm-open-keys-file');
+	},
+	llmModels: function(opts) {
+		return ipcRenderer.invoke('llm-models', opts || {});
+	},
+	llmComplete: function(opts) {
+		return ipcRenderer.invoke('llm-complete', opts || {});
+	},
 });
