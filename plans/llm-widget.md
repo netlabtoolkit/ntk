@@ -62,8 +62,14 @@ these):
    Answer/Summarize, a percentage of the original for Rewrite. Becomes a
    length clause in the system prompt (a soft instruction, not
    `max_tokens`).
-5. **Personality traits** — free text, e.g. "professional, scientific",
-   "sarcastic, funny". Becomes a "write with these qualities" clause.
+5. **Personality traits** — 4 dropdowns, each picking one trait from a
+   curated list (none / humor / sarcasm / professionalism / scientific /
+   speculation / metaphorical / creativity / business / conversational /
+   clarity / accuracy / conciseness / verbosity / originality /
+   playfulness / eloquence / political / angry / kind / liberal /
+   centrist / conservative / persuasive / sales / confident / unsure /
+   tentative) or **other** -> a free-text field. Chosen traits are
+   deduped and joined into a "write with these qualities" clause.
 6. **Context — purpose / format** — free text or a loose picker: essay,
    presentation, email, notes... Becomes a "format the output as..."
    clause.
