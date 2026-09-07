@@ -9,6 +9,11 @@ define([
 function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouchpunch ) {
     'use strict';
 
+    // Shared across all widget instances - the running "front" stacking
+    // value. Kept well below the toolbar panels' z-index (see toolBar.scss)
+    // and reset periodically so it can't climb into that range.
+    var topWidgetZ = 10;
+
     /**
      * Widget view base class
      *
@@ -19,6 +24,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			'click .inlet .unMap': 'unMapInlet',
 			'click .remove': 'removeWidget',
 			'blur .settings input': 'onChangeSettings',
+			'mousedown': 'bringToFront',
 		},
 		widgetEvents: {},
 
@@ -297,16 +303,23 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {undefined}
 		 */
 		setTopZIndex: function setTopZIndex() {
-			var topZIndex = 0;
+			this.bringToFront();
+		},
 
-			$('.widget').each(function() {
-				var index = parseInt($(this).css('z-index'), 10);
-				if(index > topZIndex) {
-					topZIndex = index;
-				}
-			});
-
-			this.$el.css('z-index', topZIndex);
+		/**
+		 * Raise this widget above the others so its "more" panel (which
+		 * can be wider than the widget body and overlap neighbours) and
+		 * its detached display sit on top of whatever it was covering.
+		 * Stays under the toolbar panels.
+		 */
+		bringToFront: function bringToFront() {
+			if(parseInt(this.$el.css('z-index'), 10) === topWidgetZ) { return; }
+			topWidgetZ += 1;
+			if(topWidgetZ > 90) {
+				topWidgetZ = 11;
+				$('.widget').css('z-index', 10);
+			}
+			this.$el.css('z-index', topWidgetZ);
 		},
 		/**
 		 * Called when you drop onto an inlet. Maps the dropped model w/ parameter to the inlet

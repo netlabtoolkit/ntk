@@ -260,11 +260,16 @@ app.on('ready', function() {
   // CURRENTLY permitted" path Chromium also consults internally) need to
   // agree, or a stale/inconsistent default on one of the two paths can
   // silently deny a later request without ever prompting.
+  //
+  // 'fullscreen' is on the same list: the ToolBar's Full Screen button
+  // calls element.requestFullscreen(), which Chromium gates behind this
+  // same permission - unhandled, it was being denied here too.
+  var allowedPermissions = { media: true, fullscreen: true };
   mainWindow.webContents.session.setPermissionRequestHandler(function(webContents, permission, callback) {
-	  callback(permission === 'media');
+	  callback(allowedPermissions[permission] === true);
   });
   mainWindow.webContents.session.setPermissionCheckHandler(function(webContents, permission) {
-	  return permission === 'media';
+	  return allowedPermissions[permission] === true;
   });
 
   mainWindow.loadURL('http://localhost:9001');

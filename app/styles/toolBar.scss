@@ -8,6 +8,12 @@
 	width: 250px;
 	height: 100%;
 
+	// Sit above every widget - including a widget's detached on-canvas
+	// box and a "more" panel that overlaps its neighbours. Widgets get a
+	// running z-index that is capped well under 100 (see WidgetMulti.js
+	// bringToFront / topWidgetZ).
+	z-index: 100;
+
 	margin: 0;
 	padding: 0;
 
@@ -287,6 +293,7 @@
 		position: fixed;
 		right: 0;
 		bottom: 0;
+		z-index: 101;
 
 		-webkit-transition: right 0.25s cubic-bezier(0.55, 0, 0.1, 1);
 		transition: right 0.25s cubic-bezier(0.55, 0, 0.1, 1);
