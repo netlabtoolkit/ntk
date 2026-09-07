@@ -29,6 +29,7 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <strong>Text Box</strong><br>
+            <button class="toggleDisplay" type="button">Hide text display</button><br>
             <div class="inletValue"><input class="appendText" type="checkbox" rv-checked="widget:appendText" /> Append new text</div>
             <label class="narrowLabel">width</label> <input class="displayWidth moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth">
             <label class="narrowLabel">height</label> <input class="displayHeight moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayHeight"><br>

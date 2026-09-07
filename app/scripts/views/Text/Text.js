@@ -26,6 +26,7 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
             'change .displayFontBold': 'updateDisplay',
             'click .importText': 'importText',
             'click .exportText': 'exportText',
+            'click .toggleDisplay': 'toggleDisplay',
 		},
 
 		initialize: function(options) {
@@ -78,6 +79,7 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
                 displayClass: 'displaytext',
                 displayClassLast: 'displaytext',
                 renderMarkdown: true,
+                displayVisible: true,
                 in: "Populus uxor antehabeo validus turpis dignissim verto si consequat quadrum.",
 
 
@@ -136,6 +138,7 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
                 this.updateDisplay();
                 this.renderDisplay();
                 this.updateStats();
+                this.applyDisplayVisibility();
 
                 // pointer-events:none also disables native wheel scrolling
                 // on the box - re-add it manually: scroll .displayScroll
@@ -161,6 +164,21 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
             if(this.$box) { this.$box.remove(); }
         },
 
+        // Show/hide the on-canvas display box. displayVisible is saved
+        // with the patch, so a Text widget used only as an inline
+        // pass-through / prompt source can keep its box out of the way.
+        toggleDisplay: function() {
+            this.model.set('displayVisible', this.model.get('displayVisible') === false);
+            this.applyDisplayVisibility();
+        },
+
+        applyDisplayVisibility: function() {
+            if(app.server) { return; }
+            var visible = this.model.get('displayVisible') !== false;
+            if(this.$box) { this.$box.toggle(visible); }
+            this.$('.toggleDisplay').text(visible ? 'Hide text display' : 'Show text display');
+        },
+
         onModelChange: function(model) {
             if(!app.server) {
                 var changed = model.changedAttributes() || {};
@@ -183,6 +201,9 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
                 }
                 if (changed.displayText !== undefined && this.domReady) {
                     this.updateStats();
+                }
+                if (changed.displayVisible !== undefined && this.domReady) {
+                    this.applyDisplayVisibility();
                 }
             }
         },
