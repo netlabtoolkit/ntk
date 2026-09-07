@@ -1429,6 +1429,15 @@
         input.moreParam { width: 70px; }
         .modelInput { margin-top: 2px; }
 
+        .traitRow {
+            display: flex;
+            gap: 3px;
+            margin-top: 2px;
+
+            select { flex: 1 1 auto; min-width: 0; }
+            input.traitCustom { flex: 1 1 auto; min-width: 0; }
+        }
+
         .llmKey {
             font-size: 0.75em;
             color: #666;

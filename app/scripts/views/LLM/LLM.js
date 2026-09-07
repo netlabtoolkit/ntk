@@ -18,6 +18,15 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		summarize: 'Summarize the following text. Output only the summary.',
 	};
 
+	// Personality-trait options for each of the 4 trait dropdowns.
+	// 'none' = skip, 'other' = use the adjacent free-text field.
+	var TRAITS = ['none', 'humor', 'sarcasm', 'professionalism', 'scientific',
+		'speculation', 'metaphorical', 'creativity', 'business', 'conversational',
+		'clarity', 'accuracy', 'conciseness', 'verbosity', 'originality',
+		'playfulness', 'eloquence', 'political', 'angry', 'kind', 'liberal',
+		'centrist', 'conservative', 'persuasive', 'sales', 'confident', 'unsure',
+		'tentative'];
+
 	// Shown before the model list has been fetched, or if the fetch fails.
 	var FALLBACK_MODELS = {
 		anthropic: ['claude-sonnet-5', 'claude-opus-5', 'claude-haiku-4-5', 'claude-fable-5-1'],
@@ -47,6 +56,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			'change .modelInput': 'onModelInputChange',
 			'click .refreshModels': 'fetchModels',
 			'click .setupKey': 'openKeysFile',
+			'change .traitSelect': 'traitSelectChange',
 		},
 		sources: [],
 		typeID: 'LLM',
@@ -75,7 +85,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 				temperature: '',   // '' -> not sent
 				length: '',        // '' -> no length clause; words, or % for rewrite
-				traits: '',
+
+				// 4 trait dropdowns + a free-text field each (used when
+				// the dropdown is set to 'other').
+				trait1: 'none', trait1Custom: '',
+				trait2: 'none', trait2Custom: '',
+				trait3: 'none', trait3Custom: '',
+				trait4: 'none', trait4Custom: '',
+
 				format: '',
 				audience: '',
 				systemAppend: '',
@@ -107,6 +124,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			}
 
 			this.populateModelSelect();
+			this.populateTraitSelects();
 			this.refreshKeyStatus();
 			this.fetchModels();
 		},
@@ -125,12 +143,23 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			return 'Keep the response to about ' + n + ' words.';
 		},
 
+		effectiveTraits: function() {
+			var m = this.model, out = [];
+			for(var i = 1; i <= 4; i++) {
+				var v = m.get('trait' + i);
+				if(v === 'other') { v = String(m.get('trait' + i + 'Custom') || '').trim(); }
+				if(v && v !== 'none' && out.indexOf(v) === -1) { out.push(v); }
+			}
+			return out;
+		},
+
 		assembleSystem: function() {
 			var m = this.model;
 			var mode = m.get('mode') || 'answer';
+			var traits = this.effectiveTraits();
 			var parts = [
 				MODE_PREAMBLE[mode] || MODE_PREAMBLE.answer,
-				m.get('traits')   && ('Write with these qualities: ' + m.get('traits') + '.'),
+				traits.length && ('Write with these qualities: ' + traits.join(', ') + '.'),
 				m.get('format')   && ('Format the output as: ' + m.get('format') + '.'),
 				m.get('audience') && ('Write for this audience: ' + m.get('audience') + '.'),
 				this.lengthClause(mode, parseInt(m.get('length'), 10)),
@@ -189,6 +218,37 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			var v = this.$('.modelSelect').val();
 			this.model.set('model', v);
 			this.$('.modelInput').val(v);
+		},
+
+		// ---- personality trait dropdowns ----
+
+		populateTraitSelects: function() {
+			var self = this;
+			this.$('.traitSelect').each(function() {
+				var slot = $(this).data('slot');
+				var current = self.model.get('trait' + slot) || 'none';
+				this.innerHTML = '';
+				for(var i = 0; i < TRAITS.length; i++) {
+					this.appendChild(new Option(TRAITS[i] === 'none' ? '(none)' : TRAITS[i], TRAITS[i]));
+				}
+				this.appendChild(new Option('other…', 'other'));
+				this.value = current;
+			});
+			this.updateTraitCustomVisibility();
+		},
+
+		updateTraitCustomVisibility: function() {
+			var self = this;
+			this.$('.traitCustom').each(function() {
+				var slot = $(this).data('slot');
+				$(this).toggle(self.model.get('trait' + slot) === 'other');
+			});
+		},
+
+		traitSelectChange: function(e) {
+			var slot = $(e.currentTarget).data('slot');
+			this.model.set('trait' + slot, $(e.currentTarget).val());
+			this.updateTraitCustomVisibility();
 		},
 		onModelInputChange: function() {
 			var v = this.$('.modelInput').val().trim();
@@ -274,9 +334,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			if(!changed) { return; }
 
 			// Rebuild the system prompt when any structured field changes.
-			if(changed.mode !== undefined || changed.traits !== undefined ||
-			   changed.format !== undefined || changed.audience !== undefined ||
-			   changed.length !== undefined || changed.systemAppend !== undefined) {
+			var structural = _.some(_.keys(changed), function(k) {
+				return k === 'mode' || k === 'format' || k === 'audience' ||
+					k === 'length' || k === 'systemAppend' || k.indexOf('trait') === 0;
+			});
+			if(structural) {
 				var sys = this.assembleSystem();
 				if(sys !== this.model.get('assembledSystem')) {
 					this.model.set('assembledSystem', sys);

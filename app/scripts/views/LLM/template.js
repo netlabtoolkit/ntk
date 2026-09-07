@@ -49,7 +49,22 @@
 
             <hr>
             <label class="wide-label">personality traits</label>
-            <input type="text" rv-value="widget:traits" placeholder="e.g. professional, scientific">
+            <div class="traitRow">
+                <select class="traitSelect" data-slot="1"></select>
+                <input class="traitCustom" data-slot="1" type="text" placeholder="your own" rv-value="widget:trait1Custom">
+            </div>
+            <div class="traitRow">
+                <select class="traitSelect" data-slot="2"></select>
+                <input class="traitCustom" data-slot="2" type="text" placeholder="your own" rv-value="widget:trait2Custom">
+            </div>
+            <div class="traitRow">
+                <select class="traitSelect" data-slot="3"></select>
+                <input class="traitCustom" data-slot="3" type="text" placeholder="your own" rv-value="widget:trait3Custom">
+            </div>
+            <div class="traitRow">
+                <select class="traitSelect" data-slot="4"></select>
+                <input class="traitCustom" data-slot="4" type="text" placeholder="your own" rv-value="widget:trait4Custom">
+            </div>
             <label class="wide-label">format / purpose</label>
             <input type="text" rv-value="widget:format" placeholder="e.g. email, essay, bulleted notes">
             <label class="wide-label">audience</label>
