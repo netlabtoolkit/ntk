@@ -144,9 +144,17 @@ function(Backbone, rivets, WidgetView, Template){
         },*/
         
         imgMoved: function(e) {
-            var offset = this.$('.detachedEl').offset();
-            this.model.set('left',offset.left);
-            this.model.set('top',offset.top);
+            // position:fixed box - read raw css left/top (round-trips with
+            // the rv-positionx/y binders); .offset() adds page scroll and
+            // drifts the box on every move. Clamp so it stays reachable.
+            var $box = this.$('.detachedEl');
+            var left = parseInt($box.css('left'), 10) || 0;
+            var top = parseInt($box.css('top'), 10) || 0;
+            left = Math.max(0, Math.min(left, (window.innerWidth || 1200) - 60));
+            top = Math.max(0, Math.min(top, (window.innerHeight || 800) - 40));
+            $box.css({ left: left + 'px', top: top + 'px' });
+            this.model.set('left', left);
+            this.model.set('top', top);
         },
 
 	});
