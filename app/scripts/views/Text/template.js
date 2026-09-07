@@ -30,8 +30,9 @@
         <div class="content">
             <strong>Text Box</strong><br>
             <div class="inletValue"><input class="appendText" type="checkbox" rv-checked="widget:appendText" /> Append new text</div>
-            <label class="narrowLabel">width</label> <input class="displayWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth"><br>
-            <label class="narrowLabel">class</label> <input class="displayClass" class="moreParam" type="text" rv-value="widget:displayClass"><br>
+            <label class="narrowLabel">width</label> <input class="displayWidth moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth">
+            <label class="narrowLabel">height</label> <input class="displayHeight moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayHeight"><br>
+            <label class="narrowLabel">class</label> <input class="displayClass moreParam" type="text" rv-value="widget:displayClass"><br>
             <hr><strong>Font</strong><br>
             <label class="narrowLabel">size</label> <input class="displayFontSize" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayFontSize"><br>
             <label class="narrowLabel">color</label> <input class="displayFontColor" class="moreParam" type="text" rv-value="widget:displayFontColor"><br>
@@ -46,7 +47,15 @@
             </select> 
             <hr>
             <strong>Displayed Text</strong><br>
-            <textarea class="database" rv-value="widget:in" rows="4" cols="70"></textarea>
+            <div class="inletValue"><input class="renderMarkdown" type="checkbox" rv-checked="widget:renderMarkdown" /> Render Markdown</div>
+            <textarea class="database" rv-value="widget:in" rows="4" cols="70"></textarea><br>
+            <button class="importText" type="button">import…</button>
+            <button class="exportText" type="button">export…</button>
+            <span class="fileStatus"></span>
+            <div class="textStats">
+                <span class="wordCount"></span>
+                <span class="topWords"></span>
+            </div>
             <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/text/" target="_blank">Widget help</a>
         </div>
@@ -58,7 +67,9 @@
 	<div class="detachedEl" rv-style-opacity="widget:opacity"
         rv-positionx="widget:left"
         rv-positiony="widget:top">
-        <span class="displaytext" rv-text="widget:displayText">text</span>
+        <div class="displayScroll">
+            <div class="displaytext">text</div>
+        </div>
 	</div>
 <% } %>
 

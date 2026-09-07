@@ -14,6 +14,14 @@ contextBridge.exposeInMainWorld('ntkElectron', {
 		return ipcRenderer.invoke('pick-image-file');
 	},
 
+	// Text widget import / export.
+	readTextFile: function() {
+		return ipcRenderer.invoke('read-text-file');
+	},
+	writeTextFile: function(opts) {
+		return ipcRenderer.invoke('write-text-file', opts || {});
+	},
+
 	// SpeechIn (Apple Speech helper). macOS only - speechAvailable() is
 	// false elsewhere. See server/electronApp.js and
 	// server/speechHelper/speechhelper.swift.

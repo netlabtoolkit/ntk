@@ -1461,3 +1461,129 @@
         }
     }
 }
+
+.text {
+    // Word count + top words readout in the "more" panel.
+    .textStats {
+        margin-top: 4px;
+        font-size: 0.78em;
+        color: #666;
+        line-height: 1.35;
+
+        .wordCount { font-weight: bold; }
+        .topWords { display: block; }
+    }
+
+    // The movable on-canvas text display. Width/height are set inline by
+    // updateDisplay() from the model (and by drag-resize); text long
+    // enough to overflow scrolls inside the box.
+    .detachedEl {
+        // The box itself does NOT scroll - an inner .displayScroll does -
+        // so the absolutely-positioned resize handles stay pinned to the
+        // box edges instead of scrolling away with the text.
+        overflow: hidden;
+        // A faint editing boundary so the box's height is visible (it's
+        // otherwise a transparent box - resizing taller than the text
+        // looks like nothing happened). Doesn't affect the text itself.
+        outline: 1px dashed rgba(0, 0, 0, 0.25);
+        background: rgba(255, 255, 255, 0.55);
+
+        .displayScroll {
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        // Markdown-rendered content: keep block elements tidy inside the box.
+        .displaytext {
+            h1, h2, h3, h4, h5, h6 { margin: 0.4em 0 0.2em; line-height: 1.2; }
+            h1 { font-size: 1.6em; }
+            h2 { font-size: 1.4em; }
+            h3 { font-size: 1.2em; }
+            p { margin: 0 0 0.5em; }
+            ul, ol { margin: 0 0 0.5em; padding-left: 1.3em; }
+            li { margin: 0.1em 0; }
+            blockquote {
+                margin: 0 0 0.5em;
+                padding-left: 0.6em;
+                border-left: 3px solid rgba(0, 0, 0, 0.2);
+                color: rgba(0, 0, 0, 0.7);
+            }
+            pre {
+                margin: 0 0 0.5em;
+                padding: 0.4em 0.6em;
+                background: rgba(0, 0, 0, 0.05);
+                border-radius: 3px;
+                overflow-x: auto;
+            }
+            code { font-family: "Courier New", monospace; font-size: 0.9em; }
+            pre code { font-size: 1em; }
+            hr { border: 0; border-top: 1px solid rgba(0, 0, 0, 0.2); margin: 0.6em 0; }
+            a { color: #2a6ac0; }
+            > :first-child { margin-top: 0; }
+            > :last-child { margin-bottom: 0; }
+        }
+
+        // jQuery UI's own stylesheet isn't loaded in NTK, so the
+        // resizable handles it injects have no styling - position and
+        // size them here.
+        .ui-resizable-handle {
+            position: absolute;
+            display: block;
+            font-size: 0.1px;
+            z-index: 90;
+        }
+        .ui-resizable-s {
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            height: 7px;
+            cursor: s-resize;
+        }
+        .ui-resizable-e {
+            top: 0;
+            right: 0;
+            width: 7px;
+            height: 100%;
+            cursor: e-resize;
+        }
+        .ui-resizable-se {
+            right: 2px;
+            bottom: 2px;
+            width: 14px;
+            height: 14px;
+            border-right: 3px solid #888;
+            border-bottom: 3px solid #888;
+            cursor: se-resize;
+        }
+        &.ui-resizable-resizing { opacity: 0.9; }
+    }
+
+    .widgetBottom .content {
+        // A bit wider than the shared 190px - this panel has a text
+        // editing area, import/export, and the stats readout.
+        width: 260px;
+
+        // Keep the edit box (and any other textarea) within the panel
+        // rather than sizing to its cols="" attribute and overflowing.
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .importText,
+        .exportText {
+            margin: 3px 4px 0 0;
+            font-size: 0.9em;
+        }
+        .fileStatus {
+            display: block;
+            margin-top: 2px;
+            font-size: 0.75em;
+            color: #666;
+            word-break: break-word;
+        }
+    }
+}

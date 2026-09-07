@@ -188,6 +188,42 @@ ipcMain.handle('pick-image-file', function() {
 	return pickFile('Images', ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp']);
 });
 
+// Text widget: import a plain-text file, export text to one.
+ipcMain.handle('read-text-file', async function() {
+	var result = await dialog.showOpenDialog(mainWindow, {
+		properties: ['openFile'],
+		filters: [
+			{ name: 'Text', extensions: ['md', 'txt', 'markdown', 'text', 'json', 'csv', 'html', 'xml', 'rtf'] },
+			{ name: 'All files', extensions: ['*'] },
+		],
+	});
+	if (result.canceled || !result.filePaths.length) { return null; }
+	try {
+		return { name: path.basename(result.filePaths[0]), text: fs.readFileSync(result.filePaths[0], 'utf8') };
+	} catch (e) {
+		return { error: e.message };
+	}
+});
+
+ipcMain.handle('write-text-file', async function(event, opts) {
+	opts = opts || {};
+	var result = await dialog.showSaveDialog(mainWindow, {
+		defaultPath: opts.defaultName || 'text.md',
+		filters: [
+			{ name: 'Markdown', extensions: ['md'] },
+			{ name: 'Text', extensions: ['txt'] },
+			{ name: 'All files', extensions: ['*'] },
+		],
+	});
+	if (result.canceled || !result.filePath) { return { canceled: true }; }
+	try {
+		fs.writeFileSync(result.filePath, String(opts.text != null ? opts.text : ''), 'utf8');
+		return { path: result.filePath };
+	} catch (e) {
+		return { error: e.message };
+	}
+});
+
 var mainWindow = null;
 
 // Quit when all windows are closed.
