@@ -16,6 +16,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		answer: 'Answer the following prompt.',
 		rewrite: 'Rewrite the following text as a new version. Output only the rewritten text.',
 		summarize: 'Summarize the following text. Output only the summary.',
+		argue: 'Argue against the following text, making the strongest case for the opposing view. Output only the argument.',
 	};
 
 	// Personality-trait options for each of the 4 trait dropdowns.
@@ -26,6 +27,34 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		'playfulness', 'eloquence', 'political', 'angry', 'kind', 'liberal',
 		'centrist', 'conservative', 'persuasive', 'sales', 'confident', 'unsure',
 		'tentative'];
+
+	// Single-choice dropdowns (format, audience). '' = no clause,
+	// 'other' = the adjacent free-text field. Values are phrased to drop
+	// straight into the system-prompt clause.
+	var CHOICES = {
+		// "The purpose of the text is ___." ('' = omit the clause entirely.)
+		format: [
+			['', '(none)'],
+			['an executive summary', 'an executive summary'],
+			['a case study', 'a case study'],
+			['a memoir', 'a memoir'],
+			['an essay', 'an essay'],
+			['an email', 'an email'],
+			['a presentation', 'a presentation'],
+			['a social media post', 'a social media post'],
+			['other', 'other…'],
+		],
+		// "Write for this audience: ___." ('' = omit the clause entirely.)
+		audience: [
+			['', '(none)'],
+			['an executive', 'an executive'],
+			['an engineer', 'an engineer'],
+			['a scientist', 'a scientist'],
+			['a general reader', 'a general reader'],
+			['a friend', 'a friend'],
+			['other', 'other…'],
+		],
+	};
 
 	// Shown before the model list has been fetched, or if the fetch fails.
 	var FALLBACK_MODELS = {
@@ -53,10 +82,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			'click .sendButton': 'send',
 			'change .providerSelect': 'onProviderChange',
 			'change .modelSelect': 'onModelSelectChange',
-			'change .modelInput': 'onModelInputChange',
 			'click .refreshModels': 'fetchModels',
 			'click .setupKey': 'openKeysFile',
 			'change .traitSelect': 'traitSelectChange',
+			'change .choiceSelect': 'choiceSelectChange',
+			'input .tempSlider': 'onTempSlider',
+			'change .tempSlider': 'onTempSlider',
+			'click .randomPersonality': 'randomPersonality',
+			'click .resetPersonality': 'resetPersonality',
 		},
 		sources: [],
 		typeID: 'LLM',
@@ -70,7 +103,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// Instance state referenced by onModelChange must exist before
 			// the model.set() below (it fires 'change' synchronously).
 			this._sendTimer = null;
-			this.modelList = FALLBACK_MODELS.anthropic.slice();
+			this.modelList = FALLBACK_MODELS.ollama.slice();
 
 			this.model.set({
 				title: 'LLM',
@@ -79,11 +112,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				preview: '',       // truncated last response for the body
 
 				mode: 'answer',
-				provider: 'anthropic',
-				model: DEFAULT_MODEL.anthropic,
-				baseURL: '',
+				// Default to local Ollama: no API key needed, so a new
+				// widget works out of the box. Switch to Anthropic in the
+				// "more" panel once a key is set up.
+				provider: 'ollama',
+				model: DEFAULT_MODEL.ollama,
+				baseURL: DEFAULT_BASE_URL.ollama,
 
-				temperature: '',   // '' -> not sent
+				temperature: 0.7,  // 0 = deterministic; max is provider-dependent (see updateTempRange)
 				length: '',        // '' -> no length clause; words, or % for rewrite
 
 				// 4 trait dropdowns + a free-text field each (used when
@@ -93,8 +129,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				trait3: 'none', trait3Custom: '',
 				trait4: 'none', trait4Custom: '',
 
-				format: '',
-				audience: '',
+				format: '',        // one of CHOICES.format, or 'other'
+				formatCustom: '',
+				audience: '',      // one of CHOICES.audience, or 'other'
+				audienceCustom: '',
+				markdown: true,    // ask for the response formatted as Markdown
 				systemAppend: '',
 				maxTokens: 1024,
 
@@ -123,14 +162,52 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				return;
 			}
 
+			this.resetModelList();
 			this.populateModelSelect();
 			this.populateTraitSelects();
+			this.populateChoiceSelect('format');
+			this.populateChoiceSelect('audience');
+			this.updateTempRange();
 			this.refreshKeyStatus();
 			this.fetchModels();
 		},
 
 		onRemove: function() {
 			if(this._sendTimer) { clearTimeout(this._sendTimer); }
+		},
+
+		// Loading a saved patch (and the save round-trip, which reloads
+		// it) applies the stored attributes via the base setFromModel.
+		// The trait / purpose / audience dropdowns and the temp slider are
+		// populated by JS, not rivets, so they don't pick up the restored
+		// values on their own - re-sync them here.
+		setFromModel: function(model) {
+			WidgetView.prototype.setFromModel.call(this, model);
+			if(!app.server) {
+				this.syncPersonalityUI();
+				this.populateModelSelect();
+				this.refreshKeyStatus();
+			}
+			return this;
+		},
+
+		// ---- temperature slider ----
+		// Anthropic caps temperature at 1.0 (and current-gen models reject
+		// it entirely - the proxy strips it and the widget notes that);
+		// Ollama / OpenAI-style go to 2.0.
+		updateTempRange: function() {
+			var slider = this.$('.tempSlider').get(0);
+			if(!slider) { return; }
+			var max = this.model.get('provider') === 'anthropic' ? 1 : 2;
+			slider.max = max;
+			var t = parseFloat(this.model.get('temperature'));
+			if(isNaN(t)) { t = 0.7; }
+			if(t > max) { t = max; this.model.set('temperature', t); }
+			slider.value = t;
+		},
+
+		onTempSlider: function(e) {
+			this.model.set('temperature', parseFloat(e.currentTarget.value));
 		},
 
 		// ---- structured system-prompt assembly ----
@@ -153,16 +230,25 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			return out;
 		},
 
+		effectiveChoice: function(field) {
+			var v = this.model.get(field);
+			if(v === 'other') { return String(this.model.get(field + 'Custom') || '').trim(); }
+			return v || '';
+		},
+
 		assembleSystem: function() {
 			var m = this.model;
 			var mode = m.get('mode') || 'answer';
 			var traits = this.effectiveTraits();
+			var format = this.effectiveChoice('format');
+			var audience = this.effectiveChoice('audience');
 			var parts = [
 				MODE_PREAMBLE[mode] || MODE_PREAMBLE.answer,
 				traits.length && ('Write with these qualities: ' + traits.join(', ') + '.'),
-				m.get('format')   && ('Format the output as: ' + m.get('format') + '.'),
-				m.get('audience') && ('Write for this audience: ' + m.get('audience') + '.'),
+				format && ('The purpose of the text is ' + format + '.'),
+				audience && ('Write for this audience: ' + audience + '.'),
 				this.lengthClause(mode, parseInt(m.get('length'), 10)),
+				m.get('markdown') && 'Format the response using Markdown. Output only the Markdown, with no surrounding code fence.',
 				m.get('systemAppend'),
 			];
 			return _.filter(parts, function(p) { return !!p; }).join('\n');
@@ -177,10 +263,20 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				model: DEFAULT_MODEL[provider] || '',
 				baseURL: DEFAULT_BASE_URL[provider] || '',
 			});
-			this.modelList = (FALLBACK_MODELS[provider] || []).slice();
+			this.resetModelList();
 			this.populateModelSelect();
+			this.updateTempRange();
 			this.refreshKeyStatus();
 			this.fetchModels();
+		},
+
+		// Seed the model dropdown with the current provider's built-in
+		// list. fetchModels() replaces it with the live list once that
+		// call returns; until then this keeps the dropdown from showing a
+		// stale other-provider list (e.g. Anthropic models under Ollama
+		// right after a patch load).
+		resetModelList: function() {
+			this.modelList = (FALLBACK_MODELS[this.model.get('provider')] || []).slice();
 		},
 
 		fetchModels: function() {
@@ -202,6 +298,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			if(!select) { return; }
 			var current = this.model.get('model');
 			var list = this.modelList.slice();
+			// A model from a saved patch that the provider no longer lists
+			// stays selectable.
 			if(current && list.indexOf(current) === -1) { list.unshift(current); }
 
 			select.innerHTML = '';
@@ -210,14 +308,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				select.value = list.indexOf(current) !== -1 ? current : list[0];
 				this.model.set('model', select.value);
 			}
-			// keep the free-text field in sync
-			this.$('.modelInput').val(this.model.get('model') || '');
 		},
 
 		onModelSelectChange: function() {
-			var v = this.$('.modelSelect').val();
-			this.model.set('model', v);
-			this.$('.modelInput').val(v);
+			this.model.set('model', this.$('.modelSelect').val());
 		},
 
 		// ---- personality trait dropdowns ----
@@ -250,12 +344,74 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this.model.set('trait' + slot, $(e.currentTarget).val());
 			this.updateTraitCustomVisibility();
 		},
-		onModelInputChange: function() {
-			var v = this.$('.modelInput').val().trim();
-			if(v) {
-				this.model.set('model', v);
-				this.populateModelSelect();
+
+		// ---- single-choice dropdowns (format, audience) ----
+
+		populateChoiceSelect: function(field) {
+			var select = this.$('.' + field + 'Select').get(0);
+			if(!select || !CHOICES[field]) { return; }
+			var current = this.model.get(field) || '';
+			// Drop a value that isn't one of this list's options (e.g. left
+			// over in a saved patch, or from an earlier build) so it can't
+			// keep leaking into the assembled prompt while the dropdown
+			// shows "(default)".
+			var known = _.some(CHOICES[field], function(opt) { return opt[0] === current; });
+			if(!known) { current = ''; this.model.set(field, ''); }
+			select.innerHTML = '';
+			CHOICES[field].forEach(function(opt) {
+				select.appendChild(new Option(opt[1], opt[0]));
+			});
+			select.value = current;
+			this.$('.' + field + 'Custom').toggle(current === 'other');
+		},
+
+		choiceSelectChange: function(e) {
+			var field = $(e.currentTarget).data('field');
+			var v = $(e.currentTarget).val();
+			this.model.set(field, v);
+			this.$('.' + field + 'Custom').toggle(v === 'other');
+		},
+
+		// ---- random / reset personality ----
+
+		// Redraw the JS-populated selects and the plain-DOM slider after a
+		// bulk model.set (rivets keeps mode/length/systemAppend in sync on
+		// its own).
+		syncPersonalityUI: function() {
+			this.populateTraitSelects();
+			this.populateChoiceSelect('format');
+			this.populateChoiceSelect('audience');
+			this.updateTempRange();
+		},
+
+		// Randomise only the traits and temperature - purpose and audience
+		// are left alone (they're task-specific, not a "personality").
+		randomPersonality: function() {
+			var shuffled = _.shuffle(_.without(TRAITS, 'none'));
+			var count = 2 + Math.floor(Math.random() * 3); // 2..4 traits
+			var set = {};
+			for(var i = 1; i <= 4; i++) {
+				set['trait' + i] = i <= count ? shuffled[i - 1] : 'none';
+				set['trait' + i + 'Custom'] = '';
 			}
+			var max = this.model.get('provider') === 'anthropic' ? 1 : 2;
+			set.temperature = Math.round((0.2 + Math.random() * (max - 0.2)) * 10) / 10;
+			this.model.set(set);
+			this.syncPersonalityUI();
+		},
+
+		resetPersonality: function() {
+			var set = {
+				format: '', formatCustom: '',
+				audience: '', audienceCustom: '',
+				length: '', temperature: 0.7, systemAppend: '',
+			};
+			for(var i = 1; i <= 4; i++) {
+				set['trait' + i] = 'none';
+				set['trait' + i + 'Custom'] = '';
+			}
+			this.model.set(set);
+			this.syncPersonalityUI();
 		},
 
 		refreshKeyStatus: function() {
@@ -298,13 +454,18 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			var model = String(this.model.get('model') || '').trim();
 			if(!model) { this.setStatus('error', 'pick a model'); return; }
 
+			// Always send a freshly assembled prompt rather than trusting
+			// the cached display copy.
+			var system = this.assembleSystem();
+			this.model.set('assembledSystem', system);
+
 			var self = this;
 			this.setStatus('calling', '');
 			window.ntkElectron.llmComplete({
 				provider: this.model.get('provider'),
 				model: model,
 				baseURL: this.model.get('baseURL') || undefined,
-				system: this.model.get('assembledSystem') || undefined,
+				system: system || undefined,
 				user: user,
 				temperature: this.parsedTemp(),
 				maxTokens: parseInt(this.model.get('maxTokens'), 10) || 1024,
@@ -333,16 +494,30 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			var changed = model.changedAttributes();
 			if(!changed) { return; }
 
-			// Rebuild the system prompt when any structured field changes.
-			var structural = _.some(_.keys(changed), function(k) {
-				return k === 'mode' || k === 'format' || k === 'audience' ||
-					k === 'length' || k === 'systemAppend' || k.indexOf('trait') === 0;
+			// Keep the assembled-prompt display in sync. Recompute on any
+			// change except the widget's own bookkeeping fields (which
+			// includes assembledSystem itself, to avoid a set loop).
+			var onlyBookkeeping = _.every(_.keys(changed), function(k) {
+				return k === 'assembledSystem' || k === 'output' || k === 'preview' ||
+					k === 'status' || k === 'calling' || k === 'statusText' ||
+					k === 'keyText' || k === 'model' || k === 'in';
 			});
-			if(structural) {
+			if(!onlyBookkeeping) {
 				var sys = this.assembleSystem();
 				if(sys !== this.model.get('assembledSystem')) {
 					this.model.set('assembledSystem', sys);
 				}
+			}
+
+			// A patch load sets `provider` via model.set (not the DOM
+			// change event), so the provider-dependent controls have to be
+			// re-synced here rather than only in onProviderChange.
+			if(changed.provider !== undefined) {
+				this.resetModelList();
+				this.updateTempRange();
+				this.populateModelSelect();
+				this.refreshKeyStatus();
+				this.fetchModels();
 			}
 
 			// Auto-send on a new prompt (debounced, off by default).

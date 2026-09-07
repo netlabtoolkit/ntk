@@ -16,7 +16,9 @@
             <option value="answer">Answer</option>
             <option value="rewrite">Rewrite</option>
             <option value="summarize">Summarize</option>
+            <option value="argue">Argue with</option>
         </select>
+        <div class="llmPrompt" rv-text="widget:in"></div>
         <div class="sendButton" rv-class-calling="widget:calling">send</div>
         <div class="llmStatus" rv-text="widget:status"></div>
         <div class="llmPreview" rv-text="widget:preview"></div>
@@ -32,23 +34,39 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content llmMore">
-            <label>provider</label>
-            <select class="providerSelect" rv-value="widget:provider">
-                <option value="anthropic">Anthropic</option>
-                <option value="ollama">Ollama (local)</option>
-            </select>
 
-            <label>model</label>
-            <select class="modelSelect"></select>
-            <input class="modelInput" type="text" placeholder="or type a model id">
-            <div class="llmKey">
-                <span rv-text="widget:keyText"></span><br>
-                <button class="setupKey" type="button">set up key</button>
-                <button class="refreshModels" type="button">refresh models</button>
+            <div class="f wide">
+                <label>prompt / text</label>
+                <textarea class="promptInput database" rv-value="widget:in" rows="3" placeholder="Type a question or text, or wire something into the 'prompt' inlet."></textarea>
+            </div>
+
+            <div class="f">
+                <label>provider</label>
+                <select class="providerSelect" rv-value="widget:provider">
+                    <option value="ollama">Ollama (local)</option>
+                    <option value="anthropic">Anthropic</option>
+                </select>
+            </div>
+            <div class="f">
+                <label>model</label>
+                <select class="modelSelect"></select>
+            </div>
+            <div class="f wide">
+                <div class="llmKey">
+                    <span rv-text="widget:keyText"></span>
+                    <button class="setupKey" type="button">set up key</button>
+                    <button class="refreshModels" type="button">refresh models</button>
+                </div>
             </div>
 
             <hr>
-            <label class="wide-label">personality traits</label>
+
+            <div class="f wide personalityButtons">
+                <label>personality</label>
+                <button class="randomPersonality" type="button">random</button>
+                <button class="resetPersonality" type="button">reset</button>
+            </div>
+
             <div class="traitRow">
                 <select class="traitSelect" data-slot="1"></select>
                 <input class="traitCustom" data-slot="1" type="text" placeholder="your own" rv-value="widget:trait1Custom">
@@ -65,29 +83,60 @@
                 <select class="traitSelect" data-slot="4"></select>
                 <input class="traitCustom" data-slot="4" type="text" placeholder="your own" rv-value="widget:trait4Custom">
             </div>
-            <label class="wide-label">format / purpose</label>
-            <input type="text" rv-value="widget:format" placeholder="e.g. email, essay, bulleted notes">
-            <label class="wide-label">audience</label>
-            <input type="text" rv-value="widget:audience" placeholder="e.g. executive, engineer, general reader">
-            <label class="wide-label">response length (words, or % for rewrite)</label>
-            <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:length">
-            <label class="wide-label">temperature (0&ndash;1)</label>
-            <input class="moreParam" type="text" rv-value="widget:temperature">
+
+            <div class="f">
+                <label>purpose</label>
+                <div class="choiceRow">
+                    <select class="choiceSelect formatSelect" data-field="format"></select>
+                    <input class="formatCustom" type="text" placeholder="your own" rv-value="widget:formatCustom">
+                </div>
+            </div>
+            <div class="f">
+                <label>audience</label>
+                <div class="choiceRow">
+                    <select class="choiceSelect audienceSelect" data-field="audience"></select>
+                    <input class="audienceCustom" type="text" placeholder="your own" rv-value="widget:audienceCustom">
+                </div>
+            </div>
+
+            <div class="f wide inlineField">
+                <label>length&nbsp;<span class="hint">(words, or % for rewrite)</span></label>
+                <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:length">
+            </div>
+            <div class="f wide inlineField">
+                <label>temperature&nbsp;<span class="tempVal" rv-text="widget:temperature"></span></label>
+                <input class="tempSlider" type="range" min="0" max="2" step="0.1">
+            </div>
+
+            <div class="f">
+                <label class="checkRow"><input type="checkbox" rv-checked="widget:markdown" /> Markdown response</label>
+            </div>
+            <div class="f">
+                <label class="checkRow"><input type="checkbox" rv-checked="widget:autoSend" /> auto-send on new prompt</label>
+            </div>
 
             <hr>
-            <label class="checkRow"><input type="checkbox" rv-checked="widget:autoSend" /> auto-send when the prompt changes</label>
-            <label class="wide-label">max tokens</label>
-            <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:maxTokens">
-            <label class="wide-label">base URL (optional)</label>
-            <input type="text" rv-value="widget:baseURL" placeholder="provider default">
-            <label class="wide-label">extra system instructions</label>
-            <textarea class="database" rv-value="widget:systemAppend" rows="2"></textarea>
+
+            <div class="f">
+                <label>max tokens</label>
+                <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:maxTokens">
+            </div>
+            <div class="f">
+                <label>base URL</label>
+                <input type="text" rv-value="widget:baseURL" placeholder="provider default">
+            </div>
+
+            <div class="f wide">
+                <label>extra instructions</label>
+                <textarea class="database" rv-value="widget:systemAppend" rows="2"></textarea>
+            </div>
+            <div class="f wide">
+                <label>system prompt (assembled)</label>
+                <div class="assembledSystem" rv-text="widget:assembledSystem"></div>
+            </div>
 
             <hr>
-            <label class="wide-label">assembled system prompt</label>
-            <div class="assembledSystem" rv-text="widget:assembledSystem"></div>
-            <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/llm/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink wide" href="https://www.netlabtoolkit.org/documentation/widgets-old/llm/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>
