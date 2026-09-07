@@ -65,10 +65,10 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
 				],
 				appendText: false,
                 left: 250,
-                top: 200,
+                top: 320,
 				opacity: 100,
-                displayWidth: 500,
-                displayHeight: 120,
+                displayWidth: 260,
+                displayHeight: 110,
                 displayFont: "Arial, Helvetica, sans-serif",
                 displayFontSize: "18px",
                 displayFontColor: "#000000",
@@ -97,13 +97,16 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
                 // Concrete box size before jQuery UI initialises, so the
                 // se handle has a real height to grow from (not "auto").
                 $box.css({
-                    cursor: 'move',
                     position: 'fixed',
-                    width: (parseInt(this.model.get('displayWidth'), 10) || 500) + 'px',
-                    height: (parseInt(this.model.get('displayHeight'), 10) || 120) + 'px',
+                    width: (parseInt(this.model.get('displayWidth'), 10) || 260) + 'px',
+                    height: (parseInt(this.model.get('displayHeight'), 10) || 110) + 'px',
                     overflow: 'hidden',  // inner .displayScroll scrolls, not the box
                 });
-                $box.draggable({ cursor: 'move', handle: false, cancel: '.ui-resizable-handle' });
+                // The box is a passive display: CSS sets pointer-events:none
+                // on it so it never blocks a widget behind it, and only the
+                // top drag bar / resize handles take clicks. Drag from the
+                // bar (not the whole box) to match.
+                $box.draggable({ handle: '.detachedDrag', cancel: '.ui-resizable-handle' });
                 $box.resizable({
                     handles: 'se, s, e',
                     minWidth: 80,
@@ -119,8 +122,28 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
                 this.updateDisplay();
                 this.renderDisplay();
                 this.updateStats();
+
+                // The box is pointer-events:none (so it never blocks a
+                // widget behind it), which also disables native wheel
+                // scrolling. Re-add it manually: scroll .displayScroll
+                // when the pointer is within its bounds, without ever
+                // consuming a click.
+                this._onWheel = function(e) {
+                    var el = self.$('.displayScroll').get(0);
+                    if(!el || el.scrollHeight <= el.clientHeight) { return; }
+                    var r = el.getBoundingClientRect();
+                    if(e.clientX < r.left || e.clientX > r.right ||
+                       e.clientY < r.top || e.clientY > r.bottom) { return; }
+                    el.scrollTop += e.deltaY;
+                    e.preventDefault();
+                };
+                document.addEventListener('wheel', this._onWheel, { passive: false });
             }
 		},
+
+        onRemove: function() {
+            if(this._onWheel) { document.removeEventListener('wheel', this._onWheel, { passive: false }); }
+        },
 
         onModelChange: function(model) {
             if(!app.server) {
@@ -189,8 +212,8 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
 
         updateDisplay: function(e) {
             if(app.server) { return; }
-            this.$( '.detachedEl' ).css( 'width', parseInt(this.model.get('displayWidth'), 10) || 500 );
-            this.$( '.detachedEl' ).css( 'height', parseInt(this.model.get('displayHeight'), 10) || 120 );
+            this.$( '.detachedEl' ).css( 'width', parseInt(this.model.get('displayWidth'), 10) || 260 );
+            this.$( '.detachedEl' ).css( 'height', parseInt(this.model.get('displayHeight'), 10) || 110 );
             this.applyFontStyles();
         },
 

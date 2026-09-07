@@ -9,10 +9,13 @@ define([
 function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouchpunch ) {
     'use strict';
 
-    // Shared across all widget instances - the running "front" stacking
-    // value. Kept well below the toolbar panels' z-index (see toolBar.scss)
-    // and reset periodically so it can't climb into that range.
-    var topWidgetZ = 10;
+    // A "more" panel can be wider than the widget body and overlap a
+    // neighbour. Rather than fight over which wins, the widget whose panel
+    // is open sinks BELOW the others (Widget.scss gives .widget z-index 4;
+    // this drops it to 1) so every other widget stays fully clickable -
+    // the panel is just partly covered where a neighbour's small body
+    // sits over it, and dragging that neighbour aside reveals it.
+    var OPEN_PANEL_Z = 1;
 
     /**
      * Widget view base class
@@ -24,7 +27,6 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			'click .inlet .unMap': 'unMapInlet',
 			'click .remove': 'removeWidget',
 			'blur .settings input': 'onChangeSettings',
-			'mousedown': 'bringToFront',
 		},
 		widgetEvents: {},
 
@@ -112,6 +114,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}
 
                 self.$( ".widgetBottom .content" ).toggle();
+                self.restoreStack();
             });
 
 			// Displays the cid on the widget for debugging purposes
@@ -192,11 +195,17 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}
 			};
 
-			// Make Widget draggable
+			// Make Widget draggable. Lift it above its neighbours only for
+			// the duration of the drag, then drop it back to the shared
+			// baseline. (jQuery UI's `stack` option instead rewrites every
+			// widget's z-index on every drag and leaves the dragged one on
+			// top permanently - that's what kept parking one widget's wide
+			// "more" panel over the widget beside it.)
 			this.$el.draggable({
 				handle: '.dragHandle',
 				drag: (updateCables).bind(this),
-				stack: ".widget",
+				start: (function() { this.$el.css('z-index', 20); }).bind(this),
+				stop: (function() { this.restoreStack(); }).bind(this),
 			});
 
 			this.$el.css({position: 'absolute'});
@@ -302,24 +311,24 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 *
 		 * @return {undefined}
 		 */
+		// All widgets share one baseline z-index from CSS (.widget { z-index:
+		// 4 }); among equal z-indexes the later one in the DOM - i.e. the
+		// more recently added widget - paints on top, which is what this
+		// used to approximate by hand. Writing an inline z-index here just
+		// fought that CSS baseline, so it's now a no-op (kept as a hook).
 		setTopZIndex: function setTopZIndex() {
-			this.bringToFront();
 		},
 
-		/**
-		 * Raise this widget above the others so its "more" panel (which
-		 * can be wider than the widget body and overlap neighbours) and
-		 * its detached display sit on top of whatever it was covering.
-		 * Stays under the toolbar panels.
-		 */
-		bringToFront: function bringToFront() {
-			if(parseInt(this.$el.css('z-index'), 10) === topWidgetZ) { return; }
-			topWidgetZ += 1;
-			if(topWidgetZ > 90) {
-				topWidgetZ = 11;
-				$('.widget').css('z-index', 10);
-			}
-			this.$el.css('z-index', topWidgetZ);
+		// The widget's resting z-index: the shared baseline from CSS
+		// (.widget { z-index: 4 }) normally, but dropped below the others
+		// (OPEN_PANEL_Z) whenever its "more" panel is open so a panel that
+		// overlaps a neighbour can't steal that neighbour's clicks. Called
+		// after toggling the panel and after a drag ends (the drag lifts
+		// the widget to z-index 20 for the duration and must not leave it
+		// there, nor forget an open panel).
+		restoreStack: function restoreStack() {
+			var open = this.$('.widgetBottom .content').is(':visible');
+			this.$el.css('z-index', open ? OPEN_PANEL_Z : '');
 		},
 		/**
 		 * Called when you drop onto an inlet. Maps the dropped model w/ parameter to the inlet

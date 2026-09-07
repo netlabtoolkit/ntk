@@ -67,6 +67,7 @@
 	<div class="detachedEl" rv-style-opacity="widget:opacity"
         rv-positionx="widget:left"
         rv-positiony="widget:top">
+        <div class="detachedDrag" title="drag to move"></div>
         <div class="displayScroll">
             <div class="displaytext">text</div>
         </div>
