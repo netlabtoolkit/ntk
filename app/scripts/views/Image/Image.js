@@ -32,7 +32,7 @@ function(Backbone, rivets, WidgetView, Template){
 					{title: 'X Position', to: 'left'},
 					{title: 'Y Position', to: 'top'},
           {title: 'opacity', to: 'opacity'},
-          {title: 'width', to: 'displayWidth'},
+          {title: 'Scale', to: 'displayWidth'},
 				],
 				title: 'Image',
 				activeControlParameter: 'left',
@@ -88,6 +88,10 @@ function(Backbone, rivets, WidgetView, Template){
             this.model.set('left', left);
             this.model.set('top', top);
             this.sendToFront();
+            // jQuery UI's drag pins an explicit height on the <img> during
+            // the drag; clear it so the Scale inlet keeps resizing the
+            // whole image proportionally (width, height:auto) afterwards.
+            this.setImageDimensions();
         },
 
         sendToFront: function() {
@@ -101,7 +105,12 @@ function(Backbone, rivets, WidgetView, Template){
 
         setImageDimensions: function() {
             if(!app.server) {
-                this.$( '.detachedEl' ).css( 'width', this.model.get('displayWidth'));
+                // height:auto (never a fixed height) so setting the width
+                // always scales the whole image proportionally.
+                this.$( '.detachedEl' ).css({
+                    width: this.model.get('displayWidth'),
+                    height: 'auto',
+                });
             }
         },
 

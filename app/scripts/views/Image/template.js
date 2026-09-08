@@ -15,14 +15,14 @@
             <div class="inletValue"><span rv-text="widget:left | rounded">100</span> X</div>
             <div class="inletValue"><span rv-text="widget:top | rounded">100</span> Y</div>
             <div class="inletValue"><span rv-text="widget:opacity | rounded">100</span> Opacity</div>
-            <div class="inletValue"><span rv-text="widget:displayWidth | rounded">500</span> Width</div>
+            <div class="inletValue"><span rv-text="widget:displayWidth | rounded">500</span> Scale</div>
         </div>
     </div>
 
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-            <label>width</label> <input class="displayWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth"><br>
+            <label>scale (px wide)</label> <input class="displayWidth" class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:displayWidth"><br>
             <label>image file</label> <input class="srcFile" type="text" rv-value="widget:srcFile"><br>
             <div class="browseImage">Browse&hellip;</div>
             <div class="localImagePath" rv-show="widget:localImagePath" rv-text="widget:localImagePath"></div>
