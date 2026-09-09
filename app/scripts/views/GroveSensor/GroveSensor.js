@@ -11,6 +11,15 @@ define([
 function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView, WidgetSettingsView, Template, sensorCatalog){
 	'use strict';
 
+	// Compact display of one scaled reading: whole number when it's
+	// effectively an integer (the usual 0-1023 case), one decimal
+	// otherwise (real-unit readings like DHT11 °C).
+	function formatReading(v) {
+		if(typeof v !== 'number' || isNaN(v)) { return '–'; }
+		var r = Math.round(v);
+		return (Math.abs(v - r) < 0.05) ? String(r) : v.toFixed(1);
+	}
+
 	return WidgetView.extend({
 		widgetEvents: {
 			'change .sensorSelect': 'sensorChanged',
@@ -61,6 +70,11 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				sensor: firstSensorId,
 				active: false,
 				sensorStatus: 'idle',
+				// Body line under the status dot - the reading labels
+				// ("X, Y, Z" / "Distance"), with the live scaled value
+				// appended to each once data is flowing (see
+				// updateReadingReadout()).
+				readingReadout: '',
 				easing: false,
 				easingAmount: 30,
 				smoothingAmount: 60,
@@ -120,6 +134,13 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				// which GPIO it's wired to). See remapSensor()/
 				// subscribeSensor() and template.js's pinField.
 				needsPin: !!firstSensorEntry.needsPin,
+				// Single-wire sensors (DHT11, Ultrasonic) default to D7 -
+				// D0-D2 are reserved for analog input on this board, so
+				// D7 is a safe out-of-the-way pick and means the sensor
+				// works without the user having to open the "more" panel
+				// and type one. remapSensor() re-applies this on a switch
+				// to another needs-pin sensor.
+				pin: firstSensorEntry.needsPin ? 'D7' : '',
 				// Same idea as needsPin, but for a sensor with several
 				// different REAL readings selectable from one dropdown
 				// instead of a physical wiring choice (e.g. TSL2561's
@@ -142,6 +163,10 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// going through the shared this.signalChainFunctions array
 			// AnalogIn uses (which has no way to keep 3 independent
 			// smoothers straight).
+			// Seed the body readout for the first render (plain labels -
+			// no data yet); processSignalChain keeps it live after that.
+			this.updateReadingReadout();
+
 			this.localProcessSignalChain = function() {
 				this.processSignalChain();
 			}.bind(this);
@@ -217,6 +242,35 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 				this.model.set(output.to, value);
 			}, this);
+
+			this.updateReadingReadout();
+		},
+
+		/**
+		 * updateReadingReadout - builds the body line shown under the
+		 * status dot: the reading labels, each with its current scaled
+		 * value appended once data is flowing ("Distance 1234",
+		 * "X 512   Y 480   Z 600"). Before any real reading (idle /
+		 * waiting / error) it's just the plain labels, same as before.
+		 * Called from processSignalChain (values just updated), from
+		 * onModelChange when the status flips, and from remapSensor.
+		 *
+		 * @return {void}
+		 */
+		updateReadingReadout: function() {
+			var outs = this.model.get('outs') || [];
+			var withValues = this.model.get('sensorStatus') === 'ok';
+
+			var parts = _.map(outs, function(out) {
+				return withValues
+					? out.title + ' ' + formatReading(this.model.get(out.to))
+					: out.title;
+			}, this);
+
+			var text = parts.join(withValues ? '   ' : ', ');
+			if(text !== this.model.get('readingReadout')) {
+				this.model.set('readingReadout', text);
+			}
 		},
 
 		/**
@@ -475,6 +529,16 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				newAttrs.outputCeiling = (catalogEntry.outputRange || {ceiling: 1023}).ceiling;
 				newAttrs.mode = catalogEntry.modes ? catalogEntry.modes[0].value : undefined;
 
+				// Switching to a single-wire sensor means it's on some
+				// GPIO now; default that to D7 (see initialize()) unless
+				// the user already typed a pin. Switching to an I2C
+				// sensor: clear it, the field is hidden and unused anyway.
+				if(catalogEntry.needsPin) {
+					if(!this.model.get('pin')) { newAttrs.pin = 'D7'; }
+				} else {
+					newAttrs.pin = '';
+				}
+
 				// Per-axis smoother/easing state is tied to whichever
 				// physical sensor was previously selected - drop it on an
 				// actual switch so a new sensor doesn't inherit smoothing
@@ -552,16 +616,14 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		subscribeSensor: function(sensorId) {
 			if(this.sources[0] === undefined) { return; }
 
-			// A "needs_pin" sensor (e.g. DHT11) can't be subscribed to
-			// without a pin to read - rather than sending a doomed
-			// request and leaving the status stuck on "waiting" forever
-			// (the device would reject it, but nothing currently wires
-			// that rejection back to this widget's own status field),
-			// catch it here so the status honestly reflects what's wrong.
+			// A "needs_pin" sensor (e.g. DHT11) needs a pin to read.
+			// initialize()/remapSensor() default it to D7, but a patch
+			// saved before that default existed can still arrive here with
+			// none - fall back to D7 rather than parking the status on
+			// "error" and making the user open the "more" panel.
 			var catalogEntry = this.sensorCatalog[sensorId];
 			if(catalogEntry && catalogEntry.needsPin && !this.model.get('pin')) {
-				this.model.set('sensorStatus', 'error');
-				return;
+				this.model.set('pin', 'D7');
 			}
 
 			this.model.set('sensorStatus', 'waiting');
@@ -627,6 +689,12 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				var currentReadingKeys = _.pluck(this.model.get('outs') || [], 'to');
 				if(this.model.get('sensorStatus') === 'waiting' && _.some(currentReadingKeys, function(key) { return changed[key] !== undefined; })) {
 					this.model.set('sensorStatus', 'ok');
+				}
+
+				// Status flipped (-> ok shows values, -> anything else
+				// drops back to plain labels) or the sensor was remapped.
+				if(changed.sensorStatus !== undefined || changed.outs !== undefined) {
+					this.updateReadingReadout();
 				}
 
 				var inactiveModels = this.inactiveModelsExist();

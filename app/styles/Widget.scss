@@ -618,10 +618,15 @@
 // in the shared Widget.scss instead, same as .dialwrapperUI above.
 .groveSensor {
     .widgetBody {
-        // Keep everything compact enough to fit the standard fixed 110px
-        // widgetBody height (see CLAUDE.md's widget layout notes) now that
-        // the invert/smoothing/easing options row (below) shares the box
-        // with the sensor picker and status readout.
+        // Mostly fits the standard 110px, but the live value readout can
+        // wrap to a second line for a 3-reading sensor (accelerometer) -
+        // grow to contain that rather than spilling the floated .options
+        // row past the border. Clearfix needed since .options floats
+        // (height:auto alone doesn't account for floated children).
+        // See CLAUDE.md's widget layout notes.
+        height: auto;
+        min-height: 110px;
+        &:after { content: ''; display: table; clear: both; }
         //
         // One font-size/color for every line in the main body - the
         // per-element sizes/colors this replaced (0.65-0.85em, #000/
@@ -673,14 +678,19 @@
             text-transform: capitalize;
         }
 
-        // Comma-joined outlet labels (e.g. "X, Y, Z") - which physical
-        // outlet nub (top to bottom, in .widgetRight) is which reading,
-        // without needing to hover each nub for its tooltip.
+        // The reading labels ("X, Y, Z" / "Distance") - which physical
+        // outlet nub (top to bottom, in .widgetRight) is which reading -
+        // with the live scaled value appended to each once data is
+        // flowing ("X 512   Y 480   Z 600"). Built in
+        // GroveSensor.js's updateReadingReadout(). Allowed to wrap to a
+        // second line so a 3-axis "label value" list still fits, but
+        // capped so it can't run past the body.
         .outletLabels {
             margin-top: 2px;
-            white-space: nowrap;
+            line-height: 1.25;
+            max-height: 2.6em;
             overflow: hidden;
-            text-overflow: ellipsis;
+            word-spacing: -1px;
         }
 
         // No override here - inv/smo/eas use the same shared .options
