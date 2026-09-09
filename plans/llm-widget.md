@@ -18,7 +18,7 @@ that path.
 - **typeID:** `LLM` (display name "LLM" or "Prompt" — decide; can be
   overridden via `ToolBar.js`'s `WIDGET_DISPLAY_NAMES` if the type string
   isn't a good label, same as `GroveSensor` → "GroveIn").
-- **Category:** `'AI'` (already exists — FaceTrack / Gesture / PoseTrack
+- **Category:** `'AI'` (already exists — FaceTrack / Gesture / PoseRecog
   use it).
 - **Base class:** `WidgetMulti`, like every recent widget.
 - **Inlets:** `in` — the text prompt (a string). Optionally a second

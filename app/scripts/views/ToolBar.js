@@ -251,6 +251,13 @@ function( app, Backbone, Template, Widgets ) {
 			for(var widgetName in Widgets) {
 				var widget = Widgets[widgetName].prototype;
 
+				// Skip back-compat aliases (a map key that isn't the
+				// widget's own typeID, e.g. 'PoseTrack' -> PoseRecog) so
+				// the Add Widgets panel doesn't list the same widget twice.
+				if(widget.typeID && widget.typeID !== widgetName) {
+					continue;
+				}
+
 				if(widget.categories.length > 0) {
 					var widgetCategories = widget.categories;
 					for(var j=widgetCategories.length-1; j>=0; j--) {

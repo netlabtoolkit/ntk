@@ -3,7 +3,7 @@
 # Copies MediaPipe's Tasks-Vision WASM runtime (from the
 # @mediapipe/tasks-vision devDependency, fetched by `npm install`) and
 # downloads the .task model files this app's widgets load at runtime -
-# FaceTrack.js (face_landmarker), PoseTrack.js (hand_landmarker,
+# FaceTrack.js (face_landmarker), PoseRecog.js (hand_landmarker,
 # pose_landmarker_lite) - into server/assets/mediapipe/ (served at
 # /assets - see server/modules/nlWebServer/routes.js). All fetched once
 # here rather than committed to git or fetched from Google's CDN at
@@ -32,7 +32,7 @@ fetch_model() {
 fetch_model "$DEST/models/face_landmarker.task" \
 	"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
 
-# PoseTrack.js's two tracking modes (see trackModeCatalog.js) - hand
+# PoseRecog.js's two tracking modes (see trackModeCatalog.js) - hand
 # uses the numbered/float16 naming FaceTrack's model also uses; pose
 # uses Google's "lite" variant (smaller/faster, traded accuracy this
 # app's real-time in-browser use case doesn't need) and "latest"

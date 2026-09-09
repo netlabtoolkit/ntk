@@ -902,7 +902,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			// <a download>), NOT round-tripped through the server's
 			// GET /patch.ntk?patch=<entire JSON as a URL-encoded query
 			// string> the way this used to work - a widget with any real
-			// amount of data (e.g. PoseTrack's recorded training examples)
+			// amount of data (e.g. PoseRecog's recorded training examples)
 			// can push the encoded patch past the request-line length
 			// limit most HTTP servers enforce (Node's own default is well
 			// under 100KB), which fails the request outright. Worse, the

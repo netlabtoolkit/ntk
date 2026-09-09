@@ -2,10 +2,10 @@ define([], function() {
 	'use strict';
 
 	/**
-	 * Shared by PoseTrack and Gesture (both 4-slot, trainable, threshold-
+	 * Shared by PoseRecog and Gesture (both 4-slot, trainable, threshold-
 	 * based matcher widgets) for their outlet slot indicator dots - lifted
 	 * out once Gesture needed the exact same red -> yellow -> green
-	 * confidence mapping PoseTrack already had, rather than keeping two
+	 * confidence mapping PoseRecog already had, rather than keeping two
 	 * copies of identical color math in sync by hand.
 	 */
 
@@ -14,7 +14,7 @@ define([], function() {
 	// so matches ABOVE threshold keep differentiating instead of clamping
 	// to one flat color. Colors match ones already used elsewhere in the
 	// app's own UI (#e53935 for GroveSensor's error dot, #fbc02d-ish amber
-	// tones, #4caf50 for "matched", #2e7d32 - PoseTrack's/Gesture's own
+	// tones, #4caf50 for "matched", #2e7d32 - PoseRecog's/Gesture's own
 	// .currentMatch text color - for "matched, and strongly so").
 	var DOT_COLOR_LOW = {r: 229, g: 57, b: 53};    // red, weak/no match
 	var DOT_COLOR_MID = {r: 251, g: 192, b: 45};   // yellow, halfway to threshold

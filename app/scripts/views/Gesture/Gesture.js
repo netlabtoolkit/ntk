@@ -157,12 +157,12 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 				selectedTemplateLength: 0,
 				// Same static-keypath mirroring as selectedTemplateLength above,
 				// for slotName<recordSlot> - lets the "more" panel show/edit a
-				// name for whichever slot is selected. Ported from PoseTrack's
+				// name for whichever slot is selected. Ported from PoseRecog's
 				// identical pattern.
 				selectedSlotName: '',
 				// Whichever slot most recently matched (see commitMatched) - the
 				// name shown prominently in the main body while actually using a
-				// trained widget, not just training it. Ported from PoseTrack.
+				// trained widget, not just training it. Ported from PoseRecog.
 				currentMatchName: '',
 				capturing: false,
 				threshold: 70,
@@ -196,7 +196,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 				// match/no-match value (e.g. different MIDI notes per gesture).
 				defaults['ifMatch' + i] = 1023;
 				defaults['ifNoMatch' + i] = 0;
-				// Ported from PoseTrack: an optional label for what's trained
+				// Ported from PoseRecog: an optional label for what's trained
 				// into this slot, shown in the "more" panel and in
 				// currentMatchName once this slot matches.
 				defaults['slotName' + i] = '';
@@ -204,7 +204,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 				// computed by MatchColor.matchLevelToColor()) - updated once per
 				// evaluated segment (see evaluateSegment) for EVERY non-empty
 				// slot, not just whichever is selected for recording, so all 4
-				// dots react to a single gesture attempt. Unlike PoseTrack's
+				// dots react to a single gesture attempt. Unlike PoseRecog's
 				// continuous per-frame updates, Gesture only ever evaluates a
 				// finished movement segment as one discrete event - there's no
 				// meaningful "instantaneous" distance mid-segment or while idle,
@@ -266,10 +266,10 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 			// pseudo-element (see Widget.scss) - JS can't set an inline style
 			// directly on a pseudo-element, but a custom property set on the
 			// real element IS visible to its own ::after via CSS's
-			// var(--matchColor, ...) fallback syntax. Ported from PoseTrack's
+			// var(--matchColor, ...) fallback syntax. Ported from PoseRecog's
 			// identical binder - redefining it here is harmless (rivets.binders
 			// is one global registry) and necessary in case this widget renders
-			// before PoseTrack ever does in a given session.
+			// before PoseRecog ever does in a given session.
 			rivets.binders.matchcolor = function(el, value) {
 				el.style.setProperty('--matchColor', value || '#ccc');
 			};
@@ -357,7 +357,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 		// selectedSlotName is a plain mirror (see its comment in initialize())
 		// - rivets' rv-value on the "more" panel's text input keeps it in sync
 		// with what's typed, this writes that back to the actual per-slot
-		// field it's mirroring. Ported from PoseTrack's identical pattern.
+		// field it's mirroring. Ported from PoseRecog's identical pattern.
 		onSlotNameInputChange: function() {
 			var slot = parseInt(this.model.get('recordSlot'), 10);
 			this.model.set('slotName' + slot, this.model.get('selectedSlotName'));
@@ -374,7 +374,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 		 * drawSlotPreview - draws a small line graph of the currently-
 		 * selected slot's recorded template, so it's clear at a glance what
 		 * shape/motion is actually trained into that slot without needing to
-		 * play it back. Ported from PoseTrack's identical-purpose
+		 * play it back. Ported from PoseRecog's identical-purpose
 		 * drawSlotPreview(), adapted for Gesture's data shape: a template
 		 * here is a flat array of scalar samples over time (a 1D sequence),
 		 * not a 2D landmark array, so the natural preview is a sparkline/
@@ -401,7 +401,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 			// The stored template's exact numeric range isn't fixed or known
 			// in advance (it's whatever raw values were sampled), so fit it to
 			// the canvas dynamically each time rather than assuming a range -
-			// same reasoning as PoseTrack's drawSlotPreview.
+			// same reasoning as PoseRecog's drawSlotPreview.
 			var minValue = Math.min.apply(null, template);
 			var maxValue = Math.max.apply(null, template);
 			var valueRange = (maxValue - minValue) || 1;
@@ -468,7 +468,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 				}
 
 				// Refreshes selectedTemplateLength (whichever branch above ran)
-				// and redraws the slot preview to match, same as PoseTrack's
+				// and redraws the slot preview to match, same as PoseRecog's
 				// stopRecording().
 				this.onRecordSlotChange();
 			}
@@ -548,7 +548,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 
 			// Falls back to "Slot N" if the user hasn't typed a name in for
 			// this slot yet (see selectedSlotName/slotName<i>). Ported from
-			// PoseTrack's identical pattern.
+			// PoseRecog's identical pattern.
 			var displayName = this.model.get('slotName' + slot) || ('Slot ' + slot);
 
 			if(isMatched) {
@@ -603,7 +603,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 			var bestSlot = -1;
 			var bestLevel = -1;
 			// Batched into one model.set() below rather than per-slot calls,
-			// same reasoning as PoseTrack's evaluateFrame(): every non-empty
+			// same reasoning as PoseRecog's evaluateFrame(): every non-empty
 			// slot's dotColor updates from this one evaluated segment (not
 			// just the selected slot), so this would otherwise be up to 4
 			// separate 'change' events per gesture attempt.

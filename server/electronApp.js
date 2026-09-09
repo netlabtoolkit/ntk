@@ -251,7 +251,7 @@ app.on('ready', function() {
   // Electron's own default behavior for unhandled permission requests -
   // this window only ever loads our own bundled local server
   // (localhost:9001, never third-party/remote content), so unconditionally
-  // granting 'media' here is safe. Added after a real bug: PoseTrack's
+  // granting 'media' here is safe. Added after a real bug: PoseRecog's
   // camera worked on first use, but unchecking its "active" box (stopping
   // all tracks) and re-checking it (a fresh getUserMedia() call) failed
   // outright with "Permission denied" and no OS dialog at all the second

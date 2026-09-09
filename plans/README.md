@@ -28,7 +28,7 @@ easy way to prototype tangible / IoT projects — drag-and-drop widgets, no
 code for the common case, hardware optional (most widgets should be
 testable by interacting with the widget itself before any hardware is
 connected — see the Widget design principles in `CLAUDE.md`). The AI
-widgets (Gesture, PoseTrack, FaceTrack, and the planned
+widgets (Gesture, PoseRecog, FaceTrack, and the planned
 [LLM widget](llm-widget.md)) extend that same mission to AI-assisted
 interaction design.
 
@@ -185,7 +185,7 @@ Reaction to four claimed benefits of the overall strategy:
 3. **"Smaller .app"** — real but lopsided. Desktop: Electron's ~150–250 MB
    Chromium / Node baseline dominates and isn't touched by steps 1–6.
    iPadOS (step 7): dramatic, since WKWebView bundles no browser engine.
-   Separately, the MediaPipe WASM / model assets for PoseTrack / FaceTrack
+   Separately, the MediaPipe WASM / model assets for PoseRecog / FaceTrack
    are a non-trivial size cost none of these steps address.
 4. **"Real functional improvements"** — true, but concentrated in steps
    4, 5, and 7 (genuine new user-facing capability). Steps 1, 2, 3, 6 are

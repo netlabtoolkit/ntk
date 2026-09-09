@@ -13,7 +13,7 @@
 // build (app/styles/main.scss only imports Widget.scss). Add your CSS
 // directly to app/styles/Widget.scss instead, under a
 // ".yourwidgetclassname { }" block (see CLAUDE.md's "Widget CSS layout"
-// section, and e.g. the existing ".gesture"/".posetrack" blocks there
+// section, and e.g. the existing ".gesture"/".poserecog" blocks there
 // for the pattern to follow).
 define([
 	'backbone',

@@ -16,7 +16,7 @@ define([
     'views/Gate/Gate',
     'views/Gesture/Gesture',
     'views/FaceTrack/FaceTrack',
-    'views/PoseTrack/PoseTrack',
+    'views/PoseRecog/PoseRecog',
     'views/Mix/Mix',
     'views/Splitter/Splitter',
     'views/Data/Data',
@@ -43,7 +43,7 @@ define([
     'views/DigitalOut/DigitalOut',
     'views/GroveSensor/GroveSensor',
 ],
-function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Gesture, FaceTrack, PoseTrack, Mix, Splitter, Data, Tween, Sequence, SpeechIn, SpeechOut, LLM, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn, OSCOut, DigitalIn, DigitalOut, GroveSensor){
+function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Gesture, FaceTrack, PoseRecog, Mix, Splitter, Data, Tween, Sequence, SpeechIn, SpeechOut, LLM, Blank, Image, Audio, Video, Text, AnalogOut, Servo, CloudOut, Webhook, OSCIn, OSCOut, DigitalIn, DigitalOut, GroveSensor){
     'use strict';
 
 	return {
@@ -63,7 +63,10 @@ function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, 
         'Gate': Gate,
         'Gesture': Gesture,
         'FaceTrack': FaceTrack,
-        'PoseTrack': PoseTrack,
+        'PoseRecog': PoseRecog,
+        // Back-compat: PoseRecog shipped as "PoseTrack" through v2026.4.1.
+        // A patch saved with the old typeID still resolves to the widget.
+        'PoseTrack': PoseRecog,
         'Mix': Mix,
 		'Splitter': Splitter,
         'Data': Data,

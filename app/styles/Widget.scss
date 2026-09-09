@@ -735,14 +735,14 @@
     }
 }
 
-// PoseTrack widget (app/scripts/views/PoseTrack/) - note that per-widget
+// PoseRecog widget (app/scripts/views/PoseRecog/) - note that per-widget
 // styles.scss files (e.g. Gesture's, FaceTrack's) are never actually
 // imported anywhere into the build (same already-confirmed fact
 // GroveSensor's block above was written around), so this lives here in
 // the shared Widget.scss instead. Gesture's/FaceTrack's own record
 // button/camera preview markup currently renders unstyled for the same
 // reason - not fixed here, out of scope, but avoided for this widget.
-.posetrack {
+.poserecog {
     .widgetBody {
         font-size: 0.8em;
         color: #000;
@@ -780,7 +780,7 @@
                 // CLAUDE.md's "actively inform the user" principle: a
                 // silent capture window reads as broken.
                 &.recording {
-                    animation: poseTrackRecording 0.6s infinite;
+                    animation: poseRecogRecording 0.6s infinite;
                 }
 
                 // Distinct amber pulse (matches .slotIndicator.pending's
@@ -791,7 +791,7 @@
                 // identical - and a slower ~1s pace that roughly matches
                 // a "3...2...1" cadence.
                 &.countingdown {
-                    animation: poseTrackRecording 1s infinite;
+                    animation: poseRecogRecording 1s infinite;
                     background-color: #e0a030;
                 }
             }
@@ -841,7 +841,7 @@
                     width: 18px;
                     height: 18px;
                     border-radius: 50%;
-                    // --matchColor is set per-frame by PoseTrack.js's
+                    // --matchColor is set per-frame by PoseRecog.js's
                     // matchcolor rivets binder (matchLevelToColor()) - a
                     // continuous red (no match) -> yellow (halfway to
                     // threshold) -> green (matched) live readout, shown
@@ -854,7 +854,7 @@
                 }
 
                 &.pending::after {
-                    animation: poseTrackRecording 0.6s infinite;
+                    animation: poseRecogRecording 0.6s infinite;
                     background-color: #e0a030;
                 }
             }
@@ -884,7 +884,7 @@
 
         // The single most useful live readout once a widget is trained
         // and actually in use (vs. .recognitionMeter/.exampleCount in the
-        // "more" panel, which matter while training) - see PoseTrack.js's
+        // "more" panel, which matter while training) - see PoseRecog.js's
         // commitMatched. Bold/green to read at a glance; ellipsis rather
         // than wrapping since .widgetBodyLeft is only ~58-64px wide and a
         // long typed-in slot name would otherwise push .widgetBody past
@@ -912,7 +912,7 @@
         }
     }
 
-    @keyframes poseTrackRecording {
+    @keyframes poseRecogRecording {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.25; }
     }
@@ -939,7 +939,7 @@
         }
 
         // A small skeleton (dots + connecting lines, drawn from the
-        // slot's own recorded landmark data - see PoseTrack.js's
+        // slot's own recorded landmark data - see PoseRecog.js's
         // drawSlotPreview) so it's clear at a glance what pose is
         // trained into the currently-selected slot.
         .slotPreview {
@@ -989,12 +989,12 @@
 
 // Gesture widget (app/scripts/views/Gesture/) - its own styles.scss was
 // never actually imported anywhere into the build (same already-confirmed
-// fact GroveSensor's/PoseTrack's own blocks above were written around),
+// fact GroveSensor's/PoseRecog's own blocks above were written around),
 // so every gesture-specific class rendered completely unstyled the whole
 // time - no flashing record button, no matched/pending outlet coloring,
 // nothing. styles.scss has been deleted; its design intent (sizing,
 // layout, the height:auto+clearfix fix) is carried forward here, unified
-// with PoseTrack's later, actually-rendering conventions (.slotIndicator
+// with PoseRecog's later, actually-rendering conventions (.slotIndicator
 // confidence dots, .currentMatch, .statusMessage in the compact body,
 // .slotPreview) rather than reimplementing Gesture's original (also
 // never-rendered) matched/pending outletValue coloring.
@@ -1027,8 +1027,8 @@
         // NOT wider than the default 94px total (60px left + room for the
         // right column's dots) - widening .widgetBody itself would push
         // the outlet nubs (.widgetRight) further right, the same reasoning
-        // already established for PoseTrack/GroveSensor elsewhere in this
-        // file. Flex-centered (rather than left-aligned, PoseTrack's
+        // already established for PoseRecog/GroveSensor elsewhere in this
+        // file. Flex-centered (rather than left-aligned, PoseRecog's
         // approach) because a round dial reads better centered than
         // hugging one edge - .currentMatch/.statusMessage below inherit
         // this centering too.
@@ -1105,7 +1105,7 @@
         // The single most useful live readout once a widget is trained and
         // actually in use (vs. .recognitionMeter/.templateLength in the
         // "more" panel, which matter while training) - identical styling to
-        // PoseTrack's own .currentMatch, for a consistent look across both
+        // PoseRecog's own .currentMatch, for a consistent look across both
         // widgets.
         .currentMatch {
             margin-top: 3px;
@@ -1127,7 +1127,7 @@
         }
 
         // Deliberately dots, not numeric out1-4 readouts - same reasoning
-        // as PoseTrack's identical .slotIndicator: a narrow dot-per-slot
+        // as PoseRecog's identical .slotIndicator: a narrow dot-per-slot
         // column fits either way regardless of .widgetBodyLeft's own
         // content width; wire an outlet to a Text widget for the actual
         // output number (e.g. a custom MIDI note value). Each dot's row is
@@ -1153,7 +1153,7 @@
                 // -> yellow (halfway to threshold) -> green (matched)
                 // readout, held at its last color between evaluations
                 // (Gesture only ever evaluates a finished movement segment
-                // as one discrete event, unlike PoseTrack's continuous
+                // as one discrete event, unlike PoseRecog's continuous
                 // per-frame updates - see Gesture.js's evaluateSegment
                 // comment). The plain grey fallback is for a slot with
                 // nothing recorded yet - it never gets a --matchColor at all.
@@ -1211,7 +1211,7 @@
             margin-bottom: 4px;
         }
 
-        // Same bordered/backgrounded canvas styling as PoseTrack's
+        // Same bordered/backgrounded canvas styling as PoseRecog's
         // .slotPreview, for a consistent look - the drawing itself is a
         // line graph of the recorded template's values (see Gesture.js's
         // drawSlotPreview), not a skeleton, since a gesture template is a
@@ -1242,7 +1242,7 @@
             // which is only 8px tall - fine as a bare visual proportion
             // bar in whatever widget it was originally sized for, but too
             // small to actually read the number typed into it. Same fix
-            // as PoseTrack's identical override, for a consistent look.
+            // as PoseRecog's identical override, for a consistent look.
             .range-input {
                 width: 40px;
                 height: 16px;

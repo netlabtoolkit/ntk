@@ -28,7 +28,7 @@ on the device once deployed, no host required.
     Splitter, Process, Count, Pulse, Sequence, Tween, Data, and
     **Gesture** (its DTW matching is pure arithmetic once its input comes
     from a real wired pin instead of the in-widget dial).
-  - **Never portable:** FaceTrack / PoseTrack (camera + MediaPipe WASM),
+  - **Never portable:** FaceTrack / PoseRecog (camera + MediaPipe WASM),
     SpeechIn / SpeechOut (browser Speech API),
     Audio / Video / Image / HTML / Text / Button / Keyboard / Knob
     (desktop-UI widgets — meaningless without the host's screen).
