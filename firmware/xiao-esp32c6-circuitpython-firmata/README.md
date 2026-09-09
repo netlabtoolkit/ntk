@@ -74,15 +74,43 @@ link is now your computer talking straight to the XIAO's small antenna
 with no router to help. A XIAO ESP32-C6 with an external antenna helps if
 you rely on this.
 
+### Hang recovery - the watchdog and the escape hatch
+
+`code.py` starts with three layers of protection against "the board is
+running, looks dead, and neither Ctrl-C nor Thonny's Stop button gets a
+REPL" (which happens when the hang is inside a C-level call - WiFi, I2C,
+a wedged socket - where the CircuitPython VM never runs to see an
+interrupt):
+
+1. **Escape hatch.** In the first few seconds of every boot - checked
+   *before* any WiFi/I2C call - **any keystroke on the serial console
+   drops straight to the REPL**. Window is ~6 s when a console is already
+   attached, ~3 s otherwise. So after a reset: mash a key (Enter, Ctrl-C,
+   anything) and you're in.
+2. **Hardware watchdog.** Armed in `RESET` mode (~20 s). If the main loop
+   stops petting it - a real hang - the chip **hard-resets** itself.
+   `RESET` is the only mode that escapes a stuck C call. The board then
+   reboots, and the escape hatch above gives you your window.
+3. **Reset-loop guard.** If the last **3 resets in a row** were all the
+   watchdog firing, something is persistently wedged - `code.py` prints a
+   message and **stops at the REPL instead of booting the server again**.
+   A healthy run (server up ~30 s) clears the counter. Stored in
+   `microcontroller.nvm`, so it survives the resets.
+
+So the normal recovery from a genuine hang is now: *wait ~20 s for the
+watchdog to reset the board → press a key during the boot window → REPL*.
+No unplugging required.
+
 **If the board seems stuck on boot while starting SoftAP**: unlike
 `wifi.radio.connect()` (station mode), which takes a `timeout` so
 Ctrl-C gets a window to land between retries, `wifi.radio.start_ap()`
 has no such option - there's no way to bound or interrupt that specific
 call from Python if it hangs. There's an 8-second "press Ctrl-C now"
 countdown (re-printed every second) right before it starts, so Ctrl-C
-works if you catch that - but if it's already past that and hung inside
-`start_ap()` itself, only **Thonny's Stop button** can force a harder
-interrupt.
+works if you catch that - and if it's already past that and hung inside
+`start_ap()` itself, the **watchdog** (above) resets the board within
+~20 s so you get another shot, or **Thonny's Stop button** can force a
+harder interrupt.
 
 **If the board seems stuck on boot before it even gets that far (neither
 Ctrl-C nor Thonny's Stop button work)**: `pins.py` probes each
@@ -94,8 +122,9 @@ CircuitPython's VM ever checks for an interrupt, which is what can make
 even Thonny's Stop button ineffective. There's no "press Ctrl-C now"
 countdown before this specific import (one was tried and removed - see
 the next note below for why it didn't actually help the failure mode
-that mattered) - if this happens, **disconnect the Grove sensor(s) and
-power-cycle the board** to get back in, then check wiring/pull-ups
+that mattered). The **watchdog** now covers it: the board resets within
+~20 s and the boot-window keystroke gets you a REPL. If it keeps
+happening, **disconnect the Grove sensor(s)** and check wiring/pull-ups
 before reattaching.
 
 **If you unplugged the board while Thonny was already connected, and

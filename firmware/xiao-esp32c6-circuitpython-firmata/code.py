@@ -34,10 +34,139 @@ to watch the serial console for it. Not attached? It's skipped silently.
 
 import errno
 import os
+import sys
 import time
 import wifi
 import socketpool
 import supervisor
+import microcontroller
+
+try:
+    import watchdog as _watchdog
+except ImportError:  # not every CircuitPython build ships it
+    _watchdog = None
+
+
+# ---------------------------------------------------------------------------
+# Hang recovery
+# ---------------------------------------------------------------------------
+# The failure this guards against: code.py is running, the board looks
+# dead, and neither Ctrl-C nor Thonny's Stop button gets a REPL back -
+# because the hang is inside a C-level call (wifi.radio.start_ap(),
+# board.I2C() probing a bus with no pull-ups, a wedged socket) where the
+# CircuitPython VM never runs to service an interrupt.
+#
+# Three layers:
+#   1. Escape hatch  - a keypress in the first few seconds of boot,
+#      checked BEFORE anything risky, drops straight to the REPL.
+#   2. Hardware watchdog (RESET mode) - if the main loop stops feeding
+#      it, the chip hard-resets. RESET is the only mode that recovers a
+#      C-level hang; WatchDogMode.RAISE needs the VM, which is exactly
+#      what's stuck. fed() is called after each boot milestone and every
+#      server-loop iteration.
+#   3. Reset-loop guard - if the last few resets were all the watchdog
+#      firing, something is persistently wedged; stop rebooting into it
+#      and sit at the REPL so it can be fixed.
+
+_WDT_TIMEOUT_S = 20          # > wifi.radio.connect()'s own 10s timeout
+_NVM_WDT_COUNT = 0           # microcontroller.nvm byte index for layer 3
+_MAX_WDT_RESETS = 3
+
+_wdt = None
+
+
+def _reset_loop_guard():
+    """Layer 3. Runs first. If we just came back from a watchdog reset,
+    bump a counter in NVM; once it hits _MAX_WDT_RESETS in a row, clear
+    it and drop to the REPL instead of booting the server again. Any
+    other reset reason (power-on, RESET button, soft reboot) clears the
+    counter. Silently skipped if this build has no usable nvm."""
+    try:
+        was_watchdog = (
+            microcontroller.cpu.reset_reason is microcontroller.ResetReason.WATCHDOG
+        )
+        if was_watchdog:
+            count = microcontroller.nvm[_NVM_WDT_COUNT] + 1
+            microcontroller.nvm[_NVM_WDT_COUNT] = count
+            print("Recovered from a watchdog reset (%d in a row)." % count)
+            if count >= _MAX_WDT_RESETS:
+                microcontroller.nvm[_NVM_WDT_COUNT] = 0
+                print(
+                    "\n*** %d watchdog resets in a row - something is stuck.\n"
+                    "*** Firmata NOT started so you can get in and fix it.\n"
+                    "*** The REPL is available now.\n" % _MAX_WDT_RESETS
+                )
+                sys.exit()
+        elif microcontroller.nvm[_NVM_WDT_COUNT] != 0:
+            # Only write on a real change - nvm is flash, and this runs
+            # every boot.
+            microcontroller.nvm[_NVM_WDT_COUNT] = 0
+    except Exception:
+        pass
+
+
+def _escape_hatch(window_s=3):
+    """Layer 1. A byte on the serial console within window_s seconds
+    drops to the REPL. Checked before any WiFi/I2C call, so it works even
+    when a later hang would be past Ctrl-C's reach: after a reset, mash a
+    key (or Ctrl-C) and you're in. A longer window when a console is
+    already attached (someone's watching), the short default when nobody
+    is (don't stall an unattended boot)."""
+    if supervisor.runtime.serial_connected:
+        window_s = 6
+    print(
+        "NTK Firmata booting - press any key in the next %ds for the REPL..."
+        % window_s
+    )
+    deadline = time.monotonic() + window_s
+    while time.monotonic() < deadline:
+        if supervisor.runtime.serial_bytes_available:
+            print("Interrupted - dropping to the REPL.")
+            sys.exit()
+        time.sleep(0.05)
+
+
+def _arm_watchdog():
+    """Layer 2. RESET mode, generous timeout. No-op if the watchdog
+    module or timer isn't available on this build."""
+    global _wdt
+    if _watchdog is None:
+        return
+    try:
+        _wdt = microcontroller.watchdog
+        _wdt.timeout = _WDT_TIMEOUT_S
+        _wdt.mode = _watchdog.WatchDogMode.RESET
+        _wdt.feed()
+        print("Watchdog armed (%ds)." % _WDT_TIMEOUT_S)
+    except Exception as e:
+        print("(watchdog unavailable:", e, ")")
+        _wdt = None
+
+
+def feed():
+    """Pet the watchdog. Safe to call anywhere, any number of times;
+    does nothing if the watchdog isn't armed."""
+    if _wdt is not None:
+        try:
+            _wdt.feed()
+        except Exception:
+            pass
+
+
+def clear_reset_loop_count():
+    """Called once the server has been healthy for a while - a real
+    successful run, so forget any earlier watchdog resets."""
+    try:
+        if microcontroller.nvm[_NVM_WDT_COUNT] != 0:
+            microcontroller.nvm[_NVM_WDT_COUNT] = 0
+            print("Healthy run - watchdog-reset counter cleared.")
+    except Exception:
+        pass
+
+
+_reset_loop_guard()
+_escape_hatch()
+_arm_watchdog()
 
 # wifi.radio.start_ap() further down can hang at a level Ctrl-C can't
 # reach - see _wait_for_ctrl_c_window()'s own docstring for why a plain
@@ -89,11 +218,13 @@ def _wait_for_ctrl_c_window(total_delay_s, action_description):
     MAX_WAIT_FOR_SERIAL_S = 30
     waited = 0
     while not supervisor.runtime.serial_connected and waited < MAX_WAIT_FOR_SERIAL_S:
+        feed()
         time.sleep(0.25)
         waited += 0.25
 
     remaining = total_delay_s
     while remaining > 0:
+        feed()
         print(action_description + " in " + str(remaining) + "s - press Ctrl-C now if you need to interrupt boot")
         time.sleep(1)
         remaining -= 1
@@ -113,7 +244,14 @@ def _wait_for_ctrl_c_window(total_delay_s, action_description):
 # fix - see the README's Troubleshooting section for the actual
 # reliable recovery procedure). Removed rather than kept as dead weight.
 from firmata_server import FirmataServer
+
+# pins.py's board.I2C() probe can hang at the C driver level (bus with no
+# pull-ups, sensor disconnected mid-transaction). The watchdog, armed
+# above, is what recovers that now - it'll reset the board, and the
+# reset-loop guard breaks the cycle if it keeps happening.
+feed()
 from pins import PIN_TABLE, GROVE_SENSOR_CATALOG
+feed()
 
 FIRMATA_PORT = 3030
 
@@ -213,6 +351,7 @@ def connect_wifi():
     # gives Ctrl+C a window to land between retries, while still
     # eventually connecting on a flaky network same as before.
     while True:
+        feed()  # each connect() attempt blocks the VM for up to 10s
         try:
             if password:
                 wifi.radio.connect(ssid, password, timeout=10)
@@ -221,6 +360,7 @@ def connect_wifi():
             break
         except ConnectionError as e:
             print("WiFi connect attempt failed, retrying:", e)
+    feed()
     print("Connected. IP address:", wifi.radio.ipv4_address)
     show_ip_on_lcd(wifi.radio.ipv4_address)
 
@@ -258,10 +398,15 @@ def start_ap():
         password = ""
 
     print("Starting SoftAP:", ssid, "(secured)" if password else "(open)")
+    # start_ap() has no timeout and can hang past Ctrl-C's reach. If it
+    # hangs longer than the watchdog window the board resets and tries
+    # again; the reset-loop guard breaks the cycle after a few tries.
+    feed()
     if password:
         wifi.radio.start_ap(ssid, password)
     else:
         wifi.radio.start_ap(ssid)
+    feed()
 
     # Recent CircuitPython starts the AP DHCP server automatically inside
     # start_ap(); older builds need it explicit. Harmless to call when it's
@@ -294,14 +439,26 @@ def run_server():
     # connection happens to arrive. Polling in a short loop instead
     # keeps the board responsive while idle.
     server_socket.settimeout(1)
+    feed()
     print("Firmata server listening on port", FIRMATA_PORT)
 
     read_buffer = bytearray(128)
+
+    # If we ran this long without the watchdog firing, this is a healthy
+    # boot - forget any earlier watchdog resets so the reset-loop guard
+    # starts fresh. Done inside the loop below so a hang that only shows
+    # up under load still accumulates toward the guard's limit.
+    server_started_at = time.monotonic()
+    reset_count_cleared = False
 
     while True:
         print("Waiting for Client to connect...")
         conn = None
         while conn is None:
+            feed()  # accept() blocks the VM for up to 1s per poll
+            if not reset_count_cleared and time.monotonic() - server_started_at > 30:
+                clear_reset_loop_count()
+                reset_count_cleared = True
             try:
                 conn, addr = server_socket.accept()
             except OSError:
@@ -327,6 +484,10 @@ def run_server():
 
         try:
             while True:
+                feed()
+                if not reset_count_cleared and time.monotonic() - server_started_at > 30:
+                    clear_reset_loop_count()
+                    reset_count_cleared = True
                 disconnected = False
                 in_grace_period = (time.monotonic() - connected_at) < CONNECTION_GRACE_PERIOD_S
                 try:
