@@ -43,4 +43,16 @@ fetch_model "$DEST/models/hand_landmarker.task" \
 fetch_model "$DEST/models/pose_landmarker_lite.task" \
 	"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task"
 
+# ObjectRecog.js - EfficientDet-Lite0 object detector (80 COCO classes,
+# used for the live label outlet + to crop the embedding to the detected
+# object) and the MobileNet-V3-small image embedder (the per-frame
+# feature vector its 1-NN classifier matches against recorded examples).
+# Both are .tflite (not .task) - MediaPipe's ObjectDetector/ImageEmbedder
+# take raw TFLite models. Same shared vision_bundle.mjs/wasm runtime as
+# above, zero added WASM weight.
+fetch_model "$DEST/models/efficientdet_lite0.tflite" \
+	"https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float32/latest/efficientdet_lite0.tflite"
+fetch_model "$DEST/models/mobilenet_v3_small.tflite" \
+	"https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/1/mobilenet_v3_small.tflite"
+
 echo "MediaPipe assets ready in $DEST"

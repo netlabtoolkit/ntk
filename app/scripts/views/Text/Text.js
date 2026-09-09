@@ -27,7 +27,15 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
             'click .importText': 'importText',
             'click .exportText': 'exportText',
             'click .toggleDisplay': 'toggleDisplay',
+            // rivets 0.6.10's value binder only publishes on 'change'
+            // (blur), so the on-canvas box + outlet wouldn't update until
+            // you clicked away. Push every keystroke straight to the model.
+            'input .database': 'onTextInput',
 		},
+
+        onTextInput: function(e) {
+            this.model.set('in', e.currentTarget.value);
+        },
 
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
