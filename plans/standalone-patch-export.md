@@ -1,6 +1,8 @@
 # Standalone patch export
 
-**Status:** scoped via discussion. Not started.
+**Status:** scoped via discussion. Not started. Build-order step 5, but a
+scoped v1 could lead instead — see [Sequencing: can this go
+first?](#sequencing-can-this-go-first) below.
 
 Today, **all** patch logic runs on the host (NTK's own JS). The
 CircuitPython firmware is a dumb Firmata relay with zero knowledge of the
@@ -124,6 +126,62 @@ See the CircuitPython firmware (`firmware/xiao-esp32c6-circuitpython-firmata/`,
 `pins.py` / `firmata_server.py`) for the architecture this extends, and
 [device-discovery.md](device-discovery.md) for the SoftAP-mode precedent.
 
+## Sequencing: can this go first?
+
+The [README build order](README.md#proposed-build-order) puts this at
+step 5, after the loopback-server removal and wiring rebuild (steps 1–2).
+**A scoped v1 could lead instead** — its core has no dependency on those
+steps. What's independent:
+
+- **The on-device interpreter.** `SignalChainFunctions.js` (in
+  `app/scripts/utils/`) and each widget's logic (`app/scripts/views/*/`)
+  are renderer-side and stable — untouched by socket.io removal. The
+  interpreter itself is a separate CircuitPython artifact running on the
+  device.
+- **The compatibility checker** (see [Grounding facts](#grounding-facts-verified-against-the-codebase))
+  — pure renderer JS walking the patch graph via `Patcher.js`.
+- **The `.ntk` patch format** as the interpreter's input — already a
+  clean serialized graph, no format change needed.
+- **Reconnect-as-monitor feedback** (option 3 above) — reuses the
+  *existing* Firmata analog/digital reporting mechanism and the existing
+  widget UI as a read-only dashboard. `NetworkModel.js` pointed at a
+  device IP already works today; that's how live WiFi Firmata control
+  works now.
+
+**The one real entanglement is the native-protocol fold-in** (next
+section). That rewrite lands in `server/modules/nlHardware/NetworkModel.js`
+(and possibly `StandardFirmataModel.js`) — main-process code, exactly
+what build-order step 2 relocates across the new Electron IPC boundary.
+Build the native protocol's host endpoint before steps 1–2 and step 2
+has to carry it over later — rework in the one place the plan says to
+touch last. It also pulls against the recommended monitoring approach:
+option 3 is attractive *because* it reuses Firmata's reporting; a native
+protocol replaces that mechanism, so monitoring would be rebuilt on the
+new protocol instead. And whether the host ends up with one hardware
+model or two depends on build-order step 6 (possibly dropping serial
+Arduino), which isn't a firm decision.
+
+**Secondary risks of going first:**
+
+- **Unproven interpreter performance** — a JSON-patch interpreter
+  evaluating every loop tick on the XIAO ESP32-C6, Gesture's DTW
+  especially. Feasible but could prove too slow after real investment;
+  worth a throwaway spike before committing.
+- **No leverage for the rest of the roadmap** — unlike steps 1–2,
+  standalone export doesn't unlock Macro / multi-select / the iPad port.
+  The native protocol would help the iPad bridge slightly; nothing else.
+
+**Recommended first slice:** interpreter (with logic widgets — IfThen,
+Mix, Gate, etc. — from day one, not just AnalogIn → Servo) +
+compatibility checker + **manual patch-file copy** (Thonny / USB) +
+monitor over the existing Firmata reporting. **Keep Firmata as the
+transport; defer the native-protocol fold-in.** That version touches only
+device firmware plus stable renderer code, and de-risks the interpreter
+concept before any host rework. Add the WiFi deploy channel (see [Live
+push-to-device deploy](#live-push-to-device-deploy-idea-not-fully-designed))
+and the native-protocol rewrite once steps 1–2 have settled where the
+host hardware code lives.
+
 ## Folded in: replace Firmata with a native protocol
 
 `firmata_server.py` implements the real Firmata wire protocol from
@@ -159,7 +217,11 @@ and hardware-verified.
 
 **Recommendation:** don't do this as a standalone refactor — fold it into
 this standalone-patch-export effort. That's the point where the device
-needs a richer NTK-native protocol anyway.
+needs a richer NTK-native protocol anyway. **But if standalone export
+runs ahead of build-order steps 1–2, defer this fold-in specifically**
+(see [Sequencing](#sequencing-can-this-go-first)) — its host side lives
+in the exact `server/` hardware code those steps relocate, so building it
+early means building it twice.
 
 **Note:** the cost "USB / serial Arduino still needs real Firmata
 regardless, so the host maintains two hardware-model implementations" may

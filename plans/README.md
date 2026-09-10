@@ -141,7 +141,12 @@ Set by Phil on 2026-09-03.
    scrolling** — combined into one step, built on step 3's selection.
 5. **[Standalone patch export](standalone-patch-export.md)**, including
    its folded-in Firmata → native-protocol replacement and the
-   reconnect-as-monitor feedback design.
+   reconnect-as-monitor feedback design. A scoped v1 (interpreter +
+   compat check + manual file copy + monitor over existing Firmata,
+   *deferring* the native-protocol fold-in) has no dependency on steps
+   1–2 and could lead the build order instead — see that doc's
+   [Sequencing](standalone-patch-export.md#sequencing-can-this-go-first)
+   section.
 6. **Possible elimination of serial and network Firmata support** —
    broader than the Firmata replacement folded into step 5 (which only
    scoped the WiFi CircuitPython firmware). This also covers dropping
