@@ -72,6 +72,19 @@ Arduino IDE, no C++, just these files copied onto the board.
    widget already on the canvas keeps whatever Device it already had -
    change it directly in that widget's own "more" panel instead.
 
+## Status LED
+
+The board's on-board user LED (\`board.LED\`, the small yellow one by the
+USB connector) reports state without needing the serial console:
+
+- **one fast 4-blink burst** - just powered up, \`code.py\` is running
+- **slow steady blink** - bringing up WiFi (joining, or starting SoftAP)
+- **quick double-pulse every ~2s** - listening, no client connected yet
+- **solid on** - an NTK client is connected
+
+Stuck on the slow steady blink = can't reach WiFi; check
+\`settings.toml\` and the serial console.
+
 ## SoftAP mode (no router needed)
 
 Add \`NTK_WIFI_MODE = "ap"\` to \`settings.toml\` and the board runs its

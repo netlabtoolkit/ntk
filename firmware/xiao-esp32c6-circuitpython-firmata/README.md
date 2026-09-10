@@ -47,6 +47,26 @@ files on the device over its serial/REPL connection instead.
    widget already on the canvas keeps whatever Device it already had -
    change it directly in that widget's own "more" panel instead.
 
+## Status LED
+
+The board's on-board user LED (`board.LED`, GPIO15 - the small yellow one
+next to the USB connector) shows what the firmware is doing, so you can
+tell at a glance without the serial console:
+
+| LED | Meaning |
+|---|---|
+| One fast 4-blink burst | Just powered up / reset - `code.py` is running |
+| Slow steady blink (~1 Hz) | Bringing up WiFi (joining your network, or starting SoftAP) |
+| Quick double-pulse every ~2 s | WiFi is up, listening on port 3030, **no client connected yet** |
+| Solid on | An NTK client is connected |
+| Back to the double-pulse | The client disconnected; waiting for the next one |
+
+If the LED never gets past the slow steady blink, the board is stuck
+trying to reach WiFi - check the SSID/password in `settings.toml` and the
+serial console. It's harmless if your board has no such LED (or the pin
+is otherwise in use): the firmware prints `(status LED unavailable: ...)`
+once and carries on normally.
+
 ## SoftAP mode (no router needed)
 
 By default the board joins the WiFi named in `settings.toml`

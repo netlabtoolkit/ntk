@@ -48,6 +48,100 @@ except ImportError:  # not every CircuitPython build ships it
 
 
 # ---------------------------------------------------------------------------
+# Status LED
+# ---------------------------------------------------------------------------
+# The XIAO ESP32-C6's on-board user LED (board.LED, GPIO15) is driven as a
+# coarse "what is the firmware doing" indicator you can read across a room
+# with no serial console attached:
+#
+#   boot / wake-up ............ one fast 4-blink burst
+#   working on WiFi .......... slow steady blink (~1s period)
+#   WiFi up, no client yet ... a quick double-pulse every ~2s
+#   client connected ......... solid on
+#
+# All best-effort: if the LED pin can't be claimed (a board without one,
+# or the pin already in use) every call below is a silent no-op. The XIAO
+# user LED is active-LOW - pin low = lit - hence the inversion in
+# _led_write().
+
+_led = None
+
+# Non-blocking background patterns: a tuple of (lit?, hold_seconds) steps,
+# cycled forever by led_tick(). led_wake_blink() is the one blocking one
+# (a short burst, only at boot, before anything time-sensitive).
+_LED_CONNECTING = ((True, 0.5), (False, 0.5))
+_LED_WAITING = ((True, 0.05), (False, 0.2), (True, 0.05), (False, 2.0))
+
+_led_pattern = None
+_led_step = 0
+_led_next_change = 0.0
+
+
+def _led_init():
+    global _led
+    try:
+        import board
+        import digitalio
+
+        _led = digitalio.DigitalInOut(board.LED)
+        _led.direction = digitalio.Direction.OUTPUT
+        _led_write(False)
+    except Exception as e:
+        print("(status LED unavailable:", e, ")")
+        _led = None
+
+
+def _led_write(lit):
+    if _led is not None:
+        try:
+            _led.value = not lit  # active-low: pin low = lit
+        except Exception:
+            pass
+
+
+def led_wake_blink():
+    """Boot signal: a short fast burst the instant the firmware starts,
+    before any WiFi work - "the board woke up and is running code.py"."""
+    for _ in range(4):
+        _led_write(True)
+        time.sleep(0.06)
+        _led_write(False)
+        time.sleep(0.1)
+
+
+def led_set_pattern(pattern):
+    """Select the non-blocking background blink pattern (None leaves the
+    LED as-is). Cheap to call every loop - only re-arms on a change."""
+    global _led_pattern, _led_step, _led_next_change
+    if pattern is not _led_pattern:
+        _led_pattern = pattern
+        _led_step = 0
+        _led_next_change = 0.0  # take effect on the next led_tick()
+
+
+def led_tick():
+    """Advance the current background pattern. Call often - returns
+    immediately until the next step is actually due, so it's safe to
+    drop into any poll loop next to feed()."""
+    global _led_step, _led_next_change
+    if _led is None or _led_pattern is None:
+        return
+    now = time.monotonic()
+    if now < _led_next_change:
+        return
+    lit, hold = _led_pattern[_led_step]
+    _led_write(lit)
+    _led_step = (_led_step + 1) % len(_led_pattern)
+    _led_next_change = now + hold
+
+
+def led_solid_on():
+    """Client connected - stop blinking and hold the LED on."""
+    led_set_pattern(None)
+    _led_write(True)
+
+
+# ---------------------------------------------------------------------------
 # Hang recovery
 # ---------------------------------------------------------------------------
 # The failure this guards against: code.py is running, the board looks
@@ -123,6 +217,7 @@ def _escape_hatch(window_s=3):
         if supervisor.runtime.serial_bytes_available:
             print("Interrupted - dropping to the REPL.")
             sys.exit()
+        led_tick()
         time.sleep(0.05)
 
 
@@ -163,6 +258,13 @@ def clear_reset_loop_count():
     except Exception:
         pass
 
+
+_led_init()
+led_wake_blink()  # "the board woke up" - before anything that could hang
+
+# Slow steady blink from here until run_server() reports it's listening -
+# covers the escape-hatch window, WiFi join / SoftAP start, everything.
+led_set_pattern(_LED_CONNECTING)
 
 _reset_loop_guard()
 _escape_hatch()
@@ -219,12 +321,14 @@ def _wait_for_ctrl_c_window(total_delay_s, action_description):
     waited = 0
     while not supervisor.runtime.serial_connected and waited < MAX_WAIT_FOR_SERIAL_S:
         feed()
+        led_tick()
         time.sleep(0.25)
         waited += 0.25
 
     remaining = total_delay_s
     while remaining > 0:
         feed()
+        led_tick()
         print(action_description + " in " + str(remaining) + "s - press Ctrl-C now if you need to interrupt boot")
         time.sleep(1)
         remaining -= 1
@@ -352,6 +456,7 @@ def connect_wifi():
     # eventually connecting on a flaky network same as before.
     while True:
         feed()  # each connect() attempt blocks the VM for up to 10s
+        led_tick()
         try:
             if password:
                 wifi.radio.connect(ssid, password, timeout=10)
@@ -441,6 +546,9 @@ def run_server():
     server_socket.settimeout(1)
     feed()
     print("Firmata server listening on port", FIRMATA_PORT)
+    # WiFi is up and we're listening but nobody's connected yet - switch
+    # from the "working on WiFi" blink to the "waiting for a client" one.
+    led_set_pattern(_LED_WAITING)
 
     read_buffer = bytearray(128)
 
@@ -456,6 +564,7 @@ def run_server():
         conn = None
         while conn is None:
             feed()  # accept() blocks the VM for up to 1s per poll
+            led_tick()
             if not reset_count_cleared and time.monotonic() - server_started_at > 30:
                 clear_reset_loop_count()
                 reset_count_cleared = True
@@ -470,6 +579,7 @@ def run_server():
         except Exception:
             pass  # not critical if unsupported on this CircuitPython build
         print("Client connected from", addr)
+        led_solid_on()
 
         firmata = FirmataServer(PIN_TABLE, GROVE_SENSOR_CATALOG)
         # on_connect() just registers the send callback - it deliberately
@@ -528,6 +638,8 @@ def run_server():
             except Exception:
                 pass
             print("Client disconnected")
+            # Back to waiting for the next client.
+            led_set_pattern(_LED_WAITING)
 
 
 wifi_mode = str(os.getenv("NTK_WIFI_MODE") or "station").strip().lower()
