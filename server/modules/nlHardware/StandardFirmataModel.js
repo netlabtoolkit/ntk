@@ -28,6 +28,13 @@ module.exports = function(five) {
 	var StandardFirmataModel = {
 		addDefaultPins: function addDefaultPins() {
 			self = this;
+			// This instance, captured in a real closure variable. The bare
+			// `self` above is a module-global that the NEXT NetworkModel's
+			// addDefaultPins() overwrites - so a Sensor "data" callback that
+			// closed over `self` would, on a second connection, write this
+			// board's readings onto the other model. Use `boundModel` in the
+			// per-sensor callbacks instead.
+			var boundModel = this;
 			// Store all pin mode mappings (string -> integer)
 			this.PINMODES = this.board.io.MODES;
 
@@ -39,10 +46,15 @@ module.exports = function(five) {
 					var sensor = new five.Sensor({
 						pin: "A"+reportedPin.analogChannel,
 						freq: pollFreq,
+						// Without an explicit board, johnny-five's Board.mount()
+						// hands every Sensor boards[0] - the FIRST board ever
+						// created - so a second device's sensors would poll the
+						// first (often dead) board. Pin it to this model's board.
+						board: this.board,
 					});
 
 					sensor.scale([0, 1023]).on("data", function() {
-						self.set("A"+this.pin, Math.floor(this.value));
+						boundModel.set("A"+this.pin, Math.floor(this.value));
 					});
 
 					this.inputs["A"+reportedPin.analogChannel] = {pin: sensor, value: 0};

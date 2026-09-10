@@ -39,6 +39,31 @@ module.exports = function(attributes) {
 			// connection (and its reconnect loop) outlived every widget that
 			// ever referenced it for the lifetime of the server process.
 			self.close = function() {
+				self.connected = false;
+
+				// Stop the johnny-five Sensor poll timers that addDefaultPins()
+				// (in StandardFirmataModel.js) started for every analog pin.
+				// Without this they keep firing forever after the widget is
+				// gone - and because those timers were being routed to
+				// whichever NetworkModel was created most recently, a fresh
+				// widget added for the same device saw this dead connection's
+				// stale/zero readings interleaved with its own live ones (the
+				// value visibly oscillated). Also drop the shared sysex
+				// handler this instance registered.
+				try {
+					_.each(self.inputs || {}, function(input) {
+						if (input && input.pin && typeof input.pin.disable === 'function') {
+							input.pin.disable();
+						}
+					});
+				} catch (e) { /* best effort - instance is going away */ }
+
+				try {
+					if (self.board && self.board.io && self.board.io.clearSysexResponse) {
+						self.board.io.clearSysexResponse(0x02); // GROVE_SENSOR_REPLY
+					}
+				} catch (e) { /* best effort */ }
+
 				etherPortClient._reconnectTimeoutSecs = 0;
 				if (etherPortClient._reconnectTimer) {
 					clearTimeout(etherPortClient._reconnectTimer);
@@ -47,6 +72,7 @@ module.exports = function(attributes) {
 				if (etherPortClient._tcp) {
 					etherPortClient._tcp.destroy();
 				}
+				self.board = undefined;
 			};
 
 			var io = new firmata.Board(etherPortClient, {

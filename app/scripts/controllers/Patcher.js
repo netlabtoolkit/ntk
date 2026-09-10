@@ -661,6 +661,19 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				this.removeMapping(relatedMappings[i], widgetView.model.get('wid'));
 			}
 
+			// Drop any cached hardware-model instance no widget references any
+			// more. Without this, its stale active===true flag makes the next
+			// widget added for that device think it's still connected and skip
+			// enableDevice() - so the server (which DID tear the connection
+			// down, see nlMultiClientSync's client:removeWidget handler) is
+			// never asked to reconnect, and only an app restart recovers.
+			var stillReferenced = _.pluck(this.widgetMappings, 'modelWID');
+			_.each(_.keys(this.hardwareModelInstances), function(key) {
+				if(!_.contains(stillReferenced, key)) {
+					delete this.hardwareModelInstances[key];
+				}
+			}, this);
+
 			if(!calledFromLoader) {
 				window.app.vent.trigger('removeWidget', widgetView.model.get( 'wid' ));
 			}
