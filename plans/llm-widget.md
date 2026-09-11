@@ -1,7 +1,9 @@
 # LLM widget
 
-**Status:** in progress (started 2026-09-07). Part of the
-[NTK plans](README.md).
+**Status:** v1 built and shipped (started 2026-09-07, first released in
+v2026.4.1 - Anthropic + Ollama, the full personality-assembly system
+below). Part of the [NTK plans](README.md). Document attach (PDF/text)
+is planned next - see that section below, not started.
 
 A widget that calls an LLM. **Text prompt in the inlet → the model's text
 response out the outlet.** The user sets the provider and picks a model
@@ -270,6 +272,163 @@ response".
 - Internal instance state referenced by `onModelChange` /
   `processSignalChain` must be initialized before the
   `this.model.set(defaults)` call in `initialize()`.
+
+## Document attach (PDF / text) — planned, not started
+
+**Status:** scoped via discussion (2026-09-11). Not started.
+
+Let the widget attach a PDF or plain-text file and fold its content
+into the prompt. **Not RAG** — no chunking, no embeddings, no vector
+store, no retrieval step. The whole document's text is injected into
+the system prompt every send, the same way a Text widget's own content
+already rides along verbatim. RAG only earns its complexity when a
+document doesn't fit in context or you're searching a standing corpus
+across many calls over time - neither applies to "attach one document
+to this prompt." A typical document is a small fraction of a modern
+context window; injecting the whole thing means nothing gets
+pre-filtered out by a retrieval step that might miss the relevant part.
+
+### File types: PDF and plain text, one control
+
+A single "attach document" picker, filtered to `pdf`, `txt`, `md`,
+`markdown`, `text` - not two separate buttons. The two file types only
+differ in *how* their text is obtained, which is an internal branch,
+not a UI distinction:
+
+- **PDF** - run through a pure-JS text-extraction library (e.g.
+  `pdf-parse`, which wraps `pdfjs-dist` - no native compile, so it
+  packages the same way the rest of the app does, unlike
+  `@serialport/bindings`). Text-layer extraction only; a scanned PDF
+  with no text layer extracts to nothing - no OCR in v1 (see Not in
+  scope).
+- **txt / md** - `fs.readFileSync(path, 'utf8')` directly. No library,
+  no failure mode.
+
+### Extract once, at attach time - not re-read on every send
+
+Unlike Image/Video/Audio (which cache a file **path** and re-stream the
+real media each time), extract the text **once**, in the file-picker's
+IPC handler, and store the resulting plain text directly on the
+widget's model - the same way a Text widget already stores its own
+content verbatim in the saved patch. Concretely, mirrors the existing
+`read-text-file` handler (`electronApp.js`), which already does exactly
+this for the Text widget's import button and already returns
+`{name, text}` directly rather than a path:
+
+```js
+// New: pick-document-file, extends the read-text-file pattern to also
+// accept + extract PDFs.
+ipcMain.handle('pick-document-file', async function() {
+	var result = await dialog.showOpenDialog(mainWindow, {
+		properties: ['openFile'],
+		filters: [
+			{ name: 'Document', extensions: ['pdf', 'txt', 'md', 'markdown', 'text'] },
+			{ name: 'All files', extensions: ['*'] },
+		],
+	});
+	if (result.canceled || !result.filePaths.length) { return null; }
+	var filePath = result.filePaths[0];
+	var text = /\.pdf$/i.test(filePath) ? await extractPdfText(filePath) : fs.readFileSync(filePath, 'utf8');
+	return { name: path.basename(filePath), text: text };
+});
+```
+
+Why extract-once beats read-at-send-time here: sends stay fast (no
+re-parsing a PDF on every call), the widget survives the source file
+being moved/renamed/deleted after attaching, and it matches how typed
+prompt text already behaves - a frozen snapshot, not a live link. The
+tradeoff (doesn't pick up edits to the source file) is a fine default;
+a "re-attach" action already covers wanting a fresh copy, no separate
+"refresh" control needed for v1.
+
+New model fields: `documentName` (basename, for display), `documentText`
+(the extracted/truncated plain text - this is what actually rides in
+the patch), `documentWordCount`, `documentTruncated`, `documentError`
+(set when extraction produced nothing - see below).
+
+### Truncation and the empty-extraction case
+
+Cap `documentText` at a fixed word count (v1: ~20,000 words, comfortably
+inside any current model's context alongside the rest of the assembled
+prompt) with a visible `documentTruncated` flag - the "more" panel shows
+"N words (truncated from M)" so a huge document never gets silently cut
+without the user knowing, per CLAUDE.md's "the interface should actively
+inform the user what's happening" principle. Also worth a sane file-size
+ceiling in the picker itself (reject before attempting to parse) rather
+than hanging on something absurd.
+
+A PDF with no text layer (scanned, image-only) extracts to `''`. Rather
+than silently sending an empty reference block, set `documentError` and
+show it as a widget status ("No extractable text - this PDF is likely
+scanned/image-only") - the same "don't fail quietly" reasoning as the
+truncation notice. No OCR fallback in v1 (see Not in scope).
+
+### Three independent toggles, not a single mode picker
+
+These are genuinely different jobs and compose (e.g. a support-bot
+persona that answers strictly from a policy doc, in that doc's own
+voice, is all three at once) - three checkboxes in the "more" panel,
+not a radio group:
+
+| Toggle | Model field | Clause added to `system` | What it changes |
+|---|---|---|---|
+| **Voice** | `documentVoice` | "Write in the same voice, tone, and prose style as the reference document below." | Prose mechanics only - doesn't restrict *what* it can say |
+| **Personality** | `documentPersonality` | "Adopt the personality, attitude, and point of view reflected in the reference document below." | Character/temperament - distinct from Voice even though they're often both checked |
+| **Grounded source** | `documentGrounded` | "Answer using only the information in the reference document below. If the answer isn't there, say the document doesn't cover it rather than guessing or using outside knowledge." | The only one that constrains *content*, not just style - the hallucination guard matters here specifically |
+
+If a document is attached but none of the three are checked, its text
+still rides along as ambient context with no directive about how to use
+it - a sensible default rather than forcing a choice.
+
+### Where the document text goes in the assembled prompt
+
+Reference material first, instructions last, right before the user's
+own question - this ordering (long context early, instructions close to
+the query) is Anthropic's own long-context prompting guidance, and
+there's no reason Ollama would prefer the opposite:
+
+```
+system = [
+  documentText && `--- REFERENCE DOCUMENT (${documentName}) ---\n${documentText}\n--- END REFERENCE DOCUMENT ---`,
+  MODE_PREAMBLE[mode],
+  documentVoice       && 'Write in the same voice, tone, and prose style as the reference document above.',
+  documentPersonality && 'Adopt the personality, attitude, and point of view reflected in the reference document above.',
+  documentGrounded    && "Answer using only the information in the reference document above. If the answer isn't there, say the document doesn't cover it rather than guessing or using outside knowledge.",
+  traits && ..., format && ..., audience && ..., lengthClause(...), systemAppend,
+].filter(Boolean).join('\n\n')
+```
+
+`user` stays exactly the typed/wired prompt, untouched either way - the
+document's content and the actual ask are kept clearly separate so the
+model can't confuse "continue this document" with "answer my question
+about it."
+
+### Widget layout
+
+**Body:** a compact attach control (icon button) + a short filename
+chip with an × to detach, near the existing status line - this is a
+primary input like the prompt itself, so it belongs in the main body,
+not buried in "more" (per CLAUDE.md: keep the most-used controls in the
+94x110 body). No new outlets/inlets.
+
+**"more" panel:** the three toggles above, the word-count / truncation
+readout, and the error state when extraction found no text. Same panel
+the existing personality controls already live in.
+
+### Not in scope for v1
+
+- **OCR for scanned/image-only PDFs.** Real added complexity (a
+  different kind of dependency entirely) for a case text-extraction
+  fundamentally can't solve; `documentError` covers it honestly instead.
+- **Anthropic's native `document` content block** (base64 PDF, real
+  page-layout/vision understanding) - meaningfully higher quality for
+  visually dense PDFs, but Anthropic-only; Ollama has no equivalent for
+  arbitrary local models. Worth revisiting as a provider-specific
+  upgrade once v1's text-extraction path is proven, not before.
+- **Multiple documents / a standing reference library queried across
+  many separate prompts** - that's the point where RAG (chunking +
+  embeddings + a vector store) actually becomes justified. A different,
+  bigger feature - closer to a new widget than an extension of this one.
 
 ## Implementation notes
 
