@@ -78,24 +78,35 @@
                 </div>
             </div>
 
-            <div class="f wide moreSectionLabel">document</div>
+            <hr>
 
-            <div class="f wide documentMore">
-                <label>attached document</label>
-                <div class="documentStatus">
-                    <span rv-show="widget:documentName" rv-text="widget:documentName"></span>
-                    <button class="removeDocument" rv-show="widget:documentName" type="button">remove</button>
-                    <span rv-hide="widget:documentName">none</span>
-                    <button class="attachDocument" rv-hide="widget:documentName" type="button">📎 browse</button>
-                    <span rv-show="widget:documentWordCount" class="documentWordCount">(<span rv-text="widget:documentWordCount"></span> words<span rv-show="widget:documentTruncated">, truncated</span>)</span>
+            <div class="f wide moreDisclosureToggle" data-field="documentOpen" rv-class-open="widget:documentOpen">
+                <span class="disclosureArrow">▸</span> document attachment <span class="disclosureHint">(browse, voice/personality, grounded)</span>
+            </div>
+
+            <div class="documentDetails" rv-show="widget:documentOpen">
+                <div class="f wide documentMore">
+                    <div class="documentHeaderRow">
+                        <label>attached document</label>
+                        <span class="documentNameInline" rv-show="widget:documentName">
+                            <span rv-text="widget:documentName"></span>
+                            <span rv-show="widget:documentWordCount" class="documentWordCount">(<span rv-text="widget:documentWordCount"></span> words<span rv-show="widget:documentTruncated">, truncated</span>)</span>
+                        </span>
+                        <span class="documentNameInline" rv-hide="widget:documentName">none</span>
+                    </div>
+                    <div class="documentStatus">
+                        <button class="removeDocument" rv-show="widget:documentName" type="button">remove</button>
+                        <button class="showDocumentInFolder" rv-show="widget:documentName" type="button">Show in Finder</button>
+                        <button class="attachDocument" rv-hide="widget:documentName" type="button">📎 browse</button>
+                    </div>
+                    <div class="documentError" rv-show="widget:documentError" rv-text="widget:documentError"></div>
                 </div>
-                <div class="documentError" rv-show="widget:documentError" rv-text="widget:documentError"></div>
-            </div>
-            <div class="f wide">
-                <label class="checkRow"><input type="checkbox" rv-checked="widget:documentMatchStyle" /> match its voice &amp; personality</label>
-            </div>
-            <div class="f wide">
-                <label class="checkRow"><input type="checkbox" rv-checked="widget:documentGrounded" /> answer only from it (grounded)</label>
+                <div class="f wide">
+                    <label class="checkRow"><input type="checkbox" rv-checked="widget:documentMatchStyle" /> match its voice &amp; personality</label>
+                </div>
+                <div class="f wide">
+                    <label class="checkRow"><input type="checkbox" rv-checked="widget:documentGrounded" /> answer only from it (grounded)</label>
+                </div>
             </div>
 
             <hr>

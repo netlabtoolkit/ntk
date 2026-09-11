@@ -1848,6 +1848,7 @@
         // to this rule - their children then participate in .llmMore's own
         // grid exactly as if the wrapper div weren't there. When rv-show
         // hides one (inline display:none), that wins over this as usual.
+        .documentDetails,
         .personalityDetails,
         .advancedDetails {
             display: contents;
@@ -1870,12 +1871,30 @@
             }
         }
         .documentMore {
+            .documentHeaderRow {
+                display: flex;
+                align-items: baseline;
+                gap: 6px;
+                min-width: 0;
+
+                label { margin-top: 5px; flex: 0 0 auto; }
+            }
+            .documentNameInline {
+                font-weight: normal;
+                font-size: 0.78em;
+                color: #666;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                min-width: 0;
+            }
             .documentStatus {
                 font-size: 0.78em;
                 color: #666;
 
                 button.attachDocument,
-                button.removeDocument {
+                button.removeDocument,
+                button.showDocumentInFolder {
                     font-size: 0.95em;
                     margin-left: 3px;
                 }

@@ -87,8 +87,14 @@ contextBridge.exposeInMainWorld('ntkElectron', {
 	},
 	// "Attach document" (PDF/txt/md) - see server/electronApp.js and
 	// plans/llm-widget.md's "Document attach" section. Returns
-	// {name, text, wordCount, truncated} or {name, error} or null (canceled).
+	// {name, path, text, wordCount, truncated} or {name, error} or null
+	// (canceled).
 	llmPickDocument: function() {
 		return ipcRenderer.invoke('llm-pick-document');
+	},
+	// "Show in Finder" for the attached document. Returns {ok: true} or
+	// {error}.
+	llmShowDocumentInFolder: function(path) {
+		return ipcRenderer.invoke('llm-show-document-in-folder', { path: path });
 	},
 });

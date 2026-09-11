@@ -92,6 +92,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			'click .moreDisclosureToggle': 'toggleDisclosure',
 			'click .attachDocument': 'attachDocument',
 			'click .removeDocument': 'removeDocument',
+			'click .showDocumentInFolder': 'showDocumentInFolder',
 			// rivets 0.6.10's value binder only publishes on 'change'
 			// (blur) - clicking Send right after typing (without clicking
 			// away first) read a stale/empty widget:in, so the first click
@@ -154,7 +155,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				// (attachDocument()); documentText is the plain text that
 				// actually rides in the assembled system prompt, not a file
 				// path - the widget survives the source file moving.
+				// documentPath is kept only for the "Show in Finder" button -
+				// nothing else in the widget depends on the source file
+				// still being there.
 				documentName: '',
+				documentPath: '',
 				documentText: '',
 				documentWordCount: 0,
 				documentTruncated: false,
@@ -174,10 +179,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				// provider/model where the choice that caused it lives.
 				tempNote: '',
 
-				// Traits/purpose/audience, and the max-tokens/base-URL/raw-
-				// prompt group, each live behind a disclosure, both closed
-				// by default - the widget was getting overwhelming with all
-				// of "more" visible at once.
+				// Document attachment, traits/purpose/audience, and the max-
+				// tokens/base-URL/raw-prompt group each live behind a
+				// disclosure, all closed by default - the widget was
+				// getting overwhelming with all of "more" visible at once.
+				documentOpen: false,
 				personalityOpen: false,
 				advancedOpen: false,
 			});
@@ -515,6 +521,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				if(res.error) {
 					self.model.set({
 						documentName: res.name || '',
+						documentPath: '',
 						documentText: '',
 						documentWordCount: 0,
 						documentTruncated: false,
@@ -524,6 +531,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				}
 				self.model.set({
 					documentName: res.name,
+					documentPath: res.path || '',
 					documentText: res.text,
 					documentWordCount: res.wordCount,
 					documentTruncated: !!res.truncated,
@@ -532,9 +540,20 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			});
 		},
 
+		showDocumentInFolder: function() {
+			if(app.server || !window.ntkElectron || !window.ntkElectron.llmShowDocumentInFolder) { return; }
+			var path = this.model.get('documentPath');
+			if(!path) { return; }
+			var self = this;
+			window.ntkElectron.llmShowDocumentInFolder(path).then(function(res) {
+				if(res && res.error) { self.model.set('documentError', res.error); }
+			});
+		},
+
 		removeDocument: function() {
 			this.model.set({
 				documentName: '',
+				documentPath: '',
 				documentText: '',
 				documentWordCount: 0,
 				documentTruncated: false,

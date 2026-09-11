@@ -294,7 +294,21 @@ ipcMain.handle('llm-pick-document', async function() {
 	}
 
 	var capped = llmTruncateWords(normalized, LLM_DOCUMENT_MAX_WORDS);
-	return { name: name, text: capped.text, wordCount: capped.wordCount, truncated: capped.truncated };
+	return { name: name, path: filePath, text: capped.text, wordCount: capped.wordCount, truncated: capped.truncated };
+});
+
+// "Show in Finder" for the currently-attached document. documentPath is
+// kept only for this convenience button - the extracted documentText
+// (see above) is what actually rides in the saved patch and the
+// assembled prompt, so a moved/deleted source file breaks nothing but
+// this one button.
+ipcMain.handle('llm-show-document-in-folder', function(event, opts) {
+	opts = opts || {};
+	if (!opts.path || !fs.existsSync(opts.path)) {
+		return { error: 'File no longer exists at that location.' };
+	}
+	shell.showItemInFolder(opts.path);
+	return { ok: true };
 });
 
 var mainWindow = null;

@@ -344,7 +344,12 @@ a "re-attach" action already covers wanting a fresh copy, no separate
 New model fields: `documentName` (basename, for display), `documentText`
 (the extracted/truncated plain text - this is what actually rides in
 the patch), `documentWordCount`, `documentTruncated`, `documentError`
-(set when extraction produced nothing - see below).
+(set when extraction produced nothing - see below). Also `documentPath`
+(added post-build, 2026-09-12) - kept *only* for a "Show in Finder"
+button (`shell.showItemInFolder`, checked against `fs.existsSync` first
+since the source file moving/being deleted breaks nothing else); no
+other part of the widget reads it, so the "extract once, don't depend
+on the path" reasoning above still holds for everything that matters.
 
 ### Truncation and the empty-extraction case
 
@@ -416,10 +421,13 @@ real pressure (see the `.widgetBody` height gotcha noted in that pass).
 No outlets/inlets either way.
 
 **"more" panel:** a **browse** button (shown when nothing's attached) or
-the filename + a **remove** button (once something is), the two toggles
-above, the word-count / truncation readout, and the error state when
-extraction found no text - all under its own "DOCUMENT" section label
-(see the post-build complexity pass below).
+the filename + **remove** and **Show in Finder** buttons (once something
+is), the two toggles above, the word-count / truncation readout, and the
+error state when extraction found no text - all behind its own
+**▸ document attachment** disclosure, closed by default (originally a
+static "DOCUMENT" section label, made into a third disclosure alongside
+personality/advanced on 2026-09-12 - see the post-build complexity pass
+below).
 
 ### Post-build complexity pass (2026-09-11)
 
