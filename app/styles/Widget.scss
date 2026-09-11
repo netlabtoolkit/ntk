@@ -1635,6 +1635,14 @@
         font-size: 0.75em;
         color: #888;
         text-transform: capitalize;
+        font-weight: bold;
+        // Source Sans Pro is only registered at weight 400 (see
+        // global.scss's single @font-face) - some Chromium builds don't
+        // synthesize a convincing faux-bold from a single static weight,
+        // so font-weight:bold alone can render barely distinguishable from
+        // normal at this small size. text-stroke thickens the glyph
+        // outlines directly, independent of font-weight support.
+        -webkit-text-stroke: 0.35px currentColor;
         margin-top: 2px;
     }
     .llmPreview {
@@ -1655,6 +1663,22 @@
     // Config-heavy panel - wider than the shared 190px and laid out in
     // two columns so it isn't a mile long.
     .widgetBottom .content.llmMore { width: 330px; }
+
+    // The shared `.widget .widgetBottom .content label` rule (inline-block,
+    // fixed 60px width - see that rule's own comment) has one more
+    // qualifying class than `.llmMore label` below, so it was silently
+    // winning: every label here rendered as a fixed-width inline-block
+    // instead of stacking as a block, which is harmless when a label is
+    // alone in its grid cell but makes several `label.checkRow` siblings in
+    // the same container overlap on one line instead of stacking (the
+    // documentMore voice/personality/grounded checkboxes). Restated with
+    // the full ancestor chain (matching the width override two lines up)
+    // to beat it reliably regardless of source order, instead of reaching
+    // for !important.
+    .widgetBottom .content.llmMore label {
+        display: block;
+        width: auto;
+    }
 
     .llmMore {
         display: grid;
@@ -1696,6 +1720,11 @@
         .tempVal {
             font-weight: normal;
             color: #888;
+            // Fixed width so the row doesn't jitter as the digit count
+            // changes (e.g. "0.7" vs "2").
+            display: inline-block;
+            width: 2em;
+            text-align: right;
         }
         // Full-width row: label on the left, a short control on the right.
         .inlineField {
@@ -1706,6 +1735,32 @@
             label { margin-top: 5px; flex: 0 0 auto; }
             .moreParam { width: 60px; flex: 0 0 auto; }
             .tempSlider { width: auto; flex: 1 1 auto; min-width: 0; }
+        }
+
+        // Markdown / temp / length sharing one row - each squeezed down to
+        // its essentials (see the separate .hint row right below for
+        // length's fuller explanation, which doesn't fit here).
+        .responseRow {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+
+            label.checkRow { flex: 0 0 auto; margin-top: 0; }
+
+            .inlineMini {
+                display: flex;
+                align-items: center;
+                gap: 3px;
+                flex: 1 1 auto;
+                min-width: 0;
+
+                label { margin-top: 0; flex: 0 0 auto; white-space: nowrap; }
+            }
+            // Fixed, deliberately short - the label stays "Temp" in full;
+            // the slider itself is what's compressed to make room on this
+            // 3-item row.
+            .tempSlider { flex: 0 0 auto; width: 40px; }
+            .lengthInput { width: 32px; flex: 0 0 auto; }
         }
         select,
         input[type=text],
@@ -1739,6 +1794,71 @@
             }
         }
 
+        // Bold, dark, small-caps group headers ("document", "model") - a
+        // panel this dense (personality/document/model/advanced) reads as
+        // a wall of controls without them.
+        .moreSectionLabel {
+            font-size: 0.85em;
+            font-weight: bold;
+            // font-weight:bold alone is barely distinguishable here - same
+            // single-static-weight Source Sans Pro issue as .llmStatus
+            // above (see that rule's comment); text-stroke thickens the
+            // glyphs directly instead of relying on font-weight support.
+            -webkit-text-stroke: 0.4px currentColor;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            color: #000;
+            margin-top: 10px;
+        }
+
+        // Disclosure headers (personality, advanced) - same bold/dark
+        // treatment as .moreSectionLabel, plus the clickable arrow.
+        // Traits/purpose/audience (personality) and max-tokens/base-URL/
+        // raw-prompt (advanced) are each the least-often-touched group in
+        // their area, so both start closed (see LLM.js's personalityOpen/
+        // advancedOpen) - tucked away until asked for, not deleted.
+        .moreDisclosureToggle {
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: bold;
+            -webkit-text-stroke: 0.4px currentColor;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            color: #000;
+            margin-top: 10px;
+            user-select: none;
+
+            &:hover { color: #444; }
+
+            .disclosureArrow {
+                display: inline-block;
+                transition: transform 0.15s ease;
+            }
+            &.open .disclosureArrow { transform: rotate(90deg); }
+
+            .disclosureHint {
+                font-weight: normal;
+                text-transform: none;
+                letter-spacing: normal;
+                font-size: 0.85em;
+                color: #999;
+            }
+        }
+        // rv-show clears these to inline style '' when open, falling back
+        // to this rule - their children then participate in .llmMore's own
+        // grid exactly as if the wrapper div weren't there. When rv-show
+        // hides one (inline display:none), that wins over this as usual.
+        .personalityDetails,
+        .advancedDetails {
+            display: contents;
+        }
+
+        .tempNote {
+            font-size: 0.72em;
+            color: #888;
+            font-style: italic;
+            margin-top: 2px;
+        }
         .llmKey {
             font-size: 0.72em;
             color: #666;
@@ -1747,6 +1867,28 @@
             button {
                 font-size: 0.95em;
                 margin: 2px 4px 0 0;
+            }
+        }
+        .documentMore {
+            .documentStatus {
+                font-size: 0.78em;
+                color: #666;
+
+                button.attachDocument,
+                button.removeDocument {
+                    font-size: 0.95em;
+                    margin-left: 3px;
+                }
+            }
+            .documentWordCount {
+                color: #888;
+                margin-left: 3px;
+            }
+            .documentError {
+                font-size: 0.75em;
+                color: #b00;
+                margin-top: 2px;
+                word-break: break-word;
             }
         }
         .assembledSystem {

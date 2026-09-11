@@ -82,7 +82,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			'click .sendButton': 'send',
 			'change .providerSelect': 'onProviderChange',
 			'change .modelSelect': 'onModelSelectChange',
-			'click .refreshModels': 'fetchModels',
 			'click .setupKey': 'openKeysFile',
 			'change .traitSelect': 'traitSelectChange',
 			'change .choiceSelect': 'choiceSelectChange',
@@ -90,6 +89,16 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			'change .tempSlider': 'onTempSlider',
 			'click .randomPersonality': 'randomPersonality',
 			'click .resetPersonality': 'resetPersonality',
+			'click .moreDisclosureToggle': 'toggleDisclosure',
+			'click .attachDocument': 'attachDocument',
+			'click .removeDocument': 'removeDocument',
+			// rivets 0.6.10's value binder only publishes on 'change'
+			// (blur) - clicking Send right after typing (without clicking
+			// away first) read a stale/empty widget:in, so the first click
+			// silently failed "no prompt" and only the second (after the
+			// textarea had since blurred) worked. Push every keystroke
+			// straight to the model instead, same fix as Text.js.
+			'input .database': 'onLiveTextInput',
 		},
 		sources: [],
 		typeID: 'LLM',
@@ -140,10 +149,37 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				assembledSystem: '',
 				autoSend: false,
 
+				// Attached document (PDF/txt/md) - see plans/llm-widget.md's
+				// "Document attach" section. Extracted once at attach time
+				// (attachDocument()); documentText is the plain text that
+				// actually rides in the assembled system prompt, not a file
+				// path - the widget survives the source file moving.
+				documentName: '',
+				documentText: '',
+				documentWordCount: 0,
+				documentTruncated: false,
+				documentError: '',
+				// Independent toggles, not a single mode - both can be on at
+				// once (e.g. a persona that answers only from its own source
+				// document, in that document's own voice).
+				documentMatchStyle: false,
+				documentGrounded: false,
+
 				status: 'idle',    // idle | calling | error
 				calling: false,
 				statusText: '',
 				keyText: '',
+				// Separate from statusText/llmError (body, genuine errors) -
+				// this is an informational note, shown in "more" right below
+				// provider/model where the choice that caused it lives.
+				tempNote: '',
+
+				// Traits/purpose/audience, and the max-tokens/base-URL/raw-
+				// prompt group, each live behind a disclosure, both closed
+				// by default - the widget was getting overwhelming with all
+				// of "more" visible at once.
+				personalityOpen: false,
+				advancedOpen: false,
 			});
 
 			this.model.set('assembledSystem', this.assembleSystem());
@@ -242,8 +278,34 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			var traits = this.effectiveTraits();
 			var format = this.effectiveChoice('format');
 			var audience = this.effectiveChoice('audience');
+			var docText = m.get('documentText');
+			// Summarize normally means "summarize the following text" (the
+			// `user` message). With a document attached, the document is
+			// the far richer thing to summarize - point the preamble at it
+			// instead, while still letting a typed prompt add guidance
+			// (e.g. "focus on the numbers") rather than being a second,
+			// competing thing to summarize.
+			var modePreamble = MODE_PREAMBLE[mode] || MODE_PREAMBLE.answer;
+			if(mode === 'summarize' && docText) {
+				modePreamble = 'Summarize the reference document above. If the message below adds '
+					+ 'any guidance (e.g. what to focus on), follow that too. Output only the summary.';
+			}
 			var parts = [
-				MODE_PREAMBLE[mode] || MODE_PREAMBLE.answer,
+				// Reference material first, instructions last, right before
+				// the user's own question in the `user` message - long
+				// context early, instructions close to the query, per
+				// Anthropic's own long-context prompting guidance.
+				docText && ('--- REFERENCE DOCUMENT (' + (m.get('documentName') || 'attached') + ') ---\n'
+					+ docText + '\n--- END REFERENCE DOCUMENT ---'),
+				modePreamble,
+				// Two independent document-use clauses - only meaningful with
+				// a document attached, toggled separately (voice/personality
+				// merged into one - style vs. content-grounding is the axis
+				// that actually matters, not prose-mechanics vs. character).
+				docText && m.get('documentMatchStyle')
+					&& 'Write in the same voice, tone, and personality as the reference document above - its prose style, attitude, and point of view.',
+				docText && m.get('documentGrounded')
+					&& "Answer using only the information in the reference document above. If the answer isn't there, say the document doesn't cover it rather than guessing or using outside knowledge.",
 				traits.length && ('Write with these qualities: ' + traits.join(', ') + '.'),
 				format && ('The purpose of the text is ' + format + '.'),
 				audience && ('Write for this audience: ' + audience + '.'),
@@ -414,6 +476,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this.syncPersonalityUI();
 		},
 
+		// Shared by every "more"-panel disclosure header (personality,
+		// advanced) - which boolean field it flips comes from the
+		// clicked element's data-field, same idiom as onLiveTextInput.
+		toggleDisclosure: function(e) {
+			var field = e.currentTarget.dataset.field;
+			if(field) { this.model.set(field, !this.model.get(field)); }
+		},
+
 		refreshKeyStatus: function() {
 			if(app.server || !window.ntkElectron || !window.ntkElectron.llmKeyStatus) { return; }
 			var self = this;
@@ -435,6 +505,50 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			}
 		},
 
+		// ---- attached document (PDF / txt / md) ----
+
+		attachDocument: function() {
+			if(app.server || !window.ntkElectron || !window.ntkElectron.llmPickDocument) { return; }
+			var self = this;
+			window.ntkElectron.llmPickDocument().then(function(res) {
+				if(!res) { return; } // dialog canceled
+				if(res.error) {
+					self.model.set({
+						documentName: res.name || '',
+						documentText: '',
+						documentWordCount: 0,
+						documentTruncated: false,
+						documentError: res.error,
+					});
+					return;
+				}
+				self.model.set({
+					documentName: res.name,
+					documentText: res.text,
+					documentWordCount: res.wordCount,
+					documentTruncated: !!res.truncated,
+					documentError: '',
+				});
+			});
+		},
+
+		removeDocument: function() {
+			this.model.set({
+				documentName: '',
+				documentText: '',
+				documentWordCount: 0,
+				documentTruncated: false,
+				documentError: '',
+				documentMatchStyle: false,
+				documentGrounded: false,
+			});
+		},
+
+		onLiveTextInput: function(e) {
+			var field = e.currentTarget.dataset.field;
+			if(field) { this.model.set(field, e.currentTarget.value); }
+		},
+
 		// ---- send ----
 
 		parsedTemp: function() {
@@ -450,7 +564,19 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				return;
 			}
 			var user = String(this.model.get('in') || '').trim();
-			if(!user) { this.setStatus('error', 'no prompt'); return; }
+			if(!user) {
+				// Summarizing an attached document needs no separate typed
+				// prompt - the document itself is the thing to summarize
+				// (see assembleSystem's mode-preamble override). Every
+				// other mode still needs real text/a wired prompt.
+				var docText = String(this.model.get('documentText') || '').trim();
+				if(this.model.get('mode') === 'summarize' && docText) {
+					user = 'Summarize the attached document.';
+				} else {
+					this.setStatus('error', 'no prompt');
+					return;
+				}
+			}
 			var model = String(this.model.get('model') || '').trim();
 			if(!model) { this.setStatus('error', 'pick a model'); return; }
 
@@ -461,6 +587,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 			var self = this;
 			this.setStatus('calling', '');
+			this.model.set('tempNote', ''); // clear any stale note from a previous model/call
 			window.ntkElectron.llmComplete({
 				provider: this.model.get('provider'),
 				model: model,
@@ -478,8 +605,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				self.model.set({
 					output: text,
 					preview: text.length > 140 ? text.slice(0, 140) + '…' : text,
+					tempNote: res.tempDropped ? 'this model ignores temperature' : '',
 				});
-				self.setStatus('idle', res.tempDropped ? 'this model ignores temperature' : '');
+				self.setStatus('idle', '');
 			});
 		},
 

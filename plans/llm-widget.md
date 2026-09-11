@@ -363,22 +363,25 @@ show it as a widget status ("No extractable text - this PDF is likely
 scanned/image-only") - the same "don't fail quietly" reasoning as the
 truncation notice. No OCR fallback in v1 (see Not in scope).
 
-### Three independent toggles, not a single mode picker
+### Two independent toggles, not a single mode picker
 
-These are genuinely different jobs and compose (e.g. a support-bot
-persona that answers strictly from a policy doc, in that doc's own
-voice, is all three at once) - three checkboxes in the "more" panel,
-not a radio group:
+**Revised post-build (2026-09-11):** originally spec'd as three separate
+toggles (Voice / Personality / Grounded). Built that way, then merged
+Voice+Personality into one after a complexity pass on the widget as a
+whole (it had grown to 25+ "more"-panel controls) - style-vs-content-
+grounding is the axis that actually matters for this widget; prose-
+mechanics-vs-character was a distinction without enough payoff to cost a
+whole extra checkbox. Two checkboxes in the "more" panel, not a radio
+group - still independent, both can be on at once:
 
 | Toggle | Model field | Clause added to `system` | What it changes |
 |---|---|---|---|
-| **Voice** | `documentVoice` | "Write in the same voice, tone, and prose style as the reference document below." | Prose mechanics only - doesn't restrict *what* it can say |
-| **Personality** | `documentPersonality` | "Adopt the personality, attitude, and point of view reflected in the reference document below." | Character/temperament - distinct from Voice even though they're often both checked |
-| **Grounded source** | `documentGrounded` | "Answer using only the information in the reference document below. If the answer isn't there, say the document doesn't cover it rather than guessing or using outside knowledge." | The only one that constrains *content*, not just style - the hallucination guard matters here specifically |
+| **Match its voice & personality** | `documentMatchStyle` | "Write in the same voice, tone, and personality as the reference document above - its prose style, attitude, and point of view." | Style/character - doesn't restrict *what* it can say |
+| **Grounded source** | `documentGrounded` | "Answer using only the information in the reference document above. If the answer isn't there, say the document doesn't cover it rather than guessing or using outside knowledge." | The only one that constrains *content*, not just style - the hallucination guard matters here specifically |
 
-If a document is attached but none of the three are checked, its text
-still rides along as ambient context with no directive about how to use
-it - a sensible default rather than forcing a choice.
+If a document is attached but neither is checked, its text still rides
+along as ambient context with no directive about how to use it - a
+sensible default rather than forcing a choice.
 
 ### Where the document text goes in the assembled prompt
 
@@ -391,9 +394,8 @@ there's no reason Ollama would prefer the opposite:
 system = [
   documentText && `--- REFERENCE DOCUMENT (${documentName}) ---\n${documentText}\n--- END REFERENCE DOCUMENT ---`,
   MODE_PREAMBLE[mode],
-  documentVoice       && 'Write in the same voice, tone, and prose style as the reference document above.',
-  documentPersonality && 'Adopt the personality, attitude, and point of view reflected in the reference document above.',
-  documentGrounded    && "Answer using only the information in the reference document above. If the answer isn't there, say the document doesn't cover it rather than guessing or using outside knowledge.",
+  documentMatchStyle && 'Write in the same voice, tone, and personality as the reference document above - its prose style, attitude, and point of view.',
+  documentGrounded   && "Answer using only the information in the reference document above. If the answer isn't there, say the document doesn't cover it rather than guessing or using outside knowledge.",
   traits && ..., format && ..., audience && ..., lengthClause(...), systemAppend,
 ].filter(Boolean).join('\n\n')
 ```
@@ -405,15 +407,54 @@ about it."
 
 ### Widget layout
 
-**Body:** a compact attach control (icon button) + a short filename
-chip with an × to detach, near the existing status line - this is a
-primary input like the prompt itself, so it belongs in the main body,
-not buried in "more" (per CLAUDE.md: keep the most-used controls in the
-94x110 body). No new outlets/inlets.
+**Body:** originally a compact attach control (icon button) + filename
+chip, on the reasoning that attaching is a primary input like the prompt
+itself. **Removed post-build** (2026-09-11, same complexity pass below)
+once "browse"/"remove" buttons landed in the "more" panel's document
+section - keeping both was redundant, and body space was already under
+real pressure (see the `.widgetBody` height gotcha noted in that pass).
+No outlets/inlets either way.
 
-**"more" panel:** the three toggles above, the word-count / truncation
-readout, and the error state when extraction found no text. Same panel
-the existing personality controls already live in.
+**"more" panel:** a **browse** button (shown when nothing's attached) or
+the filename + a **remove** button (once something is), the two toggles
+above, the word-count / truncation readout, and the error state when
+extraction found no text - all under its own "DOCUMENT" section label
+(see the post-build complexity pass below).
+
+### Post-build complexity pass (2026-09-11)
+
+The widget hit 25+ "more"-panel controls once document-attach landed
+(4 trait dropdowns x2 fields, purpose/audience x2 fields, provider/
+model/key, temperature, length, markdown, auto-send, max tokens, base
+URL, extra instructions, the document toggles, several buttons) - too
+much for NTK's non-technical-designer audience. Changes, all in the
+existing "more" panel (no new widgets, no removed capability):
+
+- **Section labels** ("DOCUMENT", "MODEL", "ADVANCED") above the
+  existing `<hr>` dividers - free clarity, no interaction change.
+- **Traits/purpose/audience moved behind a disclosure** (`▸ personality`,
+  `personalityOpen` model field), **closed by default**. This is the
+  single biggest control-count contributor (4 trait dropdowns + their
+  "other" fields, plus purpose/audience) and the least likely to be
+  touched on a first patch. Implementation note: the disclosure content
+  is wrapped in one `<div class="personalityDetails" rv-show="...">`
+  rather than putting `rv-show` on every child, with
+  `.personalityDetails { display: contents; }` in CSS so its children
+  still participate in `.llmMore`'s own 2-column CSS grid as if the
+  wrapper weren't there (rivets' `rv-show` binder sets inline
+  `display:''` on show, which falls through to that rule; inline
+  `display:none` on hide still wins as usual - see `Widget.scss`).
+  Length, temperature, Markdown, and auto-send stay outside the
+  disclosure - response-shape controls someone reaches for often, not
+  "personality" the way traits/purpose/audience are.
+- **Voice + Personality document toggles merged** into one "match its
+  voice & personality" (`documentMatchStyle`) - see the toggle table
+  above.
+- **"refresh models" button removed** - `fetchModels()` already runs
+  automatically on render and on every provider change
+  (`onModelChange`'s `changed.provider` branch), so the manual button
+  covered only "a new Ollama model appeared without touching provider" -
+  a rare, recoverable-by-reopening case, traded for one fewer control.
 
 ### Not in scope for v1
 

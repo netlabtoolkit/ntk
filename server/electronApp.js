@@ -9,6 +9,9 @@ const shell = electron.shell;
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
+// LLM widget's "attach document" feature - pure JS (no native compile,
+// unlike @serialport/bindings), so it packages the same as everything else.
+const pdfParse = require('pdf-parse');
 const ntk = require('./netlabServer.js')();
 
 // LLM widget proxy (Anthropic / Ollama). Registers ipcMain.handle('llm-*').
@@ -222,6 +225,76 @@ ipcMain.handle('write-text-file', async function(event, opts) {
 	} catch (e) {
 		return { error: e.message };
 	}
+});
+
+// LLM widget: attach a PDF or plain-text file. Extracted ONCE here (not
+// re-read on every send - see plans/llm-widget.md's "Document attach"
+// section) and the resulting plain text is handed back directly, the
+// same shape read-text-file already returns, so it can be stored right
+// on the widget model like any other text field.
+var LLM_DOCUMENT_MAX_FILE_BYTES = 25 * 1024 * 1024; // reject before attempting to parse
+var LLM_DOCUMENT_MAX_WORDS = 20000; // ~ comfortably inside any current model's context
+
+function llmNormalizeExtractedText(text) {
+	return String(text || '')
+		.replace(/[ \t]+\n/g, '\n')  // trailing spaces left by some PDF layouts
+		.replace(/\n{3,}/g, '\n\n')  // collapse runs of blank lines
+		.trim();
+}
+
+function llmTruncateWords(text, maxWords) {
+	var words = text.split(/\s+/).filter(Boolean);
+	if (words.length <= maxWords) {
+		return { text: text, wordCount: words.length, truncated: false };
+	}
+	return { text: words.slice(0, maxWords).join(' '), wordCount: maxWords, truncated: true };
+}
+
+async function llmExtractDocumentText(filePath) {
+	if (/\.pdf$/i.test(filePath)) {
+		var result = await pdfParse(fs.readFileSync(filePath));
+		return result.text || '';
+	}
+	return fs.readFileSync(filePath, 'utf8'); // txt / md / markdown / text
+}
+
+ipcMain.handle('llm-pick-document', async function() {
+	var result = await dialog.showOpenDialog(mainWindow, {
+		properties: ['openFile'],
+		filters: [
+			{ name: 'Document', extensions: ['pdf', 'txt', 'md', 'markdown', 'text'] },
+			{ name: 'All files', extensions: ['*'] },
+		],
+	});
+	if (result.canceled || !result.filePaths.length) { return null; }
+
+	var filePath = result.filePaths[0];
+	var name = path.basename(filePath);
+
+	try {
+		var stat = fs.statSync(filePath);
+		if (stat.size > LLM_DOCUMENT_MAX_FILE_BYTES) {
+			return { name: name, error: 'File is too large (' + Math.round(stat.size / 1e6) + ' MB) - try a smaller document.' };
+		}
+	} catch (e) { /* fall through - the read below reports a clearer error */ }
+
+	var raw;
+	try {
+		raw = await llmExtractDocumentText(filePath);
+	} catch (e) {
+		return { name: name, error: 'Could not read this file: ' + e.message };
+	}
+
+	var normalized = llmNormalizeExtractedText(raw);
+	if (!normalized) {
+		var reason = /\.pdf$/i.test(filePath)
+			? 'this PDF is likely scanned/image-only'
+			: 'the file appears to be empty';
+		return { name: name, error: 'No extractable text found - ' + reason + '.' };
+	}
+
+	var capped = llmTruncateWords(normalized, LLM_DOCUMENT_MAX_WORDS);
+	return { name: name, text: capped.text, wordCount: capped.wordCount, truncated: capped.truncated };
 });
 
 var mainWindow = null;

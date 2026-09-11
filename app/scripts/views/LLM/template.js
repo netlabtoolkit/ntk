@@ -36,9 +36,26 @@
         <div class="content llmMore">
 
             <div class="f wide">
-                <label>prompt / text</label>
-                <textarea class="promptInput database" rv-value="widget:in" rows="3" placeholder="Type a question or text, or wire something into the 'prompt' inlet."></textarea>
+                <label class="moreSectionLabel">prompt / text</label>
+                <textarea class="promptInput database" data-field="in" rv-value="widget:in" rows="3" placeholder="Type a question or text, or wire something into the 'prompt' inlet."></textarea>
             </div>
+
+            <div class="f wide responseRow">
+                <span class="inlineMini">
+                    <label>length</label>
+                    <input class="moreParam lengthInput" type="text" pattern="[0-9]*" rv-value="widget:length">
+                </span>
+                <label class="checkRow"><input type="checkbox" rv-checked="widget:markdown" /> Markdown</label>
+                <span class="inlineMini">
+                    <label>Temp&nbsp;<span class="tempVal" rv-text="widget:temperature"></span></label>
+                    <input class="tempSlider" type="range" min="0" max="2" step="0.1">
+                </span>
+            </div>
+            <div class="f wide">
+                <span class="hint">length: words, or % for rewrite</span>
+            </div>
+
+            <div class="f wide moreSectionLabel">model</div>
 
             <div class="f">
                 <label>provider</label>
@@ -52,87 +69,108 @@
                 <select class="modelSelect"></select>
             </div>
             <div class="f wide">
+                <div class="tempNote" rv-show="widget:tempNote" rv-text="widget:tempNote"></div>
+            </div>
+            <div class="f wide">
                 <div class="llmKey">
                     <span rv-text="widget:keyText"></span>
                     <button class="setupKey" type="button">set up key</button>
-                    <button class="refreshModels" type="button">refresh models</button>
+                </div>
+            </div>
+
+            <div class="f wide moreSectionLabel">document</div>
+
+            <div class="f wide documentMore">
+                <label>attached document</label>
+                <div class="documentStatus">
+                    <span rv-show="widget:documentName" rv-text="widget:documentName"></span>
+                    <button class="removeDocument" rv-show="widget:documentName" type="button">remove</button>
+                    <span rv-hide="widget:documentName">none</span>
+                    <button class="attachDocument" rv-hide="widget:documentName" type="button">📎 browse</button>
+                    <span rv-show="widget:documentWordCount" class="documentWordCount">(<span rv-text="widget:documentWordCount"></span> words<span rv-show="widget:documentTruncated">, truncated</span>)</span>
+                </div>
+                <div class="documentError" rv-show="widget:documentError" rv-text="widget:documentError"></div>
+            </div>
+            <div class="f wide">
+                <label class="checkRow"><input type="checkbox" rv-checked="widget:documentMatchStyle" /> match its voice &amp; personality</label>
+            </div>
+            <div class="f wide">
+                <label class="checkRow"><input type="checkbox" rv-checked="widget:documentGrounded" /> answer only from it (grounded)</label>
+            </div>
+
+            <hr>
+
+            <div class="f wide moreDisclosureToggle" data-field="personalityOpen" rv-class-open="widget:personalityOpen">
+                <span class="disclosureArrow">▸</span> personality <span class="disclosureHint">(traits, purpose, audience)</span>
+            </div>
+
+            <div class="personalityDetails" rv-show="widget:personalityOpen">
+                <div class="f wide personalityButtons">
+                    <label>personality</label>
+                    <button class="randomPersonality" type="button">random</button>
+                    <button class="resetPersonality" type="button">reset</button>
+                </div>
+
+                <div class="traitRow">
+                    <select class="traitSelect" data-slot="1"></select>
+                    <input class="traitCustom" data-slot="1" type="text" placeholder="your own" rv-value="widget:trait1Custom">
+                </div>
+                <div class="traitRow">
+                    <select class="traitSelect" data-slot="2"></select>
+                    <input class="traitCustom" data-slot="2" type="text" placeholder="your own" rv-value="widget:trait2Custom">
+                </div>
+                <div class="traitRow">
+                    <select class="traitSelect" data-slot="3"></select>
+                    <input class="traitCustom" data-slot="3" type="text" placeholder="your own" rv-value="widget:trait3Custom">
+                </div>
+                <div class="traitRow">
+                    <select class="traitSelect" data-slot="4"></select>
+                    <input class="traitCustom" data-slot="4" type="text" placeholder="your own" rv-value="widget:trait4Custom">
+                </div>
+
+                <div class="f">
+                    <label>purpose</label>
+                    <div class="choiceRow">
+                        <select class="choiceSelect formatSelect" data-field="format"></select>
+                        <input class="formatCustom" type="text" placeholder="your own" rv-value="widget:formatCustom">
+                    </div>
+                </div>
+                <div class="f">
+                    <label>audience</label>
+                    <div class="choiceRow">
+                        <select class="choiceSelect audienceSelect" data-field="audience"></select>
+                        <input class="audienceCustom" type="text" placeholder="your own" rv-value="widget:audienceCustom">
+                    </div>
                 </div>
             </div>
 
             <hr>
 
-            <div class="f wide personalityButtons">
-                <label>personality</label>
-                <button class="randomPersonality" type="button">random</button>
-                <button class="resetPersonality" type="button">reset</button>
+            <div class="f wide moreDisclosureToggle" data-field="advancedOpen" rv-class-open="widget:advancedOpen">
+                <span class="disclosureArrow">▸</span> advanced <span class="disclosureHint">(tokens, base URL, auto-send, raw prompt)</span>
             </div>
 
-            <div class="traitRow">
-                <select class="traitSelect" data-slot="1"></select>
-                <input class="traitCustom" data-slot="1" type="text" placeholder="your own" rv-value="widget:trait1Custom">
-            </div>
-            <div class="traitRow">
-                <select class="traitSelect" data-slot="2"></select>
-                <input class="traitCustom" data-slot="2" type="text" placeholder="your own" rv-value="widget:trait2Custom">
-            </div>
-            <div class="traitRow">
-                <select class="traitSelect" data-slot="3"></select>
-                <input class="traitCustom" data-slot="3" type="text" placeholder="your own" rv-value="widget:trait3Custom">
-            </div>
-            <div class="traitRow">
-                <select class="traitSelect" data-slot="4"></select>
-                <input class="traitCustom" data-slot="4" type="text" placeholder="your own" rv-value="widget:trait4Custom">
-            </div>
-
-            <div class="f">
-                <label>purpose</label>
-                <div class="choiceRow">
-                    <select class="choiceSelect formatSelect" data-field="format"></select>
-                    <input class="formatCustom" type="text" placeholder="your own" rv-value="widget:formatCustom">
+            <div class="advancedDetails" rv-show="widget:advancedOpen">
+                <div class="f">
+                    <label>max tokens</label>
+                    <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:maxTokens">
                 </div>
-            </div>
-            <div class="f">
-                <label>audience</label>
-                <div class="choiceRow">
-                    <select class="choiceSelect audienceSelect" data-field="audience"></select>
-                    <input class="audienceCustom" type="text" placeholder="your own" rv-value="widget:audienceCustom">
+                <div class="f">
+                    <label>base URL</label>
+                    <input type="text" rv-value="widget:baseURL" placeholder="provider default">
                 </div>
-            </div>
+                <div class="f">
+                    <label class="checkRow"><input type="checkbox" rv-checked="widget:autoSend" /> auto-send on new prompt</label>
+                </div>
 
-            <div class="f wide inlineField">
-                <label>length&nbsp;<span class="hint">(words, or % for rewrite)</span></label>
-                <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:length">
-            </div>
-            <div class="f wide inlineField">
-                <label>temperature&nbsp;<span class="tempVal" rv-text="widget:temperature"></span></label>
-                <input class="tempSlider" type="range" min="0" max="2" step="0.1">
-            </div>
-
-            <div class="f">
-                <label class="checkRow"><input type="checkbox" rv-checked="widget:markdown" /> Markdown response</label>
-            </div>
-            <div class="f">
-                <label class="checkRow"><input type="checkbox" rv-checked="widget:autoSend" /> auto-send on new prompt</label>
-            </div>
-
-            <hr>
-
-            <div class="f">
-                <label>max tokens</label>
-                <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:maxTokens">
-            </div>
-            <div class="f">
-                <label>base URL</label>
-                <input type="text" rv-value="widget:baseURL" placeholder="provider default">
-            </div>
-
-            <div class="f wide">
-                <label>extra instructions</label>
-                <textarea class="database" rv-value="widget:systemAppend" rows="2"></textarea>
-            </div>
-            <div class="f wide">
-                <label>system prompt (assembled)</label>
-                <div class="assembledSystem" rv-text="widget:assembledSystem"></div>
+                <div class="f wide">
+                    <label>extra instructions</label>
+                    <textarea class="database" data-field="systemAppend" rv-value="widget:systemAppend" rows="2"></textarea>
+                </div>
+                <div class="f wide">
+                    <label>system prompt (assembled)</label>
+                    <div class="assembledSystem" rv-text="widget:assembledSystem"></div>
+                </div>
             </div>
 
             <hr>

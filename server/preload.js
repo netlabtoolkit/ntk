@@ -85,4 +85,10 @@ contextBridge.exposeInMainWorld('ntkElectron', {
 	llmComplete: function(opts) {
 		return ipcRenderer.invoke('llm-complete', opts || {});
 	},
+	// "Attach document" (PDF/txt/md) - see server/electronApp.js and
+	// plans/llm-widget.md's "Document attach" section. Returns
+	// {name, text, wordCount, truncated} or {name, error} or null (canceled).
+	llmPickDocument: function() {
+		return ipcRenderer.invoke('llm-pick-document');
+	},
 });
