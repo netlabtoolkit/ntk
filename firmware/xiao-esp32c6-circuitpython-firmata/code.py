@@ -390,7 +390,15 @@ def send_all(conn, data):
                 # error. Seen on real hardware: a burst of rapid analog
                 # reporting eventually outran what the link could
                 # drain. Busy-poll until there's room instead of giving
-                # up.
+                # up - but pet the watchdog on every spin (a real bug
+                # until this fix: wiring an AnalogIn straight into a
+                # Servo/output creates exactly this sustained rapid-
+                # report burst, this loop was the only potentially-long
+                # wait anywhere in the whole run_server() loop with no
+                # feed() of its own, and outrunning the watchdog's 20s
+                # here hard-reset the board mid-send - looking like a
+                # random crash, not backpressure).
+                feed()
                 continue
             # Anything else (e.g. ECONNRESET/EPIPE because the peer
             # closed the connection) is a real failure - let it

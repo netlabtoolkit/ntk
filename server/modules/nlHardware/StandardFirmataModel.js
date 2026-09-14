@@ -42,6 +42,22 @@ module.exports = function(five) {
 
 			for(var index in this.board.pins) {
 				var reportedPin = this.board.pins[index];
+				// "Has an analog channel" and "can be a digital/PWM/servo
+				// output" used to be treated as mutually exclusive here -
+				// true on classic Arduino (A0-A5 genuinely can't be
+				// outputs there), but not on this project's own
+				// CircuitPython firmware, which deliberately makes D0-D5
+				// dual-purpose (same physical pins as A0-A5 - see that
+				// firmware's README pin table). A pin like D1 having an
+				// analog channel meant it was only ever added to `inputs`,
+				// never `outputs` - so a Servo/AnalogOut/DigitalOut widget
+				// on D1 failed silently with setIOMode's "pin D1 was never
+				// reported by this device" (a real bug, not a hardware or
+				// wiring problem). Register both; `supportedModes` (learned
+				// from the CAPABILITY_QUERY response, checked in
+				// setHardwarePin/setIOMode) is what actually gates which
+				// modes are usable, so this is harmless for a classic
+				// board's genuinely input-only analog pins.
 				if(reportedPin.analogChannel < 127) {
 					var sensor = new five.Sensor({
 						pin: "A"+reportedPin.analogChannel,
@@ -59,10 +75,7 @@ module.exports = function(five) {
 
 					this.inputs["A"+reportedPin.analogChannel] = {pin: sensor, value: 0};
 				}
-				else {
-					//this.outputs["D"+index] = {pin: {}, value: 0, supportedModes: reportedPin.supportedModes};
-					this.outputs["D"+index] = {pin: reportedPin,  value: 0, supportedModes: reportedPin.supportedModes};
-				}
+				this.outputs["D"+index] = {pin: reportedPin, value: 0, supportedModes: reportedPin.supportedModes};
 			}
 
 			// Firmata.SYSEX_RESPONSE (inside firmata-io) is a class-level
@@ -369,7 +382,14 @@ module.exports = function(five) {
 						if( !(currentPin instanceof five.Led) ) {
 							var hardwarePin = parseInt(pin.substr(1),10);
 
-							var outputPin = new five.Led(hardwarePin);
+							// Explicit board: - see the Sensor case above.
+							// Without it, johnny-five's Board.mount() hands
+							// this Led boards[0] (the first board ever
+							// created in this process) instead of this
+							// model's own board - a second (or reconnected)
+							// device's PWM/AnalogOut writes would silently
+							// go to the wrong or a dead board.
+							var outputPin = new five.Led({ pin: hardwarePin, board: this.board });
 							this.outputs[pin].pin = outputPin;
 						}
 					}
@@ -413,9 +433,18 @@ module.exports = function(five) {
 					if(pinExists) {
 						var hardwarePin = parseInt(pin.substr(1),10);
 
+						// Explicit board: - see the Sensor case above.
+						// Without it, johnny-five's Board.mount() hands
+						// this Servo boards[0] (the first board ever
+						// created in this process) instead of this
+						// model's own board - writes would silently go to
+						// the wrong or a dead board (no error, no
+						// movement) whenever more than one board has ever
+						// existed in this server process.
 						var outputPin = new five.Servo({
 							pin: hardwarePin,
 							range: [0,180],
+							board: this.board,
 						});
 
 						this.outputs[pin].pin = outputPin;
