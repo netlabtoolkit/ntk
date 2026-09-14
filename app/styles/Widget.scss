@@ -487,8 +487,12 @@
 
             // Anything else text-like (address/port fields, the serial
             // port select) fills the fixed content width above instead of
-            // sizing to its own content/native default.
-            input[type=text], select {
+            // sizing to its own content/native default. textarea needs
+            // the same clamp - its `cols` attribute (many widgets use
+            // cols="70", e.g. IfThen's text-comparison box) sets an
+            // intrinsic width with no relation to this panel's fixed
+            // 190px, and nothing else here was constraining it.
+            input[type=text], select, textarea {
                 max-width: 100%;
                 box-sizing: border-box;
             }

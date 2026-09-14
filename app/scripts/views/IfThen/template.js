@@ -14,8 +14,18 @@
     <div class="widgetBody">
         <div class="ifTop">
             <div class="widgetBodyLeft ifInput">
-                <div class="inletValue">
+                <!-- Two readouts, toggled by changeDataType() (same show/
+                     hide it already does for .ifNumber/.ifText below) -
+                     "rounded" always returns "--" for a non-numeric value,
+                     so in Text Input mode this showed a static "--" no
+                     matter what actually arrived on the inlet, making a
+                     wired Text widget's updates look like they weren't
+                     getting through at all. -->
+                <div class="inletValue ifNumber">
                     <span rv-text="widget:in | rounded">0</span>
+                </div>
+                <div class="inletValue ifText">
+                    <span rv-text="widget:in | truncateText" rv-title="widget:in">0</span>
                 </div>
             </div>
             <div class="widgetBodyRight ifOutput">

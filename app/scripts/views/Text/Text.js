@@ -28,17 +28,29 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
             'click .exportText': 'exportText',
             'click .toggleDisplay': 'toggleDisplay',
             // rivets 0.6.10's value binder only publishes on 'change'
-            // (blur), so the on-canvas box + outlet wouldn't update until
-            // you clicked away. Push every keystroke straight to the model.
+            // (blur), so without this the on-canvas box + outlet wouldn't
+            // update until you clicked away. Debounced (see
+            // commitTextInput below) rather than committed on every
+            // keystroke, so a fast typist doesn't spam the outlet/wire
+            // with a value for every character.
             'input .database': 'onTextInput',
 		},
 
         onTextInput: function(e) {
-            this.model.set('in', e.currentTarget.value);
+            this.commitTextInput(e.currentTarget.value);
         },
 
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
+
+            var self = this;
+            // Settles ~400ms after the last keystroke before actually
+            // updating the model - keeps a fast typist from pushing a new
+            // value out the outlet (and over the wire to whatever's
+            // downstream) on every single character.
+            this.commitTextInput = _.debounce(function(value) {
+                self.model.set('in', value);
+            }, 400);
 
 			this.model.set({
 				ins: [
