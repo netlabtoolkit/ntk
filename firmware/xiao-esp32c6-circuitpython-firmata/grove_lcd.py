@@ -26,7 +26,17 @@ _CONTROL_DATA = 0x40
 _CLEAR_DISPLAY = 0x01
 _ENTRY_MODE_SET = 0x04 | 0x02  # left-to-right, no display shift
 _DISPLAY_CONTROL = 0x08 | 0x04  # display on, cursor off, blink off
-_FUNCTION_SET = 0x20 | 0x10 | 0x08  # 8-bit interface, 2-line, 5x8 dots
+# 2-line, 5x8 dots - NOT 0x10 ("8-bit interface"). That bit is a classic
+# parallel-HD44780 wiring-width setting with no meaning over this chip's
+# native I2C protocol, and Seeed's own reference implementation for this
+# exact display (Grove_LCD_RGB_Backlight's rgb_lcd.cpp) never sets it -
+# _displayfunction there only ever gets LCD_2LINE (0x08) ORed in. Setting
+# it anyway (this file's bug until 2026-09-13) let every command ACK
+# over I2C with no errors, while the controller never actually rendered
+# a single character - a real, confirmed-against-source bug, not a
+# theory: verified against Seeed-Studio/Grove_LCD_RGB_Backlight on
+# GitHub.
+_FUNCTION_SET = 0x20 | 0x08
 _SET_DDRAM_ADDRESS = 0x80
 
 # PCA9633 register map (also valid as-is on the v5.0 SGM31323 backlight,
@@ -52,11 +62,37 @@ class GroveLCD:
         while not i2c.try_lock():
             pass
         try:
+            # HD44780-style controllers (the AiP31068 here included) need a
+            # settling delay after power-up before they'll reliably ACK
+            # their first command - without it, a freshly-powered display
+            # can NACK this very first write with OSError: [Errno 5] Input/
+            # output error (ESP32 CircuitPython's generic way of reporting
+            # "no ACK from that address"), even though the wiring/pull-ups
+            # are fine and later writes would have worked.
+            time.sleep(0.05)
+
+            # FUNCTION_SET sent FOUR times, with delays between the first
+            # three - the classic HD44780 "reset by instruction" sequence
+            # (datasheet page 45/46), matched exactly against Seeed's own
+            # Grove_LCD_RGB_Backlight reference implementation for this
+            # display (the 4th call has no delay before it there either -
+            # it's the one that actually commits the setting, the first
+            # three are purely the wake-up/reset dance). A marginal/slow
+            # internal power-on reset on some units means the controller
+            # can silently stay in an inconsistent state without the full
+            # sequence - I2C writes keep ACKing (so nothing raises), the
+            # separate RGB backlight chip works fine either way, but no
+            # text ever actually renders.
             self._send_locked(_FUNCTION_SET)
-            time.sleep(0.005)
+            time.sleep(0.0045)
+            self._send_locked(_FUNCTION_SET)
+            time.sleep(0.001)
+            self._send_locked(_FUNCTION_SET)
+            self._send_locked(_FUNCTION_SET)
+
             self._send_locked(_DISPLAY_CONTROL)
             self._send_locked(_CLEAR_DISPLAY)
-            time.sleep(0.002)
+            time.sleep(0.003)
             self._send_locked(_ENTRY_MODE_SET)
 
             for address in _RGB_ADDRESSES:
@@ -68,7 +104,9 @@ class GroveLCD:
                     continue
 
             if self._rgb_address is not None:
-                i2c.writeto(self._rgb_address, bytes([_REG_MODE2, 0x00]))
+                # 0x20 (not 0x00), matching Seeed's reference init exactly -
+                # sets OCH (outputs update on I2C STOP rather than per-ACK).
+                i2c.writeto(self._rgb_address, bytes([_REG_MODE2, 0x20]))
                 # All four PWM channels under direct register control.
                 i2c.writeto(self._rgb_address, bytes([_REG_LEDOUT, 0xFF]))
         finally:
