@@ -200,6 +200,20 @@ support, and can be edited to match your hardware.
   I2C can't work without pull-up resistors somewhere on the bus, and not
   every Grove module or expander I2C port supplies its own. Fix: two
   resistors (4.7k-10k ohm) from SDA to 3V3 and from SCL to 3V3.
+- **An I2C device does nothing, and \`i2c.scan()\` finds no devices at all
+  even after adding pull-ups**: double check it's plugged into the
+  socket actually labeled I2C (often also labeled with an analog pin,
+  e.g. "A5") - the numbered Grove sockets (D5, D7, etc.) look identical
+  but most are plain digital pins with no SDA/SCL wired to them, so the
+  wrong socket looks exactly like a wiring/pull-up problem.
+- **Grove LCD RGB Backlight: backlight lights up and changes color, but
+  no text ever appears**, even with I2C ACKing cleanly and no errors:
+  older Grove LCD RGB Backlight boards (v1.0-v4.x - only v5.0 added
+  "5V/3.3V compatibility") are 5V-only. At 3.3V (what this board's Grove
+  sockets supply) I2C still works fine, but the text contrast bias is
+  too weak to see. Fix: power the display's VCC pin from a genuine 5V
+  source instead of the Grove socket's 3.3V pin (SDA/SCL/GND stay as
+  normal), or use a v5.0 board.
 `;
 
 function bundleCircuitPythonFirmware(destDir) {
