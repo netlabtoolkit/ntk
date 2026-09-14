@@ -134,8 +134,29 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 				var inactiveModels = this.inactiveModelsExist();
 
+				// A newly-added Servo widget is auto-mapped to a placeholder
+				// output pin (destinationField "") until the real pin is
+				// chosen - inactiveModels alone used to be the only trigger
+				// for replacing that placeholder with the real one, but it
+				// checks the SHARED hardware-model instance's active flag,
+				// not anything specific to this widget's own mapping. If
+				// another widget (e.g. AnalogIn) already connected to the
+				// same device first, that shared instance is already
+				// active by the time this widget's own source is set up,
+				// so inactiveModels is false from the start and stays that
+				// way forever - the placeholder mapping never gets fixed
+				// up to the real pin no matter what's typed/checked
+				// afterward, and setHardwarePin("") on the server silently
+				// no-ops (no matching output field, so no error either) -
+				// looking exactly like the servo just doesn't work, with
+				// nothing to point at why. Re-map whenever this widget's
+				// own current mapping doesn't match what it's actually
+				// supposed to be, regardless of the shared model's state.
+				var mappingStale = this.sources[0] !== undefined
+					&& this.sources[0].map.destinationField !== this.model.get('outputMapping');
+
 				// If we haven't made the hardware model yet, then we should bind everything together
-				if( inactiveModels && this.model.get("activeOut") == true ) {
+				if( (inactiveModels || mappingStale) && this.model.get("activeOut") == true ) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
 						modelType = this.getDeviceModelType();
 

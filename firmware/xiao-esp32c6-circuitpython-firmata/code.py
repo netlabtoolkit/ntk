@@ -370,7 +370,7 @@ ENOTCONN = 128
 CONNECTION_GRACE_PERIOD_S = 2
 
 
-def send_all(conn, data):
+def send_all(conn, data, on_wait=None):
     # socket.send() returns the number of bytes actually accepted, same
     # as POSIX send() - it can legitimately send fewer than requested
     # (especially right after accept(), before this appears to have
@@ -399,6 +399,18 @@ def send_all(conn, data):
                 # here hard-reset the board mid-send - looking like a
                 # random crash, not backpressure).
                 feed()
+                # Also keep servicing INCOMING data (on_wait, when given -
+                # see run_server()) while stuck waiting for outgoing room.
+                # Without this, a sustained flood on the outgoing side
+                # (e.g. that same AnalogIn->Servo wiring, which reports
+                # fast enough to keep this retry loop busy for a while)
+                # starves recv_into() of ever running again until the
+                # current send fully drains - incoming Servo/output
+                # writes pile up unprocessed the whole time, looking
+                # exactly like "the servo stopped working" even though
+                # the watchdog fix above already stops it from crashing.
+                if on_wait is not None:
+                    on_wait()
                 continue
             # Anything else (e.g. ECONNRESET/EPIPE because the peer
             # closed the connection) is a real failure - let it
@@ -596,7 +608,24 @@ def run_server():
         # only kicks off its handshake from its own 5-second "no version
         # yet" fallback timer, so NTK will appear to do nothing for up to
         # 5 seconds after "NTK connected" - that's expected, not a hang.
-        firmata.on_connect(lambda data: send_all(conn, data))
+        def _drain_incoming_once():
+            # Best-effort, single non-blocking recv while send_all() is
+            # stuck retrying on backpressure (see its own comment) - keeps
+            # incoming Servo/output writes flowing even during a sustained
+            # outgoing flood, instead of only ever being read once the
+            # current send fully drains. Errors (EAGAIN - nothing
+            # available right now, or a real disconnect) are deliberately
+            # swallowed here; the outer loop's own recv_into() call
+            # handles a genuine disconnect on its next iteration same as
+            # always.
+            try:
+                n = conn.recv_into(read_buffer)
+                if n:
+                    firmata.feed(read_buffer[:n])
+            except OSError:
+                pass
+
+        firmata.on_connect(lambda data: send_all(conn, data, on_wait=_drain_incoming_once))
         conn.settimeout(0)
         connected_at = time.monotonic()
 
