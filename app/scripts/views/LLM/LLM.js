@@ -69,6 +69,59 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		anthropic: '',
 		ollama: 'http://localhost:11434',
 	};
+	// Which model field remembers the last one picked for each provider,
+	// so switching provider and back restores your choice instead of
+	// resetting to DEFAULT_MODEL every time (see onProviderChange).
+	var LAST_MODEL_FIELD = {
+		anthropic: 'lastAnthropicModel',
+		ollama: 'lastOllamaModel',
+	};
+	// Mirrored into localStorage (not just this widget's own model) so a
+	// brand-new LLM widget picks up the last model used by ANY LLM widget
+	// in this app - the widget's own model is thrown away with it when
+	// deleted, but localStorage survives that.
+	var LAST_MODEL_STORAGE_KEY = {
+		anthropic: 'ntk.llm.lastModel.anthropic',
+		ollama: 'ntk.llm.lastModel.ollama',
+	};
+	function writeStoredLastModel(provider, value) {
+		try {
+			if(LAST_MODEL_STORAGE_KEY[provider]) { localStorage.setItem(LAST_MODEL_STORAGE_KEY[provider], value); }
+		} catch(e) { /* non-fatal - localStorage can throw in some contexts */ }
+	}
+	// Anthropic model IDs are reliably "claude-...", so a remembered value
+	// that doesn't look like one is a real red flag, not just an unusual
+	// pick - specifically, this catches an Ollama model name that got
+	// written into Anthropic's remembered slot (a real bug: an in-flight
+	// Ollama fetchModels() response resolving after switching providers
+	// used to clobber whichever provider's list/remembered-model was
+	// current at the time - see the requestedProvider guard in
+	// fetchModels). Ollama has no equivalent fixed naming convention to
+	// check, so anything is accepted there.
+	function isPlausibleModelID(provider, id) {
+		if(!id) { return false; }
+		if(provider === 'anthropic') { return (/^claude-/).test(id); }
+		// Ollama has no fixed naming convention of its own to check
+		// positively, but "claude-..." specifically is never a real
+		// Ollama model - reject an Anthropic ID leaking into this slot
+		// (the same corruption as the anthropic case above, just in the
+		// other direction).
+		if(provider === 'ollama') { return !(/^claude-/).test(id); }
+		return true;
+	}
+	function readStoredLastModel(provider) {
+		var raw;
+		try {
+			raw = (LAST_MODEL_STORAGE_KEY[provider] && localStorage.getItem(LAST_MODEL_STORAGE_KEY[provider])) || '';
+		} catch(e) {
+			return ''; // localStorage can throw (private-mode browsers, etc.) - just skip remembering
+		}
+		if(raw && !isPlausibleModelID(provider, raw)) {
+			writeStoredLastModel(provider, ''); // corrupted - clear rather than keep reapplying it
+			return '';
+		}
+		return raw;
+	}
 
 	return WidgetView.extend({
 		ins: [
@@ -115,6 +168,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this._sendTimer = null;
 			this.modelList = FALLBACK_MODELS.ollama.slice();
 
+			// Whatever model was last picked for Ollama, in ANY LLM widget
+			// (see LAST_MODEL_STORAGE_KEY) - a brand-new widget starts with
+			// your last pick instead of always resetting to DEFAULT_MODEL.
+			var initialOllamaModel = readStoredLastModel('ollama');
+
 			this.model.set({
 				title: 'LLM',
 				in: '',            // the prompt (inlet or the text box)
@@ -126,7 +184,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				// widget works out of the box. Switch to Anthropic in the
 				// "more" panel once a key is set up.
 				provider: 'ollama',
-				model: DEFAULT_MODEL.ollama,
+				model: initialOllamaModel || DEFAULT_MODEL.ollama,
 				baseURL: DEFAULT_BASE_URL.ollama,
 
 				temperature: 0.7,  // 0 = deterministic; max is provider-dependent (see updateTempRange)
@@ -149,6 +207,17 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 				assembledSystem: '',
 				autoSend: false,
+				// Last model picked for each provider - see LAST_MODEL_FIELD.
+				// Seeded from localStorage (readStoredLastModel) so this
+				// widget starts already knowing what a DIFFERENT, possibly
+				// now-deleted LLM widget last used.
+				lastOllamaModel: initialOllamaModel,
+				lastAnthropicModel: readStoredLastModel('anthropic'),
+				// Longer than Text's fixed 400ms settle - a wired source like
+				// SpeechIn can pause briefly between words while still
+				// dictating, and firing an API call mid-utterance is more
+				// costly to get wrong than a Text widget's local-only outlet.
+				autoSendDelay: 2000,
 
 				// Attached document (PDF/txt/md) - see plans/llm-widget.md's
 				// "Document attach" section. Extracted once at attach time
@@ -326,9 +395,19 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 		onProviderChange: function() {
 			var provider = this.$('.providerSelect').val();
+			var remembered = this.model.get(LAST_MODEL_FIELD[provider]);
+			if(remembered && !isPlausibleModelID(provider, remembered)) {
+				// Corrupted (see isPlausibleModelID) - clear it on both the
+				// model and localStorage rather than keep reapplying it.
+				remembered = '';
+				this.model.set(LAST_MODEL_FIELD[provider], '');
+				writeStoredLastModel(provider, '');
+			}
 			this.model.set({
 				provider: provider,
-				model: DEFAULT_MODEL[provider] || '',
+				// Restore whatever model you last picked for this provider,
+				// rather than always resetting to DEFAULT_MODEL.
+				model: remembered || DEFAULT_MODEL[provider] || '',
 				baseURL: DEFAULT_BASE_URL[provider] || '',
 			});
 			this.resetModelList();
@@ -350,10 +429,18 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		fetchModels: function() {
 			if(app.server || !window.ntkElectron || !window.ntkElectron.llmModels) { return; }
 			var self = this;
+			// Snapshot which provider this request is FOR - switching
+			// provider again before this resolves must not let a stale
+			// response overwrite the list for whatever provider is
+			// showing now (this was a real bug: an in-flight Ollama
+			// fetch resolving after switching to Anthropic replaced
+			// Anthropic's model list with Ollama's model names).
+			var requestedProvider = this.model.get('provider');
 			window.ntkElectron.llmModels({
-				provider: this.model.get('provider'),
+				provider: requestedProvider,
 				baseURL: this.model.get('baseURL') || undefined,
 			}).then(function(res) {
+				if(self.model.get('provider') !== requestedProvider) { return; }
 				if(res && res.models && res.models.length) {
 					self.modelList = res.models;
 					self.populateModelSelect();
@@ -364,8 +451,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		populateModelSelect: function() {
 			var select = this.modelSelectEl;
 			if(!select) { return; }
+			var provider = this.model.get('provider');
 			var current = this.model.get('model');
 			var list = this.modelList.slice();
+			// Ollama's list is whatever you've pulled, in no particular
+			// order - alphabetize it. Anthropic's FALLBACK_MODELS order is
+			// a deliberate preference ordering (current flagship first),
+			// left as-is.
+			if(provider === 'ollama') { list.sort(); }
 			// A model from a saved patch that the provider no longer lists
 			// stays selectable.
 			if(current && list.indexOf(current) === -1) { list.unshift(current); }
@@ -375,11 +468,29 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			if(list.length) {
 				select.value = list.indexOf(current) !== -1 ? current : list[0];
 				this.model.set('model', select.value);
+				this.rememberModel(provider, select.value);
 			}
 		},
 
 		onModelSelectChange: function() {
-			this.model.set('model', this.$('.modelSelect').val());
+			var value = this.$('.modelSelect').val();
+			this.model.set('model', value);
+			this.rememberModel(this.model.get('provider'), value);
+		},
+
+		// Records the picked model both on this widget's own model (so
+		// switching provider and back within THIS widget restores it) and
+		// in localStorage (so a different, possibly brand-new LLM widget
+		// also starts from it - the whole reason this isn't just a model
+		// field, which gets thrown away with the widget on delete).
+		rememberModel: function(provider, value) {
+			if(!LAST_MODEL_FIELD[provider]) { return; }
+			// Defense in depth alongside the fetchModels requestedProvider
+			// guard above - never let an implausible value (e.g. an Ollama
+			// model name) get written into another provider's slot.
+			if(!isPlausibleModelID(provider, value)) { return; }
+			this.model.set(LAST_MODEL_FIELD[provider], value);
+			writeStoredLastModel(provider, value);
 		},
 
 		// ---- personality trait dropdowns ----
@@ -670,8 +781,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// Auto-send on a new prompt (debounced, off by default).
 			if(changed.in !== undefined && this.model.get('autoSend')) {
 				var self = this;
+				var delay = parseInt(this.model.get('autoSendDelay'), 10);
+				if(isNaN(delay) || delay < 0) { delay = 2000; }
 				if(this._sendTimer) { clearTimeout(this._sendTimer); }
-				this._sendTimer = setTimeout(function() { self.send(); }, 600);
+				this._sendTimer = setTimeout(function() { self.send(); }, delay);
 			}
 		},
 

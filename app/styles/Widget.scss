@@ -1744,7 +1744,7 @@
         // Markdown / temp / length sharing one row - each squeezed down to
         // its essentials (see the separate .hint row right below for
         // length's fuller explanation, which doesn't fit here).
-        .responseRow {
+        .responseRow, .autoSendRow {
             display: flex;
             align-items: center;
             gap: 6px;
@@ -1765,6 +1765,7 @@
             // 3-item row.
             .tempSlider { flex: 0 0 auto; width: 40px; }
             .lengthInput { width: 32px; flex: 0 0 auto; }
+            .autoSendDelay { width: 40px; flex: 0 0 auto; }
         }
         select,
         input[type=text],

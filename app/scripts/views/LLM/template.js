@@ -39,6 +39,13 @@
                 <label class="moreSectionLabel">prompt / text</label>
                 <textarea class="promptInput database" data-field="in" rv-value="widget:in" rows="3" placeholder="Type a question or text, or wire something into the 'prompt' inlet."></textarea>
             </div>
+            <div class="f wide autoSendRow">
+                <label class="checkRow"><input type="checkbox" rv-checked="widget:autoSend" /> auto-send on new prompt</label>
+                <span class="inlineMini" rv-show="widget:autoSend">
+                    <label>settle (ms)</label>
+                    <input class="moreParam autoSendDelay" type="text" pattern="[0-9]*" rv-value="widget:autoSendDelay">
+                </span>
+            </div>
 
             <div class="f wide responseRow">
                 <span class="inlineMini">
@@ -158,7 +165,7 @@
             <hr>
 
             <div class="f wide moreDisclosureToggle" data-field="advancedOpen" rv-class-open="widget:advancedOpen">
-                <span class="disclosureArrow">▸</span> advanced <span class="disclosureHint">(tokens, base URL, auto-send, raw prompt)</span>
+                <span class="disclosureArrow">▸</span> advanced <span class="disclosureHint">(tokens, base URL, raw prompt)</span>
             </div>
 
             <div class="advancedDetails" rv-show="widget:advancedOpen">
@@ -169,9 +176,6 @@
                 <div class="f">
                     <label>base URL</label>
                     <input type="text" rv-value="widget:baseURL" placeholder="provider default">
-                </div>
-                <div class="f">
-                    <label class="checkRow"><input type="checkbox" rv-checked="widget:autoSend" /> auto-send on new prompt</label>
                 </div>
 
                 <div class="f wide">
