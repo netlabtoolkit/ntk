@@ -54,9 +54,30 @@ module.exports = function(options) {
 			if(this.queue.length > 0) {
 
 				setTimeout(function() {
-					this.sendCallback(this.queue);
-
-					//this.queue.length = 0;
+					// Snapshot-and-clear right here, synchronously, before
+					// sendNetworkSet's own per-item staggered sends even
+					// start - NOT inside sendNetworkSet itself (that used
+					// to compare a snapshot index against this SAME array's
+					// live, still-mutating length to decide when to clear,
+					// which almost never matched once anything else pushed
+					// into the queue while those staggered sends were still
+					// pending - e.g. a real device write arriving while a
+					// widget's initial connect happened to enqueue a big
+					// batch of unrelated fields all at once. Once that
+					// match failed, the queue was never cleared, so
+					// addToQueue's "queue.length == 0" check (the only
+					// thing that ever calls next() again) never passed
+					// again either - every write after that point just sat
+					// in the queue being silently replaced forever, with no
+					// error and nothing to show it wasn't reaching the
+					// device. Clearing here instead means whatever's
+					// queued NOW gets a real, timely flush, and the queue
+					// is genuinely empty again immediately for the next
+					// addToQueue call - regardless of how many items were
+					// in this batch or what arrives while it's being sent.
+					var batch = this.queue.slice();
+					this.queue.length = 0;
+					this.sendCallback(batch);
 				}.bind(this), this.interval);
 
 			}
@@ -157,8 +178,6 @@ module.exports = function(options) {
 			socket.emit('serverActive', self.serverActive);
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			socket.on('sendModelUpdate', function(options) {
-
-
 
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
@@ -301,6 +320,10 @@ module.exports = function(options) {
 
 		},
 		sendNetworkSet: function(fieldValues) {
+			// fieldValues is now a private snapshot (see next()'s
+			// snapshot-and-clear) - no need to touch the live queue here
+			// at all, so each item's staggered send is independent of
+			// whatever's been queued since this batch was taken.
 			for(var i=fieldValues.length-1; i >= 0; i--) {
 
 				var closedFunction = function(i) {
@@ -311,11 +334,6 @@ module.exports = function(options) {
 							model = fieldValues[i].model;
 
 						model.set(field, value, modeRequested);
-
-						if(i == self.queueHandler.queue.length-1) {
-							self.queueHandler.queue.length = 0;
-						}
-
 					}
 				};
 
