@@ -216,6 +216,39 @@
             background-color: #666;
             border-top-left-radius: 5px;
             border-bottom-left-radius: 5px;
+            // Padding so this tab has a comfortable hover/click target
+            // instead of shrink-wrapping tightly to just the checkbox
+            // itself.
+            padding: 4px 0;
+            box-sizing: border-box;
+            text-align: center;
+            position: relative;
+
+            // CSS-only tooltip (PoseRecog/FaceTrack/ObjectRecog's camera
+            // on/off checkbox) - a plain title="..." attribute here was
+            // unreliable (inconsistent show delay, sometimes not showing
+            // at all) rather than anything about our own markup, which
+            // was identical and correct across all three widgets. This
+            // has no dependency on Chromium's native tooltip timing.
+            &.cameraToggle:hover::after {
+                content: attr(data-tooltip);
+                position: absolute;
+                left: 100%;
+                top: 0;
+                margin-left: 4px;
+                white-space: nowrap;
+                background: #222;
+                color: #fff;
+                padding: 3px 6px;
+                border-radius: 3px;
+                font-size: 11px;
+                // Same spirit as this file's z-index contract (widgets=4,
+                // drag=20, open more-panel=1, toolbar=100) - high enough
+                // to always sit above any widget, including one actively
+                // being dragged, but below the toolbar.
+                z-index: 50;
+                pointer-events: none;
+            }
 
             .settings input {
                 margin-top: 3px;

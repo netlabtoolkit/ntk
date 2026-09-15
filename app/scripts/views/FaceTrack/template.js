@@ -6,7 +6,7 @@
     </div>
 
     <div class="widgetLeft">
-        <div class="leftTab"><input type="checkbox" rv-checked="widget:active" /></div>
+        <div class="leftTab cameraToggle" data-tooltip="Camera on/off - uncheck to turn the camera off"><input type="checkbox" rv-checked="widget:active" /></div>
         <div class='inlets'>
             <div rv-each-inlet="widget:ins" rv-alt="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
         </div>
