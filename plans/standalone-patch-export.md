@@ -1,7 +1,13 @@
 # Standalone patch export
 
-**Status:** scoped via discussion. Not started. Build-order step 5, but a
-scoped v1 could lead instead — see [Sequencing: can this go
+**Status:** in progress on the `standalone-patch-export` branch.
+Compatibility checker + Export Standalone UI action shipped and
+user-verified; the on-device interpreter (below) is built and
+hardware-verified for AnalogIn/AnalogOut/DigitalIn/DigitalOut/Servo plus
+all 12 logic/generator widgets, but not yet wired into `code.py`'s main
+loop (no explicit-handoff / claim-on-disconnect logic yet) and
+GroveSensor is still unimplemented. Build-order step 5, but a scoped v1
+is leading instead — see [Sequencing: can this go
 first?](#sequencing-can-this-go-first) below.
 
 Today, **all** patch logic runs on the host (NTK's own JS). The
@@ -127,6 +133,87 @@ only ever a simplest-case illustration. Gesture is deferred out of this
 scope for now (see above) — it's the one portable widget with a real
 open performance question, and revisiting it later avoids blocking v1 on
 an unresolved spike.
+
+## The interpreter (built 2026-09-17)
+
+`firmware/xiao-esp32c6-circuitpython-firmata/standalone_interpreter.py`
+on the `standalone-patch-export` branch. `StandaloneInterpreter.load()`
+takes the same `{widgets, mappings}` JSON `standalone_patch.json`
+contains, rejects any widget outside `PORTABLE_TYPE_IDS` (mirrors
+`StandaloneCompatibility.js`'s list by hand — GroveSensor is in the JS
+checker's list but NOT yet in the interpreter's, since it isn't
+implemented here yet), builds a topologically-sorted evaluation order
+from the mapping graph (Kahn's algorithm; a cycle degrades to arbitrary
+order with a printed warning rather than crashing), and `tick()`
+re-evaluates every widget each pass.
+
+**Reuses `firmata_server.py`'s pin layer directly** (`FirmataServer`'s
+own `_apply_pin_mode`/`_handle_analog_write`/`_handle_report_analog`/
+`release_all_pins`) rather than reimplementing pin claiming, PWM
+duty-cycle math, or servo pulse-width math a second time — that layer is
+already hardware-verified (recent commits fixed Servo order-dependence
+and firmware backpressure). The interpreter owns its own `FirmataServer`
+instance, separate from the one a live TCP connection constructs;
+`claim_hardware()`/`release_hardware()` claim/release its pins, so a real
+client connecting later doesn't hit "pin in use" errors — this is the
+seam `code.py`'s explicit-handoff wiring (not done yet) will call into.
+
+**Implemented and unit/hardware-tested:** all 12 logic/generator widgets
+(IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse,
+Sequence, Tween, Data) plus AnalogIn/AnalogOut/DigitalIn/DigitalOut/Servo.
+31 pure-logic unit tests pass under plain CPython3 (no CircuitPython
+needed for these — the eval functions are plain dict-in/dict-out
+functions). The full AnalogIn→IfThen→Servo pipeline was also run on the
+real XIAO ESP32-C6 board over the serial REPL (no CIRCUITPY USB mass
+storage exposed on this build, so the file was written directly via
+`open(path,'w')` over the REPL instead) and produced the correct pulse
+width end to end.
+
+**Two real bugs found only by testing, not by reading the code:**
+- `_num()`'s NaN-on-parse-failure default was backwards (returned 0.0,
+  not NaN) — broke every `isNaN()`-guarded widget (Boolean/Mix/Count's
+  unconnected `'-'` inlets), caught by the unit tests.
+- **Servo never actually converted degrees to a pulse width.** The
+  widget's own output is 0–180 degrees; `_handle_analog_write`'s SERVO
+  branch expects a microsecond pulse directly (johnny-five's `five.Servo`
+  does that conversion host-side on a live connection, confirmed against
+  `node_modules/johnny-five/lib/servo.js`: `range:[0,180]`, default
+  `pwmRange:[600,2400]`, `Fn.map(degrees,0,180,600,2400)`). Passing raw
+  degrees straight into `_handle_analog_write` just clamped every write
+  to the 544µs floor — the servo would never have moved across its real
+  range. This is exactly the historical bug
+  `_handle_analog_write`'s own comment warns about, reintroduced by
+  omission and only surfaced by watching the real `duty_cycle` on
+  hardware, not by reading the code again. Fixed by converting
+  degrees→microseconds (`int(degrees*1800/180+600)`) before the hardware
+  write.
+
+**Also found while testing, a test-harness gotcha worth remembering for
+future device sessions, not an interpreter bug:** CircuitPython's REPL
+session keeps `sys.modules` across a Ctrl-C interrupt — re-pasting
+edited code without a soft-reboot (or an explicit
+`sys.modules.pop(name, None)`) silently re-runs the STALE cached module.
+Repeated import churn without a soft-reboot between test runs also hit a
+real `MemoryError` (heap fragmentation) — a clean Ctrl-D soft-reboot
+before each fresh test run avoided both.
+
+**Not done yet:**
+- **`code.py` wiring** — loading `standalone_patch.json` at boot, calling
+  `tick()` in the accept-wait loop (which currently blocks in `accept()`
+  for up to 1s at a time — needs a much shorter `settimeout()` while a
+  patch is loaded, or the interpreter would only tick once a second),
+  and calling `release_hardware()`/`claim_hardware()` around a client
+  connecting/disconnecting for the explicit-handoff decision.
+- **GroveSensor** — deferred, not a fundamental blocker (see the
+  "Grounding facts" section above).
+- Simplifications worth knowing about, not necessarily worth fixing:
+  IfThen's `setTimeout`-based hysteresis is tick-polled instead; Tween's
+  easing curves are a faithful port of
+  `~/Documents/GitHub/VarSpeedPython/varspeed/easing_functions.py`
+  (Velocity.js's own bezier approximations of the same curves, so a
+  small inherent difference either way); Sequence's per-segment tweening
+  is linear instead of replicating Velocity's default "swing" easing
+  (never user-configurable for that widget, unlike Tween).
 
 ## Feedback / monitoring
 
