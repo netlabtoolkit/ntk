@@ -357,6 +357,42 @@ feed()
 from pins import PIN_TABLE, GROVE_SENSOR_CATALOG
 feed()
 
+# Standalone patch execution (see plans/standalone-patch-export.md) - v1,
+# not on every board yet, so this whole feature is optional: a board that
+# never received standalone_interpreter.py (the common case today) just
+# skips it, same as the Grove LCD's "not attached? skipped silently"
+# convention above.
+try:
+    from standalone_interpreter import StandaloneInterpreter, load_patch_file
+except ImportError:
+    StandaloneInterpreter = None
+
+STANDALONE_PATCH_PATH = "standalone_patch.json"
+
+# Auto-detected from the patch file's presence, not a settings.toml flag -
+# see plans/standalone-patch-export.md's "Decided" notes on this. Only
+# checked once at boot (not re-checked live) - deploying a new patch
+# still means copying the file and rebooting, same as any other v1
+# "manual copy" deploy step; the live WiFi push-deploy channel is a
+# later addition.
+_standalone = None
+if StandaloneInterpreter is not None:
+    try:
+        os.stat(STANDALONE_PATCH_PATH)
+        _has_standalone_patch = True
+    except OSError:
+        _has_standalone_patch = False
+
+    if _has_standalone_patch:
+        _standalone_patch = load_patch_file(STANDALONE_PATCH_PATH)
+        if _standalone_patch is not None:
+            _candidate = StandaloneInterpreter(PIN_TABLE)
+            if _candidate.load(_standalone_patch):
+                _standalone = _candidate
+                print("Standalone patch loaded and compatible:", STANDALONE_PATCH_PATH)
+            else:
+                print("Standalone patch present but rejected:", _candidate.error)
+
 FIRMATA_PORT = 3030
 
 # Not necessarily defined in every CircuitPython build's errno module, so
@@ -563,12 +599,24 @@ def run_server():
     # in the meantime - the board looks completely hung until a
     # connection happens to arrive. Polling in a short loop instead
     # keeps the board responsive while idle.
-    server_socket.settimeout(1)
+    #
+    # A much shorter timeout when a standalone patch is loaded - the
+    # accept-wait loop below is also where its tick() runs (see the
+    # explicit-handoff design in plans/standalone-patch-export.md), and a
+    # full second per accept() poll would cap it at ~1Hz, far too slow
+    # for real hardware control (the 2026-09-17 performance spike showed
+    # hundreds of Hz achievable). No standalone patch loaded - the
+    # existing 1s idle-poll behavior is unchanged.
+    server_socket.settimeout(0.02 if _standalone is not None else 1)
     feed()
     print("Firmata server listening on port", FIRMATA_PORT)
     # WiFi is up and we're listening but nobody's connected yet - switch
     # from the "working on WiFi" blink to the "waiting for a client" one.
     led_set_pattern(_LED_WAITING)
+
+    if _standalone is not None:
+        _standalone.claim_hardware()
+        print("Standalone interpreter running (no client connected)")
 
     read_buffer = bytearray(128)
 
@@ -583,8 +631,10 @@ def run_server():
         print("Waiting for Client to connect...")
         conn = None
         while conn is None:
-            feed()  # accept() blocks the VM for up to 1s per poll
+            feed()  # accept() blocks the VM for up to 1s per poll (0.02s - see above - while a standalone patch is loaded)
             led_tick()
+            if _standalone is not None:
+                _standalone.tick()
             if not reset_count_cleared and time.monotonic() - server_started_at > 30:
                 clear_reset_loop_count()
                 reset_count_cleared = True
@@ -592,6 +642,14 @@ def run_server():
                 conn, addr = server_socket.accept()
             except OSError:
                 pass  # timed out with no connection yet - keep polling
+        if _standalone is not None:
+            # Explicit handoff (plans/standalone-patch-export.md) - a real
+            # client is taking over now, so release every pin the
+            # interpreter claimed before firmata (below) claims the same
+            # physical pins for itself. Without this, its pin-mode setup
+            # hits "already in use" and silently fails.
+            _standalone.release_hardware()
+            print("Standalone interpreter paused (client connected)")
         try:
             # Disables Nagle, so small packets (most Firmata messages are
             # 2-4 bytes) go out immediately instead of waiting to coalesce.
@@ -677,6 +735,12 @@ def run_server():
             print("Client disconnected")
             # Back to waiting for the next client.
             led_set_pattern(_LED_WAITING)
+            if _standalone is not None:
+                # Explicit handoff, the other direction - the client that
+                # was driving outputs is gone, so the interpreter reclaims
+                # the same pins and resumes ticking in the outer loop.
+                _standalone.claim_hardware()
+                print("Standalone interpreter resumed (client disconnected)")
 
 
 wifi_mode = str(os.getenv("NTK_WIFI_MODE") or "station").strip().lower()

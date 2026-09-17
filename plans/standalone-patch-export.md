@@ -2,10 +2,10 @@
 
 **Status:** in progress on the `standalone-patch-export` branch.
 Compatibility checker + Export Standalone UI action shipped and
-user-verified; the on-device interpreter (below) is built and
-hardware-verified for AnalogIn/AnalogOut/DigitalIn/DigitalOut/Servo plus
-all 12 logic/generator widgets, but not yet wired into `code.py`'s main
-loop (no explicit-handoff / claim-on-disconnect logic yet) and
+user-verified. The on-device interpreter is built and hardware-verified
+for AnalogIn/AnalogOut/DigitalIn/DigitalOut/Servo plus all 12 logic/
+generator widgets, and is now wired into `code.py`'s main loop
+(load-at-boot + explicit handoff), hardware-verified in both directions.
 GroveSensor is still unimplemented. Build-order step 5, but a scoped v1
 is leading instead — see [Sequencing: can this go
 first?](#sequencing-can-this-go-first) below.
@@ -197,13 +197,25 @@ Repeated import churn without a soft-reboot between test runs also hit a
 real `MemoryError` (heap fragmentation) — a clean Ctrl-D soft-reboot
 before each fresh test run avoided both.
 
+**`code.py` wiring — done and hardware-verified (2026-09-17).** At boot,
+`code.py` checks for `standalone_patch.json` (auto-detect, no
+`settings.toml` flag — see the "Decided" note above); if present and
+compatible, constructs a `StandaloneInterpreter` and holds it in a
+module-level `_standalone`. `run_server()`'s accept-wait loop drops
+`server_socket.settimeout()` from 1s to 0.02s whenever `_standalone` is
+loaded (otherwise unchanged) and calls `_standalone.tick()` every pass.
+Explicit handoff: `_standalone.release_hardware()` runs the instant
+`accept()` succeeds (before the per-connection `FirmataServer` claims
+the same pins), and `_standalone.claim_hardware()` runs again in the
+existing `finally:` block once a client disconnects. Verified on the
+real board: boots and idles fine with no patch file (regression check,
+identical to pre-change behavior); boots into standalone mode and ticks
+without hanging when a patch file is present; and opening/closing a raw
+TCP connection from another machine on the network correctly triggered
+"paused (client connected)" → normal Firmata connection → disconnect →
+"resumed (client disconnected)", in that order, both directions.
+
 **Not done yet:**
-- **`code.py` wiring** — loading `standalone_patch.json` at boot, calling
-  `tick()` in the accept-wait loop (which currently blocks in `accept()`
-  for up to 1s at a time — needs a much shorter `settimeout()` while a
-  patch is loaded, or the interpreter would only tick once a second),
-  and calling `release_hardware()`/`claim_hardware()` around a client
-  connecting/disconnecting for the explicit-handoff decision.
 - **GroveSensor** — deferred, not a fundamental blocker (see the
   "Grounding facts" section above).
 - Simplifications worth knowing about, not necessarily worth fixing:
