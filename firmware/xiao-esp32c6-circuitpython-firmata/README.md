@@ -236,6 +236,24 @@ the same physical sensor and can be used at once; the GroveIn widget
 is the newer, more general path and is what future sensors will use
 exclusively.
 
+## Optional: run a patch standalone, no host required
+
+**Status: built and hardware-verified (2026-09-17), still v1** - see `plans/standalone-patch-export.md` in the main NTK repo for the full design and open items.
+
+Normally every bit of patch logic runs on the host (NTK itself) - this firmware is just a dumb Firmata relay, and closing NTK or disconnecting the board from it stops everything. `standalone_interpreter.py`, if present on the device, changes that: it loads a saved patch and evaluates it directly on the board, driving real GPIO with no host connected at all.
+
+Setup:
+
+1. In NTK, build your patch and click **Export Standalone** (in the Settings drawer, next to the regular Export button). If the patch uses a widget the interpreter can't run, NTK tells you exactly which one instead of exporting a broken file.
+2. Copy the downloaded `standalone_patch.json`, plus this folder's `standalone_interpreter.py`, onto the board via Thonny alongside `code.py`/`firmata_server.py`/`pins.py`.
+3. Reboot the board. The serial console prints `Standalone patch loaded and compatible: standalone_patch.json`, and the board starts running the patch on its own - watch for `Standalone interpreter running (no client connected)`.
+
+Supported widgets: AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, GroveSensor, and all the pure logic/generator widgets (IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse, Sequence, Tween, Data) - the same widgets a `.ntk` patch already saves, no special "standalone" version needed. Not supported: Gesture (an open on-device performance question, not yet resolved) and anything that needs a browser (camera/AI widgets, Text/Image/Button, etc.) - NTK's Export Standalone button already checks this before letting you export.
+
+**Reconnecting NTK to the board hands control back to NTK, not just "watches."** The moment a client connects, the interpreter stops and releases every pin it was driving, exactly like it would for a live (non-standalone) connection - there's no way to peek at the interpreter running without taking over from it. This is deliberate (it's what keeps the interpreter and a connected NTK from ever fighting over the same pin), not a bug. Disconnecting hands control back to the interpreter again automatically.
+
+Nothing here changes if you never copy `standalone_interpreter.py` or `standalone_patch.json` onto the board - the firmware behaves exactly as it always has.
+
 ## Pin mapping
 
 See `pins.py` for the authoritative table and how to adjust it if your
