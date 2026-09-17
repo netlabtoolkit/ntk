@@ -78,10 +78,13 @@ an unresolved spike.
 
 Three options were discussed:
 
-1. **Physical display (Grove LCD)** — firmware already supports this
-   (`grove_lcd.py`, used today for the station-mode IP). Self-contained,
-   no WiFi dependency once flashed, but ~2 lines of text and needs that
-   specific hardware attached.
+1. **Physical display** — firmware already supports a Grove LCD
+   (`grove_lcd.py`, used today for the station-mode IP), though the
+   user's actual hardware for this project is a different OLED display,
+   not that RGB LCD — a physical-display option here would target the
+   OLED, with new device-side driver code, not reuse `grove_lcd.py`.
+   Self-contained, no WiFi dependency once flashed, but limited display
+   real estate and needs that specific hardware attached.
 2. **A standalone WiFi status / logging HTTP endpoint** (e.g.
    `GET /status`) — useful but real new firmware surface; nothing in this
    firmware implements an HTTP server today (only the raw Firmata TCP
@@ -99,9 +102,10 @@ Three options were discussed:
    UI as the dashboard). Blurs "standalone" and "host-driven" into one
    continuum rather than two hard-separated modes.
 
-**Recommended combination:** option 3 as the primary feedback mechanism,
-optionally paired with option 1 (a minimal LCD glance like "running / N
-errors") for a true no-NTK-at-all status check. Option 2 deferred.
+**Decided (2026-09-17): option 3 only for v1.** Reconnect-as-monitor is
+the sole feedback mechanism; the physical-display glance (option 1) is
+not being added — it needs specific hardware attached and isn't
+required. Option 2 deferred indefinitely.
 
 ## Live push-to-device deploy (idea, not fully designed)
 
@@ -118,18 +122,20 @@ The same open connection carries patch-pushes one direction and live
 status reports the other — the WiFi link becomes a combined
 deploy + monitor channel.
 
-**Open design questions:**
+**Decided (2026-09-17):**
 
-- Does the device run the interpreter loop **continuously** (redundant /
-  duplicate execution while NTK is also driving the same live patch), or
-  does the interpreter only take over once the host disconnects (an
-  explicit handoff)? The latter avoids double-execution / conflicting
-  output writes but needs clean "host present vs. absent" detection.
-- Push-on-every-change vs. explicit deploy action.
-- Where does `standalone_patch.json` live relative to the existing
-  `settings.toml`-driven mode switch (SoftAP vs. station WiFi) — is "run
-  the interpreter" a third independent mode flag, or does it layer on top
-  of either WiFi mode?
+- **Explicit handoff.** The interpreter stays idle while NTK is
+  connected and driving; it only takes over outputs once the Firmata
+  connection drops. Avoids double-execution / conflicting output writes.
+  Needs clean "host present vs. absent" detection (a Firmata disconnect
+  event).
+- **Explicit "Deploy" action**, not push-on-every-change — safer than an
+  unexpected mid-edit redeploy disrupting a running device.
+- **Auto-detect from patch-file presence**, not a separate
+  `settings.toml` flag or a fold-in to the existing SoftAP/station mode
+  enum. If a valid `standalone_patch.json` exists on the device
+  filesystem, it's ready to run standalone — no new settings surface
+  needed. Independent of whichever WiFi mode (SoftAP/station) is active.
 
 See the CircuitPython firmware (`firmware/xiao-esp32c6-circuitpython-firmata/`,
 `pins.py` / `firmata_server.py`) for the architecture this extends, and
