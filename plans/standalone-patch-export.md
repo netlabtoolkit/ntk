@@ -27,9 +27,15 @@ on the device once deployed, no host required.
 - Which widgets are theoretically portable to a microcontroller:
   - **Portable** (pure math / timers, no browser API): AnalogIn / Out,
     DigitalIn / Out, Servo, GroveSensor, IfThen, Boolean, Gate, Mix,
-    Splitter, Process, Count, Pulse, Sequence, Tween, Data, and
-    **Gesture** (its DTW matching is pure arithmetic once its input comes
-    from a real wired pin instead of the in-widget dial).
+    Splitter, Process, Count, Pulse, Sequence, Tween, Data.
+  - **Deferred, not in v1 scope: Gesture.** Its DTW matching is pure
+    arithmetic once its input comes from a real wired pin instead of the
+    in-widget dial, so it's theoretically portable — but DTW is an
+    O(n×m) computation run every loop tick, and CircuitPython on the
+    XIAO ESP32-C6 is itself an interpreted language running on a single
+    RISC-V core, so per-tick cost is a real open question. Decided
+    (2026-09-17) to leave it out of v1 and revisit later rather than
+    spend a spike on it now.
   - **Never portable:** FaceTrack / PoseRecog (camera + MediaPipe WASM),
     SpeechIn / SpeechOut (browser Speech API),
     Audio / Video / Image / HTML / Text / Button / Keyboard / Knob
@@ -50,7 +56,7 @@ Two approaches were considered:
   patch edit means regenerating + re-flashing.
 - **B. Ship ONE generic on-device interpreter + a JSON patch file**
   (**recommended**) — firmware carries a single fixed runtime (effectively
-  a MicroPython port of `SignalChainFunctions.js` + each portable
+  a CircuitPython port of `SignalChainFunctions.js` + each portable
   widget's own state machine) that reads a patch description — close to
   the same file format NTK already saves — and evaluates it every loop
   tick. "Export" becomes "put this file on the device" instead of
@@ -63,7 +69,10 @@ Two approaches were considered:
 The portable-widget scope must include **logic widgets** (IfThen, Mix,
 etc.) from day one — the interpreter needs real branching / threshold /
 timing state machines, not just scale / invert math. AnalogIn → Servo was
-only ever a simplest-case illustration.
+only ever a simplest-case illustration. Gesture is deferred out of this
+scope for now (see above) — it's the one portable widget with a real
+open performance question, and revisiting it later avoids blocking v1 on
+an unresolved spike.
 
 ## Feedback / monitoring
 
@@ -164,9 +173,18 @@ Arduino), which isn't a firm decision.
 **Secondary risks of going first:**
 
 - **Unproven interpreter performance** — a JSON-patch interpreter
-  evaluating every loop tick on the XIAO ESP32-C6, Gesture's DTW
-  especially. Feasible but could prove too slow after real investment;
-  worth a throwaway spike before committing.
+  evaluating every loop tick on the XIAO ESP32-C6 for the non-Gesture
+  portable set. Feasible but worth a throwaway spike before committing
+  real build time. (Gesture's DTW, the heaviest case, is deferred out of
+  v1 scope — see above.) **Possible mitigation, unconfirmed for this
+  board:** [CircuitPython Turbo](https://learn.adafruit.com/circuitpython-turbo)
+  ahead-of-time-compiles selected hot functions to native machine code
+  (host-side compile step, rest of the code stays interpreted
+  CircuitPython) — aimed at exactly this kind of compute-bound problem,
+  not I/O waits. Adafruit's own docs only demonstrate it on RP2040
+  (ARM Cortex-M0+) boards; nothing confirms RISC-V/ESP32-C6 support, and
+  native codegen is architecture-specific, so this needs to be checked
+  (not assumed) as part of the performance spike before relying on it.
 - **No leverage for the rest of the roadmap** — unlike steps 1–2,
   standalone export doesn't unlock Macro / multi-select / the iPad port.
   The native protocol would help the iPad bridge slightly; nothing else.
