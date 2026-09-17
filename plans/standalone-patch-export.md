@@ -178,19 +178,22 @@ Arduino), which isn't a firm decision.
 
 **Secondary risks of going first:**
 
-- **Unproven interpreter performance** — a JSON-patch interpreter
-  evaluating every loop tick on the XIAO ESP32-C6 for the non-Gesture
-  portable set. Feasible but worth a throwaway spike before committing
-  real build time. (Gesture's DTW, the heaviest case, is deferred out of
-  v1 scope — see above.) **Possible mitigation, unconfirmed for this
-  board:** [CircuitPython Turbo](https://learn.adafruit.com/circuitpython-turbo)
-  ahead-of-time-compiles selected hot functions to native machine code
-  (host-side compile step, rest of the code stays interpreted
-  CircuitPython) — aimed at exactly this kind of compute-bound problem,
-  not I/O waits. Adafruit's own docs only demonstrate it on RP2040
-  (ARM Cortex-M0+) boards; nothing confirms RISC-V/ESP32-C6 support, and
-  native codegen is architecture-specific, so this needs to be checked
-  (not assumed) as part of the performance spike before relying on it.
+- **Interpreter performance — RESOLVED (2026-09-17), no longer a risk
+  for the non-Gesture set.** Spiked on real hardware (XIAO ESP32-C6,
+  CircuitPython 10.3.0): a representative 20-widget patch (17 eval
+  steps covering the full non-Gesture portable set — Process, IfThen,
+  Boolean, Gate, Mix, Splitter, Count, Pulse, Sequence, Tween, Data,
+  Servo) evaluates a full tick in ~1.78ms (~561Hz). Extrapolated to a
+  much larger 100-widget patch (~0.1ms/widget): still ~10.5ms (~95Hz) —
+  comfortably above the standard 50Hz servo-loop rate and any realistic
+  GPIO/sensor polling need. Real hardware I/O costs, measured
+  separately (Turbo wouldn't help these): `analogio.AnalogIn.value`
+  ~205μs/read, `digitalio` ~10μs/read. **CircuitPython Turbo isn't
+  needed for v1** — there's generous headroom without it. It only
+  becomes relevant if a future compute-heavy widget (Gesture's DTW) is
+  added back in; RISC-V/ESP32-C6 support for Turbo itself is still
+  unconfirmed (Adafruit's docs only show RP2040/ARM examples) and
+  wasn't resolved on this pass — revisit if/when Gesture is reconsidered.
 - **No leverage for the rest of the roadmap** — unlike steps 1–2,
   standalone export doesn't unlock Macro / multi-select / the iPad port.
   The native protocol would help the iPad bridge slightly; nothing else.
