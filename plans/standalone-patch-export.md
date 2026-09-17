@@ -140,9 +140,9 @@ an unresolved spike.
 on the `standalone-patch-export` branch. `StandaloneInterpreter.load()`
 takes the same `{widgets, mappings}` JSON `standalone_patch.json`
 contains, rejects any widget outside `PORTABLE_TYPE_IDS` (mirrors
-`StandaloneCompatibility.js`'s list by hand — GroveSensor is in the JS
-checker's list but NOT yet in the interpreter's, since it isn't
-implemented here yet), builds a topologically-sorted evaluation order
+`StandaloneCompatibility.js`'s list by hand — both now list the same 18
+types, including GroveSensor, see below), builds a topologically-sorted
+evaluation order
 from the mapping graph (Kahn's algorithm; a cycle degrades to arbitrary
 order with a printed warning rather than crashing), and `tick()`
 re-evaluates every widget each pass.
@@ -215,9 +215,38 @@ TCP connection from another machine on the network correctly triggered
 "paused (client connected)" → normal Firmata connection → disconnect →
 "resumed (client disconnected)", in that order, both directions.
 
-**Not done yet:**
-- **GroveSensor** — deferred, not a fundamental blocker (see the
-  "Grounding facts" section above).
+**GroveSensor — implemented and hardware-verified (2026-09-17), no
+longer deferred.** Subscribing calls a `pins.py` `GROVE_SENSOR_CATALOG`
+entry's own `read`/`make_read` function directly — same
+skip-the-wire-protocol reasoning as every other hardware widget, just
+for the OTHER hardware abstraction firmata_server.py has (Grove's sysex
+extension) instead of `_Pin`. `StandaloneInterpreter` now takes
+`grove_sensor_catalog` as a second constructor argument (`code.py` passes
+`GROVE_SENSOR_CATALOG`, same object `FirmataServer` already uses).
+Multiple readings (e.g. an accelerometer's x/y/z) get independent
+smoother/easing state each, matching `GroveSensor.js`'s own
+per-axis `axisStates` — sourced from the widget's own saved `outs` field
+(a real model attribute GroveSensor.js sets), not a hardcoded table, so
+it works for whichever sensor is selected without the interpreter
+needing its own copy of `sensorCatalog.js`. 5 unit tests pass (an
+accelerometer-style 3-reading sensor and a `needs_pin` single-reading
+sensor, both against a fake catalog, including subscribe/cleanup
+lifecycle) under plain CPython3, plus real-hardware verification: this
+test board has no physical Grove sensor attached (`Grove sensors found:
+none` at boot, unchanged), so what got verified there specifically is
+graceful degradation — a patch with a GroveSensor widget loads and runs
+fine, prints one clear "sensor N not available on this board" message
+during `claim_hardware()` (not a crash, not repeated spam), and the rest
+of a mixed patch (AnalogIn→Servo alongside it) keeps working, including
+through a full connect/disconnect handoff cycle. Not yet verified
+against a real physically-attached sensor - that needs a Grove module
+actually wired to this board (nothing currently is).
+
+**Not done yet:** nothing widget-scope-related — the full portable set
+from the "Grounding facts" section (17 non-Gesture types, GroveSensor
+included) is implemented. Remaining gaps are all sequencing/
+observability, not missing widgets (see "Feedback / monitoring" above
+for the monitoring ones):
 - Simplifications worth knowing about, not necessarily worth fixing:
   IfThen's `setTimeout`-based hysteresis is tick-polled instead; Tween's
   easing curves are a faithful port of

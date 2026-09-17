@@ -386,7 +386,7 @@ if StandaloneInterpreter is not None:
     if _has_standalone_patch:
         _standalone_patch = load_patch_file(STANDALONE_PATCH_PATH)
         if _standalone_patch is not None:
-            _candidate = StandaloneInterpreter(PIN_TABLE)
+            _candidate = StandaloneInterpreter(PIN_TABLE, GROVE_SENSOR_CATALOG)
             if _candidate.load(_standalone_patch):
                 _standalone = _candidate
                 print("Standalone patch loaded and compatible:", STANDALONE_PATCH_PATH)

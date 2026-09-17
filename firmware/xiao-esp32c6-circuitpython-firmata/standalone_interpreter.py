@@ -17,18 +17,22 @@ hardware", so it skips the wire entirely for local pins.
 Portable widget set - MUST be kept in sync by hand with
 app/scripts/utils/StandaloneCompatibility.js's PORTABLE_TYPE_IDS; there's
 no shared source between JS and Python:
-    AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, IfThen, Boolean,
-    Gate, Mix, Splitter, Process, Count, Concat, Pulse, Sequence, Tween,
-    Data
-NOT yet implemented here despite being in the JS checker's PORTABLE_TYPE_IDS:
-GroveSensor. Its sysex-based sensor catalog (subscribe/unsubscribe,
-per-sensor read functions in pins.py's GROVE_SENSOR_CATALOG) is a
-separate, more involved integration than the plain Firmata pin scheme
-every other hardware widget uses - deferred as a build-order gap, not a
-fundamental blocker the way Gesture/DTW is. UNSUPPORTED_TYPE_IDS below
-is exactly PORTABLE_TYPE_IDS minus GroveSensor, and load() rejects
-anything outside it the same way the JS checker does - clearly, not
-silently.
+    AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, GroveSensor,
+    IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse,
+    Sequence, Tween, Data
+load() rejects anything outside this list the same way the JS checker
+does - clearly, not silently.
+
+GroveSensor reuses the SAME `GROVE_SENSOR_CATALOG` (from pins.py)
+firmata_server.py's sysex handler reads from - subscribing calls a
+catalog entry's own `read`/`make_read` function directly, same
+skip-the-wire-protocol reasoning as every other hardware widget here.
+Each reading's raw value flows through the exact (scale, invert, easing,
+smoother) chain AnalogIn/DigitalIn use, but with per-reading state (each
+axis of e.g. the accelerometer needs its own smoother/easing history,
+not one shared between x/y/z - see GroveSensor.js's own `axisStates`) -
+the only widget type that needs that, so it isn't a generic CHAIN_TYPES
+entry.
 
 Known, deliberate simplifications vs. the real widget JS (each widget's
 own section below has the detail):
@@ -59,7 +63,7 @@ import firmata_server
 
 
 PORTABLE_TYPE_IDS = frozenset([
-    'AnalogIn', 'AnalogOut', 'DigitalIn', 'DigitalOut', 'Servo',
+    'AnalogIn', 'AnalogOut', 'DigitalIn', 'DigitalOut', 'Servo', 'GroveSensor',
     'IfThen', 'Boolean', 'Gate', 'Mix', 'Splitter', 'Process', 'Count',
     'Concat', 'Pulse', 'Sequence', 'Tween', 'Data',
 ])
@@ -889,7 +893,7 @@ def _pin_index_for_apin(pins, apin_str):
 
 
 class StandaloneInterpreter:
-    def __init__(self, pin_table):
+    def __init__(self, pin_table, grove_sensor_catalog=None):
         # A dedicated FirmataServer instance, separate from the one
         # run_server() constructs per TCP connection - reuses its pin
         # management (_apply_pin_mode/_handle_analog_write/
@@ -899,6 +903,8 @@ class StandaloneInterpreter:
         # called before a real client connects, so its pin claims don't
         # collide with the per-connection FirmataServer's own.
         self._fs = firmata_server.FirmataServer(pin_table)
+        self._grove_catalog = grove_sensor_catalog or {}
+        self._grove_subscriptions = {}  # wid -> {read, cleanup, min_interval_ms, last_ms}
         self.widgets = {}      # wid -> {typeID, values, state}
         self.steps = []        # ordered (kind, ...) tuples - see _build_steps()
         self.loaded = False
@@ -940,6 +946,7 @@ class StandaloneInterpreter:
         w2w_mappings = []
         hw_in_mappings = {}   # wid -> mapping (AnalogIn/DigitalIn)
         hw_out_mappings = {}  # wid -> mapping (AnalogOut/DigitalOut/Servo)
+        grove_mappings = {}   # wid -> [mapping, ...] - GroveSensor has one per reading
 
         for m in mappings:
             model_wid, view_wid = m.get('modelWID'), m.get('viewWID')
@@ -952,6 +959,8 @@ class StandaloneInterpreter:
                     hw_in_mappings[view_wid] = m
                 elif type_id in HARDWARE_OUTPUT_TYPES:
                     hw_out_mappings[view_wid] = m
+                elif type_id == 'GroveSensor':
+                    grove_mappings.setdefault(view_wid, []).append(m)
 
         # Kahn's algorithm - widgets with no unresolved dependency go
         # first. A cycle (shouldn't happen in a normal patch) just gets
@@ -980,6 +989,19 @@ class StandaloneInterpreter:
                     steps.append(('map', m.get('modelWID'), m['map']['sourceField'], wid, m['map']['destinationField']))
             if wid in hw_in_mappings:
                 steps.append(('hw_in', wid, hw_in_mappings[wid]['map']['sourceField']))
+            if wid in grove_mappings:
+                # sourceField is "grove-<sensorId>-<readingIndex>" (see
+                # GroveSensor.js's remapSensor()) - the index is what
+                # aligns each mapping with the catalog read function's
+                # returned list, not mapping order in the saved JSON.
+                reading_map = {}
+                for m in grove_mappings[wid]:
+                    try:
+                        index = int(m['map']['sourceField'].rsplit('-', 1)[1])
+                    except (ValueError, IndexError):
+                        continue
+                    reading_map[index] = m['map']['destinationField']
+                steps.append(('grove_in', wid, reading_map))
             steps.append(('eval', wid))
             if wid in hw_out_mappings:
                 steps.append(('hw_out', wid, hw_out_mappings[wid]['map']['destinationField']))
@@ -1021,12 +1043,62 @@ class StandaloneInterpreter:
                     fs._apply_pin_mode(idx, firmata_server.PWM)
                 elif type_id == 'DigitalOut':
                     fs._apply_pin_mode(idx, firmata_server.OUTPUT)
+            elif step[0] == 'grove_in':
+                self._subscribe_grove_sensor(step[1])
+
+    def _subscribe_grove_sensor(self, wid):
+        """Subscribe a GroveSensor widget's sensor, calling its catalog
+        entry's read()/make_read() directly - same reuse-not-reimplement
+        approach as the pin methods above, just for
+        firmata_server.py's OTHER hardware abstraction (GROVE_SENSOR_CATALOG,
+        from pins.py) instead of _Pin. No sysex involved: this interpreter
+        is the one thing on this board that can just call these functions
+        itself instead of exchanging wire messages about them."""
+        values = self.widgets[wid]['values']
+        try:
+            sensor_id = int(_num(values.get('sensor'), -1))
+        except (TypeError, ValueError):
+            sensor_id = -1
+        entry = self._grove_catalog.get(sensor_id)
+        if entry is None:
+            print("standalone_interpreter: GroveSensor", wid, "- sensor", sensor_id, "not available on this board")
+            return
+        try:
+            if entry.get('needs_pin'):
+                pin_str = values.get('pin', '')
+                idx = _pin_index_for_dpin(self._fs.pins, pin_str)
+                if idx is None or self._fs.pins[idx].board_pin is None:
+                    print("standalone_interpreter: GroveSensor", wid, "- no usable pin", pin_str)
+                    return
+                read_fn, cleanup_fn = entry['make_read'](self._fs.pins[idx].board_pin)
+            elif entry.get('needs_mode'):
+                mode = int(_num(values.get('mode'), 0.0))
+                read_fn, cleanup_fn = entry['make_read'](mode)
+            else:
+                read_fn, cleanup_fn = entry['read'], None
+        except Exception as e:
+            print("standalone_interpreter: GroveSensor", wid, "failed to start:", e)
+            return
+        self._grove_subscriptions[wid] = {
+            'read': read_fn,
+            'cleanup': cleanup_fn,
+            'min_interval_ms': entry['min_interval_ms'],
+            'last_ms': 0,
+        }
 
     def release_hardware(self):
         """Call right before a real Firmata client connects, so its own
         fresh FirmataServer instance can claim the same physical pins
         without hitting "pin in use" errors."""
         self._fs.release_all_pins()
+        for sub in self._grove_subscriptions.values():
+            cleanup_fn = sub.get('cleanup')
+            if cleanup_fn is not None:
+                try:
+                    cleanup_fn()
+                except Exception:
+                    pass
+        self._grove_subscriptions = {}
 
     def tick(self):
         if not self.loaded:
@@ -1053,6 +1125,28 @@ class StandaloneInterpreter:
                     idx = _pin_index_for_dpin(fs.pins, pin_str)
                     if idx is not None and fs.pins[idx].io is not None:
                         w['values']['in'] = 1 if fs.pins[idx].io.value else 0
+            elif kind == 'grove_in':
+                _, wid, reading_map = step
+                sub = self._grove_subscriptions.get(wid)
+                if sub is not None:
+                    now_ms = now * 1000.0
+                    if now_ms - sub['last_ms'] >= sub['min_interval_ms']:
+                        sub['last_ms'] = now_ms
+                        try:
+                            readings = sub['read']()
+                        except Exception as e:
+                            # A sensor read can legitimately fail transiently
+                            # (I2C hiccup, a DHT11 checksum/timing miss) -
+                            # matches firmata_server.py's update()'s own
+                            # "report it, don't drop anything" handling for
+                            # the exact same catalog read functions.
+                            print("standalone_interpreter: GroveSensor", wid, "read failed:", e)
+                            readings = None
+                        if readings is not None:
+                            values = self.widgets[wid]['values']
+                            for index, dst_field in reading_map.items():
+                                if index < len(readings):
+                                    values[dst_field] = readings[index]
             elif kind == 'eval':
                 wid = step[1]
                 w = self.widgets[wid]
@@ -1098,7 +1192,25 @@ class StandaloneInterpreter:
         if type_id in BESPOKE_EVAL:
             BESPOKE_EVAL[type_id](values, state, now)
 
-        if type_id in CHAIN_TYPES:
+        if type_id == 'GroveSensor':
+            # Multiple independent readings (e.g. accelerometer x/y/z)
+            # share one scale/invert config but need SEPARATE smoother/
+            # easing state each - matches GroveSensor.js's own
+            # per-axis axisStates. outs[] comes from the saved widget
+            # itself (set by GroveSensor.js's remapSensor(), a real
+            # model attribute), not a hardcoded table - it already
+            # describes exactly the {from,to} pairs for whichever sensor
+            # is selected.
+            axis_states = state.setdefault('axis_state', {})
+            chain = CHAIN_FUNCTIONS_BY_TYPE['AnalogIn']
+            for pair in values.get('outs') or []:
+                from_field, to_field = pair.get('from'), pair.get('to')
+                if not from_field or not to_field:
+                    continue
+                axis_state = axis_states.setdefault(to_field, {})
+                axis_state['now'] = now
+                values[to_field] = _run_chain(chain, _num(values.get(from_field), 0.0), values, axis_state)
+        elif type_id in CHAIN_TYPES:
             chain = CHAIN_FUNCTIONS_BY_TYPE[type_id]
             for from_field, to_field in OUTS_BY_TYPE[type_id]:
                 values[to_field] = _run_chain(chain, _num(values.get(from_field), 0.0), values, state)
