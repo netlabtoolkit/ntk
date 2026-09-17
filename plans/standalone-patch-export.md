@@ -260,6 +260,64 @@ the sole feedback mechanism; the physical-display glance (option 1) is
 not being added — it needs specific hardware attached and isn't
 required. Option 2 deferred indefinitely.
 
+**Corrected understanding of option 3, found while wiring `code.py`'s
+explicit handoff (2026-09-17) — this is more limited than "watch while
+it keeps running":**
+
+- **Reconnecting always fully hands control back to NTK, it never
+  "watches" a still-running interpreter.** Explicit handoff (the design
+  we picked specifically to avoid two things writing the same pin at
+  once) means the interpreter releases its pins and stops ticking the
+  instant a client connects — before the fresh per-connection
+  `FirmataServer` claims those same pins. So "reconnect as monitor"
+  really means "reconnect, which stops standalone execution and resumes
+  host-driven operation," not passive observation of the device doing
+  its own thing.
+- **Only hardware *input* widgets (AnalogIn/DigitalIn/GroveSensor) are a
+  genuine live readback.** Firmata's reporting protocol only reports
+  input pins to a connected host - there's no mechanism for a device to
+  report an *output* pin's value back. Every other widget you'd see on
+  reconnect (IfThen, Servo, any logic/generator widget) is independently
+  **recomputed by NTK's own JS locally** from whatever input just
+  arrived - not read off the wire. It usually agrees with what the
+  device was doing, since both sides run the same deterministic logic
+  from the same live input, but it's a coincidence of parallel
+  computation, not a real observation - and once NTK reconnects, it's
+  NTK's own recompute that's now actually driving the hardware anyway
+  (see the previous point), so at that point it genuinely is accurate,
+  just not for the reason it might look like.
+- **A true "watch without taking over" mode is a real NTK-side feature,
+  not a firmware tweak.** NTK has no read-only / don't-drive-outputs
+  mode today - any Servo/AnalogOut/DigitalOut widget it has loaded
+  actively writes its computed value the moment it connects. Building
+  genuine passive monitoring (watch the interpreter keep running,
+  without ever taking over) would mean teaching NTK itself to suppress
+  that write behavior in some new mode, on top of a device-side protocol
+  addition to report output-pin values back (a Firmata sysex extension,
+  similar to how GroveSensor readings already work) - real new work on
+  both sides, with a real footgun if the suppression isn't airtight
+  (even one stray write at connect time reintroduces the exact
+  dual-driving conflict explicit handoff exists to prevent).
+  **Decided: not pursuing this for now** - the current behavior (any
+  connection = full handoff, never two things driving the same pin) is
+  being kept as the safe default rather than adding this complexity.
+  Standalone execution itself is completely unaffected by this decision
+  either way - it's a pure feedback/observability question, not a
+  capability gate.
+- **NTK does not pick up the patch from a connected device.** Connecting
+  to a device's IP only opens a live Firmata I/O channel (pin values in
+  and out) - there's no mechanism for NTK to fetch or reconstruct a
+  patch definition from what's running on the device.
+  `standalone_patch.json` lives only on the device's filesystem for the
+  interpreter's own use; nothing exposes it back over the wire. For
+  "reconnect and see the whole patch" to show anything meaningful at
+  all, the *same* `.ntk` file has to be separately imported into NTK
+  first - and if that local copy and the device's actual
+  `standalone_patch.json` ever drift apart (a newer patch exported to
+  the device but not re-imported into NTK), what you'd see on reconnect
+  is whatever NTK has loaded, not necessarily what the device is
+  actually running. Not addressed - flagged here, not yet a task.
+
 ## Live push-to-device deploy (idea, not fully designed)
 
 Rather than manually copying a patch file onto the device via Thonny /
