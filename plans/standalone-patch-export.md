@@ -24,10 +24,26 @@ on the device once deployed, no host required.
   (`modelWID` is a `deviceType:server:port` string like
   `network:192.168.4.1:3030`). This is already suitable as an
   interpreter's input with no reverse-engineering needed.
-- Which widgets are theoretically portable to a microcontroller:
+- Which widgets are theoretically portable to a microcontroller —
+  **corrected 2026-09-17** while writing the compatibility checker
+  (`app/scripts/utils/StandaloneCompatibility.js`), by checking every
+  widget's actual `categories:` field in the codebase against this list
+  rather than trusting the original scoping pass. Two corrections and
+  two additions (widgets that didn't exist yet when this was first
+  scoped):
   - **Portable** (pure math / timers, no browser API): AnalogIn / Out,
     DigitalIn / Out, Servo, GroveSensor, IfThen, Boolean, Gate, Mix,
-    Splitter, Process, Count, Pulse, Sequence, Tween, Data.
+    Splitter, Process, Count, **Concat**, Pulse, Sequence, Tween, Data.
+    **Concat was missing from the original list** — it's pure
+    string-join logic (`categories: ['logic']`), no browser API.
+  - **Looks portable by category but isn't — excluded deliberately:
+    Code.** Tagged `categories: ['logic']`, same as IfThen/Mix/etc., but
+    it's arbitrary user-authored JavaScript (a CodeMirror editor, `eval`
+    against inputs) — no CircuitPython interpreter can run that. This is
+    exactly the kind of error a naive category-based classification
+    would make, which is why the compatibility checker hardcodes the
+    portable `typeID` list explicitly instead of deriving it from
+    `categories:`.
   - **Deferred, not in v1 scope: Gesture.** Its DTW matching is pure
     arithmetic once its input comes from a real wired pin instead of the
     in-widget dial, so it's theoretically portable — but DTW is an
@@ -35,16 +51,45 @@ on the device once deployed, no host required.
     XIAO ESP32-C6 is itself an interpreted language running on a single
     RISC-V core, so per-tick cost is a real open question. Decided
     (2026-09-17) to leave it out of v1 and revisit later rather than
-    spend a spike on it now.
+    spend a spike on it now. (Update: a real-hardware spike since then
+    resolved the *non-Gesture* set's performance risk — see
+    [Sequencing](#sequencing-can-this-go-first) below — but Gesture
+    itself is still deferred out of scope, not re-evaluated.)
   - **Never portable:** FaceTrack / PoseRecog (camera + MediaPipe WASM),
     SpeechIn / SpeechOut (browser Speech API),
     Audio / Video / Image / HTML / Text / Button / Keyboard / Knob
-    (desktop-UI widgets — meaningless without the host's screen).
+    (desktop-UI widgets — meaningless without the host's screen), and
+    **ObjectRecog** (camera + local ML embedder, same as FaceTrack/
+    PoseRecog — didn't exist when this was first scoped). **Blank** is
+    a visual-only no-op (canvas spacer) — not meaningfully portable or
+    unportable, just irrelevant on-device.
   - **Gray area, deferred:** CloudIn / CloudOut / OSCIn / OSCOut / Webhook
     — technically possible over the board's own WiFi (UDP / HTTPS) but
-    real extra firmware work (TLS, etc.); not in v1 scope.
+    real extra firmware work (TLS, etc.); not in v1 scope. **LLM**
+    (didn't exist when this was first scoped) belongs in this same
+    bucket, not "never portable" — its Anthropic/Ollama API call is a
+    network request the board's own WiFi could technically carry, same
+    category of future work as Webhook/CloudOut, just deferred.
   - Any export / deploy step needs a compatibility check that clearly
-    rejects a patch using an unsupported widget, not a silent failure.
+    rejects a patch using an unsupported widget, not a silent failure -
+    **built 2026-09-17**, see [Compatibility checker](#compatibility-checker-built-2026-09-17) below.
+
+## Compatibility checker (built 2026-09-17)
+
+`app/scripts/utils/StandaloneCompatibility.js` — a plain AMD module (same
+convention as `SignalChainFunctions.js`), no UI wiring yet. Exports
+`PORTABLE_TYPE_IDS` (the hardcoded list above, not derived from
+`categories:`) and `checkPatch(patch)`, which takes the same
+`{widgets, mappings}` shape `Patcher#exportPatch`/`PatchLoader#loadJSON`
+already use and returns `{compatible: boolean, unsupportedWidgets:
+[{wid, typeID, title}]}` — naming exactly which widgets are the problem,
+not just pass/fail.
+
+Verified against representative patches (all-portable, empty, and a
+mixed patch with FaceTrack/SpeechOut/Code/Gesture mixed into an
+otherwise-portable set) under a minimal Node/AMD shim — all passing. Not
+yet wired to any UI (no "Export standalone patch" action calls it yet);
+that's the natural next step once this checker itself is in place.
 
 ## Recommended architecture: on-device generic interpreter (not codegen)
 
