@@ -26,8 +26,9 @@ define([
     'views/Splitter/Splitter',
     'views/item/RestrictiveOverlay',
     'views/GroveSensor/GroveSensor',
+    'utils/StandaloneCompatibility',
 ],
-function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, SplitterView, RestrictiveOverlayView, GroveSensorView){
+function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, SplitterView, RestrictiveOverlayView, GroveSensorView, StandaloneCompatibility){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -101,6 +102,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
 			window.app.vent.on('ToolBar:savePatch', this.savePatch, this);
 			window.app.vent.on('ToolBar:exportPatch', this.exportPatch, this);
+			window.app.vent.on('ToolBar:exportStandalonePatch', this.exportStandalonePatch, this);
 			window.app.vent.on('ToolBar:loadPatch', this.loadPatch, this);
 			window.app.vent.on('ToolBar:clearPatch', this.clearPatch, this);
 			window.app.vent.on('receivedDeviceModelUpdate', function(data) {
@@ -911,29 +913,72 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
         mappings: this.widgetMappings,
       };
 
-			// Built and downloaded entirely client-side (Blob + a throwaway
-			// <a download>), NOT round-tripped through the server's
-			// GET /patch.ntk?patch=<entire JSON as a URL-encoded query
-			// string> the way this used to work - a widget with any real
-			// amount of data (e.g. PoseRecog's recorded training examples)
-			// can push the encoded patch past the request-line length
-			// limit most HTTP servers enforce (Node's own default is well
-			// under 100KB), which fails the request outright. Worse, the
-			// old code drove that GET via window.location.href - a full-
-			// page navigation - so a failed request didn't just fail to
-			// download, it tore down the entire running SPA (blank/white
-			// canvas, "net::ERR_CONNECTION_RESET"). A Blob URL has no such
-			// size ceiling and never leaves the page.
+			this.downloadPatchAsFile(patch, 'patch.ntk');
+    },
+		/**
+		 * exportStandalonePatch - like exportPatch, but for a patch meant to
+		 * run on the device's own on-device interpreter with no host
+		 * present. Rejects clearly (see plans/standalone-patch-export.md's
+		 * "Grounding facts") rather than silently downloading a patch the
+		 * device can't actually run, and names exactly which widgets are
+		 * the problem.
+		 *
+		 * @return {void}
+		 */
+		exportStandalonePatch: function() {
+			var patch = {
+				widgets: this.widgetModels.toJSON(),
+				mappings: this.widgetMappings,
+			};
+
+			var result = StandaloneCompatibility.checkPatch(patch);
+
+			if(!result.compatible) {
+				var widgetList = _.map(result.unsupportedWidgets, function(widget) {
+					return (widget.title || widget.typeID) + ' (' + widget.typeID + ')';
+				}).join('\n');
+
+				alert(
+					'This patch can\'t be exported for standalone use - it uses widgets ' +
+					'the on-device interpreter doesn\'t support yet:\n\n' + widgetList
+				);
+
+				return;
+			}
+
+			this.downloadPatchAsFile(patch, 'standalone_patch.json');
+		},
+		/**
+		 * downloadPatchAsFile - shared by exportPatch/exportStandalonePatch.
+		 * Built and downloaded entirely client-side (Blob + a throwaway
+		 * <a download>), NOT round-tripped through the server's
+		 * GET /patch.ntk?patch=<entire JSON as a URL-encoded query
+		 * string> the way this used to work - a widget with any real
+		 * amount of data (e.g. PoseRecog's recorded training examples)
+		 * can push the encoded patch past the request-line length
+		 * limit most HTTP servers enforce (Node's own default is well
+		 * under 100KB), which fails the request outright. Worse, the
+		 * old code drove that GET via window.location.href - a full-
+		 * page navigation - so a failed request didn't just fail to
+		 * download, it tore down the entire running SPA (blank/white
+		 * canvas, "net::ERR_CONNECTION_RESET"). A Blob URL has no such
+		 * size ceiling and never leaves the page.
+		 *
+		 * @param {object} patch {widgets, mappings}
+		 * @param {string} filename
+		 * @return {void}
+		 */
+		downloadPatchAsFile: function(patch, filename) {
 			var blob = new Blob([JSON.stringify(patch)], {type: 'application/octet-stream'});
 			var blobURL = URL.createObjectURL(blob);
 			var link = document.createElement('a');
 			link.href = blobURL;
-			link.download = 'patch.ntk';
+			link.download = filename;
 			document.body.appendChild(link);
 			link.click();
 			document.body.removeChild(link);
 			URL.revokeObjectURL(blobURL);
-    },
+		},
 		clearPatch: function() {
 			var emptyPatch = {"widgets":[],"mappings":[]};
 

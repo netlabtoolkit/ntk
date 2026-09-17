@@ -12,6 +12,7 @@ function( app, Backbone, Template, Widgets ) {
 		events: {
 			'click .savePatch': 'savePatch',
 			'click .downloadPatch': 'downloadPatch',
+			'click .downloadStandalonePatch': 'downloadStandalonePatch',
 			'click .loadPatch': 'showUploadFileDialog',
 			'click .clearPatch': 'clearPatch',
             'click .hideWidgets': 'hideWidgets',
@@ -336,6 +337,9 @@ function( app, Backbone, Template, Widgets ) {
 			// live in-memory widget models, it was never depending on
 			// the save having happened first.
 			window.app.vent.trigger('ToolBar:exportPatch');
+		},
+		downloadStandalonePatch: function() {
+			window.app.vent.trigger('ToolBar:exportStandalonePatch');
 		},
         hideWidgets: function() {
 			this.widgetsVisible = !this.widgetsVisible;

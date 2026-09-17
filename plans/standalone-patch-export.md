@@ -87,9 +87,18 @@ not just pass/fail.
 
 Verified against representative patches (all-portable, empty, and a
 mixed patch with FaceTrack/SpeechOut/Code/Gesture mixed into an
-otherwise-portable set) under a minimal Node/AMD shim — all passing. Not
-yet wired to any UI (no "Export standalone patch" action calls it yet);
-that's the natural next step once this checker itself is in place.
+otherwise-portable set) under a minimal Node/AMD shim — all passing.
+
+**Wired to a real UI action (2026-09-17):** a new "Export Standalone"
+button in the Settings drawer (`downloadStandalonePatch` in
+`ToolBar_tmpl.js`/`ToolBar.js`) triggers `Patcher#exportStandalonePatch`,
+which runs `checkPatch()` and either downloads `standalone_patch.json`
+(compatible) or shows an `alert()` naming the unsupported widgets
+(incompatible) — reusing `exportPatch`'s existing Blob-download code via
+a shared `downloadPatchAsFile()` helper. User-tested in the real running
+app on both paths: a 3-widget compatible patch downloaded
+`standalone_patch.json` correctly, and adding a FaceTrack widget
+produced the expected alert instead of a download.
 
 ## Recommended architecture: on-device generic interpreter (not codegen)
 
