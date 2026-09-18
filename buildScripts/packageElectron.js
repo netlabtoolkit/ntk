@@ -36,7 +36,7 @@ const ENTITLEMENTS = path.join(__dirname, 'entitlements.mac.plist');
 // XIAO ESP32-C6 board - see firmware/xiao-esp32c6-circuitpython-firmata/
 // README.md for the full dev-facing version this is adapted from.
 const FIRMWARE_SRC_DIR = path.join(__dirname, '..', 'firmware', 'xiao-esp32c6-circuitpython-firmata');
-const FIRMWARE_FILES = ['code.py', 'firmata_server.py', 'pins.py', 'grove_lcd.py', 'settings.toml.example'];
+const FIRMWARE_FILES = ['code.py', 'firmata_server.py', 'pins.py', 'grove_lcd.py', 'standalone_interpreter.py', 'settings.toml.example'];
 const CIRCUITPYTHON_README = `# CircuitPython firmware for the Seeed XIAO ESP32-C6
 
 Turns a Seeed XIAO ESP32-C6 into an NTK "Network" device over WiFi - no
