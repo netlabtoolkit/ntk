@@ -197,6 +197,36 @@ Repeated import churn without a soft-reboot between test runs also hit a
 real `MemoryError` (heap fragmentation) — a clean Ctrl-D soft-reboot
 before each fresh test run avoided both.
 
+**A third gotcha, more serious - heavy REPL/interrupt testing can trip
+the board's own watchdog reset-loop guard (2026-09-18).** After a long
+device-testing session (this one), AnalogIn/DigitalOut widgets stopped
+receiving any data at all when pointed at the board from a real NTK
+build - looked exactly like an app or firmware regression. It wasn't
+either. `_reset_loop_guard()` (existing code, predates this branch -
+see `code.py`'s own layer-3 boot check) tracks consecutive watchdog
+resets in `microcontroller.nvm[0]`; once it hits `_MAX_WDT_RESETS`, it
+deliberately refuses to start Firmata at all and drops straight to the
+REPL instead ("Firmata NOT started so you can get in and fix it") - a
+safety net against an infinite reset loop, working exactly as designed.
+The nvm counter is **not** cleared by a soft-reboot (Ctrl-D) - soft
+reload doesn't touch `microcontroller.cpu.reset_reason`, so it still
+reads as WATCHDOG and the counter keeps climbing on every soft-reboot
+after that point, never recovering on its own. Diagnosed by directly
+probing the Firmata TCP port with a raw, hand-built `REPORT_ANALOG`
+message (bypassing NTK and johnny-five entirely) and getting zero bytes
+back - clean, protocol-level evidence pointing at the device, not the
+app. Fixed with `microcontroller.nvm[0] = 0` over the REPL followed by
+a REAL hardware reset (`microcontroller.reset()`, not Ctrl-D) - confirmed
+both the pre-existing (unmodified) firmware AND this branch's own
+`code.py`/`standalone_interpreter.py` stream real Firmata reports
+correctly once the guard is cleared, and process a DigitalOut write
+cleanly too. **Take-away for future sessions:** after a lot of Ctrl-C/
+soft-reboot churn against real hardware, a plain power-cycle is not
+guaranteed to un-stick this guard if it already tripped - check for the
+"Firmata NOT started" message specifically, and clear
+`microcontroller.nvm[0]` plus a real hardware reset if seen, rather than
+assuming a power-cycle alone fixed it.
+
 **`code.py` wiring — done and hardware-verified (2026-09-17).** At boot,
 `code.py` checks for `standalone_patch.json` (auto-detect, no
 `settings.toml` flag — see the "Decided" note above); if present and
