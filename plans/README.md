@@ -226,3 +226,8 @@ and shipped. Its historical step-by-step plan is at
 - **[LLM widget](llm-widget.md)** — text prompt → LLM → text response,
   provider (Anthropic / OpenAI / Ollama / OpenAI-compatible) and model
   picked in the "more" panel.
+- **[Sensor fusion](sensor-fusion.md)** — two options: a general
+  "Fusion" widget (weighted sum/average/magnitude across up to 6
+  inputs, for both accelerometer-axis and dissimilar-sensor fusion), and
+  a separate, bigger multi-channel Gesture redesign for real
+  gesture-recognition accuracy. Recommendation: build Fusion first.

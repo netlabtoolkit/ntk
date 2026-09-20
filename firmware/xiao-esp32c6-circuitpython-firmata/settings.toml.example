@@ -1,5 +1,12 @@
-CIRCUITPY_WIFI_SSID="your-wifi-name"
-CIRCUITPY_WIFI_PASSWORD="your-wifi-password"
+# Deliberately NOT named CIRCUITPY_WIFI_SSID/CIRCUITPY_WIFI_PASSWORD -
+# CircuitPython's own supervisor auto-joins whatever network is under
+# those exact standard names, independently of code.py, for its own
+# status/title-bar purposes (hardware-verified 2026-09-19: this was
+# silently running the board in concurrent AP+STA mode the whole time
+# SoftAP mode was active below, degrading it - see code.py's own
+# comment). Using our own key names here avoids that entirely.
+NTK_WIFI_SSID="your-wifi-name"
+NTK_WIFI_PASSWORD="your-wifi-password"
 
 # --- Optional: SoftAP mode (board makes its own WiFi, fixed IP 192.168.4.1) ---
 # Use when there is no usable router. The computer joins the board's network

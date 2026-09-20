@@ -36,7 +36,7 @@ const ENTITLEMENTS = path.join(__dirname, 'entitlements.mac.plist');
 // XIAO ESP32-C6 board - see firmware/xiao-esp32c6-circuitpython-firmata/
 // README.md for the full dev-facing version this is adapted from.
 const FIRMWARE_SRC_DIR = path.join(__dirname, '..', 'firmware', 'xiao-esp32c6-circuitpython-firmata');
-const FIRMWARE_FILES = ['code.py', 'firmata_server.py', 'pins.py', 'grove_lcd.py', 'standalone_interpreter.py', 'settings.toml.example'];
+const FIRMWARE_FILES = ['code.py', 'ntk_firmata_main.py', 'firmata_server.py', 'pins.py', 'standalone_interpreter.py', 'settings.toml.example'];
 const CIRCUITPYTHON_README = `# CircuitPython firmware for the Seeed XIAO ESP32-C6
 
 Turns a Seeed XIAO ESP32-C6 into an NTK "Network" device over WiFi - no
@@ -50,9 +50,9 @@ Arduino IDE, no C++, just these files copied onto the board.
    use [Thonny](https://thonny.org/) (Tools > Options > Interpreter >
    CircuitPython, pick the board's serial port) to browse and transfer
    files on the device over its serial/REPL connection instead.
-2. In Thonny's file browser, copy \`code.py\`, \`firmata_server.py\`, and
-   \`pins.py\` from this folder onto the board, overwriting any existing
-   \`code.py\`.
+2. In Thonny's file browser, copy \`code.py\`, \`ntk_firmata_main.py\`,
+   \`firmata_server.py\`, and \`pins.py\` from this folder onto the
+   board, overwriting any existing \`code.py\`.
 3. Copy \`settings.toml.example\` to \`settings.toml\` on the board the
    same way, and edit it there to fill in your WiFi network name and
    password.
@@ -102,9 +102,9 @@ Join the \`NTK-Firmata\` network from your computer, then point NTK's
 the board's network your computer has no normal WiFi/internet, it's one
 board at a time, and range is shorter than joining a real router.
 
-If the board seems stuck on boot while starting SoftAP: there's an
-8-second "press Ctrl-C now" countdown printed right before it starts
-(this step has no built-in timeout the way joining a normal WiFi
+If the board seems stuck on boot while starting SoftAP: there's a
+brief "press any key now" window printed right at the very start of
+boot (this step has no built-in timeout the way joining a normal WiFi
 network does), but if it's already past that and hung, only Thonny's
 Stop button can force a harder interrupt.
 
@@ -125,14 +125,6 @@ firmware controls. Reliable recovery: switch Thonny's interpreter away
 from the board's serial port, unplug the board, replug it and wait
 about 10 seconds without touching Thonny, then switch Thonny's
 interpreter back to that port.
-
-## Optional: show the IP on a Grove LCD RGB Backlight
-
-Wire a Grove - LCD RGB Backlight to the board's I2C pins and it'll show
-the station-mode IP address (and turn the backlight green) once
-connected - no serial console needed. Nothing to configure; if it isn't
-attached, wired wrong, or the bus lacks pull-ups (see Troubleshooting
-below), it's skipped silently and the board boots normally either way.
 
 ## Optional: Grove sensors (NTK's GroveIn widget)
 
@@ -195,7 +187,7 @@ support, and can be edited to match your hardware.
   expects PWM writes as 0-255, matching classic Arduino - if something
   upstream assumes ESP32-native ranges (0-4095 ADC, 0-65535 PWM),
   that's the mismatch to look for.
-- **An I2C device (Grove LCD, accelerometer, etc.) prints "No pull up
+- **An I2C device (accelerometer, distance sensor, etc.) prints "No pull up
   found on SDA or SCL; check your wiring"**: a real electrical issue -
   I2C can't work without pull-up resistors somewhere on the bus, and not
   every Grove module or expander I2C port supplies its own. Fix: two
@@ -206,14 +198,6 @@ support, and can be edited to match your hardware.
   e.g. "A5") - the numbered Grove sockets (D5, D7, etc.) look identical
   but most are plain digital pins with no SDA/SCL wired to them, so the
   wrong socket looks exactly like a wiring/pull-up problem.
-- **Grove LCD RGB Backlight: backlight lights up and changes color, but
-  no text ever appears**, even with I2C ACKing cleanly and no errors:
-  older Grove LCD RGB Backlight boards (v1.0-v4.x - only v5.0 added
-  "5V/3.3V compatibility") are 5V-only. At 3.3V (what this board's Grove
-  sockets supply) I2C still works fine, but the text contrast bias is
-  too weak to see. Fix: power the display's VCC pin from a genuine 5V
-  source instead of the Grove socket's 3.3V pin (SDA/SCL/GND stay as
-  normal), or use a v5.0 board.
 `;
 
 function bundleCircuitPythonFirmware(destDir) {

@@ -290,13 +290,14 @@ for the monitoring ones):
 
 Three options were discussed:
 
-1. **Physical display** — firmware already supports a Grove LCD
-   (`grove_lcd.py`, used today for the station-mode IP), though the
-   user's actual hardware for this project is a different OLED display,
-   not that RGB LCD — a physical-display option here would target the
-   OLED, with new device-side driver code, not reuse `grove_lcd.py`.
-   Self-contained, no WiFi dependency once flashed, but limited display
-   real estate and needs that specific hardware attached.
+1. **Physical display** — the firmware previously supported a Grove LCD
+   (`grove_lcd.py`, used for the station-mode IP; removed 2026-09-19,
+   Phil's unit was too old to work), and the user's actual hardware for
+   this project is a different OLED display anyway — a physical-display
+   option here would target the OLED, with new device-side driver code
+   written from scratch. Self-contained, no WiFi dependency once
+   flashed, but limited display real estate and needs that specific
+   hardware attached.
 2. **A standalone WiFi status / logging HTTP endpoint** (e.g.
    `GET /status`) — useful but real new firmware surface; nothing in this
    firmware implements an HTTP server today (only the raw Firmata TCP

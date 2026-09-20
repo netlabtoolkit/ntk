@@ -26,8 +26,9 @@ boards - use [Thonny](https://thonny.org/) (Tools > Options > Interpreter
 > CircuitPython, pick the board's serial port) to browse and transfer
 files on the device over its serial/REPL connection instead.
 
-1. In Thonny's file browser, copy `code.py`, `firmata_server.py`, and
-   `pins.py` onto the board (overwriting any existing `code.py`).
+1. In Thonny's file browser, copy `code.py`, `ntk_firmata_main.py`,
+   `firmata_server.py`, and `pins.py` onto the board (overwriting any
+   existing `code.py`).
 2. Copy `settings.toml.example` to `settings.toml` on the board the same
    way, and fill in your WiFi SSID/password.
 3. The board will reset and run `code.py` automatically. Watch the
@@ -70,7 +71,7 @@ once and carries on normally.
 ## SoftAP mode (no router needed)
 
 By default the board joins the WiFi named in `settings.toml`
-(`CIRCUITPY_WIFI_SSID`) and gets its address from that network's DHCP -
+(`NTK_WIFI_SSID`) and gets its address from that network's DHCP -
 which is why you have to read the IP off the serial console.
 
 Set `NTK_WIFI_MODE = "ap"` in `settings.toml` to instead have the board
@@ -125,12 +126,13 @@ No unplugging required.
 `wifi.radio.connect()` (station mode), which takes a `timeout` so
 Ctrl-C gets a window to land between retries, `wifi.radio.start_ap()`
 has no such option - there's no way to bound or interrupt that specific
-call from Python if it hangs. There's an 8-second "press Ctrl-C now"
-countdown (re-printed every second) right before it starts, so Ctrl-C
-works if you catch that - and if it's already past that and hung inside
-`start_ap()` itself, the **watchdog** (above) resets the board within
-~20 s so you get another shot, or **Thonny's Stop button** can force a
-harder interrupt.
+call from Python if it hangs. The general escape hatch above (a
+keystroke in the first few seconds of boot) is the only window to catch
+before it starts; the watchdog isn't armed yet at that point either
+(see `code.py`'s own comment for why SoftAP has to start before
+anything else, including the watchdog setup, is even imported), so a
+genuine hang inside `start_ap()` itself needs **Thonny's Stop button**
+to force an interrupt.
 
 **If the board seems stuck on boot before it even gets that far (neither
 Ctrl-C nor Thonny's Stop button work)**: `pins.py` probes each
@@ -159,22 +161,12 @@ without touching Thonny, then switch Thonny's interpreter back to that
 port** - the REPL comes back cleanly once Thonny only attaches after the
 board has already finished booting on its own, instead of racing it.
 
-## Optional: show the IP on a Grove LCD RGB Backlight
-
-Wire a [Grove - LCD RGB Backlight](https://wiki.seeedstudio.com/Grove-LCD_RGB_Backlight/)
-to the board's I2C pins and it'll show the station-mode IP address (and
-turn the backlight green) once connected - no serial console needed.
-Nothing to configure - `grove_lcd.py` is used automatically if present,
-and if the display isn't attached, wired wrong, or the bus lacks
-pull-ups (see Troubleshooting below), it's skipped silently and the
-board boots normally either way.
-
 ## Optional: Grove sensors (NTK's GroveIn widget)
 
 Wire a supported Grove sensor to the board (I2C pins for most; a
 digital pin for the DHT11, see below) and copy this folder's `lib/`
 subfolder onto the device (Thonny, alongside
-`code.py`/`firmata_server.py`/`pins.py`) - no other setup needed.
+`code.py`/`ntk_firmata_main.py`/`firmata_server.py`/`pins.py`) - no other setup needed.
 `pins.py` detects each I2C sensor at boot (skipped silently, no error,
 if not attached, wired wrong, or the bus lacks pull-ups - see
 Troubleshooting below) and makes it available to add a **GroveIn**
@@ -245,10 +237,12 @@ Normally every bit of patch logic runs on the host (NTK itself) - this firmware 
 Setup:
 
 1. In NTK, build your patch and click **Export Standalone** (in the Settings drawer, next to the regular Export button). If the patch uses a widget the interpreter can't run, NTK tells you exactly which one instead of exporting a broken file.
-2. Copy the downloaded `standalone_patch.json`, plus this folder's `standalone_interpreter.py`, onto the board via Thonny alongside `code.py`/`firmata_server.py`/`pins.py`.
+2. Copy the downloaded `standalone_patch.json`, plus this folder's `standalone_interpreter.py`, onto the board via Thonny alongside `code.py`/`ntk_firmata_main.py`/`firmata_server.py`/`pins.py`.
 3. Reboot the board. The serial console prints `Standalone patch loaded and compatible: standalone_patch.json`, and the board starts running the patch on its own - watch for `Standalone interpreter running (no client connected)`.
 
 Supported widgets: AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, GroveSensor, and all the pure logic/generator widgets (IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse, Sequence, Tween, Data) - the same widgets a `.ntk` patch already saves, no special "standalone" version needed. Not supported: Gesture (an open on-device performance question, not yet resolved) and anything that needs a browser (camera/AI widgets, Text/Image/Button, etc.) - NTK's Export Standalone button already checks this before letting you export.
+
+While the interpreter is running (no client connected), the serial console takes two single-key commands, no Enter needed - handy for verifying a patch without ever connecting NTK: `t` reprints the patch's topology (e.g. `A0 -> AnalogIn -> Splitter -> Mix -> Servo -> D5`), and `v` prints every live inlet/outlet value along those same chains (e.g. `A0 -> AnalogIn(out=847) -> Splitter(out4=64) -> Mix(out1=61) -> Servo(out=61.0) -> D5(61.0)`).
 
 **Reconnecting NTK to the board hands control back to NTK, not just "watches."** The moment a client connects, the interpreter stops and releases every pin it was driving, exactly like it would for a live (non-standalone) connection - there's no way to peek at the interpreter running without taking over from it. This is deliberate (it's what keeps the interpreter and a connected NTK from ever fighting over the same pin), not a bug. Disconnecting hands control back to the interpreter again automatically.
 
@@ -285,7 +279,7 @@ widgets if you hit this.
   and expects PWM writes as 0-255, matching classic Arduino - if
   something upstream is assuming ESP32-native ranges (0-4095 ADC, 0-255
   vs 0-65535 PWM), that's the mismatch to look for.
-- **An I2C device (Grove LCD, accelerometer, etc.) prints "No pull up
+- **An I2C device (accelerometer, distance sensor, etc.) prints "No pull up
   found on SDA or SCL; check your wiring"**: a real electrical issue,
   not a false-positive check - I2C is open-drain and genuinely can't
   work without pull-up resistors somewhere on the bus. Most Grove I2C
@@ -295,9 +289,9 @@ widgets if you hit this.
   expander boards expose individual SDA/SCL/3V3 pins on a breakout
   header specifically for this, separate from the Grove connectors
   themselves.
-- **An I2C device does nothing, and (using `test_grove_lcd.py`'s
-  scan-first pattern, or just calling `i2c.scan()` yourself in the REPL)
-  the scan finds no devices at all even after adding pull-ups**: double
+- **An I2C device does nothing, and (calling `i2c.scan()` yourself in
+  the REPL) the scan finds no devices at all even after adding
+  pull-ups**: double
   check it's plugged into the socket actually labeled I2C (often also
   labeled with an analog pin, e.g. "A5") - the numbered Grove sockets
   (D5, D7, etc.) look physically identical but most of them are plain
@@ -306,20 +300,3 @@ widgets if you hit this.
   from the software side (an `OSError: [Errno 5] Input/output error` -
   ESP32 CircuitPython's generic way of reporting "nothing ACKed") but is
   actually just the wrong socket.
-- **Grove LCD RGB Backlight: backlight lights up and changes color, but
-  no text ever appears** - even with every I2C write ACKing cleanly and
-  no errors at all. This almost certainly means the display itself is
-  being run underpowered. Older Grove LCD RGB Backlight boards (v1.0
-  through v4.x, including v2.0 - only the current v5.0 added "5V/3.3V
-  compatibility") are **5V-only**: their text contrast is generated by
-  an internal bias circuit referenced off VCC, so at 3.3V (what most
-  Grove sockets on 3.3V boards like the XIAO ESP32-C6 supply) the I2C
-  protocol still works perfectly - the LCD's separate RGB backlight
-  chip only needs *some* reasonable voltage to light up - but the text
-  contrast bias is too weak to see any characters. A quick way to
-  confirm which generation you have: the RGB backlight chip responds at
-  I2C address `0x62` (PCA9633, the older/5V-only design) vs `0x30`
-  (SGM31323, v5.0's 3.3V-compatible design) - see `grove_lcd.py`'s
-  comments. Fix: power the display's VCC pin from a genuine 5V source
-  instead of the Grove socket's 3.3V pin (keep SDA/SCL/GND wired as
-  normal), or swap in a v5.0 board if you have one.

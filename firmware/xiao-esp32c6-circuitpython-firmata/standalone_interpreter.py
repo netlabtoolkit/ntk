@@ -933,7 +933,120 @@ class StandaloneInterpreter:
         self._build_steps(widgets, mappings)
         self.loaded = True
         self.error = None
+        self.print_topology()
         return True
+
+    def _trace_paths(self):
+        """Shared path-tracing core for both print_topology() and
+        _log_values() - added 2026-09-19 so the two stay in lockstep
+        (same paths, same collapsing/loop/unreached rules) instead of
+        two independently-maintained implementations drifting apart.
+        Built from the same edges _build_steps() already computed
+        (self.steps), not a second parse of the raw patch.
+
+        Returns (paths, unreached): paths is a list of lists of
+        ('hw', pin_string) / ('w', wid, out_field) tuples - out_field is
+        the field whose value flows OUT of that widget into the NEXT
+        entry in the path (None for the last widget in a path with no
+        further edge - i.e. a dead end with no hw_out). unreached is a
+        list of wids no hw_in path reaches at all."""
+        hw_in_pin = {}   # wid -> pin string (e.g. "A0")
+        hw_out_pin = {}  # wid -> pin string (e.g. "D5")
+        outgoing = {}    # wid -> [(dst_wid, src_field), ...]
+        for step in self.steps:
+            kind = step[0]
+            if kind == 'hw_in':
+                hw_in_pin[step[1]] = step[2]
+            elif kind == 'hw_out':
+                hw_out_pin[step[1]] = step[2]
+            elif kind == 'grove_in':
+                hw_in_pin[step[1]] = "Grove"
+            elif kind == 'map':
+                _, src_wid, src_field, dst_wid, _dst_field = step
+                outgoing.setdefault(src_wid, []).append((dst_wid, src_field))
+
+        def walk(wid, visited):
+            # DFS to every leaf - a widget with no further outgoing
+            # edges, hardware output or not. Cycle-safe (a patch with a
+            # feedback loop just stops re-entering a wid already on this
+            # path rather than recursing forever).
+            if wid in hw_out_pin:
+                yield [('w', wid, None), ('hw', hw_out_pin[wid])]
+                return
+            nexts = outgoing.get(wid, [])
+            if not nexts:
+                yield [('w', wid, None)]
+                return
+            for dst_wid, src_field in nexts:
+                if dst_wid in visited:
+                    yield [('w', wid, src_field), ('loop', dst_wid)]
+                    continue
+                for rest in walk(dst_wid, visited | {dst_wid}):
+                    yield [('w', wid, src_field)] + rest
+
+        paths = []
+        seen = set()
+        for wid, pin in hw_in_pin.items():
+            for path in walk(wid, {wid}):
+                full = [('hw', pin)] + path
+                # A widget can have several separate output wires to the
+                # same destination (e.g. Splitter's 4 outs all feeding
+                # Mix's 4 ins) - each is a real, distinct edge in
+                # self.steps. Collapse only exact duplicates (same wids
+                # AND same fields throughout), which topology-only
+                # rendering can still produce when two DIFFERENT fields
+                # happen to look identical once only widget names are
+                # shown, but value rendering (which cares about the
+                # field) tells them apart correctly on its own.
+                key = tuple(full)
+                if key not in seen:
+                    seen.add(key)
+                    paths.append(full)
+
+        # Widgets untouched by any hw_in path (e.g. isolated logic with
+        # no live input yet, or a patch with no hardware input at all)
+        # still deserve a mention rather than silently vanishing.
+        # Full transitive closure, not just one hop.
+        reached = set()
+        frontier = list(hw_in_pin.keys())
+        while frontier:
+            wid = frontier.pop()
+            if wid in reached:
+                continue
+            reached.add(wid)
+            frontier.extend(dst_wid for dst_wid, _ in outgoing.get(wid, []))
+        unreached = [wid for wid in self.widgets if wid not in reached]
+
+        return paths, unreached
+
+    def print_topology(self):
+        """Human-readable one-line-per-path summary of the loaded patch,
+        e.g. 'A0 -> AnalogIn -> Splitter -> Mix -> Servo -> D5' - added
+        2026-09-19 so a patch's actual wiring can be checked from the
+        serial console alone, without needing to read the raw JSON or a
+        working NTK connection."""
+        paths, unreached = self._trace_paths()
+
+        def render_node(node):
+            if node[0] == 'hw':
+                return node[1]
+            if node[0] == 'loop':
+                return "(loop back to %s)" % self.widgets[node[1]]['typeID']
+            return self.widgets[node[1]]['typeID']
+
+        lines = []
+        seen = set()
+        for path in paths:
+            rendered = " -> ".join(render_node(n) for n in path)
+            if rendered not in seen:
+                seen.add(rendered)
+                lines.append(rendered)
+        for wid in unreached:
+            lines.append("(unreached) %s" % self.widgets[wid]['typeID'])
+
+        print("standalone patch topology:")
+        for line in lines:
+            print(" ", line)
 
     def _build_steps(self, widgets, mappings):
         widget_ids = set(self.widgets.keys())
@@ -1182,6 +1295,80 @@ class StandaloneInterpreter:
                         fs._handle_analog_write(idx, pulse_us)
                     else:
                         fs._handle_analog_write(idx, out_value)
+
+    def print_values(self):
+        """Periodic serial dump of the patch's live values, in the same
+        chain layout as print_topology() (e.g.
+        'A0 -> AnalogIn(out=499) -> Splitter(out3=0) -> Mix(out1=61) ->
+        Servo(out=61) -> D5') - added 2026-09-19, reworked the same day
+        to share _trace_paths() with the topology printer rather than a
+        separately-maintained flat per-widget dump, so a value can be
+        read in the context of which specific wire it's flowing over
+        (a widget with several ports, e.g. Splitter/Mix, only shows the
+        one field actually relevant to that particular path)."""
+        paths, unreached = self._trace_paths()
+
+        def field_and_value(wid, out_field):
+            """(field_name, value) for this widget node, resolving a
+            terminal node's field via OUTS_BY_TYPE when the path itself
+            carried none - a hw_out widget (Servo/AnalogOut/DigitalOut)
+            with no further widget-to-widget edge has no 'map' step to
+            have supplied a field name, but its own declared output
+            field is exactly what FirmataServer actually writes to the
+            pin, so use that instead of showing nothing."""
+            field = out_field
+            if field is None:
+                outs = OUTS_BY_TYPE.get(self.widgets[wid]['typeID'])
+                field = outs[0][1] if outs else None
+            if field is None:
+                return None, None
+            return field, self.widgets[wid]['values'].get(field)
+
+        def render(path):
+            rendered = []
+            carry_value = None  # value flowing INTO the current node
+            for node in path:
+                if node[0] == 'hw':
+                    pin = node[1]
+                    rendered.append("%s(%s)" % (pin, carry_value) if carry_value is not None else pin)
+                elif node[0] == 'loop':
+                    rendered.append("(loop back to %s)" % self.widgets[node[1]]['typeID'])
+                else:  # 'w'
+                    _, wid, out_field = node
+                    type_id = self.widgets[wid]['typeID']
+                    field, value = field_and_value(wid, out_field)
+                    if field is not None:
+                        rendered.append("%s(%s=%s)" % (type_id, field, value))
+                    else:
+                        rendered.append(type_id)
+                    carry_value = value
+            return " -> ".join(rendered)
+
+        lines = []
+        seen = set()
+        for path in paths:
+            rendered = render(path)
+            if rendered not in seen:
+                seen.add(rendered)
+                lines.append(rendered)
+
+        for wid in unreached:
+            w = self.widgets[wid]
+            values = w['values']
+            type_id = w['typeID']
+            bits = []
+            seen_fields = set()
+            for port_list in (values.get('ins'), values.get('outs')):
+                for port in port_list or []:
+                    field = port.get('to')
+                    if field and field not in seen_fields:
+                        seen_fields.add(field)
+                        bits.append("%s=%s" % (field, values.get(field)))
+            lines.append("(unreached) %s[%s]" % (type_id, ",".join(bits)))
+
+        print("standalone values:")
+        for line in lines:
+            print(" ", line)
 
     def _eval_widget(self, w, now):
         type_id = w['typeID']
