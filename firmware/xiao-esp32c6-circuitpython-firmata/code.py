@@ -708,15 +708,18 @@ if wifi_mode == "ap":
 else:
     connect_wifi()
 
-# Bisection step (see firmware-wifi-order-test's own history): imported
-# here, AFTER WiFi is already up, instead of before it (as the earlier,
-# reverted "import standalone_interpreter.py, unused" step on
-# firmware-wifi-reliable-baseline did) - testing whether it's the
-# ORDERING relative to the WiFi call that matters (heap fragmentation
-# only hurts a WiFi call made from within a module with a lot of
-# already-compiled code - see this file's own module docstring), not
-# merely the module's existence. Deliberately still unused - no
-# standalone_patch.json auto-detection, no wiring into run_server().
+# Imported here, AFTER WiFi is already up, not before - and MUST be
+# deployed as compiled bytecode (standalone_interpreter.mpy), not the
+# raw .py source (see that file's own module docstring for why - heap
+# fragmentation from compiling ~1200 lines of source on-device degrades
+# WiFi reliability; a pre-compiled .mpy avoids that cost). Both were
+# tested in isolation on real hardware 2026-09-20 (see the
+# firmware-wifi-reliable-baseline / firmware-wifi-order-test /
+# firmware-wifi-mpy-fix branch history): ordering alone did NOT fix it
+# (still failed under a real sustained connection), pre-compiling did (6/6
+# automated trials plus a real AnalogIn->Servo session). Deliberately
+# still unused here - no standalone_patch.json auto-detection, no wiring
+# into run_server() yet; that's the next step once this base is trusted.
 try:
     from standalone_interpreter import StandaloneInterpreter, load_patch_file
 except ImportError:
