@@ -357,22 +357,6 @@ feed()
 from pins import PIN_TABLE, GROVE_SENSOR_CATALOG
 feed()
 
-# Deliberately import-only, not wired into anything below - testing
-# whether standalone_interpreter.py's mere presence/compilation (a
-# large module, ~1200 lines) degrades WiFi call reliability on its own
-# via the same heap-fragmentation mechanism documented at the top of
-# this file for start_ap()/connect(), independent of whether a
-# standalone patch is ever actually loaded or ticked. See
-# firmware-wifi-reliable-baseline's own history and the
-# standalone-patch-export branch for the full context - this is a
-# deliberate, isolated bisection step, not a step toward re-wiring the
-# feature back in yet.
-try:
-    from standalone_interpreter import StandaloneInterpreter, load_patch_file
-except ImportError:
-    StandaloneInterpreter = None
-feed()
-
 FIRMATA_PORT = 3030
 
 # Not necessarily defined in every CircuitPython build's errno module, so
