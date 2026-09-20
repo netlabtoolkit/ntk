@@ -707,4 +707,19 @@ if wifi_mode == "ap":
         connect_wifi()
 else:
     connect_wifi()
+
+# Bisection step (see firmware-wifi-order-test's own history): imported
+# here, AFTER WiFi is already up, instead of before it (as the earlier,
+# reverted "import standalone_interpreter.py, unused" step on
+# firmware-wifi-reliable-baseline did) - testing whether it's the
+# ORDERING relative to the WiFi call that matters (heap fragmentation
+# only hurts a WiFi call made from within a module with a lot of
+# already-compiled code - see this file's own module docstring), not
+# merely the module's existence. Deliberately still unused - no
+# standalone_patch.json auto-detection, no wiring into run_server().
+try:
+    from standalone_interpreter import StandaloneInterpreter, load_patch_file
+except ImportError:
+    StandaloneInterpreter = None
+
 run_server()
