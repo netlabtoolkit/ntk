@@ -678,7 +678,20 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.model.set('active', model.active);
 			this.model.set('activeOut', model.activeOut);
 
-			(this.enableDevice !== undefined) && this.enableDevice();
+			// Mirror mapToModel's active/activeOut gating (Patcher.js) -
+			// only actually connect if this widget was saved as active.
+			// Previously unconditional, which reconnected every
+			// Network-hardware widget on every patch load regardless of
+			// its own active toggle - a real bug found 2026-09-19 (NTK
+			// connecting on load with no connect checkbox on).
+			if(this.enableDevice !== undefined) {
+				var isActiveInput = (this.deviceMode === undefined || this.deviceMode === "in") && this.model.get('active') === true;
+				var isActiveOutput = this.deviceMode !== undefined && this.model.get('activeOut') === true;
+
+				if(isActiveInput || isActiveOutput) {
+					this.enableDevice();
+				}
+			}
 
 			return this;
 		},
