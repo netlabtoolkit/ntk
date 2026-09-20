@@ -51,6 +51,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			serverAddress: '127.0.0.1',
 			addFunction: this.onExternalAddWidget.bind(this),
 			mapFunction: this.mapToModel.bind(this),
+			updateLargestCID: this.updateLargestCID.bind(this),
 		});
 
 		window.OO = this;
@@ -420,6 +421,26 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			});
 
 			return existingMapping;
+		},
+		/**
+		 * updateLargestCID - keeps the counter addWidgetToStage uses to
+		 * mint fresh widget ids ("n" + largestCID) ahead of every id a
+		 * loaded patch actually uses. Without this, a widget added after
+		 * loading a patch can mint an id that collides with one already
+		 * in the file (see PatchLoader.loadJSON, which calls this once
+		 * per loaded widget before any of them are added to the stage) -
+		 * a real bug found 2026-09-19 via a duplicate "n6" in an exported
+		 * standalone patch, silently dropping one of the two widgets'
+		 * data on the floor.
+		 *
+		 * @param {string} wid e.g. "n6"
+		 * @return {void}
+		 */
+		updateLargestCID: function(wid) {
+			var n = parseInt(String(wid).slice(1), 10);
+			if(!isNaN(n) && n > this.largestCID) {
+				this.largestCID = n;
+			}
 		},
 		/**
 		 * Render a view to the appropriate Canvas DOM element
