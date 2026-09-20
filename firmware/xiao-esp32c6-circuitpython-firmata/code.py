@@ -369,6 +369,10 @@ FIRMATA_PORT = 3030
 ENOTCONN = 128
 CONNECTION_GRACE_PERIOD_S = 2
 
+# How long send_all() will keep retrying on backpressure (EAGAIN) before
+# giving up and treating the peer as gone - see send_all()'s own comment.
+SEND_RETRY_TIMEOUT_S = 5
+
 
 def send_all(conn, data, on_wait=None):
     # socket.send() returns the number of bytes actually accepted, same
@@ -379,6 +383,7 @@ def send_all(conn, data, on_wait=None):
     # until every byte is confirmed sent.
     sent_total = 0
     view = memoryview(data)
+    retry_deadline = None
     while sent_total < len(data):
         try:
             n = conn.send(view[sent_total:])
@@ -399,6 +404,17 @@ def send_all(conn, data, on_wait=None):
                 # here hard-reset the board mid-send - looking like a
                 # random crash, not backpressure).
                 feed()
+                if retry_deadline is None:
+                    retry_deadline = time.monotonic() + SEND_RETRY_TIMEOUT_S
+                elif time.monotonic() > retry_deadline:
+                    # Stuck on EAGAIN this long - treat the peer as gone
+                    # rather than spinning forever (the other fixes
+                    # above already keep this loop from crashing or
+                    # starving reads, but without this it could still
+                    # wedge run_server() indefinitely if the peer never
+                    # comes back, since nothing else would ever notice
+                    # the connection is dead).
+                    raise OSError(errno.ECONNRESET, "send_all() gave up after %ds of EAGAIN" % SEND_RETRY_TIMEOUT_S)
                 # Also keep servicing INCOMING data (on_wait, when given -
                 # see run_server()) while stuck waiting for outgoing room.
                 # Without this, a sustained flood on the outgoing side
