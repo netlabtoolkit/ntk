@@ -306,35 +306,42 @@ def _check_wifi_still_connected():
 # watchdog, armed in run() below before this happens, is what recovers
 # that now - it'll reset the board, and the reset-loop guard breaks the
 # cycle if it keeps happening.
-from firmata_server import FirmataServer
+from firmata_server import (
+    FirmataServer,
+    START_SYSEX,
+    END_SYSEX,
+    STANDALONE_MONITOR_REQUEST,
+    encode_standalone_monitor_reply,
+)
 from pins import PIN_TABLE, GROVE_SENSOR_CATALOG
 
 # Standalone patch execution (see plans/standalone-patch-export.md) - v1,
-# not on every board yet, so this whole feature is optional: a board that
-# never received standalone_interpreter.py (the common case today) just
-# skips it silently.
-try:
-    from standalone_interpreter import StandaloneInterpreter, load_patch_file
-except ImportError:
-    StandaloneInterpreter = None
-
+# not on every board yet, so this whole feature is optional. Deliberately
+# checks for standalone_patch.json's presence FIRST, before ever
+# importing standalone_interpreter - hardware-verified 2026-09-20:
+# importing that module (even as compiled bytecode, even completely
+# unused) is not free, and an ordinary live-connected session with no
+# standalone patch should never pay any part of that cost. See
+# standalone_interpreter.py's own module docstring for why it MUST be
+# deployed as standalone_interpreter.mpy (compiled via mpy-cross), never
+# as raw .py source - that was the actual root cause of a real WiFi
+# reliability regression, not just a style preference.
 STANDALONE_PATCH_PATH = "standalone_patch.json"
 
-# Auto-detected from the patch file's presence, not a settings.toml flag -
-# see plans/standalone-patch-export.md's "Decided" notes on this. Only
-# checked once at boot (not re-checked live) - deploying a new patch
-# still means copying the file and rebooting, same as any other v1
-# "manual copy" deploy step; the live WiFi push-deploy channel is a
-# later addition.
 _standalone = None
-if StandaloneInterpreter is not None:
-    try:
-        os.stat(STANDALONE_PATCH_PATH)
-        _has_standalone_patch = True
-    except OSError:
-        _has_standalone_patch = False
+try:
+    os.stat(STANDALONE_PATCH_PATH)
+    _has_standalone_patch = True
+except OSError:
+    _has_standalone_patch = False
 
-    if _has_standalone_patch:
+if _has_standalone_patch:
+    try:
+        from standalone_interpreter import StandaloneInterpreter, load_patch_file
+    except ImportError:
+        StandaloneInterpreter = None
+
+    if StandaloneInterpreter is not None:
         _standalone_patch = load_patch_file(STANDALONE_PATCH_PATH)
         if _standalone_patch is not None:
             _candidate = StandaloneInterpreter(PIN_TABLE, GROVE_SENSOR_CATALOG)
@@ -469,6 +476,93 @@ def _check_keypress():
         _print_rssi()
 
 
+_MONITOR_REQUEST_BYTES = bytes([START_SYSEX, STANDALONE_MONITOR_REQUEST, END_SYSEX])
+_MONITOR_PEEK_WINDOW_S = 0.3
+_MONITOR_PUSH_INTERVAL_S = 0.3
+
+
+def _peek_for_monitor_request(conn):
+    """Non-blocking peek at a freshly-accepted connection for an
+    immediate STANDALONE_MONITOR_REQUEST sysex, sent by a client that
+    wants to watch a running standalone patch's live values instead of
+    taking over from it (see plans/standalone-patch-export.md). Must
+    run BEFORE the normal explicit-handoff release_hardware() call, in
+    the narrow window right after accept() - once that release happens
+    the interpreter has already given up its pins, so there would be
+    nothing live left to monitor.
+
+    Bounded to a short window (not the 5s a normal firmata-io client
+    silently sits for before starting its own handshake - see
+    FirmataServer.on_connect's comment) so every ordinary connection
+    only ever pays this as a brief, fixed delay, not something that
+    scales with a slow/absent handshake."""
+    conn.settimeout(0)
+    peek_buffer = bytearray(8)
+    buf = bytearray()
+    deadline = time.monotonic() + _MONITOR_PEEK_WINDOW_S
+    while time.monotonic() < deadline:
+        try:
+            n = conn.recv_into(peek_buffer)
+        except OSError:
+            n = 0
+        if n:
+            buf.extend(peek_buffer[:n])
+            if bytes(buf[:3]) == _MONITOR_REQUEST_BYTES:
+                return True
+            if len(buf) >= len(_MONITOR_REQUEST_BYTES):
+                return False  # got enough bytes and they don't match - some other client
+        time.sleep(0.01)
+    return False
+
+
+def _serve_monitor_connection(conn, addr):
+    """Alternate to the normal per-connection FirmataServer takeover -
+    the standalone interpreter keeps ticking and owning every pin
+    exactly as if nothing connected at all; this just periodically
+    reports its live widget values to the monitoring client instead.
+    Any incoming bytes from this client (e.g. a dragged widget trying
+    to write a value) are read and silently discarded - a monitoring
+    connection can't affect the running patch, by design (see the
+    write-while-monitoring design decision in the session that added
+    this)."""
+    print("Client connected from", addr, "(monitor mode)")
+    read_buffer = bytearray(64)
+    last_push = 0.0
+    try:
+        while True:
+            feed()
+            led_tick()
+            _standalone.tick()
+            _check_keypress()
+            now = time.monotonic()
+            if now - last_push >= _MONITOR_PUSH_INTERVAL_S:
+                last_push = now
+                for wid in _standalone.widgets:
+                    fields = _standalone.monitor_fields(wid)
+                    if not fields:
+                        continue
+                    try:
+                        send_all(conn, encode_standalone_monitor_reply(wid, fields))
+                    except OSError as e:
+                        print("(monitor disconnect reason: send errno", e.errno, "args", e.args, ")")
+                        return
+            try:
+                n = conn.recv_into(read_buffer)
+                if n == 0:
+                    print("(monitor disconnect reason: recv_into returned 0)")
+                    return
+            except OSError as e:
+                if e.errno != errno.EAGAIN:
+                    print("(monitor disconnect reason: recv_into errno", e.errno, "args", e.args, ")")
+                    return
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        print("Monitor client disconnected")
+
+
 def run_server():
     pool = socketpool.SocketPool(wifi.radio)
     server_socket = pool.socket(pool.AF_INET, pool.SOCK_STREAM)
@@ -491,7 +585,21 @@ def run_server():
     # for real hardware control (the 2026-09-17 performance spike showed
     # hundreds of Hz achievable). No standalone patch loaded - the
     # existing 1s idle-poll behavior is unchanged.
-    server_socket.settimeout(0.02 if _standalone is not None else 1)
+    #
+    # Bisection step 2026-09-21: loosened from 0.02s to 0.1s (10Hz
+    # instead of 50Hz) - testing whether the very tight poll/tick loop
+    # (real GPIO I/O every cycle, 50x more accept() syscalls than idle)
+    # was competing for CPU time against the WiFi stack's own background
+    # servicing on this single-core chip. Reliability with a patch
+    # actually loaded and ticking measured at 7/12 (~58%) across two
+    # trial batches at 0.02s, notably worse than the ~92% measured
+    # yesterday with the interpreter merely imported but idle (which
+    # never touched this timeout at all, since _standalone was None
+    # then) - this is the leading hypothesis for that gap, not yet
+    # confirmed. 10Hz is still far above the ~1Hz idle case and should
+    # be plenty for pot-turning/button-pressing interaction; revisit if
+    # a real use case needs faster response than that.
+    server_socket.settimeout(0.1 if _standalone is not None else 1)
     feed()
     print("Firmata server listening on port", FIRMATA_PORT)
     # WiFi is up and we're listening but nobody's connected yet - switch
@@ -519,7 +627,7 @@ def run_server():
         print("Waiting for Client to connect...")
         conn = None
         while conn is None:
-            feed()  # accept() blocks the VM for up to 1s per poll (0.02s - see above - while a standalone patch is loaded)
+            feed()  # accept() blocks the VM for up to 1s per poll (0.1s - see above - while a standalone patch is loaded)
             led_tick()
             if _standalone is not None:
                 _standalone.tick()
@@ -534,6 +642,14 @@ def run_server():
                 conn, addr = server_socket.accept()
             except OSError:
                 pass  # timed out with no connection yet - keep polling
+        if _standalone is not None and _peek_for_monitor_request(conn):
+            # Monitoring connection - the interpreter keeps every pin
+            # and keeps ticking exactly as if nothing connected; see
+            # _serve_monitor_connection's own docstring. Explicitly
+            # does NOT fall through to the explicit-handoff release
+            # below - this is the whole point of monitor mode.
+            _serve_monitor_connection(conn, addr)
+            continue
         if _standalone is not None:
             # Explicit handoff (plans/standalone-patch-export.md) - a real
             # client is taking over now, so release every pin the

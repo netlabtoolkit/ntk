@@ -75,6 +75,15 @@ GROVE_STATUS = 2
 GROVE_STATUS_OK = 1
 GROVE_STATUS_ERROR = 2
 
+# Custom sysex extension for standalone-interpreter monitoring (see
+# plans/standalone-patch-export.md) - lets a client watch a running
+# standalone patch's live widget values without taking over from it
+# (the normal explicit-handoff behavior - see run_server()'s own
+# comments). Same reserved user-defined range as the Grove ones above,
+# next free IDs after them.
+STANDALONE_MONITOR_REQUEST = 0x03  # host -> device, sent right after connecting
+STANDALONE_MONITOR_REPLY = 0x04  # device -> host, one message per widget per push
+
 # Pin modes - matches board.MODES in firmata-io exactly (these values are
 # part of the wire protocol, not an internal implementation detail).
 INPUT = 0x00
@@ -103,6 +112,50 @@ SERVO_MAX_PULSE_US_DEFAULT = 2400
 # resolutions.
 ADC_RESOLUTION_BITS = 10
 PWM_RESOLUTION_BITS = 8
+
+
+def _encode_fixed_point21(value):
+    # Fixed-point: x100 for 2 decimal places, then packed as 3x 7-bit
+    # bytes LSB-first (21-bit signed range, +/-10485.76). Same encoding
+    # _encode_grove_value used (module-level here instead of a
+    # FirmataServer method, since standalone-monitor replies are sent
+    # over a plain socket with no FirmataServer instance involved - see
+    # encode_standalone_monitor_reply below).
+    fixed = int(round(value * 100))
+    fixed &= 0x1FFFFF  # wrap into 21 bits rather than raise on overflow
+    return (fixed & 0x7F, (fixed >> 7) & 0x7F, (fixed >> 14) & 0x7F)
+
+
+def encode_standalone_monitor_reply(wid, fields):
+    """One sysex message reporting a single widget's current field
+    values, for a client that asked to monitor a running standalone
+    patch (STANDALONE_MONITOR_REQUEST) instead of taking over from it -
+    see plans/standalone-patch-export.md. `fields` is an ordered list of
+    (field_name, numeric_value) pairs - non-numeric values (e.g. IfThen's
+    text-comparison mode) are the caller's responsibility to filter out
+    first, not handled here.
+
+    Wire format (all ASCII bytes, since every wid/field name in
+    practice is a plain identifier - "n5", "out1", etc. - safely below
+    0x80 already, so no 7-bit-pair splitting is needed the way a
+    generic UTF-8 string sysex would require):
+
+        START_SYSEX, STANDALONE_MONITOR_REPLY,
+        <wid bytes>, 0x00,
+        <field count>,
+        (<field name bytes>, 0x00, <3-byte fixed-point value>) * field count,
+        END_SYSEX
+    """
+    data = [START_SYSEX, STANDALONE_MONITOR_REPLY]
+    data.extend(ord(ch) for ch in wid)
+    data.append(0x00)
+    data.append(len(fields) & 0x7F)
+    for field_name, value in fields:
+        data.extend(ord(ch) for ch in field_name)
+        data.append(0x00)
+        data.extend(_encode_fixed_point21(value))
+    data.append(END_SYSEX)
+    return bytes(data)
 
 
 class _Pin:
@@ -168,6 +221,14 @@ class FirmataServer:
         # when it was last reported so update() can honor that sensor's
         # own min_interval_ms.
         self._grove_subscriptions = {}
+        # Set by STANDALONE_MONITOR_REQUEST (see _dispatch_sysex below) -
+        # run_server() checks this right after accept(), before deciding
+        # whether to release the standalone interpreter's hardware claim,
+        # so a monitoring client can watch a running patch without taking
+        # over from it. Only meaningful if checked early, in that specific
+        # window - this flag has no effect once a connection has already
+        # gone through the normal explicit-handoff takeover.
+        self.monitor_requested = False
 
     # ---------------- connection lifecycle ----------------
 
@@ -303,6 +364,8 @@ class FirmataServer:
             self.sampling_interval_ms = max(1, interval)
         elif cmd == GROVE_SENSOR_REQUEST:
             self._handle_grove_sensor_request(payload[1:])
+        elif cmd == STANDALONE_MONITOR_REQUEST:
+            self.monitor_requested = True
         # Anything else (generic I2C/string/one-wire/stepper) - out of scope, ignore.
 
     # ---------------- outgoing responses ----------------
@@ -371,13 +434,10 @@ class FirmataServer:
         ]))
 
     def _encode_grove_value(self, value):
-        # Fixed-point: x100 for 2 decimal places, then packed as 3x 7-bit
-        # bytes LSB-first (21-bit signed range, +/-10485.76 - comfortably
-        # covers anything in GROVE_SENSOR_CATALOG). Same style as Firmata's
-        # own multi-byte sysex values elsewhere in this protocol.
-        fixed = int(round(value * 100))
-        fixed &= 0x1FFFFF  # wrap into 21 bits rather than raise on overflow
-        return (fixed & 0x7F, (fixed >> 7) & 0x7F, (fixed >> 14) & 0x7F)
+        # +/-10485.76 range comfortably covers anything in
+        # GROVE_SENSOR_CATALOG. See _encode_fixed_point21's own comment
+        # for the encoding itself.
+        return _encode_fixed_point21(value)
 
     def _send_grove_reading(self, sensor_id, values):
         data = [GROVE_SENSOR_REPLY, GROVE_READINGS, sensor_id & 0x7F, (sensor_id >> 7) & 0x7F, len(values)]
