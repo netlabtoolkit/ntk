@@ -47,6 +47,20 @@
 - **View > Toggle Developer Tools** (`Cmd+Option+I`) is wired up in the
   app menu (`server/electronApp.js`) - use it to read the real console/
   inspector instead of the `fetch('/DEBUG?...')`-to-server-log relay trick.
+- **`npm run build` also bundles `app/scripts`/`app/styles` into
+  `server/dist`, and `server/dist` is what actually gets served** (in
+  both `npm run electron` and packaged builds). A live edit to a file
+  under `app/` only reaches the running app via a browser
+  reload/restart if `server/dist` has no matching file yet (e.g. a
+  brand-new worktree, or a file `npm run build` hasn't touched since
+  it was created); once a build has run, its `server/dist` snapshot
+  shadows any further edits to the `app/` source until the *next*
+  `npm run build`. Symptom: an edit that should be a plain JS/CSS
+  change with no rebuild needed appears to silently not take effect
+  even after a full reload - confirmed the fix really was live by
+  diffing `server/dist/scripts/<file>.js` against the source, not by
+  assuming a reload is enough. `server/dist` is gitignored, so this
+  never shows up in `git diff` either.
 
 ## Rivets/Backbone widget gotchas
 
@@ -72,6 +86,32 @@
   `initialize`, which already ran). Any internal instance state that
   `onModelChange`/its callees reference must be initialized *before* that
   `.set(defaults)` call, or it throws on construction.
+- **A module's own `define(['application'], function(app) {...})`
+  dependency on the app singleton can resolve to `undefined` forever**,
+  silently, if that module sits anywhere in `application.js`'s own
+  transitive dependency chain (it usually does - most controllers get
+  pulled in by `modules/Patcher`, which `application.js` itself
+  requires). RequireJS resolves a circular dependency by handing back
+  whatever the target module has exported *so far*; if `application.js`
+  hasn't reached its own `return App` yet, that's `undefined` - and
+  since the factory function only runs once, the module's `app`
+  parameter stays `undefined` for the module's entire lifetime even
+  though `window.app` gets set correctly moments later (`application.js`
+  does `window.app = App` right away, before its own dependencies even
+  finish loading). Every other view already sidesteps this by reading
+  `window.app.Patcher.Controller...` at call time instead of the
+  AMD-injected reference - do the same in any new controller, don't
+  rely on the `app`/`Backbone.Marionette.Application` value a
+  `define(['application'], ...)` factory receives. Root-caused
+  2026-09-21 via a socket.io "parser decode error": an exception thrown
+  reading `.Patcher` off that `undefined` inside a socket event
+  handler's synchronous emit chain got caught by
+  `Transport.prototype.onData`'s try/catch (which wraps the *entire*
+  packet-decode-and-dispatch chain, not just JSON parsing) and
+  misreported as a transport-level decode failure, forcing a full
+  reconnect/page-reload - nothing in that error pointed at the real
+  cause without patching the vendored `socket.io-client` to log the
+  actual exception.
 
 ## Widget CSS layout
 
