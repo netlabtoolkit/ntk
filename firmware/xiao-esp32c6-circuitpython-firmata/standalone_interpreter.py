@@ -1305,7 +1305,18 @@ class StandaloneInterpreter:
         deviceType that dict(w) (see load()) also copied in wholesale.
         Non-numeric values (a bool, a string - e.g. IfThen's text-
         comparison mode) are skipped; a monitoring client has no
-        concept of anything but numeric widget fields yet."""
+        concept of anything but numeric widget fields yet.
+
+        Also includes this widget type's own OUTS_BY_TYPE (from, to)
+        field names (e.g. AnalogIn's 'in') even with no matching graph
+        port - those don't come from another widget's wire, they're
+        fed directly by hardware reads/the client's own UI (a source
+        widget's raw pin value, a knob drag), so they never appear in
+        'ins'/'outs' port lists at all. Skipping them left a source
+        widget's in-canvas knob frozen during monitor mode: its numeric
+        readout (bound to 'out') updated fine, but nothing ever pushed
+        'in', which is what the knob's own visual position is bound to
+        - found via hands-on testing 2026-09-21."""
         w = self.widgets[wid]
         values = w['values']
         fields = []
@@ -1313,6 +1324,14 @@ class StandaloneInterpreter:
         for port_list in (values.get('ins'), values.get('outs')):
             for port in port_list or []:
                 field = port.get('to')
+                if not field or field in seen:
+                    continue
+                seen.add(field)
+                value = values.get(field)
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    fields.append((field, value))
+        for from_field, to_field in OUTS_BY_TYPE.get(w['typeID'], ()):
+            for field in (from_field, to_field):
                 if not field or field in seen:
                     continue
                 seen.add(field)
