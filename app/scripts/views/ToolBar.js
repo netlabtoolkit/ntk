@@ -42,6 +42,12 @@ function( app, Backbone, Template, Widgets ) {
 		initialize: function initialize() {
 			window.app.vent.on('serverActive', this.indicateServerActive, this);
 			window.app.vent.on('serialPortList', this.updateDefaultSerialPortOptions, this);
+			// The banner (MonitorController.js) has its own Stop button -
+			// stopping monitor mode from there needs to be reflected here
+			// too, not just when THIS button is what triggered the stop.
+			// window.app.monitoring.active is the single shared source of
+			// truth both surfaces read from.
+			window.app.vent.on('monitorStatus', this.indicateMonitorActive, this);
 		},
 		render: function() {
 			this.el.innerHTML = this.template();
@@ -279,6 +285,10 @@ function( app, Backbone, Template, Widgets ) {
 			return categories;
 		},
 		showUploadFileDialog: function(e) {
+			if (window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:blockedEdit', e);
+				return;
+			}
 			if(!window.app.serverMode) {
 				this.$('#patchFileUpload').click();
 			}
@@ -321,6 +331,10 @@ function( app, Backbone, Template, Widgets ) {
 			window.app.vent.trigger('ToolBar:savePatch');
 		},
 		clearPatch: function(e) {
+			if (window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:blockedEdit', e);
+				return;
+			}
 			if(!window.app.serverMode) {
 				window.app.vent.trigger('ToolBar:clearPatch');
 			}
@@ -388,10 +402,14 @@ function( app, Backbone, Template, Widgets ) {
 		// separate Start/Stop pair, since only one monitor connection
 		// can be active at a time anyway (all-or-nothing design).
 		toggleMonitor: function() {
-			var $button = this.$('.monitorDevice');
 			if (window.app.monitoring && window.app.monitoring.active) {
 				window.app.vent.trigger('Monitor:stop');
-				$button.removeClass('monitorActive').text('Monitor Device');
+				// No local button update here - indicateMonitorActive
+				// (below) is the single place that happens, driven by
+				// the monitorStatus event MonitorController fires once
+				// the stop has actually taken effect. Keeps this button
+				// and the banner's own Stop button from ever disagreeing
+				// about the current state, however monitoring was ended.
 				return;
 			}
 			var defaultDevice = window.app.defaultDevice;
@@ -400,7 +418,14 @@ function( app, Backbone, Template, Widgets ) {
 				return;
 			}
 			window.app.vent.trigger('Monitor:start', {host: defaultDevice.server, port: defaultDevice.port || 3030});
-			$button.addClass('monitorActive').text('Stop Monitoring');
+		},
+		indicateMonitorActive: function indicateMonitorActive(status) {
+			var $button = this.$('.monitorDevice');
+			if (status.connected) {
+				$button.addClass('monitorActive').text('Stop Monitoring');
+			} else {
+				$button.removeClass('monitorActive').text('Monitor Device');
+			}
 		},
 		indicateServerActive: function indicateServerActive(serverActive) {
 			var $serverSwitchButton = this.$('.serverSwitch');

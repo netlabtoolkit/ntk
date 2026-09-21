@@ -416,7 +416,7 @@ module.exports = function(options) {
 					socket.emit('server:monitorStatus', {connected: true, host: host, port: port});
 				});
 				monitor.on('value', function(update) {
-					socket.emit('server:monitorValue', update);
+					socket.emit('server:monitorValue', [update]);
 				});
 				monitor.on('error', function(err) {
 					socket.emit('server:monitorStatus', {connected: false, error: String(err)});

@@ -127,6 +127,15 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 
 		},
 		onExternalAddWidget: function(widgetType, addedFromLoader, wid) {
+			// Structural patch edits are blocked while monitoring (see
+			// MonitorController.js's blockAndWarn) - a patch loaded from
+			// disk/server still needs to go through here uninterrupted,
+			// hence the addedFromLoader check.
+			if (!addedFromLoader && window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:blockedEdit');
+				return;
+			}
+
 			var newWidget,
 				serverAddress = window.location.host;
 
@@ -661,6 +670,11 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
          * @return {void}
          */
 		removeWidget: function(widgetView, calledFromLoader) {
+			if (!calledFromLoader && window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:blockedEdit');
+				return;
+			}
+
 			this.widgets = _.reject(this.widgets, function(view) { return widgetView === view; });
 			this.widgetModels.remove(widgetView.model);
 

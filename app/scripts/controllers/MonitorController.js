@@ -39,6 +39,7 @@ define([
 			window.app.vent.on('monitorStatus', this.onMonitorStatus, this);
 			window.app.vent.on('Monitor:start', this.start, this);
 			window.app.vent.on('Monitor:stop', this.stop, this);
+			window.app.vent.on('Monitor:blockedEdit', this.blockAndWarn, this);
 		},
 
 		start: function start(options) {
@@ -46,6 +47,11 @@ define([
 			this.port = options.port;
 			this.active = true;
 			window.app.monitoring = {active: true, host: this.host, port: this.port};
+			// Drives the "more" panel's click-blocking overlay (see
+			// Widget.scss's body.ntk-monitoring rules and WidgetMulti.js's
+			// onRender) - CSS-only, not per-widget JS toggling, so it can't
+			// drift out of sync with the actual monitoring state.
+			$('body').addClass('ntk-monitoring');
 			this.showBanner('Connecting to ' + this.host + ':' + this.port + '...');
 			window.app.vent.trigger('startMonitor', {host: this.host, port: this.port});
 		},
@@ -53,8 +59,64 @@ define([
 		stop: function stop() {
 			this.active = false;
 			window.app.monitoring = {active: false};
+			$('body').removeClass('ntk-monitoring');
 			window.app.vent.trigger('stopMonitor');
 			this.hideBanner();
+		},
+
+		// Shared "you can't do that right now" feedback for every place
+		// that blocks a structural patch edit (add/remove widget, wire/
+		// unwire a cable) or a "more" panel field edit while monitoring -
+		// see the module docstring's all-or-nothing design and the
+		// session that scoped this: simulating a value via a widget's own
+		// primary control (a knob drag, a button) is deliberately NOT
+		// blocked here, only edits that would desync NTK's patch from the
+		// device's or that are silently inert while monitoring (a "more"
+		// panel tuning field the suppressed signal chain never reads).
+		blockAndWarn: function blockAndWarn(e) {
+			if (e && e.preventDefault) {
+				e.preventDefault();
+				e.stopPropagation();
+			}
+			this.showBlockedMessage(e);
+			this.blinkBanner();
+		},
+
+		showBlockedMessage: function showBlockedMessage(e) {
+			var pageX = (e && (e.pageX || (e.originalEvent && e.originalEvent.pageX))) || ($(window).width() / 2),
+				pageY = (e && (e.pageY || (e.originalEvent && e.originalEvent.pageY))) || 80;
+
+			var $msg = $('<div class="monitorBlockedMessage">NTK is in monitor mode - patch changes are not allowed</div>').appendTo('body').css({
+				position: 'fixed',
+				top: pageY - 30,
+				left: pageX - 90,
+				zIndex: 1001,
+				background: '#b35c00',
+				color: '#fff',
+				padding: '6px 12px',
+				borderRadius: '3px',
+				fontFamily: 'sans-serif',
+				fontSize: '12px',
+				pointerEvents: 'none',
+				opacity: 0,
+			});
+			$msg.animate({opacity: 1}, 150, function() {
+				setTimeout(function() {
+					$msg.animate({opacity: 0}, 400, function() { $msg.remove(); });
+				}, 900);
+			});
+		},
+
+		blinkBanner: function blinkBanner() {
+			var $banner = $('#monitorModeBanner');
+			if ($banner.length === 0) {
+				return;
+			}
+			$banner.stop(true, true)
+				.fadeTo(100, 0.25).fadeTo(100, 1)
+				.fadeTo(100, 0.25).fadeTo(100, 1)
+				.fadeTo(100, 0.25).fadeTo(100, 1)
+				.fadeTo(100, 0.25).fadeTo(100, 1);
 		},
 
 		onMonitorStatus: function onMonitorStatus(status) {
@@ -85,7 +147,7 @@ define([
 			if (!this.active) {
 				return;
 			}
-			var widgetView = _.find(app.Patcher.Controller.widgets, function(view) {
+			var widgetView = _.find(window.app.Patcher.Controller.widgets, function(view) {
 				return view.model.get('wid') === update.wid;
 			});
 			if (!widgetView) {
@@ -119,7 +181,17 @@ define([
 				$('<span class="monitorModeBanner-text"></span>').appendTo($banner);
 				$('<button class="monitorModeBanner-stop">Stop Monitoring</button>')
 					.appendTo($banner)
-					.css({marginLeft: '12px', cursor: 'pointer'})
+					.css({
+						marginLeft: '12px',
+						cursor: 'pointer',
+						background: '#fff',
+						color: '#b35c00',
+						border: 'none',
+						borderRadius: '3px',
+						padding: '4px 10px',
+						fontSize: '13px',
+						fontWeight: 'bold',
+					})
 					.on('click', function() {
 						window.app.vent.trigger('Monitor:stop');
 					});
