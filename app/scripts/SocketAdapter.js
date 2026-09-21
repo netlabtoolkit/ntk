@@ -70,6 +70,22 @@ function( Backbone ) {
 				self.connected = false;
 			});
 
+			// Monitor mode (see MonitorController.js) - the server relays
+			// StandaloneMonitor's 'value'/status events. server:monitorValue
+			// is a BATCHED array of {wid, fields} (nlMultiClientSync.js
+			// coalesces everything that arrived within a short window into
+			// one emit, not one emit per widget - see its own comment for
+			// why: this exact old socket.io version choked on several
+			// synchronous same-tick emits).
+			socket.on("server:monitorValue", function(batch) {
+				for (var i = 0; i < batch.length; i++) {
+					window.app.vent.trigger('monitorValue', batch[i]);
+				}
+			});
+			socket.on("server:monitorStatus", function(status) {
+				window.app.vent.trigger('monitorStatus', status);
+			});
+
 		},
 		registerOutboundClientEvents: function registerClientEvents(socket) {
 			// MODEL AND PATCH UPDATES
@@ -202,6 +218,13 @@ function( Backbone ) {
 
 			window.app.vent.on('listSerialPorts', function() {
 				socket.emit('client:listSerialPorts');
+			});
+
+			window.app.vent.on('startMonitor', function(options) {
+				socket.emit('client:startMonitor', options);
+			});
+			window.app.vent.on('stopMonitor', function() {
+				socket.emit('client:stopMonitor');
 			});
 		},
 	};

@@ -49,7 +49,7 @@
 
 
 
-	.downloadPatch, .downloadStandalonePatch,
+	.downloadPatch, .downloadStandalonePatch, .monitorDevice,
 	.loadPatch, .savePatch, .hideWidgets, .clearPatch, .fullScreen, .serverSwitch, .logo {
 		float: left;
 		width: calc(75px - 20px);
@@ -63,10 +63,14 @@
 		cursor: pointer;
 	}
 
-	.loadPatch, .savePatch, .downloadPatch, .downloadStandalonePatch, .hideWidgets, .fullScreen, .clearPatch, .serverSwitch, .logo {
+	.loadPatch, .savePatch, .downloadPatch, .downloadStandalonePatch, .monitorDevice, .hideWidgets, .fullScreen, .clearPatch, .serverSwitch, .logo {
 		background-color: dimgrey;
 		border-bottom: 1px solid grey;
 		margin-bottom: 0;
+	}
+
+	.monitorDevice.monitorActive {
+		background-color: LightSlateGray;
 	}
     
     .serverSwitch {
