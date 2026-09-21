@@ -497,15 +497,16 @@ def _peek_for_monitor_request(conn):
     only ever pays this as a brief, fixed delay, not something that
     scales with a slow/absent handshake."""
     conn.settimeout(0)
+    peek_buffer = bytearray(8)
     buf = bytearray()
     deadline = time.monotonic() + _MONITOR_PEEK_WINDOW_S
     while time.monotonic() < deadline:
         try:
-            chunk = conn.recv(8)
+            n = conn.recv_into(peek_buffer)
         except OSError:
-            chunk = b""
-        if chunk:
-            buf.extend(chunk)
+            n = 0
+        if n:
+            buf.extend(peek_buffer[:n])
             if bytes(buf[:3]) == _MONITOR_REQUEST_BYTES:
                 return True
             if len(buf) >= len(_MONITOR_REQUEST_BYTES):
