@@ -306,7 +306,13 @@ def _check_wifi_still_connected():
 # watchdog, armed in run() below before this happens, is what recovers
 # that now - it'll reset the board, and the reset-loop guard breaks the
 # cycle if it keeps happening.
-from firmata_server import FirmataServer
+from firmata_server import (
+    FirmataServer,
+    START_SYSEX,
+    END_SYSEX,
+    STANDALONE_MONITOR_REQUEST,
+    encode_standalone_monitor_reply,
+)
 from pins import PIN_TABLE, GROVE_SENSOR_CATALOG
 
 # Standalone patch execution (see plans/standalone-patch-export.md) - v1,
@@ -470,6 +476,92 @@ def _check_keypress():
         _print_rssi()
 
 
+_MONITOR_REQUEST_BYTES = bytes([START_SYSEX, STANDALONE_MONITOR_REQUEST, END_SYSEX])
+_MONITOR_PEEK_WINDOW_S = 0.3
+_MONITOR_PUSH_INTERVAL_S = 0.3
+
+
+def _peek_for_monitor_request(conn):
+    """Non-blocking peek at a freshly-accepted connection for an
+    immediate STANDALONE_MONITOR_REQUEST sysex, sent by a client that
+    wants to watch a running standalone patch's live values instead of
+    taking over from it (see plans/standalone-patch-export.md). Must
+    run BEFORE the normal explicit-handoff release_hardware() call, in
+    the narrow window right after accept() - once that release happens
+    the interpreter has already given up its pins, so there would be
+    nothing live left to monitor.
+
+    Bounded to a short window (not the 5s a normal firmata-io client
+    silently sits for before starting its own handshake - see
+    FirmataServer.on_connect's comment) so every ordinary connection
+    only ever pays this as a brief, fixed delay, not something that
+    scales with a slow/absent handshake."""
+    conn.settimeout(0)
+    buf = bytearray()
+    deadline = time.monotonic() + _MONITOR_PEEK_WINDOW_S
+    while time.monotonic() < deadline:
+        try:
+            chunk = conn.recv(8)
+        except OSError:
+            chunk = b""
+        if chunk:
+            buf.extend(chunk)
+            if bytes(buf[:3]) == _MONITOR_REQUEST_BYTES:
+                return True
+            if len(buf) >= len(_MONITOR_REQUEST_BYTES):
+                return False  # got enough bytes and they don't match - some other client
+        time.sleep(0.01)
+    return False
+
+
+def _serve_monitor_connection(conn, addr):
+    """Alternate to the normal per-connection FirmataServer takeover -
+    the standalone interpreter keeps ticking and owning every pin
+    exactly as if nothing connected at all; this just periodically
+    reports its live widget values to the monitoring client instead.
+    Any incoming bytes from this client (e.g. a dragged widget trying
+    to write a value) are read and silently discarded - a monitoring
+    connection can't affect the running patch, by design (see the
+    write-while-monitoring design decision in the session that added
+    this)."""
+    print("Client connected from", addr, "(monitor mode)")
+    read_buffer = bytearray(64)
+    last_push = 0.0
+    try:
+        while True:
+            feed()
+            led_tick()
+            _standalone.tick()
+            _check_keypress()
+            now = time.monotonic()
+            if now - last_push >= _MONITOR_PUSH_INTERVAL_S:
+                last_push = now
+                for wid in _standalone.widgets:
+                    fields = _standalone.monitor_fields(wid)
+                    if not fields:
+                        continue
+                    try:
+                        send_all(conn, encode_standalone_monitor_reply(wid, fields))
+                    except OSError as e:
+                        print("(monitor disconnect reason: send errno", e.errno, "args", e.args, ")")
+                        return
+            try:
+                n = conn.recv_into(read_buffer)
+                if n == 0:
+                    print("(monitor disconnect reason: recv_into returned 0)")
+                    return
+            except OSError as e:
+                if e.errno != errno.EAGAIN:
+                    print("(monitor disconnect reason: recv_into errno", e.errno, "args", e.args, ")")
+                    return
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        print("Monitor client disconnected")
+
+
 def run_server():
     pool = socketpool.SocketPool(wifi.radio)
     server_socket = pool.socket(pool.AF_INET, pool.SOCK_STREAM)
@@ -549,6 +641,14 @@ def run_server():
                 conn, addr = server_socket.accept()
             except OSError:
                 pass  # timed out with no connection yet - keep polling
+        if _standalone is not None and _peek_for_monitor_request(conn):
+            # Monitoring connection - the interpreter keeps every pin
+            # and keeps ticking exactly as if nothing connected; see
+            # _serve_monitor_connection's own docstring. Explicitly
+            # does NOT fall through to the explicit-handoff release
+            # below - this is the whole point of monitor mode.
+            _serve_monitor_connection(conn, addr)
+            continue
         if _standalone is not None:
             # Explicit handoff (plans/standalone-patch-export.md) - a real
             # client is taking over now, so release every pin the
