@@ -635,6 +635,19 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {undefined}
 		 */
 		processSignalChain: function() {
+			// Monitor mode (see MonitorController.js) - all-or-nothing,
+			// not a per-widget flag: while active, every widget just
+			// displays whatever MonitorController pushes into its model
+			// directly (model.set with updateNoTrigger, which is what
+			// rivets renders from) instead of computing its own value
+			// locally. Skipping this early also means no locally-
+			// computed value ever reaches checkOutputMappingUpdate/a
+			// real hardware write - the whole point of monitoring
+			// instead of controlling.
+			if (window.app.monitoring && window.app.monitoring.active) {
+				return;
+			}
+
 			var outputs = this.model.get('outs'),
 				outputsObj = {};
 

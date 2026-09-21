@@ -18,6 +18,7 @@ function( app, Backbone, Template, Widgets ) {
             'click .hideWidgets': 'hideWidgets',
             'click .fullScreen': 'fullScreen',
             'click .serverSwitch': 'toggleServer',
+            'click .monitorDevice': 'toggleMonitor',
             'click .openAddWidgets': 'toggleAddWidgetsPanel',
             'click .openSettings': 'toggleSettingsPanel',
             'change .defaultDeviceType': 'defaultDeviceTypeChange',
@@ -379,6 +380,27 @@ function( app, Backbone, Template, Widgets ) {
 		 */
 		toggleServer: function() {
 			window.app.vent.trigger('ToolBar:toggleServer');
+		},
+		// v1: reuses the existing default-device address/port fields
+		// (same ones the Device picker at the top of Add Widgets sets)
+		// rather than a separate address entry just for this - see
+		// MonitorController.js for the rest of the flow. Toggle, not a
+		// separate Start/Stop pair, since only one monitor connection
+		// can be active at a time anyway (all-or-nothing design).
+		toggleMonitor: function() {
+			var $button = this.$('.monitorDevice');
+			if (window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:stop');
+				$button.removeClass('monitorActive').text('Monitor Device');
+				return;
+			}
+			var defaultDevice = window.app.defaultDevice;
+			if (!defaultDevice || defaultDevice.deviceType !== 'network' || !defaultDevice.server) {
+				window.alert('Set the Device picker to a Network device (server address) first - Monitor Device watches that address.');
+				return;
+			}
+			window.app.vent.trigger('Monitor:start', {host: defaultDevice.server, port: defaultDevice.port || 3030});
+			$button.addClass('monitorActive').text('Stop Monitoring');
 		},
 		indicateServerActive: function indicateServerActive(serverActive) {
 			var $serverSwitchButton = this.$('.serverSwitch');

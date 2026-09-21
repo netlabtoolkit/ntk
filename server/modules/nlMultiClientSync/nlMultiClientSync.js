@@ -5,8 +5,18 @@ module.exports = function(options) {
 		_ = require('underscore'),
 		events = require('events'),
 		nlHardware = require('../nlHardware/Hardware'),
+		StandaloneMonitor = require('../nlHardware/StandaloneMonitor'),
 		utils = require('../../utils')(),
 		self;
+
+	// Active StandaloneMonitor connections, keyed by socket.id - each
+	// browser client can have at most one at a time (see
+	// client:startMonitor below). Separate from self.hardwareModels
+	// (the normal per-device NetworkModel map) since a monitor
+	// connection is a fundamentally different thing: it doesn't claim
+	// any pins, doesn't go through the Firmata handshake, and belongs
+	// to one specific client's UI session, not the shared patch.
+	var activeMonitors = {};
 
 
 	var QueueHandler = utils.QueueHandler;
@@ -382,7 +392,57 @@ module.exports = function(options) {
 				self.emit('toggleServer');
 			});
 
+			// Opt-in "monitor mode" (see plans/standalone-patch-export.md
+			// and the firmware-monitor-mode branch history) - watches a
+			// running standalone patch's live values without taking over
+			// from it. One monitor connection per browser client/socket
+			// at a time - a second client:startMonitor from the same
+			// socket replaces whatever it already had running, same as
+			// the reasoning for keying activeMonitors by socket.id below.
+			socket.on('client:startMonitor', function(options) {
+				var existing = activeMonitors[socket.id];
+				if (existing) {
+					existing.close();
+					delete activeMonitors[socket.id];
+				}
+
+				var host = options.host,
+					port = options.port;
+
+				var monitor = StandaloneMonitor(host, port);
+				activeMonitors[socket.id] = monitor;
+
+				monitor.on('connected', function() {
+					socket.emit('server:monitorStatus', {connected: true, host: host, port: port});
+				});
+				monitor.on('value', function(update) {
+					socket.emit('server:monitorValue', update);
+				});
+				monitor.on('error', function(err) {
+					socket.emit('server:monitorStatus', {connected: false, error: String(err)});
+				});
+				monitor.on('close', function() {
+					socket.emit('server:monitorStatus', {connected: false});
+					if (activeMonitors[socket.id] === monitor) {
+						delete activeMonitors[socket.id];
+					}
+				});
+			});
+
+			socket.on('client:stopMonitor', function() {
+				var existing = activeMonitors[socket.id];
+				if (existing) {
+					existing.close();
+					delete activeMonitors[socket.id];
+				}
+			});
+
 			socket.on('disconnect', function() {
+				var existing = activeMonitors[socket.id];
+				if (existing) {
+					existing.close();
+					delete activeMonitors[socket.id];
+				}
 				self.emit('clientDisconnected');
 			});
 

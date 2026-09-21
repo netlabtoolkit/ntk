@@ -3,6 +3,7 @@ define([
 	'backbone',
 	'communicator',
 	'SocketAdapter',
+	'controllers/MonitorController',
 	'cableManager',
 	'controllers/PatchLoader',
 	'controllers/Timing',
@@ -28,7 +29,7 @@ define([
     'views/GroveSensor/GroveSensor',
     'utils/StandaloneCompatibility',
 ],
-function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, SplitterView, RestrictiveOverlayView, GroveSensorView, StandaloneCompatibility){
+function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, SplitterView, RestrictiveOverlayView, GroveSensorView, StandaloneCompatibility){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -86,6 +87,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			window.app.timingController = new TimingController();
 			// Bind to a socket server
 			Communicator.socketAdapter = new SocketAdapter();
+			MonitorController.initialize();
 
 			if(this.parentRegion) {
 				this.parentRegion.show(this.views.mainCanvas);

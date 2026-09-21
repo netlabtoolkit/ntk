@@ -70,6 +70,17 @@ function( Backbone ) {
 				self.connected = false;
 			});
 
+			// Monitor mode (see MonitorController.js) - the server relays
+			// these straight from StandaloneMonitor's own 'value'/status
+			// events, one 'server:monitorValue' per widget per push (see
+			// StandaloneMonitor.js's _decodeMessage).
+			socket.on("server:monitorValue", function(update) {
+				window.app.vent.trigger('monitorValue', update);
+			});
+			socket.on("server:monitorStatus", function(status) {
+				window.app.vent.trigger('monitorStatus', status);
+			});
+
 		},
 		registerOutboundClientEvents: function registerClientEvents(socket) {
 			// MODEL AND PATCH UPDATES
@@ -202,6 +213,13 @@ function( Backbone ) {
 
 			window.app.vent.on('listSerialPorts', function() {
 				socket.emit('client:listSerialPorts');
+			});
+
+			window.app.vent.on('startMonitor', function(options) {
+				socket.emit('client:startMonitor', options);
+			});
+			window.app.vent.on('stopMonitor', function() {
+				socket.emit('client:stopMonitor');
 			});
 		},
 	};
