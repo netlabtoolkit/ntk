@@ -1,30 +1,6 @@
 """
 standalone_interpreter.py - v1 on-device patch interpreter.
 
-MUST be deployed as compiled bytecode (standalone_interpreter.mpy), not
-this raw .py file - hardware-verified 2026-09-20: importing this module
-as plain source degrades WiFi reliability (heap fragmentation from
-compiling ~1200 lines of source on-device - see the WiFi-reliability
-bisection history on firmware-wifi-reliable-baseline/firmware-wifi-
-order-test/firmware-wifi-mpy-fix for the full investigation). Compiling
-ahead of time with mpy-cross avoids that cost entirely: CircuitPython
-loads pre-compiled bytecode directly instead of running its own
-tokenizer/compiler against the source on the device. Compile with a
-mpy-cross build matching the target CircuitPython version exactly
-(bytecode is version-locked):
-
-    mpy-cross standalone_interpreter.py -o standalone_interpreter.mpy
-
-Then deploy the .mpy, not this .py file, alongside code.py/
-firmata_server.py/pins.py. This .py file stays the source of truth in
-git (readable, diffable) - the compiled standalone_interpreter.mpy is
-ALSO committed alongside it (unusual for a build artifact, but this
-project ships firmware directly to end users via packageElectron.js's
-bundling, not as source they compile themselves - most users won't have
-mpy-cross installed or know how to run it). If this file changes, the
-committed .mpy must be regenerated with the command above and committed
-in the same change - nothing currently checks that they're in sync.
-
 See plans/standalone-patch-export.md ("Recommended architecture: on-device
 generic interpreter"). Reads a JSON-serialized NTK patch (the exact same
 {widgets: [...], mappings: [...]} shape the desktop app's "Export

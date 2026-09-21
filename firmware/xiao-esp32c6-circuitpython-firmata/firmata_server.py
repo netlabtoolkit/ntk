@@ -690,9 +690,26 @@ class FirmataServer:
 
         for i, pin in enumerate(self.pins):
             if pin.mode == ANALOG and pin.report and pin.io is not None:
-                raw16 = pin.io.value  # 0-65535
-                pin.value = raw16 >> (16 - ADC_RESOLUTION_BITS)
-                self._send_analog_value(i)
+                try:
+                    raw16 = pin.io.value  # 0-65535
+                    pin.value = raw16 >> (16 - ADC_RESOLUTION_BITS)
+                    self._send_analog_value(i)
+                except OSError:
+                    # A real send failure (peer gone, socket error) - let
+                    # it propagate so run_server()'s loop notices the
+                    # disconnect, same as every other socket write here.
+                    raise
+                except Exception as e:
+                    # Anything else (e.g. a transient ADC read glitch) -
+                    # one bad pin shouldn't silently kill the whole
+                    # connection and stop every OTHER pin's reporting too.
+                    # Previously uncaught here: an exception from a single
+                    # pin.io.value read would propagate all the way out of
+                    # run_server()'s per-client loop, past its own
+                    # OSError-only handling, ending the connection with no
+                    # clear cause - looked exactly like "gets one reading
+                    # then silently stops".
+                    print("Analog read failed on pin", i, "- skipping this tick:", e)
 
         # StandardFirmata reports a whole port every sampling tick when
         # any pin in it has reporting enabled, not just on change.
@@ -712,8 +729,13 @@ class FirmataServer:
                     if bit_value:
                         port_value |= (1 << bit)
             if any_reporting:
-                self.port_state[port] = port_value
-                self._send_digital_port(port)
+                try:
+                    self.port_state[port] = port_value
+                    self._send_digital_port(port)
+                except OSError:
+                    raise
+                except Exception as e:
+                    print("Digital report failed on port", port, "- skipping this tick:", e)
 
         for sensor_id, subscription in list(self._grove_subscriptions.items()):
             if now_ms - subscription["last_ms"] < subscription["min_interval_ms"]:
