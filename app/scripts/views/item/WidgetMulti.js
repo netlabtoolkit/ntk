@@ -89,6 +89,23 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.makeDraggable();
 
             this.$( ".widgetBottom .content" ).hide();
+
+			// "More" panel tuning fields (scale/invert/easing/etc.) are
+			// silently inert while monitoring - the suppressed signal
+			// chain never reads them (see processSignalChain's early
+			// return) - so block edits there instead of letting them
+			// look like they took effect. Always in the DOM; CSS (see
+			// body.ntk-monitoring in Widget.scss) is what actually shows/
+			// enables it, driven off MonitorController's start/stop, so
+			// this can't drift out of sync with the real monitoring
+			// state. A widget's primary body (the knob/button a user
+			// drags to simulate hardware) is deliberately left alone -
+			// see the session that scoped this.
+			this.$( ".widgetBottom .content" ).append('<div class="monitorBlockOverlay"></div>');
+			this.$( ".monitorBlockOverlay" ).on('mousedown', function(e) {
+				window.app.vent.trigger('Monitor:blockedEdit', e);
+			});
+
             this.$( ".widgetBottom .tab" ).click(function() {
 				// Widgets in this list manage .deviceIp's visibility
 				// declaratively (a rivets rv-class-networkmode binding
@@ -339,6 +356,12 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {void}
 		 */
 		onDrop: function(e, ui, model) {
+			// Wiring a new cable is a structural patch edit - blocked
+			// while monitoring (see MonitorController.js's blockAndWarn).
+			if (window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:blockedEdit', e);
+				return;
+			}
 
 			// REMOVE ANY CURRENTLY MAPPED INLETS
 			this.unMapInlet(e, ui);
@@ -380,8 +403,22 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		unMapInlet: function(e, ui, draggable) {
 			var inletField = e.target.dataset.field;
 
+			// Find without mutating anything yet - unwiring an existing
+			// cable is a structural patch edit, blocked while monitoring
+			// (see MonitorController.js's blockAndWarn), but only when
+			// there's actually a mapping here to remove; dragging an
+			// inlet with nothing mapped to it is a no-op either way and
+			// not worth a warning. Checked before this.sources gets
+			// mutated below, so a blocked attempt can't desync this.sources
+			// from the cable that's still visually there.
+			var existingMapping = _.find(this.sources, function(item){ return item.map.destinationField === inletField; });
+			if (existingMapping && window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:blockedEdit', e);
+				return;
+			}
+
 			// Remove all mappings that match this inlet's field
-			this.sourceToRemove = _.find(this.sources, function(item){ return item.map.destinationField === inletField; });
+			this.sourceToRemove = existingMapping;
 			this.sources = _.reject(this.sources, function(item){ return item.map.destinationField === inletField; });
 
 			if(this.sourceToRemove) {
@@ -429,6 +466,17 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {void}
 		 */
 		removeWidget: function(e, calledFromLoader) {
+			// Patcher.Controller.removeWidget blocks+warns and returns
+			// without doing its own bookkeeping when this is a user-
+			// initiated remove during monitoring, but it can't stop US
+			// from continuing on to tear down cables and remove this
+			// view's own DOM below - that has to be checked here too, or
+			// the widget disappears from the canvas even though the
+			// controller never actually removed it from its own state.
+			if (!calledFromLoader && window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:blockedEdit', e);
+				return;
+			}
 
 			app.Patcher.Controller.removeWidget(this, calledFromLoader);
 
@@ -635,6 +683,19 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {undefined}
 		 */
 		processSignalChain: function() {
+			// Monitor mode (see MonitorController.js) - all-or-nothing,
+			// not a per-widget flag: while active, every widget just
+			// displays whatever MonitorController pushes into its model
+			// directly (model.set with updateNoTrigger, which is what
+			// rivets renders from) instead of computing its own value
+			// locally. Skipping this early also means no locally-
+			// computed value ever reaches checkOutputMappingUpdate/a
+			// real hardware write - the whole point of monitoring
+			// instead of controlling.
+			if (window.app.monitoring && window.app.monitoring.active) {
+				return;
+			}
+
 			var outputs = this.model.get('outs'),
 				outputsObj = {};
 
@@ -678,7 +739,20 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.model.set('active', model.active);
 			this.model.set('activeOut', model.activeOut);
 
-			(this.enableDevice !== undefined) && this.enableDevice();
+			// Mirror mapToModel's active/activeOut gating (Patcher.js) -
+			// only actually connect if this widget was saved as active.
+			// Previously unconditional, which reconnected every
+			// Network-hardware widget on every patch load regardless of
+			// its own active toggle - a real bug found 2026-09-19 (NTK
+			// connecting on load with no connect checkbox on).
+			if(this.enableDevice !== undefined) {
+				var isActiveInput = (this.deviceMode === undefined || this.deviceMode === "in") && this.model.get('active') === true;
+				var isActiveOutput = this.deviceMode !== undefined && this.model.get('activeOut') === true;
+
+				if(isActiveInput || isActiveOutput) {
+					this.enableDevice();
+				}
+			}
 
 			return this;
 		},

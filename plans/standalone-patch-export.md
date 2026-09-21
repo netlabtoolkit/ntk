@@ -1,7 +1,13 @@
 # Standalone patch export
 
-**Status:** scoped via discussion. Not started. Build-order step 5, but a
-scoped v1 could lead instead — see [Sequencing: can this go
+**Status:** in progress on the `standalone-patch-export` branch.
+Compatibility checker + Export Standalone UI action shipped and
+user-verified. The on-device interpreter is built and hardware-verified
+for AnalogIn/AnalogOut/DigitalIn/DigitalOut/Servo plus all 12 logic/
+generator widgets, and is now wired into `code.py`'s main loop
+(load-at-boot + explicit handoff), hardware-verified in both directions.
+GroveSensor is still unimplemented. Build-order step 5, but a scoped v1
+is leading instead — see [Sequencing: can this go
 first?](#sequencing-can-this-go-first) below.
 
 Today, **all** patch logic runs on the host (NTK's own JS). The
@@ -24,10 +30,26 @@ on the device once deployed, no host required.
   (`modelWID` is a `deviceType:server:port` string like
   `network:192.168.4.1:3030`). This is already suitable as an
   interpreter's input with no reverse-engineering needed.
-- Which widgets are theoretically portable to a microcontroller:
+- Which widgets are theoretically portable to a microcontroller —
+  **corrected 2026-09-17** while writing the compatibility checker
+  (`app/scripts/utils/StandaloneCompatibility.js`), by checking every
+  widget's actual `categories:` field in the codebase against this list
+  rather than trusting the original scoping pass. Two corrections and
+  two additions (widgets that didn't exist yet when this was first
+  scoped):
   - **Portable** (pure math / timers, no browser API): AnalogIn / Out,
     DigitalIn / Out, Servo, GroveSensor, IfThen, Boolean, Gate, Mix,
-    Splitter, Process, Count, Pulse, Sequence, Tween, Data.
+    Splitter, Process, Count, **Concat**, Pulse, Sequence, Tween, Data.
+    **Concat was missing from the original list** — it's pure
+    string-join logic (`categories: ['logic']`), no browser API.
+  - **Looks portable by category but isn't — excluded deliberately:
+    Code.** Tagged `categories: ['logic']`, same as IfThen/Mix/etc., but
+    it's arbitrary user-authored JavaScript (a CodeMirror editor, `eval`
+    against inputs) — no CircuitPython interpreter can run that. This is
+    exactly the kind of error a naive category-based classification
+    would make, which is why the compatibility checker hardcodes the
+    portable `typeID` list explicitly instead of deriving it from
+    `categories:`.
   - **Deferred, not in v1 scope: Gesture.** Its DTW matching is pure
     arithmetic once its input comes from a real wired pin instead of the
     in-widget dial, so it's theoretically portable — but DTW is an
@@ -35,16 +57,54 @@ on the device once deployed, no host required.
     XIAO ESP32-C6 is itself an interpreted language running on a single
     RISC-V core, so per-tick cost is a real open question. Decided
     (2026-09-17) to leave it out of v1 and revisit later rather than
-    spend a spike on it now.
+    spend a spike on it now. (Update: a real-hardware spike since then
+    resolved the *non-Gesture* set's performance risk — see
+    [Sequencing](#sequencing-can-this-go-first) below — but Gesture
+    itself is still deferred out of scope, not re-evaluated.)
   - **Never portable:** FaceTrack / PoseRecog (camera + MediaPipe WASM),
     SpeechIn / SpeechOut (browser Speech API),
     Audio / Video / Image / HTML / Text / Button / Keyboard / Knob
-    (desktop-UI widgets — meaningless without the host's screen).
+    (desktop-UI widgets — meaningless without the host's screen), and
+    **ObjectRecog** (camera + local ML embedder, same as FaceTrack/
+    PoseRecog — didn't exist when this was first scoped). **Blank** is
+    a visual-only no-op (canvas spacer) — not meaningfully portable or
+    unportable, just irrelevant on-device.
   - **Gray area, deferred:** CloudIn / CloudOut / OSCIn / OSCOut / Webhook
     — technically possible over the board's own WiFi (UDP / HTTPS) but
-    real extra firmware work (TLS, etc.); not in v1 scope.
+    real extra firmware work (TLS, etc.); not in v1 scope. **LLM**
+    (didn't exist when this was first scoped) belongs in this same
+    bucket, not "never portable" — its Anthropic/Ollama API call is a
+    network request the board's own WiFi could technically carry, same
+    category of future work as Webhook/CloudOut, just deferred.
   - Any export / deploy step needs a compatibility check that clearly
-    rejects a patch using an unsupported widget, not a silent failure.
+    rejects a patch using an unsupported widget, not a silent failure -
+    **built 2026-09-17**, see [Compatibility checker](#compatibility-checker-built-2026-09-17) below.
+
+## Compatibility checker (built 2026-09-17)
+
+`app/scripts/utils/StandaloneCompatibility.js` — a plain AMD module (same
+convention as `SignalChainFunctions.js`), no UI wiring yet. Exports
+`PORTABLE_TYPE_IDS` (the hardcoded list above, not derived from
+`categories:`) and `checkPatch(patch)`, which takes the same
+`{widgets, mappings}` shape `Patcher#exportPatch`/`PatchLoader#loadJSON`
+already use and returns `{compatible: boolean, unsupportedWidgets:
+[{wid, typeID, title}]}` — naming exactly which widgets are the problem,
+not just pass/fail.
+
+Verified against representative patches (all-portable, empty, and a
+mixed patch with FaceTrack/SpeechOut/Code/Gesture mixed into an
+otherwise-portable set) under a minimal Node/AMD shim — all passing.
+
+**Wired to a real UI action (2026-09-17):** a new "Export Standalone"
+button in the Settings drawer (`downloadStandalonePatch` in
+`ToolBar_tmpl.js`/`ToolBar.js`) triggers `Patcher#exportStandalonePatch`,
+which runs `checkPatch()` and either downloads `standalone_patch.json`
+(compatible) or shows an `alert()` naming the unsupported widgets
+(incompatible) — reusing `exportPatch`'s existing Blob-download code via
+a shared `downloadPatchAsFile()` helper. User-tested in the real running
+app on both paths: a 3-widget compatible patch downloaded
+`standalone_patch.json` correctly, and adding a FaceTrack widget
+produced the expected alert instead of a download.
 
 ## Recommended architecture: on-device generic interpreter (not codegen)
 
@@ -74,14 +134,170 @@ scope for now (see above) — it's the one portable widget with a real
 open performance question, and revisiting it later avoids blocking v1 on
 an unresolved spike.
 
+## The interpreter (built 2026-09-17)
+
+`firmware/xiao-esp32c6-circuitpython-firmata/standalone_interpreter.py`
+on the `standalone-patch-export` branch. `StandaloneInterpreter.load()`
+takes the same `{widgets, mappings}` JSON `standalone_patch.json`
+contains, rejects any widget outside `PORTABLE_TYPE_IDS` (mirrors
+`StandaloneCompatibility.js`'s list by hand — both now list the same 18
+types, including GroveSensor, see below), builds a topologically-sorted
+evaluation order
+from the mapping graph (Kahn's algorithm; a cycle degrades to arbitrary
+order with a printed warning rather than crashing), and `tick()`
+re-evaluates every widget each pass.
+
+**Reuses `firmata_server.py`'s pin layer directly** (`FirmataServer`'s
+own `_apply_pin_mode`/`_handle_analog_write`/`_handle_report_analog`/
+`release_all_pins`) rather than reimplementing pin claiming, PWM
+duty-cycle math, or servo pulse-width math a second time — that layer is
+already hardware-verified (recent commits fixed Servo order-dependence
+and firmware backpressure). The interpreter owns its own `FirmataServer`
+instance, separate from the one a live TCP connection constructs;
+`claim_hardware()`/`release_hardware()` claim/release its pins, so a real
+client connecting later doesn't hit "pin in use" errors — this is the
+seam `code.py`'s explicit-handoff wiring (not done yet) will call into.
+
+**Implemented and unit/hardware-tested:** all 12 logic/generator widgets
+(IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse,
+Sequence, Tween, Data) plus AnalogIn/AnalogOut/DigitalIn/DigitalOut/Servo.
+31 pure-logic unit tests pass under plain CPython3 (no CircuitPython
+needed for these — the eval functions are plain dict-in/dict-out
+functions). The full AnalogIn→IfThen→Servo pipeline was also run on the
+real XIAO ESP32-C6 board over the serial REPL (no CIRCUITPY USB mass
+storage exposed on this build, so the file was written directly via
+`open(path,'w')` over the REPL instead) and produced the correct pulse
+width end to end.
+
+**Two real bugs found only by testing, not by reading the code:**
+- `_num()`'s NaN-on-parse-failure default was backwards (returned 0.0,
+  not NaN) — broke every `isNaN()`-guarded widget (Boolean/Mix/Count's
+  unconnected `'-'` inlets), caught by the unit tests.
+- **Servo never actually converted degrees to a pulse width.** The
+  widget's own output is 0–180 degrees; `_handle_analog_write`'s SERVO
+  branch expects a microsecond pulse directly (johnny-five's `five.Servo`
+  does that conversion host-side on a live connection, confirmed against
+  `node_modules/johnny-five/lib/servo.js`: `range:[0,180]`, default
+  `pwmRange:[600,2400]`, `Fn.map(degrees,0,180,600,2400)`). Passing raw
+  degrees straight into `_handle_analog_write` just clamped every write
+  to the 544µs floor — the servo would never have moved across its real
+  range. This is exactly the historical bug
+  `_handle_analog_write`'s own comment warns about, reintroduced by
+  omission and only surfaced by watching the real `duty_cycle` on
+  hardware, not by reading the code again. Fixed by converting
+  degrees→microseconds (`int(degrees*1800/180+600)`) before the hardware
+  write.
+
+**Also found while testing, a test-harness gotcha worth remembering for
+future device sessions, not an interpreter bug:** CircuitPython's REPL
+session keeps `sys.modules` across a Ctrl-C interrupt — re-pasting
+edited code without a soft-reboot (or an explicit
+`sys.modules.pop(name, None)`) silently re-runs the STALE cached module.
+Repeated import churn without a soft-reboot between test runs also hit a
+real `MemoryError` (heap fragmentation) — a clean Ctrl-D soft-reboot
+before each fresh test run avoided both.
+
+**A third gotcha, more serious - heavy REPL/interrupt testing can trip
+the board's own watchdog reset-loop guard (2026-09-18).** After a long
+device-testing session (this one), AnalogIn/DigitalOut widgets stopped
+receiving any data at all when pointed at the board from a real NTK
+build - looked exactly like an app or firmware regression. It wasn't
+either. `_reset_loop_guard()` (existing code, predates this branch -
+see `code.py`'s own layer-3 boot check) tracks consecutive watchdog
+resets in `microcontroller.nvm[0]`; once it hits `_MAX_WDT_RESETS`, it
+deliberately refuses to start Firmata at all and drops straight to the
+REPL instead ("Firmata NOT started so you can get in and fix it") - a
+safety net against an infinite reset loop, working exactly as designed.
+The nvm counter is **not** cleared by a soft-reboot (Ctrl-D) - soft
+reload doesn't touch `microcontroller.cpu.reset_reason`, so it still
+reads as WATCHDOG and the counter keeps climbing on every soft-reboot
+after that point, never recovering on its own. Diagnosed by directly
+probing the Firmata TCP port with a raw, hand-built `REPORT_ANALOG`
+message (bypassing NTK and johnny-five entirely) and getting zero bytes
+back - clean, protocol-level evidence pointing at the device, not the
+app. Fixed with `microcontroller.nvm[0] = 0` over the REPL followed by
+a REAL hardware reset (`microcontroller.reset()`, not Ctrl-D) - confirmed
+both the pre-existing (unmodified) firmware AND this branch's own
+`code.py`/`standalone_interpreter.py` stream real Firmata reports
+correctly once the guard is cleared, and process a DigitalOut write
+cleanly too. **Take-away for future sessions:** after a lot of Ctrl-C/
+soft-reboot churn against real hardware, a plain power-cycle is not
+guaranteed to un-stick this guard if it already tripped - check for the
+"Firmata NOT started" message specifically, and clear
+`microcontroller.nvm[0]` plus a real hardware reset if seen, rather than
+assuming a power-cycle alone fixed it.
+
+**`code.py` wiring — done and hardware-verified (2026-09-17).** At boot,
+`code.py` checks for `standalone_patch.json` (auto-detect, no
+`settings.toml` flag — see the "Decided" note above); if present and
+compatible, constructs a `StandaloneInterpreter` and holds it in a
+module-level `_standalone`. `run_server()`'s accept-wait loop drops
+`server_socket.settimeout()` from 1s to 0.02s whenever `_standalone` is
+loaded (otherwise unchanged) and calls `_standalone.tick()` every pass.
+Explicit handoff: `_standalone.release_hardware()` runs the instant
+`accept()` succeeds (before the per-connection `FirmataServer` claims
+the same pins), and `_standalone.claim_hardware()` runs again in the
+existing `finally:` block once a client disconnects. Verified on the
+real board: boots and idles fine with no patch file (regression check,
+identical to pre-change behavior); boots into standalone mode and ticks
+without hanging when a patch file is present; and opening/closing a raw
+TCP connection from another machine on the network correctly triggered
+"paused (client connected)" → normal Firmata connection → disconnect →
+"resumed (client disconnected)", in that order, both directions.
+
+**GroveSensor — implemented and hardware-verified (2026-09-17), no
+longer deferred.** Subscribing calls a `pins.py` `GROVE_SENSOR_CATALOG`
+entry's own `read`/`make_read` function directly — same
+skip-the-wire-protocol reasoning as every other hardware widget, just
+for the OTHER hardware abstraction firmata_server.py has (Grove's sysex
+extension) instead of `_Pin`. `StandaloneInterpreter` now takes
+`grove_sensor_catalog` as a second constructor argument (`code.py` passes
+`GROVE_SENSOR_CATALOG`, same object `FirmataServer` already uses).
+Multiple readings (e.g. an accelerometer's x/y/z) get independent
+smoother/easing state each, matching `GroveSensor.js`'s own
+per-axis `axisStates` — sourced from the widget's own saved `outs` field
+(a real model attribute GroveSensor.js sets), not a hardcoded table, so
+it works for whichever sensor is selected without the interpreter
+needing its own copy of `sensorCatalog.js`. 5 unit tests pass (an
+accelerometer-style 3-reading sensor and a `needs_pin` single-reading
+sensor, both against a fake catalog, including subscribe/cleanup
+lifecycle) under plain CPython3, plus real-hardware verification: this
+test board has no physical Grove sensor attached (`Grove sensors found:
+none` at boot, unchanged), so what got verified there specifically is
+graceful degradation — a patch with a GroveSensor widget loads and runs
+fine, prints one clear "sensor N not available on this board" message
+during `claim_hardware()` (not a crash, not repeated spam), and the rest
+of a mixed patch (AnalogIn→Servo alongside it) keeps working, including
+through a full connect/disconnect handoff cycle. Not yet verified
+against a real physically-attached sensor - that needs a Grove module
+actually wired to this board (nothing currently is).
+
+**Not done yet:** nothing widget-scope-related — the full portable set
+from the "Grounding facts" section (17 non-Gesture types, GroveSensor
+included) is implemented. Remaining gaps are all sequencing/
+observability, not missing widgets (see "Feedback / monitoring" above
+for the monitoring ones):
+- Simplifications worth knowing about, not necessarily worth fixing:
+  IfThen's `setTimeout`-based hysteresis is tick-polled instead; Tween's
+  easing curves are a faithful port of
+  `~/Documents/GitHub/VarSpeedPython/varspeed/easing_functions.py`
+  (Velocity.js's own bezier approximations of the same curves, so a
+  small inherent difference either way); Sequence's per-segment tweening
+  is linear instead of replicating Velocity's default "swing" easing
+  (never user-configurable for that widget, unlike Tween).
+
 ## Feedback / monitoring
 
 Three options were discussed:
 
-1. **Physical display (Grove LCD)** — firmware already supports this
-   (`grove_lcd.py`, used today for the station-mode IP). Self-contained,
-   no WiFi dependency once flashed, but ~2 lines of text and needs that
-   specific hardware attached.
+1. **Physical display** — the firmware previously supported a Grove LCD
+   (`grove_lcd.py`, used for the station-mode IP; removed 2026-09-19,
+   Phil's unit was too old to work), and the user's actual hardware for
+   this project is a different OLED display anyway — a physical-display
+   option here would target the OLED, with new device-side driver code
+   written from scratch. Self-contained, no WiFi dependency once
+   flashed, but limited display real estate and needs that specific
+   hardware attached.
 2. **A standalone WiFi status / logging HTTP endpoint** (e.g.
    `GET /status`) — useful but real new firmware surface; nothing in this
    firmware implements an HTTP server today (only the raw Firmata TCP
@@ -99,9 +315,68 @@ Three options were discussed:
    UI as the dashboard). Blurs "standalone" and "host-driven" into one
    continuum rather than two hard-separated modes.
 
-**Recommended combination:** option 3 as the primary feedback mechanism,
-optionally paired with option 1 (a minimal LCD glance like "running / N
-errors") for a true no-NTK-at-all status check. Option 2 deferred.
+**Decided (2026-09-17): option 3 only for v1.** Reconnect-as-monitor is
+the sole feedback mechanism; the physical-display glance (option 1) is
+not being added — it needs specific hardware attached and isn't
+required. Option 2 deferred indefinitely.
+
+**Corrected understanding of option 3, found while wiring `code.py`'s
+explicit handoff (2026-09-17) — this is more limited than "watch while
+it keeps running":**
+
+- **Reconnecting always fully hands control back to NTK, it never
+  "watches" a still-running interpreter.** Explicit handoff (the design
+  we picked specifically to avoid two things writing the same pin at
+  once) means the interpreter releases its pins and stops ticking the
+  instant a client connects — before the fresh per-connection
+  `FirmataServer` claims those same pins. So "reconnect as monitor"
+  really means "reconnect, which stops standalone execution and resumes
+  host-driven operation," not passive observation of the device doing
+  its own thing.
+- **Only hardware *input* widgets (AnalogIn/DigitalIn/GroveSensor) are a
+  genuine live readback.** Firmata's reporting protocol only reports
+  input pins to a connected host - there's no mechanism for a device to
+  report an *output* pin's value back. Every other widget you'd see on
+  reconnect (IfThen, Servo, any logic/generator widget) is independently
+  **recomputed by NTK's own JS locally** from whatever input just
+  arrived - not read off the wire. It usually agrees with what the
+  device was doing, since both sides run the same deterministic logic
+  from the same live input, but it's a coincidence of parallel
+  computation, not a real observation - and once NTK reconnects, it's
+  NTK's own recompute that's now actually driving the hardware anyway
+  (see the previous point), so at that point it genuinely is accurate,
+  just not for the reason it might look like.
+- **A true "watch without taking over" mode is a real NTK-side feature,
+  not a firmware tweak.** NTK has no read-only / don't-drive-outputs
+  mode today - any Servo/AnalogOut/DigitalOut widget it has loaded
+  actively writes its computed value the moment it connects. Building
+  genuine passive monitoring (watch the interpreter keep running,
+  without ever taking over) would mean teaching NTK itself to suppress
+  that write behavior in some new mode, on top of a device-side protocol
+  addition to report output-pin values back (a Firmata sysex extension,
+  similar to how GroveSensor readings already work) - real new work on
+  both sides, with a real footgun if the suppression isn't airtight
+  (even one stray write at connect time reintroduces the exact
+  dual-driving conflict explicit handoff exists to prevent).
+  **Decided: not pursuing this for now** - the current behavior (any
+  connection = full handoff, never two things driving the same pin) is
+  being kept as the safe default rather than adding this complexity.
+  Standalone execution itself is completely unaffected by this decision
+  either way - it's a pure feedback/observability question, not a
+  capability gate.
+- **NTK does not pick up the patch from a connected device.** Connecting
+  to a device's IP only opens a live Firmata I/O channel (pin values in
+  and out) - there's no mechanism for NTK to fetch or reconstruct a
+  patch definition from what's running on the device.
+  `standalone_patch.json` lives only on the device's filesystem for the
+  interpreter's own use; nothing exposes it back over the wire. For
+  "reconnect and see the whole patch" to show anything meaningful at
+  all, the *same* `.ntk` file has to be separately imported into NTK
+  first - and if that local copy and the device's actual
+  `standalone_patch.json` ever drift apart (a newer patch exported to
+  the device but not re-imported into NTK), what you'd see on reconnect
+  is whatever NTK has loaded, not necessarily what the device is
+  actually running. Not addressed - flagged here, not yet a task.
 
 ## Live push-to-device deploy (idea, not fully designed)
 
@@ -118,18 +393,20 @@ The same open connection carries patch-pushes one direction and live
 status reports the other — the WiFi link becomes a combined
 deploy + monitor channel.
 
-**Open design questions:**
+**Decided (2026-09-17):**
 
-- Does the device run the interpreter loop **continuously** (redundant /
-  duplicate execution while NTK is also driving the same live patch), or
-  does the interpreter only take over once the host disconnects (an
-  explicit handoff)? The latter avoids double-execution / conflicting
-  output writes but needs clean "host present vs. absent" detection.
-- Push-on-every-change vs. explicit deploy action.
-- Where does `standalone_patch.json` live relative to the existing
-  `settings.toml`-driven mode switch (SoftAP vs. station WiFi) — is "run
-  the interpreter" a third independent mode flag, or does it layer on top
-  of either WiFi mode?
+- **Explicit handoff.** The interpreter stays idle while NTK is
+  connected and driving; it only takes over outputs once the Firmata
+  connection drops. Avoids double-execution / conflicting output writes.
+  Needs clean "host present vs. absent" detection (a Firmata disconnect
+  event).
+- **Explicit "Deploy" action**, not push-on-every-change — safer than an
+  unexpected mid-edit redeploy disrupting a running device.
+- **Auto-detect from patch-file presence**, not a separate
+  `settings.toml` flag or a fold-in to the existing SoftAP/station mode
+  enum. If a valid `standalone_patch.json` exists on the device
+  filesystem, it's ready to run standalone — no new settings surface
+  needed. Independent of whichever WiFi mode (SoftAP/station) is active.
 
 See the CircuitPython firmware (`firmware/xiao-esp32c6-circuitpython-firmata/`,
 `pins.py` / `firmata_server.py`) for the architecture this extends, and
@@ -172,19 +449,22 @@ Arduino), which isn't a firm decision.
 
 **Secondary risks of going first:**
 
-- **Unproven interpreter performance** — a JSON-patch interpreter
-  evaluating every loop tick on the XIAO ESP32-C6 for the non-Gesture
-  portable set. Feasible but worth a throwaway spike before committing
-  real build time. (Gesture's DTW, the heaviest case, is deferred out of
-  v1 scope — see above.) **Possible mitigation, unconfirmed for this
-  board:** [CircuitPython Turbo](https://learn.adafruit.com/circuitpython-turbo)
-  ahead-of-time-compiles selected hot functions to native machine code
-  (host-side compile step, rest of the code stays interpreted
-  CircuitPython) — aimed at exactly this kind of compute-bound problem,
-  not I/O waits. Adafruit's own docs only demonstrate it on RP2040
-  (ARM Cortex-M0+) boards; nothing confirms RISC-V/ESP32-C6 support, and
-  native codegen is architecture-specific, so this needs to be checked
-  (not assumed) as part of the performance spike before relying on it.
+- **Interpreter performance — RESOLVED (2026-09-17), no longer a risk
+  for the non-Gesture set.** Spiked on real hardware (XIAO ESP32-C6,
+  CircuitPython 10.3.0): a representative 20-widget patch (17 eval
+  steps covering the full non-Gesture portable set — Process, IfThen,
+  Boolean, Gate, Mix, Splitter, Count, Pulse, Sequence, Tween, Data,
+  Servo) evaluates a full tick in ~1.78ms (~561Hz). Extrapolated to a
+  much larger 100-widget patch (~0.1ms/widget): still ~10.5ms (~95Hz) —
+  comfortably above the standard 50Hz servo-loop rate and any realistic
+  GPIO/sensor polling need. Real hardware I/O costs, measured
+  separately (Turbo wouldn't help these): `analogio.AnalogIn.value`
+  ~205μs/read, `digitalio` ~10μs/read. **CircuitPython Turbo isn't
+  needed for v1** — there's generous headroom without it. It only
+  becomes relevant if a future compute-heavy widget (Gesture's DTW) is
+  added back in; RISC-V/ESP32-C6 support for Turbo itself is still
+  unconfirmed (Adafruit's docs only show RP2040/ARM examples) and
+  wasn't resolved on this pass — revisit if/when Gesture is reconsidered.
 - **No leverage for the rest of the roadmap** — unlike steps 1–2,
   standalone export doesn't unlock Macro / multi-select / the iPad port.
   The native protocol would help the iPad bridge slightly; nothing else.

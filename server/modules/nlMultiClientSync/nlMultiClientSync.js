@@ -5,11 +5,40 @@ module.exports = function(options) {
 		_ = require('underscore'),
 		events = require('events'),
 		nlHardware = require('../nlHardware/Hardware'),
+		StandaloneMonitor = require('../nlHardware/StandaloneMonitor'),
 		utils = require('../../utils')(),
 		self;
 
+	// Active StandaloneMonitor connections, keyed by socket.id - each
+	// browser client can have at most one at a time (see
+	// client:startMonitor below). Separate from self.hardwareModels
+	// (the normal per-device NetworkModel map) since a monitor
+	// connection is a fundamentally different thing: it doesn't claim
+	// any pins, doesn't go through the Firmata handshake, and belongs
+	// to one specific client's UI session, not the shared patch.
+	var activeMonitors = {};
+
 
 	var QueueHandler = utils.QueueHandler;
+
+	// Output-role widget typeIDs - mirrors each widget's own client-side
+	// `deviceMode` (see AnalogOut.js/DigitalOut.js/Servo.js/OSCOut.js),
+	// which is what picks `active` vs `activeOut` as the flag that
+	// actually gates its own connection. The server only ever sees
+	// serialized widget JSON (typeID, active, activeOut - see
+	// masterPatch.widgets), not the client's view classes, so this list
+	// is the server-side equivalent of that same in/out split - needed by
+	// pruneHardwareModelIfUnused below, since a widget's `active` field
+	// defaults to true forever for every output-role widget (it's simply
+	// never touched by that widget's own code - only `activeOut` is),
+	// so checking `active` on an output widget would always look "still
+	// wanted" even when its connect toggle is off.
+	var OUTPUT_TYPE_IDS = {Servo: true, AnalogOut: true, DigitalOut: true, OSCOut: true};
+
+	function widgetWantsConnection(widget) {
+		if (!widget) return false;
+		return OUTPUT_TYPE_IDS[widget.typeID] ? widget.activeOut === true : widget.active === true;
+	}
 
 	// An OSC hardware-model instance opens a real UDP socket on whatever port its key
 	// encodes (see nlHardware/OSC.js), so distinct OSCIn widgets configured with distinct
@@ -87,6 +116,43 @@ module.exports = function(options) {
 
 	MultiClientSync.prototype = {
 		clients: [],
+		/**
+		 * pruneHardwareModelIfUnused - closes and drops a hardware-model
+		 * instance (e.g. the NetworkModel/etherport-client behind a
+		 * WiFi Firmata device) once no widget currently mapped to it still
+		 * wants a live connection.
+		 *
+		 * Without this, a hardware-model instance - and the real TCP
+		 * connection/reconnect-forever loop etherport-client runs behind
+		 * it (see NetworkModel.js's own comment on self.close) - only
+		 * ever got torn down when a widget was fully REMOVED
+		 * (client:removeWidget below), never when a widget's connect
+		 * toggle (active/activeOut) simply switched off. That left the
+		 * connection silently reconnecting in the background for the
+		 * rest of the server process's life, invisible from the UI - a
+		 * real bug found 2026-09-19 (NTK connecting to a device on its
+		 * own with no widget's toggle showing anything active).
+		 *
+		 * @param {string} hardwareKey e.g. "network:192.168.0.116:3030"
+		 * @return {void}
+		 */
+		pruneHardwareModelIfUnused: function(hardwareKey) {
+			var model = this.hardwareModels[hardwareKey];
+			if (!model) return;
+
+			var mappedWidgetIds = _.pluck(_.where(this.masterPatch.mappings, {modelWID: hardwareKey}), 'viewWID');
+			var stillWanted = _.some(mappedWidgetIds, function(wid) {
+				var widget = _.findWhere(this.masterPatch.widgets, {wid: wid});
+				return widgetWantsConnection(widget);
+			}, this);
+
+			if (!stillWanted) {
+				if (typeof model.close === 'function') {
+					model.close();
+				}
+				delete this.hardwareModels[hardwareKey];
+			}
+		},
 		setMaster: function(patch) {
 			this.masterPatch = patch;
 			self.transport.sockets.emit('loadPatchFromServer', JSON.stringify( patch ));
@@ -264,6 +330,18 @@ module.exports = function(options) {
 					changedAttributes = options.changedAttributes;
 
 				self.updateClients([{wid: wid, changedAttributes: changedAttributes}], this);
+
+				// A widget's connect toggle just switched off - check
+				// whether any hardware connection it was mapped to should
+				// now be closed (see pruneHardwareModelIfUnused above).
+				// Runs after updateClients so masterPatch.widgets already
+				// reflects this change.
+				if (changedAttributes && (changedAttributes.active === false || changedAttributes.activeOut === false)) {
+					var deactivatedHardwareKeys = _.pluck(_.where(self.masterPatch.mappings, {viewWID: wid}), 'modelWID');
+					_.each(deactivatedHardwareKeys, function(hardwareKey) {
+						self.pruneHardwareModelIfUnused(hardwareKey);
+					});
+				}
 			});
 
 			// When we receive an update to the mappings from the client
@@ -314,7 +392,57 @@ module.exports = function(options) {
 				self.emit('toggleServer');
 			});
 
+			// Opt-in "monitor mode" (see plans/standalone-patch-export.md
+			// and the firmware-monitor-mode branch history) - watches a
+			// running standalone patch's live values without taking over
+			// from it. One monitor connection per browser client/socket
+			// at a time - a second client:startMonitor from the same
+			// socket replaces whatever it already had running, same as
+			// the reasoning for keying activeMonitors by socket.id below.
+			socket.on('client:startMonitor', function(options) {
+				var existing = activeMonitors[socket.id];
+				if (existing) {
+					existing.close();
+					delete activeMonitors[socket.id];
+				}
+
+				var host = options.host,
+					port = options.port;
+
+				var monitor = StandaloneMonitor(host, port);
+				activeMonitors[socket.id] = monitor;
+
+				monitor.on('connected', function() {
+					socket.emit('server:monitorStatus', {connected: true, host: host, port: port});
+				});
+				monitor.on('value', function(update) {
+					socket.emit('server:monitorValue', [update]);
+				});
+				monitor.on('error', function(err) {
+					socket.emit('server:monitorStatus', {connected: false, error: String(err)});
+				});
+				monitor.on('close', function() {
+					socket.emit('server:monitorStatus', {connected: false});
+					if (activeMonitors[socket.id] === monitor) {
+						delete activeMonitors[socket.id];
+					}
+				});
+			});
+
+			socket.on('client:stopMonitor', function() {
+				var existing = activeMonitors[socket.id];
+				if (existing) {
+					existing.close();
+					delete activeMonitors[socket.id];
+				}
+			});
+
 			socket.on('disconnect', function() {
+				var existing = activeMonitors[socket.id];
+				if (existing) {
+					existing.close();
+					delete activeMonitors[socket.id];
+				}
 				self.emit('clientDisconnected');
 			});
 

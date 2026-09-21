@@ -3,6 +3,7 @@ define([
 	'backbone',
 	'communicator',
 	'SocketAdapter',
+	'controllers/MonitorController',
 	'cableManager',
 	'controllers/PatchLoader',
 	'controllers/Timing',
@@ -26,8 +27,9 @@ define([
     'views/Splitter/Splitter',
     'views/item/RestrictiveOverlay',
     'views/GroveSensor/GroveSensor',
+    'utils/StandaloneCompatibility',
 ],
-function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, SplitterView, RestrictiveOverlayView, GroveSensorView){
+function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, SplitterView, RestrictiveOverlayView, GroveSensorView, StandaloneCompatibility){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -50,6 +52,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			serverAddress: '127.0.0.1',
 			addFunction: this.onExternalAddWidget.bind(this),
 			mapFunction: this.mapToModel.bind(this),
+			updateLargestCID: this.updateLargestCID.bind(this),
 		});
 
 		window.OO = this;
@@ -84,6 +87,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			window.app.timingController = new TimingController();
 			// Bind to a socket server
 			Communicator.socketAdapter = new SocketAdapter();
+			MonitorController.initialize();
 
 			if(this.parentRegion) {
 				this.parentRegion.show(this.views.mainCanvas);
@@ -101,6 +105,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
 			window.app.vent.on('ToolBar:savePatch', this.savePatch, this);
 			window.app.vent.on('ToolBar:exportPatch', this.exportPatch, this);
+			window.app.vent.on('ToolBar:exportStandalonePatch', this.exportStandalonePatch, this);
 			window.app.vent.on('ToolBar:loadPatch', this.loadPatch, this);
 			window.app.vent.on('ToolBar:clearPatch', this.clearPatch, this);
 			window.app.vent.on('receivedDeviceModelUpdate', function(data) {
@@ -122,6 +127,15 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 		},
 		onExternalAddWidget: function(widgetType, addedFromLoader, wid) {
+			// Structural patch edits are blocked while monitoring (see
+			// MonitorController.js's blockAndWarn) - a patch loaded from
+			// disk/server still needs to go through here uninterrupted,
+			// hence the addedFromLoader check.
+			if (!addedFromLoader && window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:blockedEdit');
+				return;
+			}
+
 			var newWidget,
 				serverAddress = window.location.host;
 
@@ -420,6 +434,26 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			return existingMapping;
 		},
 		/**
+		 * updateLargestCID - keeps the counter addWidgetToStage uses to
+		 * mint fresh widget ids ("n" + largestCID) ahead of every id a
+		 * loaded patch actually uses. Without this, a widget added after
+		 * loading a patch can mint an id that collides with one already
+		 * in the file (see PatchLoader.loadJSON, which calls this once
+		 * per loaded widget before any of them are added to the stage) -
+		 * a real bug found 2026-09-19 via a duplicate "n6" in an exported
+		 * standalone patch, silently dropping one of the two widgets'
+		 * data on the floor.
+		 *
+		 * @param {string} wid e.g. "n6"
+		 * @return {void}
+		 */
+		updateLargestCID: function(wid) {
+			var n = parseInt(String(wid).slice(1), 10);
+			if(!isNaN(n) && n > this.largestCID) {
+				this.largestCID = n;
+			}
+		},
+		/**
 		 * Render a view to the appropriate Canvas DOM element
 		 *
 		 * @param view
@@ -636,6 +670,11 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
          * @return {void}
          */
 		removeWidget: function(widgetView, calledFromLoader) {
+			if (!calledFromLoader && window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:blockedEdit');
+				return;
+			}
+
 			this.widgets = _.reject(this.widgets, function(view) { return widgetView === view; });
 			this.widgetModels.remove(widgetView.model);
 
@@ -911,29 +950,72 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
         mappings: this.widgetMappings,
       };
 
-			// Built and downloaded entirely client-side (Blob + a throwaway
-			// <a download>), NOT round-tripped through the server's
-			// GET /patch.ntk?patch=<entire JSON as a URL-encoded query
-			// string> the way this used to work - a widget with any real
-			// amount of data (e.g. PoseRecog's recorded training examples)
-			// can push the encoded patch past the request-line length
-			// limit most HTTP servers enforce (Node's own default is well
-			// under 100KB), which fails the request outright. Worse, the
-			// old code drove that GET via window.location.href - a full-
-			// page navigation - so a failed request didn't just fail to
-			// download, it tore down the entire running SPA (blank/white
-			// canvas, "net::ERR_CONNECTION_RESET"). A Blob URL has no such
-			// size ceiling and never leaves the page.
+			this.downloadPatchAsFile(patch, 'patch.ntk');
+    },
+		/**
+		 * exportStandalonePatch - like exportPatch, but for a patch meant to
+		 * run on the device's own on-device interpreter with no host
+		 * present. Rejects clearly (see plans/standalone-patch-export.md's
+		 * "Grounding facts") rather than silently downloading a patch the
+		 * device can't actually run, and names exactly which widgets are
+		 * the problem.
+		 *
+		 * @return {void}
+		 */
+		exportStandalonePatch: function() {
+			var patch = {
+				widgets: this.widgetModels.toJSON(),
+				mappings: this.widgetMappings,
+			};
+
+			var result = StandaloneCompatibility.checkPatch(patch);
+
+			if(!result.compatible) {
+				var widgetList = _.map(result.unsupportedWidgets, function(widget) {
+					return (widget.title || widget.typeID) + ' (' + widget.typeID + ')';
+				}).join('\n');
+
+				alert(
+					'This patch can\'t be exported for standalone use - it uses widgets ' +
+					'the on-device interpreter doesn\'t support yet:\n\n' + widgetList
+				);
+
+				return;
+			}
+
+			this.downloadPatchAsFile(patch, 'standalone_patch.json');
+		},
+		/**
+		 * downloadPatchAsFile - shared by exportPatch/exportStandalonePatch.
+		 * Built and downloaded entirely client-side (Blob + a throwaway
+		 * <a download>), NOT round-tripped through the server's
+		 * GET /patch.ntk?patch=<entire JSON as a URL-encoded query
+		 * string> the way this used to work - a widget with any real
+		 * amount of data (e.g. PoseRecog's recorded training examples)
+		 * can push the encoded patch past the request-line length
+		 * limit most HTTP servers enforce (Node's own default is well
+		 * under 100KB), which fails the request outright. Worse, the
+		 * old code drove that GET via window.location.href - a full-
+		 * page navigation - so a failed request didn't just fail to
+		 * download, it tore down the entire running SPA (blank/white
+		 * canvas, "net::ERR_CONNECTION_RESET"). A Blob URL has no such
+		 * size ceiling and never leaves the page.
+		 *
+		 * @param {object} patch {widgets, mappings}
+		 * @param {string} filename
+		 * @return {void}
+		 */
+		downloadPatchAsFile: function(patch, filename) {
 			var blob = new Blob([JSON.stringify(patch)], {type: 'application/octet-stream'});
 			var blobURL = URL.createObjectURL(blob);
 			var link = document.createElement('a');
 			link.href = blobURL;
-			link.download = 'patch.ntk';
+			link.download = filename;
 			document.body.appendChild(link);
 			link.click();
 			document.body.removeChild(link);
 			URL.revokeObjectURL(blobURL);
-    },
+		},
 		clearPatch: function() {
 			var emptyPatch = {"widgets":[],"mappings":[]};
 

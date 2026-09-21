@@ -33,7 +33,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			this.model.set({
 				title: 'DigitalOut',
 				outputMapping: options.outputMapping,
-                activeOut: true,
+                activeOut: false,
 				port: this.model.get('port') || 3030,
 				threshold: this.model.get('threshold') || 512,
 			});

@@ -3,6 +3,8 @@
 	<div class="savePatch">Save</div>
 	<div class="loadPatch">Import</div>
     <div class="downloadPatch">Export</div>
+    <div class="downloadStandalonePatch">Export Standalone</div>
+    <div class="monitorDevice">Monitor Device</div>
 	<div class="clearPatch">Clear</div>
 	<form method="post" enctype="multipart/form-data" action="loadPatch" class="inputForm">
 		<input type="file" name="images" id="patchFileUpload" style="display:none" />

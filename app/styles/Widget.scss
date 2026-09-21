@@ -1,3 +1,20 @@
+// Monitor mode's "more" panel lock (see MonitorController.js's
+// start/stop and WidgetMulti.js's onRender) - shows the click-blocking
+// overlay every widget's .widgetBottom .content already has in the DOM.
+// A widget's own primary body (its knob/button) is NOT covered here -
+// only the "more" panel, whose tuning fields do nothing while the
+// signal chain is suppressed - see the session that scoped this.
+//
+// !important: the default (hidden) rule lives inside .widget
+// .widgetBottom .content (4 classes deep, see below) - a plain
+// body.ntk-monitoring .monitorBlockOverlay selector loses that
+// specificity fight regardless of source order, so display:none would
+// always win. Confirmed via hands-on testing 2026-09-21 (the overlay
+// silently never appeared at all).
+body.ntk-monitoring .monitorBlockOverlay {
+	display: block !important;
+}
+
 .widget {
 	position: relative;
 	top: 50px;
@@ -500,6 +517,23 @@
             border-radius: 5px;
 
             background-color: #fff;
+
+            // Positioning root for .monitorBlockOverlay (see below) -
+            // static by default otherwise, so the overlay would size
+            // itself against the nearest ancestor that DOES have one
+            // instead of this panel.
+            position: relative;
+
+            .monitorBlockOverlay {
+                display: none;
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 5;
+                cursor: not-allowed;
+            }
 
             label {
                 display: inline-block;
