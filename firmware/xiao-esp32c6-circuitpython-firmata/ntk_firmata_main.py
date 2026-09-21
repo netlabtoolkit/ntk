@@ -495,7 +495,18 @@ def _peek_for_monitor_request(conn):
     silently sits for before starting its own handshake - see
     FirmataServer.on_connect's comment) so every ordinary connection
     only ever pays this as a brief, fixed delay, not something that
-    scales with a slow/absent handshake."""
+    scales with a slow/absent handshake.
+
+    Returns (is_monitor_request, leftover_bytes). Real bug, hardware-
+    found 2026-09-21: this reads bytes off the socket to check them,
+    and a normal (non-monitor) client's own opening handshake bytes can
+    land in that same window - discarding them (the original behavior)
+    silently desynced that connection's Firmata byte stream from the
+    very first read, breaking every widget on it, recovering only once
+    it disconnected and a fresh connection/tick cycle began. The caller
+    must feed leftover_bytes into the real FirmataServer once it's
+    constructed, for any bytes read here that turned out not to be a
+    monitor request."""
     conn.settimeout(0)
     peek_buffer = bytearray(8)
     buf = bytearray()
@@ -508,11 +519,11 @@ def _peek_for_monitor_request(conn):
         if n:
             buf.extend(peek_buffer[:n])
             if bytes(buf[:3]) == _MONITOR_REQUEST_BYTES:
-                return True
+                return True, b""
             if len(buf) >= len(_MONITOR_REQUEST_BYTES):
-                return False  # got enough bytes and they don't match - some other client
+                return False, bytes(buf)  # some other client - hand back what we read
         time.sleep(0.01)
-    return False
+    return False, bytes(buf)
 
 
 def _serve_monitor_connection(conn, addr):
@@ -642,14 +653,17 @@ def run_server():
                 conn, addr = server_socket.accept()
             except OSError:
                 pass  # timed out with no connection yet - keep polling
-        if _standalone is not None and _peek_for_monitor_request(conn):
-            # Monitoring connection - the interpreter keeps every pin
-            # and keeps ticking exactly as if nothing connected; see
-            # _serve_monitor_connection's own docstring. Explicitly
-            # does NOT fall through to the explicit-handoff release
-            # below - this is the whole point of monitor mode.
-            _serve_monitor_connection(conn, addr)
-            continue
+        _peeked_leftover = b""
+        if _standalone is not None:
+            _is_monitor_request, _peeked_leftover = _peek_for_monitor_request(conn)
+            if _is_monitor_request:
+                # Monitoring connection - the interpreter keeps every pin
+                # and keeps ticking exactly as if nothing connected; see
+                # _serve_monitor_connection's own docstring. Explicitly
+                # does NOT fall through to the explicit-handoff release
+                # below - this is the whole point of monitor mode.
+                _serve_monitor_connection(conn, addr)
+                continue
         if _standalone is not None:
             # Explicit handoff (plans/standalone-patch-export.md) - a real
             # client is taking over now, so release every pin the
@@ -700,6 +714,14 @@ def run_server():
                 pass
 
         firmata.on_connect(lambda data: send_all(conn, data, on_wait=_drain_incoming_once))
+        if _peeked_leftover:
+            # Bytes read off this connection by _peek_for_monitor_request
+            # while checking whether it was a monitor client - it wasn't,
+            # so they're real Firmata protocol bytes this client already
+            # sent and is not going to send again. Must be fed in before
+            # the main loop below starts its own recv_into, or they're
+            # simply gone - see _peek_for_monitor_request's docstring.
+            firmata.feed(_peeked_leftover)
         conn.settimeout(0)
         connected_at = time.monotonic()
 
