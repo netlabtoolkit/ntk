@@ -492,7 +492,21 @@ def run_server():
     # for real hardware control (the 2026-09-17 performance spike showed
     # hundreds of Hz achievable). No standalone patch loaded - the
     # existing 1s idle-poll behavior is unchanged.
-    server_socket.settimeout(0.02 if _standalone is not None else 1)
+    #
+    # Bisection step 2026-09-21: loosened from 0.02s to 0.1s (10Hz
+    # instead of 50Hz) - testing whether the very tight poll/tick loop
+    # (real GPIO I/O every cycle, 50x more accept() syscalls than idle)
+    # was competing for CPU time against the WiFi stack's own background
+    # servicing on this single-core chip. Reliability with a patch
+    # actually loaded and ticking measured at 7/12 (~58%) across two
+    # trial batches at 0.02s, notably worse than the ~92% measured
+    # yesterday with the interpreter merely imported but idle (which
+    # never touched this timeout at all, since _standalone was None
+    # then) - this is the leading hypothesis for that gap, not yet
+    # confirmed. 10Hz is still far above the ~1Hz idle case and should
+    # be plenty for pot-turning/button-pressing interaction; revisit if
+    # a real use case needs faster response than that.
+    server_socket.settimeout(0.1 if _standalone is not None else 1)
     feed()
     print("Firmata server listening on port", FIRMATA_PORT)
     # WiFi is up and we're listening but nobody's connected yet - switch
@@ -520,7 +534,7 @@ def run_server():
         print("Waiting for Client to connect...")
         conn = None
         while conn is None:
-            feed()  # accept() blocks the VM for up to 1s per poll (0.02s - see above - while a standalone patch is loaded)
+            feed()  # accept() blocks the VM for up to 1s per poll (0.1s - see above - while a standalone patch is loaded)
             led_tick()
             if _standalone is not None:
                 _standalone.tick()
