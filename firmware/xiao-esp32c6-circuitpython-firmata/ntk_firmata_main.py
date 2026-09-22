@@ -655,8 +655,10 @@ def run_server():
         _standalone.claim_hardware()
         print("Standalone interpreter running (no client connected)")
         print("Press 'v' for live values, 't' for topology, 'r' for WiFi RSSI, at any time on this console.")
+        print("(Click in this pane, press the desired key, and hit Enter.)")
     else:
         print("Press 'r' for WiFi RSSI at any time on this console.")
+        print("(Click in this pane, press the desired key, and hit Enter.)")
 
     read_buffer = bytearray(128)
 
