@@ -21,9 +21,11 @@ __pycache__
 # Real CircuitPython WiFi credentials - only settings.toml.example is
 # meant to be tracked.
 **/settings.toml
-# Scratch area for drafting widget-help doc pages before pasting them
-# into the WordPress site - not meant to live in the repo itself.
-docs/
+# docs/*.md is tracked (decided 2026-09-22) - everything else in here
+# (videos, images, the WordPress autoindex script) stays untracked, a
+# scratch/staging area for pasting into the WordPress site.
+docs/*
+!docs/*.md
 server/speechHelper/speechhelper
 server/speechHelper/ttshelper
 
