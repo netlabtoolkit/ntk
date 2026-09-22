@@ -54,6 +54,22 @@ try:
 except ImportError:  # not every CircuitPython build ships it
     _watchdog = None
 
+# ntk_version.py only exists when this firmware was bundled by a
+# packaged NTK app build (buildScripts/packageElectron.js writes it,
+# staying in sync with package.json automatically - never hand-edited).
+# A manual/dev deploy via Thonny has no such file, hence the
+# try/except - that's a normal, expected case, not an error, so it
+# prints nothing rather than a scary traceback. A single string
+# constant, no function definitions - negligible compiled-code weight
+# next to os/sys/time/supervisor/wifi/microcontroller already imported
+# above, unlike the heap-fragmentation crash this file's own docstring
+# warns about for large modules like ntk_firmata_main.
+try:
+    import ntk_version as _ntk_version
+    print("NTK version:", _ntk_version.NTK_VERSION)
+except ImportError:
+    pass
+
 # A byte on the serial console in the next few seconds drops straight
 # to the REPL, before anything below can hang or crash. Kept here,
 # inline, rather than as an imported helper - importing anything with

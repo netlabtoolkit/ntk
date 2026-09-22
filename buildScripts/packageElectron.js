@@ -228,6 +228,16 @@ function bundleCircuitPythonFirmware(destDir) {
 	for (const file of FIRMWARE_FILES) {
 		fs.copyFileSync(path.join(FIRMWARE_SRC_DIR, file), path.join(destDir, file));
 	}
+	// code.py prints this at boot if present (try/except ImportError,
+	// see its own comment) - a manual/dev deploy via Thonny has no such
+	// file and just skips the print, which is the expected case, not an
+	// error. A single string constant, not compiled to .mpy - matches
+	// every other small firmware file here (only standalone_interpreter
+	// is large enough to need that).
+	fs.writeFileSync(
+		path.join(destDir, 'ntk_version.py'),
+		`NTK_VERSION = ${JSON.stringify(pkg.version)}\n`
+	);
 	// Third-party CircuitPython driver .mpy files (adafruit_dht,
 	// adafruit_lis3dh, and their own dependencies) - a real directory
 	// tree, not flat files, so copied wholesale rather than listed
