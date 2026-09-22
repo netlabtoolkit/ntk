@@ -209,7 +209,23 @@ module.exports = function(options) {
 
 			if(masterModel) {
 				masterModel.map = currentMap.mappings[0].map;
-				socket.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
+				// Real bug, found 2026-09-22: this used to re-broadcast
+				// the ENTIRE masterPatch (widgets included) just to sync
+				// a mappings-only change. The sending client already has
+				// the correct mapping state locally (it computed and
+				// sent it) - a full reload back to it could race any
+				// OTHER in-flight update for the same widget and clobber
+				// it with stale masterPatch.widgets data. This race is a
+				// real, confirmed bug on its own (verified via a captured
+				// stack trace showing exactly this path reconstructing a
+				// widget from stale server data) - but it turned out NOT
+				// to be the full explanation for a separate "editing a
+				// hardware widget's IP then reconnecting reverts to the
+				// old value" symptom seen the same day, which persisted
+				// even with this fix in place and remains unexplained
+				// (see ntk_hardware_ip_edit_revert_open_bug memory). No
+				// other client needs a widget-including reload just
+				// because one mapping changed, regardless.
 			}
 
 		},
@@ -228,6 +244,18 @@ module.exports = function(options) {
 			// for OSC in particular, that's now the widget's real configured receiving port.
 			model.on('change', function(options) {
 				this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: model.address, field: options.field, value: options.value}));
+			}.bind(this));
+
+			// A bad/unset IP (or an unreachable device generally) used
+			// to fail completely silently - see NetworkModel.js's own
+			// comment on connectionFailed for the full story. Broadcast
+			// to every connected client rather than routing to just
+			// whichever socket happened to trigger the connection - NTK
+			// has no per-socket ownership of a hardware model, and every
+			// connected browser client cares equally that this device
+			// isn't reachable.
+			model.on('connectionFailed', function(info) {
+				this.transport.emit('server:hardwareConnectionFailed', info);
 			}.bind(this));
 		},
 		/**
@@ -400,7 +428,25 @@ module.exports = function(options) {
 				// We should do the below in the future instead to limit traffic
 				//self.masterPatch.mappings.push(JSON.parse(mappings));
 				self.masterPatch.mappings = JSON.parse(mappings);
-				this.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
+				// No broadcast back - see updateMappings's own comment
+				// for the race condition this caused and its real but
+				// limited fix (confirmed NOT the full explanation for
+				// the open "IP edit reverts" bug - see
+				// ntk_hardware_ip_edit_revert_open_bug memory). The
+				// sending client already has the correct mapping state
+				// locally.
+
+				// Separately: this is exactly where changing a widget's
+				// server/IP (not removing the whole widget) leaves its
+				// OLD hardware connection orphaned - masterPatch.mappings
+				// now reflects the new address, so the old hardwareKey
+				// is no longer referenced and this correctly closes it.
+				// Without this, the old connection just kept retrying
+				// forever in the background - harmless on its own,
+				// except its eventual connectionFailed report (see
+				// NetworkModel.js) could still arrive later and show the
+				// wrong (old) address. This part IS confirmed working.
+				self.pruneOrphanedHardwareModels();
 			});
 
 			socket.on('saveCurrentPatch', function(options) {

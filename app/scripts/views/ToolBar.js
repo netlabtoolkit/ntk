@@ -48,6 +48,7 @@ function( app, Backbone, Template, Widgets ) {
 			// window.app.monitoring.active is the single shared source of
 			// truth both surfaces read from.
 			window.app.vent.on('monitorStatus', this.indicateMonitorActive, this);
+			window.app.vent.on('hardwareConnectionFailed', this.indicateHardwareConnectionFailed, this);
 		},
 		render: function() {
 			this.el.innerHTML = this.template();
@@ -426,6 +427,37 @@ function( app, Backbone, Template, Widgets ) {
 			} else {
 				$button.removeClass('monitorActive').text('Monitor Device');
 			}
+		},
+		// A Network device widget never managed to connect at all - see
+		// NetworkModel.js's own comment for why this used to fail
+		// completely silently (a bad/unset IP just retried forever with
+		// zero indication anything was wrong - a real user got stuck on
+		// this 2026-09-22, forgetting to set the IP at all). Reported
+		// once per device (server-side throttle, see
+		// nlMultiClientSync.js's bindModelToTransport), not on every
+		// internal retry.
+		indicateHardwareConnectionFailed: function indicateHardwareConnectionFailed(info) {
+			// window.alert() is a blocking native dialog - calling it
+			// synchronously from inside the socket.io event chain (this
+			// handler runs directly off a server-pushed event) risks
+			// stalling the renderer's event loop while another socket.io
+			// message is still in flight. Deferring to a fresh tick keeps
+			// the alert off that call stack as a defensive measure. NOTE
+			// 2026-09-22: this was tried as a fix for a real "editing a
+			// widget's IP address then reconnecting reverts to the old
+			// value" bug, but deferring the alert did NOT resolve it -
+			// that bug's actual cause is still unknown (see
+			// ntk_hardware_ip_edit_revert_open_bug memory). Left in place
+			// since it's still reasonable defensive practice on its own
+			// merits, not because it's confirmed to fix anything.
+			setTimeout(function() {
+				window.alert(
+					"NTK couldn't reach your device at " + info.host + ":" + info.port + ".\n\n" +
+					"Double-check the IP address in the Device picker (Settings drawer, or a widget's own \"more\" panel) - " +
+					"the device prints its current IP to its serial console (e.g. in Thonny) when it boots.\n\n" +
+					"(" + info.error + ")"
+				);
+			}, 0);
 		},
 		indicateServerActive: function indicateServerActive(serverActive) {
 			var $serverSwitchButton = this.$('.serverSwitch');

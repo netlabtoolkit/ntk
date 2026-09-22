@@ -61,6 +61,14 @@ function( Backbone ) {
 			});
 			//END MODEL AND PATCH UPDATES
 
+			// A hardware connection (any Network device) failed to
+			// connect at all - a bad/unset IP, wrong port, or an
+			// unreachable device generally. See NetworkModel.js's own
+			// comment for why this used to fail completely silently.
+			socket.on("server:hardwareConnectionFailed", function(info) {
+				window.app.vent.trigger('hardwareConnectionFailed', info);
+			});
+
 			// List of currently connected serial ports, for the Serial device port picker
 			socket.on("serialPortList", function(ports) {
 				window.app.vent.trigger('serialPortList', ports);

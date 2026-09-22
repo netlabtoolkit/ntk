@@ -109,8 +109,20 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 				var inactiveModels = this.inactiveModelsExist();
 
-				// If we haven't made the hardware model yet, then we should bind everything together
-				if( inactiveModels && this.model.get("activeOut") == true ) {
+				// inactiveModelsExist() checks this.sources, which is
+				// NEVER populated for a hardware OUTPUT mapping in the
+				// first place - Patcher.Controller.mapToModel's hardware
+				// branch pushes to ITS OWN widgetMappings, not this
+				// view's this.sources (that's only for widget-to-widget/
+				// hardware-INPUT inlet connections via addInputMap). So
+				// inactiveModels is always false here, and this branch
+				// was structurally unreachable via re-toggling activeOut
+				// after fixing a bad IP - found via hands-on testing
+				// 2026-09-22 (editing the IP then re-toggling activeOut
+				// silently did nothing at all, no reconnect attempt of
+				// any kind). changed.activeOut === true directly
+				// captures "the user just turned this on" instead.
+				if( (inactiveModels || changed.activeOut === true) && this.model.get("activeOut") == true ) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
 						modelType = this.getDeviceModelType();
 

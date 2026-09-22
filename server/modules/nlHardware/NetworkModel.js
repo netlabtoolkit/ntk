@@ -30,6 +30,36 @@ module.exports = function(attributes) {
 				port: networkPort
 			});
 
+			// etherport-client's own _tcp 'error'/'timeout' handlers just
+			// call its internal _reconnect() (every 15s, forever - see
+			// self.close's own comment above) and never emit anything
+			// publicly themselves - a bad/unset IP failed completely
+			// silently, everywhere in the stack, with no way for a user
+			// to tell "still connecting" from "will never connect"
+			// (found from a real user report 2026-09-22: forgot to set
+			// the IP, had no way to tell anything was wrong). Node
+			// EventEmitters support multiple listeners per event, so
+			// this taps the SAME raw socket's own 'error'/'timeout'
+			// alongside etherport-client's internal ones, without
+			// needing any change to that library. Reported once per
+			// "not yet ever connected" streak, not on every 15s retry -
+			// nlMultiClientSync.js relays this to the client as
+			// server:hardwareConnectionFailed.
+			var reportedConnectionFailure = false;
+			function reportConnectionFailureOnce(err) {
+				if (self.connected || reportedConnectionFailure) return;
+				reportedConnectionFailure = true;
+				self.emit('connectionFailed', {
+					host: networkHost,
+					port: networkPort,
+					error: err && err.message ? err.message : String(err),
+				});
+			}
+			etherPortClient._tcp.on('error', reportConnectionFailureOnce);
+			etherPortClient._tcp.on('timeout', function() {
+				reportConnectionFailureOnce(new Error('connection timed out'));
+			});
+
 			// nlMultiClientSync.js calls this (if present) when no widget
 			// references this device any more. etherport-client exposes no
 			// public teardown of its own (see server/node_modules/
