@@ -206,6 +206,23 @@ support, and can be edited to match your hardware.
   wrong socket looks exactly like a wiring/pull-up problem.
 `;
 
+// A version-named marker file (e.g. "NTK-2026.6.1"), not a file whose
+// CONTENTS say the version - so `ls` alone on a packaged folder or an
+// unzipped release shows which NTK build it is, no `cat`/unzipping
+// app.asar needed. Sits next to Electron's own top-level `version`
+// file (that one's the embedded Electron runtime's version, e.g.
+// "43.4.1" - unrelated to NTK's own, easy to mistake for it at a
+// glance) - added 2026-09-22 after exactly that mix-up came up.
+function writeVersionMarker(destDir) {
+	const markerPath = path.join(destDir, `NTK-${pkg.version}`);
+	// Clear any stale marker from a previous version first - an empty
+	// glob is fine, this is just tidying, not required for correctness.
+	for (const entry of fs.readdirSync(destDir)) {
+		if (/^NTK-\d/.test(entry)) fs.rmSync(path.join(destDir, entry));
+	}
+	fs.writeFileSync(markerPath, '');
+}
+
 function bundleCircuitPythonFirmware(destDir) {
 	fs.mkdirSync(destDir, { recursive: true });
 	for (const file of FIRMWARE_FILES) {
@@ -389,6 +406,7 @@ async function main() {
 
 	for (const outDir of appPaths) {
 		console.log('Packaged:', outDir);
+		writeVersionMarker(outDir);
 
 		// Leave a copy directly alongside the unpacked app - convenient
 		// for testing straight from outDir without unzipping anything.
@@ -437,6 +455,9 @@ async function main() {
 		// unavailable, e.g. a non-APFS destination).
 		execFileSync('cp', ['-R', '-c', appPath, stageDir]);
 		bundleCircuitPythonFirmware(path.join(stageDir, 'CircuitPython'));
+		// This one - not the outDir one above - is what actually ends up
+		// in the distributed zip (see the comment above stageDir).
+		writeVersionMarker(stageDir);
 
 		// Zip with ditto (not Finder/Archive Utility) so the app's
 		// signature's extended attributes and resource forks survive for
