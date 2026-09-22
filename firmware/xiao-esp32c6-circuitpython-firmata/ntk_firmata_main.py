@@ -68,6 +68,23 @@ _led = None
 # (a short burst, only at boot, before anything time-sensitive).
 _LED_CONNECTING = ((True, 0.5), (False, 0.5))
 _LED_WAITING = ((True, 0.05), (False, 0.2), (True, 0.05), (False, 2.0))
+# A single, steady pulse once a second - a "heartbeat" - while the
+# standalone interpreter is actively driving hardware on its own
+# (whether idle-waiting for a client, or being watched by one in
+# monitor mode). Deliberately a different RHYTHM (one blink, not two)
+# from _LED_WAITING, not just a different rate, so the two read as
+# different states at a glance rather than "waiting, but faster/slower" -
+# added 2026-09-21 so standalone-vs-normal-handoff is visible without
+# needing the serial console open.
+_LED_STANDALONE_RUNNING = ((True, 0.15), (False, 0.85))
+# Two even pulses a second - a client is watching (Monitor Device) but
+# NOT in control; the interpreter is still driving hardware itself,
+# same as _LED_STANDALONE_RUNNING, just with an extra pulse to show
+# someone's watching. Deliberately reuses that one-pulse rhythm's
+# timing rather than inventing a new one, so the two read as "the same
+# state, plus one" rather than unrelated patterns - added 2026-09-21
+# alongside _LED_STANDALONE_RUNNING, same reasoning.
+_LED_MONITORING = ((True, 0.15), (False, 0.15), (True, 0.15), (False, 0.55))
 
 _led_pattern = None
 _led_step = 0
@@ -537,6 +554,7 @@ def _serve_monitor_connection(conn, addr):
     write-while-monitoring design decision in the session that added
     this)."""
     print("Client connected from", addr, "(monitor mode)")
+    led_set_pattern(_LED_MONITORING)
     read_buffer = bytearray(64)
     last_push = 0.0
     try:
@@ -572,6 +590,7 @@ def _serve_monitor_connection(conn, addr):
         except Exception:
             pass
         print("Monitor client disconnected")
+        led_set_pattern(_LED_STANDALONE_RUNNING)
 
 
 def run_server():
@@ -614,8 +633,8 @@ def run_server():
     feed()
     print("Firmata server listening on port", FIRMATA_PORT)
     # WiFi is up and we're listening but nobody's connected yet - switch
-    # from the "working on WiFi" blink to the "waiting for a client" one.
-    led_set_pattern(_LED_WAITING)
+    # from the "working on WiFi" blink to whichever idle pattern applies.
+    led_set_pattern(_LED_STANDALONE_RUNNING if _standalone is not None else _LED_WAITING)
 
     if _standalone is not None:
         _standalone.claim_hardware()
@@ -787,7 +806,7 @@ def run_server():
                 pass
             print("Client disconnected")
             # Back to waiting for the next client.
-            led_set_pattern(_LED_WAITING)
+            led_set_pattern(_LED_STANDALONE_RUNNING if _standalone is not None else _LED_WAITING)
             if _standalone is not None:
                 # Explicit handoff, the other direction - the client that
                 # was driving outputs is gone, so the interpreter reclaims

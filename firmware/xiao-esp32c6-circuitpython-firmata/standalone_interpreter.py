@@ -579,7 +579,28 @@ def _eval_concat(values, state, now):
 def _eval_pulse(values, state, now):
     threshold = _num(values.get('threshold'), 512.0)
     in_value = _num(values.get('in'))
-    firing = state.get('firing', False)
+    if 'firing' not in state:
+        # First-ever tick for this widget. Default True, matching
+        # Pulse.js's own initialize() (timerFiring: true, unconditionally,
+        # plus timerStart: Date.now()) - the real widget free-runs from
+        # construction and only stops once something explicitly drives
+        # 'in' below threshold, not the other way around. Defaulting
+        # False (the original port) meant a Pulse with nothing wired
+        # into its 'in' inlet (a bare Pulse -> AnalogOut chain, not a
+        # gated one) never started at all. Must also call
+        # _pulse_init_timer here, matching timerStart's unconditional
+        # initialization - without it 'timer_start' is never set at
+        # all (only the *transition* into firing below does that), so
+        # elapsed_ms's own state.get('timer_start', now) fallback stays
+        # stuck comparing now against itself forever and the pulseHigh/
+        # pulseLow alternation below never fires. Both fixes hardware-
+        # verified together 2026-09-22: a bare Pulse -> AnalogOut chain
+        # (nothing wired into Pulse's 'in') now oscillates correctly
+        # (out1 alternating 0/255 on a ~1s period, matching timerLength)
+        # instead of AnalogOut's pin never changing at all.
+        state['firing'] = True
+        _pulse_init_timer(values, state, now)
+    firing = state['firing']
 
     if not _is_nan(in_value):
         if in_value >= threshold and not firing:
