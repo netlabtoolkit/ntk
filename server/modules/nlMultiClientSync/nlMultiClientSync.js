@@ -153,6 +153,37 @@ module.exports = function(options) {
 				delete this.hardwareModels[hardwareKey];
 			}
 		},
+		/**
+		 * pruneOrphanedHardwareModels - closes and drops every
+		 * hardware-model instance no longer referenced by
+		 * this.masterPatch.mappings (call AFTER masterPatch is updated
+		 * to reflect its new state).
+		 *
+		 * Was previously inlined into client:removeWidget's handler
+		 * only, which meant removing a single widget correctly closed
+		 * its now-orphaned connection but clearing/loading an entire
+		 * new patch (loadPatchFile - used by BOTH Clear Patch and
+		 * Import) did not: it only ever replaced masterPatch via
+		 * setMaster(), with no equivalent cleanup step, so a device
+		 * NTK had been actively driving stayed connected (status LED
+		 * staying solid, no "waiting for connection") until the whole
+		 * app quit and tore the process down - found via hands-on
+		 * testing 2026-09-22.
+		 *
+		 * @return {void}
+		 */
+		pruneOrphanedHardwareModels: function() {
+			var stillReferencedKeys = _.pluck(this.masterPatch.mappings, 'modelWID');
+			for(var key in this.hardwareModels) {
+				if(!_.contains(stillReferencedKeys, key)) {
+					var model = this.hardwareModels[key];
+					if(typeof model.close === 'function') {
+						model.close();
+					}
+					delete this.hardwareModels[key];
+				}
+			}
+		},
 		setMaster: function(patch) {
 			this.masterPatch = patch;
 			self.transport.sockets.emit('loadPatchFromServer', JSON.stringify( patch ));
@@ -357,16 +388,7 @@ module.exports = function(options) {
 				// widget references any more - the client already removed this widget's own
 				// mappings (see Patcher.js's removeWidget) before sending this event, so
 				// masterPatch.mappings reflects what's still in use.
-				var stillReferencedKeys = _.pluck(self.masterPatch.mappings, 'modelWID');
-				for(var key in self.hardwareModels) {
-					if(!_.contains(stillReferencedKeys, key)) {
-						var model = self.hardwareModels[key];
-						if(typeof model.close === 'function') {
-							model.close();
-						}
-						delete self.hardwareModels[key];
-					}
-				}
+				self.pruneOrphanedHardwareModels();
 			});
 
 			socket.on('client:addWidget', function(view) {
@@ -526,6 +548,11 @@ module.exports = function(options) {
 			var patch = JSON.parse(options).patch;
 
 			self.setMaster(patch);
+			// Used by both Clear Patch and Import - either can drop or
+			// replace widgets that were the only thing still referencing
+			// a live hardware connection (see pruneOrphanedHardwareModels's
+			// own docstring for how this was found).
+			self.pruneOrphanedHardwareModels();
 		},
 		/**
 		 * Update all registered clients with a set of changes
