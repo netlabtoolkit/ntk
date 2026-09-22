@@ -409,24 +409,58 @@ module.exports = function(options) {
 				var host = options.host,
 					port = options.port;
 
-				var monitor = StandaloneMonitor(host, port);
-				activeMonitors[socket.id] = monitor;
+				function connectMonitor() {
+					var monitor = StandaloneMonitor(host, port);
+					activeMonitors[socket.id] = monitor;
 
-				monitor.on('connected', function() {
-					socket.emit('server:monitorStatus', {connected: true, host: host, port: port});
-				});
-				monitor.on('value', function(update) {
-					socket.emit('server:monitorValue', [update]);
-				});
-				monitor.on('error', function(err) {
-					socket.emit('server:monitorStatus', {connected: false, error: String(err)});
-				});
-				monitor.on('close', function() {
-					socket.emit('server:monitorStatus', {connected: false});
-					if (activeMonitors[socket.id] === monitor) {
-						delete activeMonitors[socket.id];
+					monitor.on('connected', function() {
+						socket.emit('server:monitorStatus', {connected: true, host: host, port: port});
+					});
+					monitor.on('value', function(update) {
+						socket.emit('server:monitorValue', [update]);
+					});
+					monitor.on('error', function(err) {
+						socket.emit('server:monitorStatus', {connected: false, error: String(err)});
+					});
+					monitor.on('close', function() {
+						socket.emit('server:monitorStatus', {connected: false});
+						if (activeMonitors[socket.id] === monitor) {
+							delete activeMonitors[socket.id];
+						}
+					});
+				}
+
+				// A NORMAL (non-monitoring) hardware connection to this
+				// SAME device - e.g. auto-opened because the imported
+				// patch's widgets were saved with active:true - has to be
+				// closed first. The device only ever calls accept() again
+				// once its current connection disconnects (its own
+				// monitor-request peek only runs right after a fresh
+				// accept()), so without this, the monitor connection just
+				// sits unaccepted in the OS-level listen() backlog
+				// forever: our own socket still sees 'connected' fire (a
+				// raw TCP handshake alone succeeds against that backlog
+				// slot) and the banner shows, but the device's console
+				// never logs a monitor connection and no values ever
+				// arrive - found via hands-on testing 2026-09-22.
+				var hardwareKey = 'network:' + host + ':' + port;
+				var existingHardwareModel = self.hardwareModels[hardwareKey];
+				if (existingHardwareModel) {
+					if (typeof existingHardwareModel.close === 'function') {
+						existingHardwareModel.close();
 					}
-				});
+					delete self.hardwareModels[hardwareKey];
+					// The disconnect has to actually reach the device (a
+					// real WiFi round trip) and its own accept loop has to
+					// notice before it's ready for a new connection -
+					// racing that with an immediate reconnect risked the
+					// exact same silently-queued-and-ignored outcome this
+					// is fixing. 500ms is comfortably more than the
+					// device's own sub-100ms per-connection poll interval.
+					setTimeout(connectMonitor, 500);
+				} else {
+					connectMonitor();
+				}
 			});
 
 			socket.on('client:stopMonitor', function() {

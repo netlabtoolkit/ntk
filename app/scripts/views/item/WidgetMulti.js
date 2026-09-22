@@ -148,8 +148,24 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 */
 		checkOutputMappingUpdate: function checkOutputMappingUpdate(model) {
 
-			var outputMapping = model.changedAttributes().outputMapping,
+			var changed = model.changedAttributes(),
+				outputMapping = changed.outputMapping,
 				hasInput = (this.deviceMode == 'in');
+
+			// Push every 'out' change to hardware while this widget is an
+			// active output device (AnalogOut/DigitalOut/Servo - each
+			// defines its own deviceMode and enableDevice()), not just
+			// the one snapshot enableDevice() sends when the widget
+			// FIRST becomes active. Without this, a continuously
+			// changing source (e.g. a free-running Pulse wired into
+			// AnalogOut) only ever reaches the physical pin once, at
+			// whatever value it happened to be at connect time - found
+			// via hands-on testing 2026-09-22 (a blinking Pulse
+			// correctly updated the widget's own display the whole
+			// time, but the physical LED only ever changed once).
+			if (changed.out !== undefined && this.deviceMode !== undefined && this.model.get('activeOut') === true && typeof this.enableDevice === 'function') {
+				this.enableDevice();
+			}
 
 			if(outputMapping) {
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed

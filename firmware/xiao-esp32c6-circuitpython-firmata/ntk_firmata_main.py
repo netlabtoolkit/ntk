@@ -556,7 +556,15 @@ def _serve_monitor_connection(conn, addr):
     print("Client connected from", addr, "(monitor mode)")
     led_set_pattern(_LED_MONITORING)
     read_buffer = bytearray(64)
-    last_push = 0.0
+    # Fixed-cadence schedule (next_push += interval), not "elapsed
+    # since last push, then reset from now" - the latter drifts: any
+    # one push that takes longer than usual (a slow WiFi send is
+    # common, not rare) permanently shifts every push after it later
+    # by that same amount, compounding into visibly uneven gaps over
+    # time instead of a steady rhythm - reported as "choppy" timing via
+    # hands-on testing 2026-09-22, once monitor mode's other bugs were
+    # fixed enough to actually see it.
+    next_push = time.monotonic() + _MONITOR_PUSH_INTERVAL_S
     try:
         while True:
             feed()
@@ -564,8 +572,15 @@ def _serve_monitor_connection(conn, addr):
             _standalone.tick()
             _check_keypress()
             now = time.monotonic()
-            if now - last_push >= _MONITOR_PUSH_INTERVAL_S:
-                last_push = now
+            if now >= next_push:
+                next_push += _MONITOR_PUSH_INTERVAL_S
+                if next_push <= now:
+                    # Fell more than one full interval behind (e.g. a
+                    # send stalled this loop for a while) - catching up
+                    # one interval at a time here would fire a burst of
+                    # queued pushes back to back instead. Snap forward
+                    # to resume cleanly at the normal cadence.
+                    next_push = now + _MONITOR_PUSH_INTERVAL_S
                 for wid in _standalone.widgets:
                     fields = _standalone.monitor_fields(wid)
                     if not fields:

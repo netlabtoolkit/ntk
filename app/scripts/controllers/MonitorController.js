@@ -57,11 +57,63 @@ define([
 		},
 
 		stop: function stop() {
+			var host = this.host,
+				port = this.port;
+
 			this.active = false;
 			window.app.monitoring = {active: false};
 			$('body').removeClass('ntk-monitoring');
 			window.app.vent.trigger('stopMonitor');
 			this.hideBanner();
+
+			// Starting monitoring closes NTK's own normal hardware
+			// connection to this device to free it up for the monitor
+			// connection (see nlMultiClientSync.js's client:startMonitor
+			// handler) - nothing re-establishes it once monitoring
+			// stops, so every widget on that device just sits idle with
+			// no live connection until something else happens to nudge
+			// it. Every hardware widget type (AnalogIn/AnalogOut/
+			// DigitalIn/DigitalOut/Servo) already has its own
+			// onModelChange -> inactiveModelsExist() -> enableDevice()
+			// reconnect-if-needed check; a bare model 'change' trigger
+			// (no field actually changes) is enough to make each one
+			// re-run that check and reconnect if it's still active -
+			// found via hands-on testing 2026-09-22 ("NTK is not
+			// controlling things" after switching off monitoring).
+			//
+			// inactiveModelsExist() reads a CLIENT-side flag
+			// (Patcher.Controller.hardwareModelInstances[key].model.active)
+			// that has nothing to do with the server-side connection
+			// closed above - it never got told that connection is gone,
+			// so a bare 'change' trigger alone found the widget's own
+			// value display resyncing fine (syncWithSource runs
+			// unconditionally in onModelChange) but never actually
+			// re-driving hardware (gated behind this same flag reading
+			// stale true) - hands-on testing 2026-09-22 again, a second,
+			// more specific report after the first partial fix.
+			var hardwareKey = 'network:' + host + ':' + port;
+			var hardwareModelInstance = window.app.Patcher.Controller.hardwareModelInstances[hardwareKey];
+			if (hardwareModelInstance && hardwareModelInstance.model) {
+				hardwareModelInstance.model.active = false;
+			}
+
+			_.each(window.app.Patcher.Controller.widgets, function(widgetView) {
+				var deviceType = widgetView.model.get('deviceType'),
+					server = widgetView.model.get('server'),
+					widgetPort = widgetView.model.get('port');
+				if (deviceType === 'network' && server === host && String(widgetPort) === String(port)) {
+					// Match Backbone's own internal 'change' trigger shape
+					// (model.trigger('change', model, options)) - a bare
+					// trigger('change') with no arguments left every
+					// widget type's own onModelChange(model) receiving
+					// model===undefined, throwing immediately on
+					// model.changedAttributes() before ever reaching the
+					// reconnect branch that actually calls mapToModel/
+					// enableDevice() - root-caused via a real uncaught
+					// TypeError from hands-on testing 2026-09-22.
+					widgetView.model.trigger('change', widgetView.model, {});
+				}
+			});
 		},
 
 		// Shared "you can't do that right now" feedback for every place
