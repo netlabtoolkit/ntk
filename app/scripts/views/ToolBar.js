@@ -446,8 +446,10 @@ function( app, Backbone, Template, Widgets ) {
 			// 2026-09-22: this was tried as a fix for a real "editing a
 			// widget's IP address then reconnecting reverts to the old
 			// value" bug, but deferring the alert did NOT resolve it -
-			// that bug's actual cause is still unknown (see
-			// ntk_hardware_ip_edit_revert_open_bug memory). Left in place
+			// that bug's real cause (found 2026-09-23: a global
+			// parseInt() truncation bug in the rivets<->Backbone adapter,
+			// app/scripts/main.js) was unrelated - see
+			// ntk_hardware_ip_edit_revert_open_bug memory. Left in place
 			// since it's still reasonable defensive practice on its own
 			// merits, not because it's confirmed to fix anything.
 			setTimeout(function() {

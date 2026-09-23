@@ -222,10 +222,14 @@ module.exports = function(options) {
 				// to be the full explanation for a separate "editing a
 				// hardware widget's IP then reconnecting reverts to the
 				// old value" symptom seen the same day, which persisted
-				// even with this fix in place and remains unexplained
-				// (see ntk_hardware_ip_edit_revert_open_bug memory). No
-				// other client needs a widget-including reload just
-				// because one mapping changed, regardless.
+				// even with this fix in place. That symptom's real cause
+				// was found the next day: a global parseInt() truncation
+				// bug in the rivets<->Backbone adapter (app/scripts/
+				// main.js) was silently dropping the IP field's edit
+				// before it ever reached the model - see
+				// ntk_hardware_ip_edit_revert_open_bug memory. No other
+				// client needs a widget-including reload just because
+				// one mapping changed, regardless.
 			}
 
 		},
@@ -430,11 +434,10 @@ module.exports = function(options) {
 				self.masterPatch.mappings = JSON.parse(mappings);
 				// No broadcast back - see updateMappings's own comment
 				// for the race condition this caused and its real but
-				// limited fix (confirmed NOT the full explanation for
-				// the open "IP edit reverts" bug - see
-				// ntk_hardware_ip_edit_revert_open_bug memory). The
-				// sending client already has the correct mapping state
-				// locally.
+				// limited fix (a separate, now also-resolved "IP edit
+				// reverts" bug - see ntk_hardware_ip_edit_revert_open_bug
+				// memory). The sending client already has the correct
+				// mapping state locally.
 
 				// Separately: this is exactly where changing a widget's
 				// server/IP (not removing the whole widget) leaves its

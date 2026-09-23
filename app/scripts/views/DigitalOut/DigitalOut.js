@@ -115,8 +115,13 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 				var inactiveModels = this.inactiveModelsExist();
 
-				// If we haven't made the hardware model yet, then we should bind everything together
-				if( inactiveModels && this.model.get("activeOut") == true ) {
+				// inactiveModelsExist() checks this.sources, which is
+				// NEVER populated for a hardware OUTPUT mapping (see
+				// AnalogOut.js's onModelChange for the full explanation -
+				// same structural bug, fixed there first and mirrored
+				// here). changed.activeOut === true directly captures
+				// "the user just turned this on" instead.
+				if( (inactiveModels || changed.activeOut === true) && this.model.get("activeOut") == true ) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
 						modelType = this.getDeviceModelType();
 

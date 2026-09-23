@@ -155,8 +155,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				var mappingStale = this.sources[0] !== undefined
 					&& this.sources[0].map.destinationField !== this.model.get('outputMapping');
 
-				// If we haven't made the hardware model yet, then we should bind everything together
-				if( (inactiveModels || mappingStale) && this.model.get("activeOut") == true ) {
+				// If we haven't made the hardware model yet, then we should bind everything together.
+				// changed.activeOut === true also directly captures "the user just
+				// turned this on" - same fix as AnalogOut.js/DigitalOut.js, for the
+				// case where neither inactiveModels nor mappingStale catches a
+				// re-toggle after e.g. fixing a bad IP on an already-fully-mapped Servo.
+				if( (inactiveModels || mappingStale || changed.activeOut === true) && this.model.get("activeOut") == true ) {
 					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
 						modelType = this.getDeviceModelType();
 
