@@ -15,6 +15,21 @@ Anything else — camera/ML widgets, speech widgets, LLM, Code, OSC/Cloud/Webhoo
 3. This downloads `standalone_patch.json`. Copy it onto the board's `CIRCUITPY` drive, in the same folder as `code.py`.
 4. Reboot the board. It loads the patch and starts running it on its own.
 
+## Push and Pull: deploy over WiFi, no USB needed
+
+Once NTK can reach the board over the network, **Push** and **Pull** in the Settings drawer skip the manual copy-the-file-via-Thonny step entirely.
+
+**Push** sends your current patch straight to the board and restarts it to run that patch immediately.
+
+1. Build your patch using only the supported widgets above (same requirement as Export Standalone) — Push checks this the same way and shows the same list if something's unsupported.
+2. Make sure NTK can reach the board: either a widget's Device picker is already set to Network with the board's address, or the Add Widgets panel's Device picker is — Push connects on its own if nothing's wired up on the canvas yet.
+3. Click **Push to Device** and confirm the dialog.
+4. The board saves the patch, restarts, and starts running it — NTK's connection drops for a moment while it reboots, then reconnects on its own.
+
+**Pull** does the reverse: it fetches whatever patch is currently saved on the board and replaces your NTK canvas with it, so you can check exactly what's running without guessing. Same connection requirement as Push. Click **Pull from Device** — if the board has no standalone patch saved, you'll see a message saying so instead; if it does, you'll be asked to confirm before your current canvas is replaced.
+
+**Erasing a board's standalone patch**: push with an empty canvas (delete everything first) to remove the standalone patch entirely, rather than replacing it with another one. You'll see a different confirmation specifically warning that this erases. After erasing, the board goes back to normal — no standalone patch, waiting for a client — on its next boot.
+
 ## The board's three modes
 
 A board running a standalone patch is always in one of three modes, shown by its status LED so you can tell at a glance without opening a serial console:
@@ -37,5 +52,5 @@ A banner appears at the top of the app, and widgets update live with what the bo
 
 ## Notes
 
-- Make sure the patch loaded in NTK actually matches what's on the board — Monitor Device doesn't check this for you, it just won't show values for anything that doesn't match.
+- Make sure the patch loaded in NTK actually matches what's on the board — Monitor Device doesn't check this for you, it just won't show values for anything that doesn't match. **Pull** is the easy way to be sure: it replaces your canvas with exactly what the board has saved, rather than relying on you to keep the two in sync by hand.
 - Clearing or reloading the patch in NTK properly disconnects from the board, letting it fall back to Standalone mode (or idle, if it has no standalone patch of its own).
