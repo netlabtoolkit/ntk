@@ -107,9 +107,25 @@ function (Backbone, App, rivets ) {
 		},
 		// It gets triggered whenever we want update a model using Rivets.js
 		publish: function(obj, keypath, value) {
-			if(parseInt(obj.get(keypath), 10) !== parseInt(value, 10) ) {
-				obj.set(keypath, value);
-			}
+			// ROOT CAUSE, found 2026-09-23 after an extended hands-on
+			// debugging session (see ntk_hardware_ip_edit_revert_open_bug
+			// memory for the full trail): parseInt() stops at the first
+			// non-digit character, so parseInt("192.168.0.118", 10) and
+			// parseInt("192.168.0.145", 10) are BOTH 192 - any two IP
+			// addresses sharing a first octet (i.e. almost always, on
+			// the same local network) compared equal here, so obj.set()
+			// silently never ran. This is the actual, global rivets<->
+			// Backbone adapter used for EVERY two-way-bound field in the
+			// app (rivets' default ':' keypath separator), not something
+			// AnalogOut-specific - confirmed via a raw DOM-level trace
+			// showing the browser's own 'change' event firing with the
+			// correct new value, while the model's 'server' attribute
+			// never changed. Backbone's own .set() already no-ops (no
+			// 'change' event) when the value is genuinely unchanged, so
+			// this custom guard was never actually needed - removed
+			// rather than fixing the comparison, to avoid reintroducing
+			// some other type-coercion edge case here.
+			obj.set(keypath, value);
 		}
 	};
 
