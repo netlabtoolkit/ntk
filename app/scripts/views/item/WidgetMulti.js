@@ -699,16 +699,25 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {undefined}
 		 */
 		processSignalChain: function() {
-			// Monitor mode (see MonitorController.js) - all-or-nothing,
-			// not a per-widget flag: while active, every widget just
-			// displays whatever MonitorController pushes into its model
-			// directly (model.set with updateNoTrigger, which is what
-			// rivets renders from) instead of computing its own value
-			// locally. Skipping this early also means no locally-
-			// computed value ever reaches checkOutputMappingUpdate/a
-			// real hardware write - the whole point of monitoring
-			// instead of controlling.
-			if (window.app.monitoring && window.app.monitoring.active) {
+			// Monitor mode (see MonitorController.js) - scoped per-widget
+			// (window.app.monitoring.wids, populated as values actually
+			// arrive for each wid), not a blanket "any monitoring session
+			// running anywhere" check. A widget actually being monitored
+			// just displays whatever MonitorController pushes into its
+			// model directly (model.set with updateNoTrigger, which is
+			// what rivets renders from) instead of computing its own
+			// value locally - skipping this early also means no locally-
+			// computed value ever reaches checkOutputMappingUpdate/a real
+			// hardware write for THAT widget, the whole point of
+			// monitoring instead of controlling it. Originally a global
+			// flag (no per-widget scoping at all) - found via hands-on
+			// testing 2026-09-23 that this silently froze every OTHER
+			// widget on canvas too, including a separately-added live
+			// widget (e.g. an OSCOut sender) with nothing to do with the
+			// monitored device - the gap this file's own MonitorController
+			// docstring already called out as deliberately deferred.
+			if (window.app.monitoring && window.app.monitoring.active &&
+				window.app.monitoring.wids && window.app.monitoring.wids[this.model.get('wid')]) {
 				return;
 			}
 

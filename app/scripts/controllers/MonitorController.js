@@ -4,23 +4,27 @@
  * plans/standalone-patch-export.md and the firmware-monitor-mode
  * branch history for the full design).
  *
- * Deliberately all-or-nothing, not per-widget (see the session that
- * scoped this) - window.app.monitoring is one global flag every
- * widget's own signal-chain code checks (see WidgetMulti.js's
- * processSignalChain) to decide whether to compute its own value
- * locally or just display whatever's been pushed in. There is
- * currently no way to monitor one device while separately, locally
- * controlling widgets on another - that's a real but deliberately
- * deferred gap (see the session notes), not an oversight.
+ * Scoped per-widget as of 2026-09-23 (was blanket/global before that -
+ * see git history): window.app.monitoring.wids tracks specifically
+ * which widget ids have actually received a pushed monitor value
+ * (populated lazily in onMonitorValue as they arrive). Each widget's
+ * own signal-chain code (see WidgetMulti.js's processSignalChain)
+ * checks its OWN wid against that set to decide whether to compute its
+ * value locally or just display whatever's been pushed in - so you CAN
+ * now monitor one device while separately, locally controlling a
+ * widget that isn't part of that device's patch (e.g. a live OSCOut
+ * sender used to test a monitored device's OSCIn). Found via hands-on
+ * testing that the original blanket flag silently froze every widget
+ * on canvas, not just the monitored ones.
  *
- * v1 limitation, also deliberate: this does NOT load a patch for you.
- * You must already have the same patch (matching wids) loaded in NTK's
- * own canvas before starting monitor mode, e.g. via the normal Load
- * Patch action on the exact standalone_patch.json the device is
- * running - a "pull the current patch from the device first" flow is
- * planned but not built yet, so a currently-loaded patch that doesn't
- * match won't error, it'll just silently show no values for any wid
- * NTK doesn't recognize.
+ * This does NOT load a patch for you by itself - you need the same
+ * patch (matching wids) loaded in NTK's own canvas before starting
+ * monitor mode. Use Pull from Device to fetch the exact patch a
+ * device is running (see plans/standalone-patch-export.md's "Push/Pull
+ * standalone patch" section), or the normal Load Patch action on the
+ * standalone_patch.json it was exported from - a currently-loaded
+ * patch that doesn't match won't error, it'll just silently show no
+ * values for any wid NTK doesn't recognize.
  */
 define([
 	'application',
@@ -46,7 +50,19 @@ define([
 			this.host = options.host;
 			this.port = options.port;
 			this.active = true;
-			window.app.monitoring = {active: true, host: this.host, port: this.port};
+			// wids: which specific widgets have actually received a
+			// pushed monitor value (populated lazily in onMonitorValue
+			// as they arrive, not known up front - v1 has no "pull the
+			// patch first" step that would give us the full set at
+			// start()). WidgetMulti.js's processSignalChain checks this
+			// per-widget instead of the old blanket "any monitoring
+			// session running anywhere" check, added 2026-09-23 after
+			// hands-on testing found it silently froze an unrelated,
+			// separately-added live widget (e.g. a live OSCOut sender)
+			// that has nothing to do with the monitored device - the
+			// gap this module's own docstring already called out as
+			// deliberately deferred, not an oversight.
+			window.app.monitoring = {active: true, host: this.host, port: this.port, wids: {}};
 			// Drives the "more" panel's click-blocking overlay (see
 			// Widget.scss's body.ntk-monitoring rules and WidgetMulti.js's
 			// onRender) - CSS-only, not per-widget JS toggling, so it can't
@@ -199,6 +215,9 @@ define([
 			if (!this.active) {
 				return;
 			}
+			// Mark this wid as actually monitored - see start()'s comment.
+			// Every push re-marks it, harmless (plain object used as a set).
+			window.app.monitoring.wids[update.wid] = true;
 			var widgetView = _.find(window.app.Patcher.Controller.widgets, function(view) {
 				return view.model.get('wid') === update.wid;
 			});
