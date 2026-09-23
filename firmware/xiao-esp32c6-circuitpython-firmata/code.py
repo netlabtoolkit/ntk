@@ -157,6 +157,35 @@ def _connect_station():
     except Exception:
         pass
 
+    # Single fixed hostname, station mode only (settings.toml-driven) -
+    # so a user can point NTK at "<hostname>.local" instead of having to
+    # read the DHCP-assigned IP off this console. Deliberately v1-scoped:
+    # no discovery/browsing, no per-board auto-derived name. Runs from
+    # here (inside _connect_station(), not the top-level wifi_mode
+    # branch) so it also covers the AP-start-failed fallback path below,
+    # which ends up here too - any time we actually have a real DHCP
+    # lease, advertising it makes sense. Not every CircuitPython build
+    # ships the mdns module, hence the broad except.
+    mdns_hostname = os.getenv("NTK_MDNS_HOSTNAME")
+    if mdns_hostname:
+        try:
+            import mdns
+            _mdns_server = mdns.Server(wifi.radio)
+            _mdns_server.hostname = mdns_hostname
+            # Setting .hostname alone does NOT make the responder answer
+            # queries - confirmed live on real hardware 2026-09-23 (a
+            # dns-sd query against the board got zero response until
+            # this was added). advertise_service() is what actually
+            # activates the mDNS responder; the service itself doesn't
+            # need to mean anything to NTK, since only the hostname's
+            # own A-record lookup matters here, not service discovery.
+            _mdns_server.advertise_service(
+                service_type="_ntk", protocol="_tcp", port=FIRMATA_PORT
+            )
+            print("mDNS: reachable at %s.local port %d" % (mdns_hostname, FIRMATA_PORT))
+        except Exception as e:
+            print("(mDNS unavailable:", e, ")")
+
 
 ap_started = False
 if wifi_mode == "ap":

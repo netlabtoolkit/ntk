@@ -8,6 +8,25 @@
 NTK_WIFI_SSID="your-wifi-name"
 NTK_WIFI_PASSWORD="your-wifi-password"
 
+# --- Optional: mDNS hostname (station mode only) ---
+# Lets you point NTK at "ntk-device.local" instead of reading the
+# DHCP-assigned IP off the serial console. A single fixed hostname -
+# if you run more than one board on the same network, give each one
+# a different value here. Requires a resolver that understands mDNS/
+# Bonjour (macOS has this built in; Windows needs Bonjour installed).
+#
+# NOT CURRENTLY WORKING as of CircuitPython 10.3.1 on the ESP32-C6
+# (hardware-verified 2026-09-23): code.py calls mdns.Server correctly
+# (hostname set, advertise_service() called, no errors, console prints
+# the expected line) but the board never actually answers mDNS queries
+# from other devices on the network - confirmed with both `dns-sd -Q`
+# and a service browse, against a network that resolves other real
+# devices (AirPlay/HomeKit/printers) fine. Left in place since it's
+# harmless when set (silently fails the same way) and may start
+# working on a future CircuitPython release - just don't rely on it
+# yet. Use the DHCP-assigned IP (or SoftAP's fixed 192.168.4.1) instead.
+# NTK_MDNS_HOSTNAME = "ntk-device"
+
 # --- Optional: SoftAP mode (board makes its own WiFi, fixed IP 192.168.4.1) ---
 # Use when there is no usable router. The computer joins the board's network
 # (and loses its normal WiFi / internet while joined). Range is shorter than
