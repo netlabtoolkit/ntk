@@ -1049,6 +1049,34 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 				mappings: this.widgetMappings,
 			};
 
+			// An empty canvas is a deliberate way to ERASE the device's
+			// standalone patch entirely, added 2026-09-23 - reuses this
+			// same Push plumbing instead of a separate command.
+			// ntk_firmata_main.py's _handle_push_patch_request deletes
+			// standalone_patch.json on the device when it sees zero
+			// widgets, rather than writing a valid-but-inert empty patch
+			// (which would still show the device as "standalone
+			// running" with nothing to do - not the same as genuinely
+			// having none). Gets its own confirm wording - erasing is a
+			// meaningfully different, easier-to-trigger-by-accident
+			// action than a normal overwrite, so it's called out
+			// explicitly rather than folded into the generic message
+			// below.
+			if(patch.widgets.length === 0) {
+				var confirmedErase = confirm(
+					'The canvas is empty. Pushing now will ERASE the standalone patch ' +
+					'currently saved on the device at ' + hardwareKey.replace('network:', '') + ' ' +
+					'- it won\'t run anything when NTK disconnects. Continue?'
+				);
+				if(!confirmedErase) return;
+
+				window.app.vent.trigger('Widget:pushPatchToDevice', {
+					hardwareKey: hardwareKey,
+					patch: JSON.stringify(patch),
+				});
+				return;
+			}
+
 			var result = StandaloneCompatibility.checkPatch(patch);
 			if(!result.compatible) {
 				var widgetList = _.map(result.unsupportedWidgets, function(widget) {
@@ -1111,7 +1139,12 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 		 */
 		onPushPatchResult: function(result) {
 			if(result.ok) {
-				alert('Patch pushed - the device is restarting to run it. NTK\'s connection to it will drop for a moment.');
+				// Generic enough to cover both a normal push (loads and
+				// runs it) and an erase (an empty patch - see
+				// pushPatchToDevice's own comment) without being wrong
+				// for either; the confirm dialog already said which one
+				// this was before the user agreed to it.
+				alert('Done - the device is restarting. NTK\'s connection to it will drop for a moment.');
 			}
 			else {
 				alert('Push failed: ' + (result.error || 'unknown error'));

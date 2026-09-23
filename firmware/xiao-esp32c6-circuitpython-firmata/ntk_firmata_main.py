@@ -384,11 +384,32 @@ def _handle_push_patch_request(firmata):
     a truncated or corrupted transmission (unlikely, but not otherwise
     caught anywhere in this path) would otherwise silently overwrite a
     good patch with something _standalone rejects at the next boot, with
-    no feedback that anything went wrong."""
+    no feedback that anything went wrong.
+
+    A patch with zero widgets is a deliberate ERASE, not a real push
+    (added 2026-09-23, reusing this same request rather than a separate
+    command) - deletes STANDALONE_PATCH_PATH instead of writing a
+    valid-but-inert empty patch to it. Writing an empty-but-present file
+    would still make _has_standalone_patch True at the next boot (see
+    the os.stat() check above), leaving the device showing as
+    "standalone running" with nothing to do - not the same as genuinely
+    having no standalone patch, which is what erasing is supposed to
+    mean."""
     patch_json = firmata.pending_push_patch
     firmata.pending_push_patch = None
     try:
-        json.loads(patch_json)  # raises ValueError if malformed - caught below
+        parsed = json.loads(patch_json)  # raises ValueError if malformed - caught below
+        if not parsed.get("widgets"):
+            try:
+                os.remove(STANDALONE_PATCH_PATH)
+                print("Standalone patch erased (empty patch received) - resetting")
+            except OSError:
+                print("Standalone patch erase requested, but none was saved - resetting anyway")
+            firmata.send_push_patch_reply(True)
+            time.sleep(0.3)
+            microcontroller.reset()
+            return
+
         with open(STANDALONE_PATCH_PATH, "w") as f:
             f.write(patch_json)
         firmata.send_push_patch_reply(True)
