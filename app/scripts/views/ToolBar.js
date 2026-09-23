@@ -19,7 +19,6 @@ function( app, Backbone, Template, Widgets ) {
 			'click .clearPatch': 'clearPatch',
             'click .hideWidgets': 'hideWidgets',
             'click .fullScreen': 'fullScreen',
-            'click .serverSwitch': 'toggleServer',
             'click .monitorDevice': 'toggleMonitor',
             'click .openAddWidgets': 'toggleAddWidgetsPanel',
             'click .openSettings': 'toggleSettingsPanel',
@@ -42,7 +41,6 @@ function( app, Backbone, Template, Widgets ) {
 		},
 
 		initialize: function initialize() {
-			window.app.vent.on('serverActive', this.indicateServerActive, this);
 			window.app.vent.on('serialPortList', this.updateDefaultSerialPortOptions, this);
 			// The banner (MonitorController.js) has its own Stop button -
 			// stopping monitor mode from there needs to be reflected here
@@ -133,7 +131,6 @@ function( app, Backbone, Template, Widgets ) {
 			var fileInput = this.$('#patchFileUpload')[0];
 			fileInput.addEventListener("change", this.loadPatch.bind(this) );
 
-			this.indicateServerActive(window.app.serverActive);
 			this.initDefaultDeviceUI();
 			this.showLocalNetworkInfo();
 		},
@@ -401,9 +398,6 @@ function( app, Backbone, Template, Widgets ) {
 		 *
 		 * @return {undefined}
 		 */
-		toggleServer: function() {
-			window.app.vent.trigger('ToolBar:toggleServer');
-		},
 		// v1: reuses the existing default-device address/port fields
 		// (same ones the Device picker at the top of Add Widgets sets)
 		// rather than a separate address entry just for this - see
@@ -468,19 +462,6 @@ function( app, Backbone, Template, Widgets ) {
 					"(" + info.error + ")"
 				);
 			}, 0);
-		},
-		indicateServerActive: function indicateServerActive(serverActive) {
-			var $serverSwitchButton = this.$('.serverSwitch');
-			if(serverActive) {
-				$serverSwitchButton.addClass('serverActive');
-				$serverSwitchButton.text('Edit OFF');
-				window.app.trigger('RestrictiveOverlay:show');
-			}
-			else {
-				$serverSwitchButton.removeClass('serverActive');
-				$serverSwitchButton.text('Edit ON');
-				window.app.trigger('RestrictiveOverlay:hide');
-			}
 		},
 		toggleAddWidgetsPanel: function toggleAddWidgets() {
 			this.$('.menuBar, .addWidgets').toggleClass('open');

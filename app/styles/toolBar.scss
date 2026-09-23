@@ -50,7 +50,7 @@
 
 
 	.downloadPatch, .downloadStandalonePatch, .pushPatchToDevice, .pullPatchFromDevice, .monitorDevice,
-	.loadPatch, .savePatch, .hideWidgets, .clearPatch, .fullScreen, .serverSwitch, .logo {
+	.loadPatch, .savePatch, .hideWidgets, .clearPatch, .fullScreen, .logo {
 		float: left;
 		width: calc(75px - 20px);
 		height: auto;
@@ -63,7 +63,7 @@
 		cursor: pointer;
 	}
 
-	.loadPatch, .savePatch, .downloadPatch, .downloadStandalonePatch, .pushPatchToDevice, .pullPatchFromDevice, .monitorDevice, .hideWidgets, .fullScreen, .clearPatch, .serverSwitch, .logo {
+	.loadPatch, .savePatch, .downloadPatch, .downloadStandalonePatch, .pushPatchToDevice, .pullPatchFromDevice, .monitorDevice, .hideWidgets, .fullScreen, .clearPatch, .logo {
 		background-color: dimgrey;
 		border-bottom: 1px solid grey;
 		margin-bottom: 0;
@@ -72,11 +72,7 @@
 	.monitorDevice.monitorActive {
 		background-color: LightSlateGray;
 	}
-    
-    .serverSwitch {
-        background-color: LightSlateGray;
-    }
-    
+
     .logo {
         cursor: auto;
     }
