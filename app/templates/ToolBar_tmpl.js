@@ -4,6 +4,8 @@
 	<div class="loadPatch">Import</div>
     <div class="downloadPatch">Export</div>
     <div class="downloadStandalonePatch">Export Standalone</div>
+    <div class="pushPatchToDevice">Push to Device</div>
+    <div class="pullPatchFromDevice">Pull from Device</div>
     <div class="monitorDevice">Monitor Device</div>
 	<div class="clearPatch">Clear</div>
 	<form method="post" enctype="multipart/form-data" action="loadPatch" class="inputForm">

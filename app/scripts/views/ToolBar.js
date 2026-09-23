@@ -13,6 +13,8 @@ function( app, Backbone, Template, Widgets ) {
 			'click .savePatch': 'savePatch',
 			'click .downloadPatch': 'downloadPatch',
 			'click .downloadStandalonePatch': 'downloadStandalonePatch',
+			'click .pushPatchToDevice': 'pushPatchToDevice',
+			'click .pullPatchFromDevice': 'pullPatchFromDevice',
 			'click .loadPatch': 'showUploadFileDialog',
 			'click .clearPatch': 'clearPatch',
             'click .hideWidgets': 'hideWidgets',
@@ -356,6 +358,12 @@ function( app, Backbone, Template, Widgets ) {
 		},
 		downloadStandalonePatch: function() {
 			window.app.vent.trigger('ToolBar:exportStandalonePatch');
+		},
+		pushPatchToDevice: function() {
+			window.app.vent.trigger('ToolBar:pushPatchToDevice');
+		},
+		pullPatchFromDevice: function() {
+			window.app.vent.trigger('ToolBar:pullPatchFromDevice');
 		},
         hideWidgets: function() {
 			this.widgetsVisible = !this.widgetsVisible;

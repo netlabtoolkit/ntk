@@ -106,6 +106,10 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 			window.app.vent.on('ToolBar:savePatch', this.savePatch, this);
 			window.app.vent.on('ToolBar:exportPatch', this.exportPatch, this);
 			window.app.vent.on('ToolBar:exportStandalonePatch', this.exportStandalonePatch, this);
+			window.app.vent.on('ToolBar:pushPatchToDevice', this.pushPatchToDevice, this);
+			window.app.vent.on('ToolBar:pullPatchFromDevice', this.pullPatchFromDevice, this);
+			window.app.vent.on('pushPatchResult', this.onPushPatchResult, this);
+			window.app.vent.on('pullPatchResult', this.onPullPatchResult, this);
 			window.app.vent.on('ToolBar:loadPatch', this.loadPatch, this);
 			window.app.vent.on('ToolBar:clearPatch', this.clearPatch, this);
 			window.app.vent.on('receivedDeviceModelUpdate', function(data) {
@@ -984,6 +988,142 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 			}
 
 			this.downloadPatchAsFile(patch, 'standalone_patch.json');
+		},
+		/**
+		 * getActiveNetworkDeviceKey - the hardwareKey (e.g.
+		 * "network:192.168.0.145:3030") of the CircuitPython WiFi device
+		 * this patch is currently connected to, for pushPatchToDevice/
+		 * pullPatchFromDevice. v1 assumes one device per patch (see
+		 * plans/standalone-patch-export.md's "Push/Pull standalone
+		 * patch" section) - the first match wins if there happen to be
+		 * more than one. A widget-to-widget mapping's modelWID is just a
+		 * plain wid (e.g. "n5"); a hardware mapping's is always
+		 * "<deviceType>:<server>" (see mapToModel's hardware branch
+		 * above) - restricted to "network:" specifically since Push/Pull
+		 * is a WiFi-firmware-only feature (a serial ArduinoUno device's
+		 * model class has no pushPatch/pullPatch methods).
+		 *
+		 * @return {string|null}
+		 */
+		getActiveNetworkDeviceKey: function() {
+			for(var i = 0; i < this.widgetMappings.length; i++) {
+				var modelWID = this.widgetMappings[i].modelWID;
+				if(modelWID && modelWID.indexOf('network:') === 0) {
+					return modelWID;
+				}
+			}
+			return null;
+		},
+		/**
+		 * pushPatchToDevice - sends the current patch to the connected
+		 * CircuitPython device over the same live connection, so it can
+		 * run standalone once NTK disconnects. See getActiveNetworkDeviceKey
+		 * and plans/standalone-patch-export.md's "Push/Pull standalone
+		 * patch" section.
+		 *
+		 * @return {void}
+		 */
+		pushPatchToDevice: function() {
+			var hardwareKey = this.getActiveNetworkDeviceKey();
+			if(!hardwareKey) {
+				alert('No Network device is currently connected in this patch - Push needs an active connection.');
+				return;
+			}
+
+			var patch = {
+				widgets: this.widgetModels.toJSON(),
+				mappings: this.widgetMappings,
+			};
+
+			var result = StandaloneCompatibility.checkPatch(patch);
+			if(!result.compatible) {
+				var widgetList = _.map(result.unsupportedWidgets, function(widget) {
+					return (widget.title || widget.typeID) + ' (' + widget.typeID + ')';
+				}).join('\n');
+
+				alert(
+					'This patch can\'t be pushed to the device - it uses widgets ' +
+					'the on-device interpreter doesn\'t support yet:\n\n' + widgetList
+				);
+
+				return;
+			}
+
+			// Explicit-Deploy-action is the primary safety net (see
+			// plans/standalone-patch-export.md) - this confirm is a
+			// second, lighter check since a push always overwrites
+			// whatever standalone patch the device currently has saved
+			// (there's no way to compare against it cheaply from here -
+			// see the scoping notes for why this isn't conditioned on
+			// "is a patch currently running", which the explicit-handoff
+			// design makes impossible to ask meaningfully while Push is
+			// even available in the first place).
+			var confirmed = confirm(
+				'Push this patch to the device at ' + hardwareKey.replace('network:', '') + '?\n\n' +
+				'It will run automatically once NTK disconnects, replacing any ' +
+				'standalone patch currently saved on the device. The device will ' +
+				'restart to load it.'
+			);
+			if(!confirmed) return;
+
+			window.app.vent.trigger('Widget:pushPatchToDevice', {
+				hardwareKey: hardwareKey,
+				patch: JSON.stringify(patch),
+			});
+		},
+		/**
+		 * pullPatchFromDevice - fetches whatever standalone patch is
+		 * currently saved on the connected device and replaces the
+		 * canvas with it, so NTK's view matches what the device actually
+		 * runs. See getActiveNetworkDeviceKey and plans/standalone-patch-
+		 * export.md's "Push/Pull standalone patch" section.
+		 *
+		 * @return {void}
+		 */
+		pullPatchFromDevice: function() {
+			var hardwareKey = this.getActiveNetworkDeviceKey();
+			if(!hardwareKey) {
+				alert('No Network device is currently connected in this patch - Pull needs an active connection.');
+				return;
+			}
+
+			window.app.vent.trigger('Widget:pullPatchFromDevice', {hardwareKey: hardwareKey});
+		},
+		/**
+		 * onPushPatchResult / onPullPatchResult - handle
+		 * server:pushPatchResult/server:pullPatchResult, relayed via
+		 * SocketAdapter.js from the hardware model's pushPatch()/
+		 * pullPatch() callback.
+		 */
+		onPushPatchResult: function(result) {
+			if(result.ok) {
+				alert('Patch pushed - the device is restarting to run it. NTK\'s connection to it will drop for a moment.');
+			}
+			else {
+				alert('Push failed: ' + (result.error || 'unknown error'));
+			}
+		},
+		onPullPatchResult: function(result) {
+			if(result.error) {
+				alert('Pull failed: ' + result.error);
+				return;
+			}
+			if(!result.patch) {
+				alert('No standalone patch is currently saved on this device.');
+				return;
+			}
+
+			// No dirty-tracking exists anywhere in NTK today to condition
+			// this on "are there actually unsaved changes" - always
+			// confirming errs toward safety instead, at the cost of one
+			// extra click when the canvas was already empty/saved.
+			var confirmed = confirm(
+				'Replace the current canvas with the patch pulled from the device?\n\n' +
+				'Any unsaved local changes will be lost.'
+			);
+			if(!confirmed) return;
+
+			this.loadPatch(result.patch);
 		},
 		/**
 		 * downloadPatchAsFile - shared by exportPatch/exportStandalonePatch.

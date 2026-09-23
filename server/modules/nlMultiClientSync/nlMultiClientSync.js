@@ -387,6 +387,47 @@ module.exports = function(options) {
 
 			});
 
+			// Push/pull the standalone patch (see plans/standalone-
+			// patch-export.md's "Push/Pull standalone patch" section) -
+			// v1 assumes one device per patch, so Patcher.js's caller
+			// already resolved which hardwareKey to target
+			// (getActiveNetworkDeviceKey) before either of these fire.
+			// A missing hardwareModel here means the device was never
+			// actually connected (shouldn't happen - the client only
+			// offers Push/Pull when it IS - but reported cleanly rather
+			// than throwing if it somehow does).
+			socket.on('client:pushPatchToDevice', function(data) {
+				var options = JSON.parse(data);
+				var hardwareModel = self.hardwareModels[options.hardwareKey];
+				if(!hardwareModel) {
+					socket.emit('server:pushPatchResult', {ok: false, error: 'Device is not connected.'});
+					return;
+				}
+				if(typeof hardwareModel.pushPatch !== 'function') {
+					socket.emit('server:pushPatchResult', {ok: false, error: 'This device type doesn\'t support Push/Pull.'});
+					return;
+				}
+				hardwareModel.pushPatch(options.patch, function(ok, errorMessage) {
+					socket.emit('server:pushPatchResult', {ok: ok, error: errorMessage});
+				});
+			});
+
+			socket.on('client:pullPatchFromDevice', function(data) {
+				var options = JSON.parse(data);
+				var hardwareModel = self.hardwareModels[options.hardwareKey];
+				if(!hardwareModel) {
+					socket.emit('server:pullPatchResult', {patch: null, error: 'Device is not connected.'});
+					return;
+				}
+				if(typeof hardwareModel.pullPatch !== 'function') {
+					socket.emit('server:pullPatchResult', {patch: null, error: 'This device type doesn\'t support Push/Pull.'});
+					return;
+				}
+				hardwareModel.pullPatch(function(patchJson, errorMessage) {
+					socket.emit('server:pullPatchResult', {patch: patchJson, error: errorMessage});
+				});
+			});
+
 			// New responder. Anytime a widget changes, notify all other clients
 			socket.on('client:sendModelUpdate', function(options) {
 				var wid = options.wid,

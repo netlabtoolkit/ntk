@@ -84,6 +84,26 @@ GROVE_STATUS_ERROR = 2
 STANDALONE_MONITOR_REQUEST = 0x03  # host -> device, sent right after connecting
 STANDALONE_MONITOR_REPLY = 0x04  # device -> host, one message per widget per push
 
+# Custom sysex extension for pushing/pulling the whole standalone patch
+# over the SAME live connection NTK already has open for normal control
+# (see plans/standalone-patch-export.md's "Push/Pull standalone patch"
+# section) - next free IDs after the two pairs above. Handling actually
+# lives in ntk_firmata_main.py's run_server() loop, not here - writing
+# standalone_patch.json and resetting the board are system-level
+# concerns outside what FirmataServer otherwise does (pins/sensors).
+# This class only decodes the request and exposes it via a flag/field
+# for that loop to notice and act on, same separation of concerns as
+# STANDALONE_MONITOR_REQUEST's monitor_requested flag above.
+PUSH_PATCH_REQUEST = 0x05  # host -> device, patch JSON as a standard Firmata string payload
+PUSH_PATCH_REPLY = 0x06  # device -> host, ack or error
+PULL_PATCH_REQUEST = 0x07  # host -> device, empty payload
+PULL_PATCH_REPLY = 0x08  # device -> host, patch JSON, or PULL_PATCH_NONE if the device has none
+
+PUSH_PATCH_OK = 1
+PUSH_PATCH_ERROR = 2
+PULL_PATCH_FOUND = 1
+PULL_PATCH_NONE = 2
+
 # Pin modes - matches board.MODES in firmata-io exactly (these values are
 # part of the wire protocol, not an internal implementation detail).
 INPUT = 0x00
@@ -124,6 +144,31 @@ def _encode_fixed_point21(value):
     fixed = int(round(value * 100))
     fixed &= 0x1FFFFF  # wrap into 21 bits rather than raise on overflow
     return (fixed & 0x7F, (fixed >> 7) & 0x7F, (fixed >> 14) & 0x7F)
+
+
+def _encode_sysex_string(s):
+    """Encodes a UTF-8 byte string as pairs of 7-bit sysex bytes (each
+    raw byte's low 7 bits, then its 8th bit alone) - the same general
+    byte-pair-splitting idea real Firmata's STRING_DATA sysex command
+    (0x71, not otherwise implemented here - see this file's module
+    docstring) uses for its own UTF-16 payloads, applied to raw UTF-8
+    bytes instead since that's what a patch JSON actually is. Custom
+    protocol between this firmware and NTK's own JS decoder
+    (decodeSysexString in StandardFirmataModel.js) - not real Firmata
+    STRING_DATA, just borrowing its encoding shape."""
+    data = []
+    for byte in s.encode("utf-8") if isinstance(s, str) else s:
+        data.append(byte & 0x7F)
+        data.append((byte >> 7) & 0x7F)
+    return data
+
+
+def _decode_sysex_string(payload):
+    """Reverse of _encode_sysex_string."""
+    raw = bytearray()
+    for i in range(0, len(payload) - 1, 2):
+        raw.append((payload[i] | (payload[i + 1] << 7)) & 0xFF)
+    return raw.decode("utf-8")
 
 
 def encode_standalone_monitor_reply(wid, fields):
@@ -229,6 +274,16 @@ class FirmataServer:
         # window - this flag has no effect once a connection has already
         # gone through the normal explicit-handoff takeover.
         self.monitor_requested = False
+        # Set by PUSH_PATCH_REQUEST/PULL_PATCH_REQUEST (see
+        # _dispatch_sysex below) - consumed and reset by
+        # ntk_firmata_main.py's run_server() main per-connection loop,
+        # which is where the actual file write / reset() / file read
+        # happens (system-level concerns outside what this class
+        # otherwise does). pending_push_patch holds the decoded JSON
+        # string once a push request has fully arrived; pull_patch_requested
+        # is a plain flag since a pull request carries no payload.
+        self.pending_push_patch = None
+        self.pull_patch_requested = False
 
     # ---------------- connection lifecycle ----------------
 
@@ -366,6 +421,17 @@ class FirmataServer:
             self._handle_grove_sensor_request(payload[1:])
         elif cmd == STANDALONE_MONITOR_REQUEST:
             self.monitor_requested = True
+        elif cmd == PUSH_PATCH_REQUEST:
+            try:
+                self.pending_push_patch = _decode_sysex_string(payload[1:])
+            except Exception as e:
+                # Malformed payload (shouldn't happen from NTK's own
+                # encoder, but a corrupted send is possible) - report it
+                # the same way a device-side write failure would, rather
+                # than silently dropping the request with no feedback.
+                self.send_push_patch_reply(False, "decode failed: %s" % e)
+        elif cmd == PULL_PATCH_REQUEST:
+            self.pull_patch_requested = True
         # Anything else (generic I2C/string/one-wire/stepper) - out of scope, ignore.
 
     # ---------------- outgoing responses ----------------
@@ -451,6 +517,30 @@ class FirmataServer:
             sensor_id & 0x7F, (sensor_id >> 7) & 0x7F, status,
             END_SYSEX,
         ]))
+
+    def send_push_patch_reply(self, ok, error_message=""):
+        """Called by ntk_firmata_main.py's run_server() loop once it's
+        actually tried to write pending_push_patch to disk. Public (no
+        leading underscore), unlike this file's other _send_* helpers -
+        called from outside this class, same as release_all_pins()."""
+        data = [START_SYSEX, PUSH_PATCH_REPLY, PUSH_PATCH_OK if ok else PUSH_PATCH_ERROR]
+        if not ok and error_message:
+            data.extend(_encode_sysex_string(error_message))
+        data.append(END_SYSEX)
+        self._send(bytes(data))
+
+    def send_pull_patch_reply(self, patch_json):
+        """patch_json: the device's current standalone_patch.json
+        content as a string, or None if it has none. Called by
+        run_server()'s loop once it's actually tried to read the file -
+        see send_push_patch_reply's own comment on why this is public."""
+        if patch_json is None:
+            self._send(bytes([START_SYSEX, PULL_PATCH_REPLY, PULL_PATCH_NONE, END_SYSEX]))
+            return
+        data = [START_SYSEX, PULL_PATCH_REPLY, PULL_PATCH_FOUND]
+        data.extend(_encode_sysex_string(patch_json))
+        data.append(END_SYSEX)
+        self._send(bytes(data))
 
     # ---------------- pin mode / hardware resource management ----------------
 

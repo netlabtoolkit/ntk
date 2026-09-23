@@ -30,6 +30,7 @@ at the top of that file for why:
 """
 
 import errno
+import json
 import os
 import sys
 import supervisor
@@ -367,6 +368,59 @@ if _has_standalone_patch:
                 print("Standalone patch loaded and compatible:", STANDALONE_PATCH_PATH)
             else:
                 print("Standalone patch present but rejected:", _candidate.error)
+
+
+def _handle_push_patch_request(firmata):
+    """Called from run_server()'s main per-connection loop when
+    firmata.pending_push_patch is set (see firmata_server.py's
+    PUSH_PATCH_REQUEST handling) - writes the received JSON to
+    STANDALONE_PATCH_PATH and resets the board so it reloads with the
+    new patch. A reset (not an in-place reload) is necessary: _standalone
+    above is a module-level object built once at import time - the
+    running interpreter has no mechanism to swap in a freshly-written
+    patch without a fresh boot. NTK's own StandaloneCompatibility.js
+    check already runs host-side before a push is ever sent, but this
+    still does its own json.loads() sanity check before writing/acking -
+    a truncated or corrupted transmission (unlikely, but not otherwise
+    caught anywhere in this path) would otherwise silently overwrite a
+    good patch with something _standalone rejects at the next boot, with
+    no feedback that anything went wrong."""
+    patch_json = firmata.pending_push_patch
+    firmata.pending_push_patch = None
+    try:
+        json.loads(patch_json)  # raises ValueError if malformed - caught below
+        with open(STANDALONE_PATCH_PATH, "w") as f:
+            f.write(patch_json)
+        firmata.send_push_patch_reply(True)
+        print("Standalone patch received (%d bytes) - resetting to load it" % len(patch_json))
+        # The ack above must actually reach the host before this
+        # connection drops with the rest of the board on reset().
+        time.sleep(0.3)
+        microcontroller.reset()
+    except Exception as e:
+        print("Push patch failed:", e)
+        try:
+            firmata.send_push_patch_reply(False, str(e))
+        except Exception:
+            pass  # connection may already be in a bad state - nothing more to do
+
+
+def _handle_pull_patch_request(firmata):
+    """Called from run_server()'s main per-connection loop when
+    firmata.pull_patch_requested is set. Deliberately re-reads
+    STANDALONE_PATCH_PATH from disk rather than reflecting _standalone's
+    in-memory state, so a pull always reports the actual file - which
+    could in principle differ from what _standalone loaded at boot
+    (there's no code path that writes this file other than a push
+    today, but reading the live file is the more honest answer to "what
+    would this device run if rebooted right now" regardless)."""
+    firmata.pull_patch_requested = False
+    try:
+        with open(STANDALONE_PATCH_PATH, "r") as f:
+            patch_json = f.read()
+        firmata.send_pull_patch_reply(patch_json)
+    except OSError:
+        firmata.send_pull_patch_reply(None)
 
 # Filled in by run() - needed by run_server() below, but only known once
 # code.py hands off (it owns FIRMATA_PORT so the SoftAP success message
@@ -812,6 +866,18 @@ def run_server():
                         if e.errno != errno.EAGAIN:
                             disconnected = True
                             print("(disconnect reason: update() errno", e.errno, "args", e.args, ")")
+
+                if not disconnected:
+                    # See firmata_server.py's PUSH_PATCH_REQUEST/
+                    # PULL_PATCH_REQUEST handling - these flags are only
+                    # ever set from inside firmata.feed() above (called
+                    # via the recv_into branch earlier this same
+                    # iteration), so checking them here is never more
+                    # than one loop iteration stale.
+                    if firmata.pending_push_patch is not None:
+                        _handle_push_patch_request(firmata)
+                    elif firmata.pull_patch_requested:
+                        _handle_pull_patch_request(firmata)
 
                 if disconnected:
                     break

@@ -94,6 +94,18 @@ function( Backbone ) {
 				window.app.vent.trigger('monitorStatus', status);
 			});
 
+			// Push/pull the standalone patch (see plans/standalone-
+			// patch-export.md's "Push/Pull standalone patch" section) -
+			// Patcher.js's pushPatchToDevice/pullPatchFromDevice trigger
+			// the client: side below, this relays the hardware model's
+			// pushPatch()/pullPatch() callback result back.
+			socket.on("server:pushPatchResult", function(result) {
+				window.app.vent.trigger('pushPatchResult', result);
+			});
+			socket.on("server:pullPatchResult", function(result) {
+				window.app.vent.trigger('pullPatchResult', result);
+			});
+
 		},
 		registerOutboundClientEvents: function registerClientEvents(socket) {
 			// MODEL AND PATCH UPDATES
@@ -196,6 +208,17 @@ function( Backbone ) {
 			window.app.vent.on('Widget:hardwareSwitch', function(portAndMode) {
 				if(window.app.server || !window.app.serverMode) {
 					socket.emit('client:changeIOMode', JSON.stringify( portAndMode ));
+				}
+			});
+
+			window.app.vent.on('Widget:pushPatchToDevice', function(options) {
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('client:pushPatchToDevice', JSON.stringify( options ));
+				}
+			});
+			window.app.vent.on('Widget:pullPatchFromDevice', function(options) {
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('client:pullPatchFromDevice', JSON.stringify( options ));
 				}
 			});
 

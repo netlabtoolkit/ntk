@@ -14,6 +14,40 @@ module.exports = function(five) {
 	var GROVE_READINGS = 1;
 	var GROVE_STATUS = 2;
 
+	// Push/pull the whole standalone patch over this same live connection
+	// (see plans/standalone-patch-export.md's "Push/Pull standalone
+	// patch" section) - byte-for-byte match to firmata_server.py's
+	// constants of the same name.
+	var PUSH_PATCH_REQUEST = 0x05;
+	var PUSH_PATCH_REPLY = 0x06;
+	var PULL_PATCH_REQUEST = 0x07;
+	var PULL_PATCH_REPLY = 0x08;
+	var PUSH_PATCH_OK = 1;
+	var PUSH_PATCH_ERROR = 2;
+	var PULL_PATCH_FOUND = 1;
+	var PULL_PATCH_NONE = 2;
+	var PUSH_PULL_TIMEOUT_MS = 8000;
+
+	// Reverse of firmata_server.py's _encode_sysex_string: each raw byte
+	// as two 7-bit sysex bytes (low 7 bits, then the 8th bit alone).
+	function encodeSysexString(s) {
+		var bytes = Buffer.from(s, 'utf8');
+		var data = [];
+		for(var i = 0; i < bytes.length; i++) {
+			data.push(bytes[i] & 0x7F);
+			data.push((bytes[i] >> 7) & 0x7F);
+		}
+		return data;
+	}
+
+	function decodeSysexString(data) {
+		var bytes = [];
+		for(var i = 0; i + 1 < data.length; i += 2) {
+			bytes.push((data[i] | (data[i + 1] << 7)) & 0xFF);
+		}
+		return Buffer.from(bytes).toString('utf8');
+	}
+
 	// Decodes one of firmware's 3x-7-bit-byte, x100 fixed-point Grove
 	// sensor values (see _encode_grove_value in firmata_server.py) back
 	// into a float - the reverse of that exact encoding.
@@ -109,6 +143,82 @@ module.exports = function(five) {
 					self.emit('change', {field: field, value: data[3]});
 				}
 			});
+
+			// Push/pull are one-shot request/reply, not an ongoing
+			// stream like Grove above - pushPatch()/pullPatch() stash a
+			// callback on the model instance right before sending, and
+			// these handlers (registered once here, same reconnect-safe
+			// clear-then-register pattern) route the reply to whichever
+			// one is currently pending, then clear it. A reply with
+			// nothing pending is ignored (e.g. a stray/duplicate).
+			this.board.io.clearSysexResponse(PUSH_PATCH_REPLY);
+			this.board.io.sysexResponse(PUSH_PATCH_REPLY, function(data) {
+				var callback = boundModel._pendingPushPatchCallback;
+				if(!callback) return;
+				boundModel._pendingPushPatchCallback = null;
+				var ok = data[0] === PUSH_PATCH_OK;
+				var errorMessage = ok ? '' : decodeSysexString(data.slice(1));
+				callback(ok, errorMessage);
+			});
+
+			this.board.io.clearSysexResponse(PULL_PATCH_REPLY);
+			this.board.io.sysexResponse(PULL_PATCH_REPLY, function(data) {
+				var callback = boundModel._pendingPullPatchCallback;
+				if(!callback) return;
+				boundModel._pendingPullPatchCallback = null;
+				var found = data[0] === PULL_PATCH_FOUND;
+				callback(found ? decodeSysexString(data.slice(1)) : null);
+			});
+		},
+		pushPatch: function pushPatch(patchJson, callback) {
+			if(this._pendingPushPatchCallback) {
+				callback(false, 'A push or pull is already in progress on this device.');
+				return;
+			}
+			var self = this;
+			// wrappedCallback (not the raw callback) is what actually
+			// gets stored below - comparing against that same reference
+			// here, not the raw callback, is what makes this timeout's
+			// staleness check meaningful. Comparing against `callback`
+			// itself (an earlier version of this code's real bug, found
+			// via hands-on testing 2026-09-23: pullPatch's equivalent
+			// timeout silently never fired, since _pendingPullPatchCallback
+			// was reassigned to a wrapper immediately after being set to
+			// the raw callback - the two were never `===` again, so this
+			// guard always returned early) would mean a lost reply
+			// leaves _pendingPushPatchCallback stuck set forever, with
+			// no timeout error ever surfacing - just a silently hung UI
+			// action and "already in progress" on any later attempt.
+			var wrappedCallback = function(ok, errorMessage) {
+				clearTimeout(timeoutID);
+				callback(ok, errorMessage);
+			};
+			var timeoutID = setTimeout(function() {
+				if(self._pendingPushPatchCallback !== wrappedCallback) return;
+				self._pendingPushPatchCallback = null;
+				callback(false, 'No response from the device (timed out).');
+			}, PUSH_PULL_TIMEOUT_MS);
+			this._pendingPushPatchCallback = wrappedCallback;
+			this.board.io.sysexCommand([PUSH_PATCH_REQUEST].concat(encodeSysexString(patchJson)));
+		},
+		pullPatch: function pullPatch(callback) {
+			if(this._pendingPullPatchCallback) {
+				callback(null, 'A push or pull is already in progress on this device.');
+				return;
+			}
+			var self = this;
+			// See pushPatch's identical comment above - same bug, same fix.
+			var wrappedCallback = function(patchJson) {
+				clearTimeout(timeoutID);
+				callback(patchJson, null);
+			};
+			var timeoutID = setTimeout(function() {
+				if(self._pendingPullPatchCallback !== wrappedCallback) return;
+				self._pendingPullPatchCallback = null;
+				callback(null, 'No response from the device (timed out).');
+			}, PUSH_PULL_TIMEOUT_MS);
+			this._pendingPullPatchCallback = wrappedCallback;
+			this.board.io.sysexCommand([PULL_PATCH_REQUEST]);
 		},
 		get: function(field) {
 			field = field.toUpperCase();
