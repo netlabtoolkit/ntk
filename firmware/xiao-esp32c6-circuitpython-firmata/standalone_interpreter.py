@@ -19,9 +19,29 @@ app/scripts/utils/StandaloneCompatibility.js's PORTABLE_TYPE_IDS; there's
 no shared source between JS and Python:
     AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, GroveSensor,
     IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse,
-    Sequence, Tween, Data
+    Sequence, Tween, Data, OSCIn, OSCOut
 load() rejects anything outside this list the same way the JS checker
 does - clearly, not silently.
+
+OSCIn/OSCOut (added 2026-09-23) use MicroOSC (lib/microosc.mpy, Tod
+Kurt/Adafruit, Unlicense - vendored, not written here) for the actual
+OSC wire format and UDP sockets, same reuse-not-reimplement approach as
+GroveSensor's catalog drivers. Unlike OSCOut.js's default target of
+127.0.0.1 (meaningful on a live connection, where that's the SAME
+computer running NTK), on a standalone board with no host computer that
+default just means "myself" - OSCOut needs to be pointed at a real
+address reachable on the board's own WiFi network to be useful here
+(another device/software actually running OSC, e.g. a Pi or a second
+computer - not the same "talk to software on this computer" pattern
+OSCOut normally assumes). OSCIn's `server` field is not used for
+binding - the interpreter always listens on the board's own IP; OSCIn
+widgets are grouped by *port* only (see _claim_osc), since only one
+real bind address exists. Multiple OSCIn widgets sharing one receiving
+port share ONE microosc.OSCServer (one dispatch_map keyed by OSC
+address), mirroring how the live-connection host-side OSC.js hardware
+model already shares one receiving socket across every /ntk/in/N
+widget - opening a separate UDP listener per widget isn't necessary or
+desirable on a memory-constrained board.
 
 GroveSensor reuses the SAME `GROVE_SENSOR_CATALOG` (from pins.py)
 firmata_server.py's sysex handler reads from - subscribing calls a
@@ -65,7 +85,7 @@ import firmata_server
 PORTABLE_TYPE_IDS = frozenset([
     'AnalogIn', 'AnalogOut', 'DigitalIn', 'DigitalOut', 'Servo', 'GroveSensor',
     'IfThen', 'Boolean', 'Gate', 'Mix', 'Splitter', 'Process', 'Count',
-    'Concat', 'Pulse', 'Sequence', 'Tween', 'Data',
+    'Concat', 'Pulse', 'Sequence', 'Tween', 'Data', 'OSCIn', 'OSCOut',
 ])
 
 HARDWARE_INPUT_TYPES = frozenset(['AnalogIn', 'DigitalIn'])
@@ -74,8 +94,12 @@ HARDWARE_OUTPUT_TYPES = frozenset(['AnalogOut', 'DigitalOut', 'Servo'])
 # Chain-driven types: their real output comes from piping outs[].from
 # through a per-type list of signal-chain functions into outs[].to -
 # exactly WidgetMulti.js's processSignalChain()/signalChainFunctions
-# mechanism, ported generically instead of one-off per type.
-CHAIN_TYPES = frozenset(['AnalogIn', 'DigitalIn', 'AnalogOut', 'DigitalOut', 'Servo', 'Process', 'IfThen'])
+# mechanism, ported generically instead of one-off per type. OSCOut is
+# deliberately NOT here - its only chain function (roundToInt) is
+# handled inline at send time in tick()'s osc_out step instead (see
+# there), since it only matters for what actually goes out over the
+# network, not the widget's own 'out' field value.
+CHAIN_TYPES = frozenset(['AnalogIn', 'DigitalIn', 'AnalogOut', 'DigitalOut', 'Servo', 'Process', 'IfThen', 'OSCIn'])
 
 
 def _num(v, default=None):
@@ -98,6 +122,19 @@ def _nan():
 
 def _is_nan(v):
     return v != v  # IEEE-754 trick: NaN is the only value not equal to itself
+
+
+def _osc_host(values):
+    """OSCOut's target address, with the same default as
+    OSCOut.js's getDeviceServerName() (unset, or the boolean sentinel
+    `true` some code paths store for "not yet configured", both mean
+    "127.0.0.1"). See the module docstring for why that default is
+    meaningless on a standalone board with no host computer at all -
+    OSCOut needs a real LAN address to actually do anything useful."""
+    server = values.get('server')
+    if not server or server is True:
+        return '127.0.0.1'
+    return str(server)
 
 
 # ==================== easing (Tween) ====================
@@ -432,6 +469,7 @@ CHAIN_FUNCTIONS_BY_TYPE = {
     'AnalogOut': ['limit255'],
     'Servo': ['limit180'],
     'DigitalOut': ['threshold'],
+    'OSCIn': ['scale'],
 }
 
 
@@ -879,6 +917,8 @@ OUTS_BY_TYPE = {
     'Splitter': [('outA', 'out1'), ('outB', 'out2'), ('outC', 'out3'), ('outD', 'out4')],
     'Sequence': [('output0', 'out0')],
     'Data': [('dataOut', 'out')],
+    'OSCIn': [('in', 'out')],
+    'OSCOut': [('in', 'out')],
 }
 
 
@@ -930,6 +970,15 @@ class StandaloneInterpreter:
         self.steps = []        # ordered (kind, ...) tuples - see _build_steps()
         self.loaded = False
         self.error = None
+        # OSCIn/OSCOut support (see module docstring) - lazily imported
+        # (microosc, wifi, socketpool) and only ever touched at all if a
+        # loaded patch actually has an osc_in/osc_out step, so a patch
+        # with no OSC widgets pays zero cost for any of this.
+        self._microosc = None
+        self._osc_wifi = None
+        self._osc_pool = None
+        self._osc_servers = {}  # port -> microosc.OSCServer
+        self._osc_clients = {}  # (host, port) -> microosc.OSCClient
 
     def load(self, patch):
         widgets = (patch or {}).get('widgets', [])
@@ -982,6 +1031,10 @@ class StandaloneInterpreter:
                 hw_out_pin[step[1]] = step[2]
             elif kind == 'grove_in':
                 hw_in_pin[step[1]] = "Grove"
+            elif kind == 'osc_in':
+                hw_in_pin[step[1]] = "OSC"
+            elif kind == 'osc_out':
+                hw_out_pin[step[1]] = "OSC"
             elif kind == 'map':
                 _, src_wid, src_field, dst_wid, _dst_field = step
                 outgoing.setdefault(src_wid, []).append((dst_wid, src_field))
@@ -1081,6 +1134,8 @@ class StandaloneInterpreter:
         hw_in_mappings = {}   # wid -> mapping (AnalogIn/DigitalIn)
         hw_out_mappings = {}  # wid -> mapping (AnalogOut/DigitalOut/Servo)
         grove_mappings = {}   # wid -> [mapping, ...] - GroveSensor has one per reading
+        osc_in_mappings = {}   # wid -> mapping (OSCIn) - just marks "actively mapped", see _claim_osc
+        osc_out_mappings = {}  # wid -> mapping (OSCOut)
 
         for m in mappings:
             model_wid, view_wid = m.get('modelWID'), m.get('viewWID')
@@ -1095,6 +1150,10 @@ class StandaloneInterpreter:
                     hw_out_mappings[view_wid] = m
                 elif type_id == 'GroveSensor':
                     grove_mappings.setdefault(view_wid, []).append(m)
+                elif type_id == 'OSCIn':
+                    osc_in_mappings[view_wid] = m
+                elif type_id == 'OSCOut':
+                    osc_out_mappings[view_wid] = m
 
         # Kahn's algorithm - widgets with no unresolved dependency go
         # first. A cycle (shouldn't happen in a normal patch) just gets
@@ -1123,6 +1182,15 @@ class StandaloneInterpreter:
                     steps.append(('map', m.get('modelWID'), m['map']['sourceField'], wid, m['map']['destinationField']))
             if wid in hw_in_mappings:
                 steps.append(('hw_in', wid, hw_in_mappings[wid]['map']['sourceField']))
+            if wid in osc_in_mappings:
+                # No further config carried on the step itself - _claim_osc
+                # reads server/port/messageName straight from the widget's
+                # own values (same as GroveSensor's grove_in reading
+                # values.get('sensor')/values.get('pin') below, rather
+                # than from the mapping).
+                steps.append(('osc_in', wid))
+            if wid in osc_out_mappings:
+                steps.append(('osc_out', wid))
             if wid in grove_mappings:
                 # sourceField is "grove-<sensorId>-<readingIndex>" (see
                 # GroveSensor.js's remapSensor()) - the index is what
@@ -1179,6 +1247,80 @@ class StandaloneInterpreter:
                     fs._apply_pin_mode(idx, firmata_server.OUTPUT)
             elif step[0] == 'grove_in':
                 self._subscribe_grove_sensor(step[1])
+        self._claim_osc()
+
+    def _claim_osc(self):
+        """Set up MicroOSC receiving/sending for every osc_in/osc_out
+        step (see module docstring). Called from claim_hardware() -
+        same "call again after regaining control" contract, and same
+        reasoning for why: a client that was driving this device may
+        have been the one actually reachable at these OSC targets, so
+        re-establishing here (not just once at load()) matters the same
+        way pin claims do.
+
+        Multiple OSCIn widgets can share one receiving port - grouped
+        here by port only (not host:port), since only one real bind
+        address exists (the board's own IP) - see module docstring for
+        why OSCIn's own `server` field isn't used for binding."""
+        osc_in_by_port = {}    # port -> {address: wid}
+        osc_out_targets = set()  # (host, port)
+        for step in self.steps:
+            if step[0] == 'osc_in':
+                wid = step[1]
+                values = self.widgets[wid]['values']
+                port = int(_num(values.get('port'), 57190))
+                address = values.get('messageName') or '/ntk/in/1'
+                osc_in_by_port.setdefault(port, {})[address] = wid
+            elif step[0] == 'osc_out':
+                wid = step[1]
+                values = self.widgets[wid]['values']
+                osc_out_targets.add((_osc_host(values), int(_num(values.get('port'), 57120))))
+
+        if not osc_in_by_port and not osc_out_targets:
+            return
+
+        if self._microosc is None:
+            try:
+                import wifi
+                import socketpool
+                import microosc
+                self._microosc = microosc
+                self._osc_pool = socketpool.SocketPool(wifi.radio)
+                self._osc_wifi = wifi
+            except Exception as e:
+                print("standalone_interpreter: OSC setup failed (microosc/wifi/socketpool):", e)
+                self._microosc = False  # sentinel: don't retry every claim_hardware() call
+                return
+        elif self._microosc is False:
+            return
+
+        my_ip = str(self._osc_wifi.radio.ipv4_address)
+        for port, addr_map in osc_in_by_port.items():
+            dispatch_map = {}
+            for address, wid in addr_map.items():
+                dispatch_map[address] = self._make_osc_in_handler(wid)
+            try:
+                self._osc_servers[port] = self._microosc.OSCServer(self._osc_pool, my_ip, port, dispatch_map)
+            except Exception as e:
+                print("standalone_interpreter: OSC receive on port", port, "failed:", e)
+
+        for host, port in osc_out_targets:
+            try:
+                self._osc_clients[(host, port)] = self._microosc.OSCClient(self._osc_pool, host, port)
+            except Exception as e:
+                print("standalone_interpreter: OSC send target", host, port, "failed:", e)
+
+    def _make_osc_in_handler(self, wid):
+        """One closure per OSCIn widget, used as its dispatch_map entry -
+        MicroOSC calls this with the decoded OscMsg when a message for
+        this widget's own address arrives. Only the first argument is
+        used - matches NTK's convention elsewhere of one value per OSC
+        address (see OSCOut.js/OSC.js), not OSC's general multi-arg
+        capability."""
+        def handler(msg):
+            if msg.args:
+                self.widgets[wid]['values']['in'] = msg.args[0]
+        return handler
 
     def _subscribe_grove_sensor(self, wid):
         """Subscribe a GroveSensor widget's sensor, calling its catalog
@@ -1233,12 +1375,43 @@ class StandaloneInterpreter:
                 except Exception:
                     pass
         self._grove_subscriptions = {}
+        self._release_osc()
+
+    def _release_osc(self):
+        """Closes the raw UDP sockets MicroOSC opened - it exposes no
+        public close()/deinit() (confirmed via dir() on a real instance,
+        hardware-checked 2026-09-23), only a `_sock` attribute, so this
+        reaches into that directly rather than leaking a socket (and the
+        board's limited count of them) every time control changes hands
+        between the interpreter and a real client."""
+        for srv in self._osc_servers.values():
+            try:
+                srv._sock.close()
+            except Exception:
+                pass
+        self._osc_servers = {}
+        for cli in self._osc_clients.values():
+            try:
+                cli._sock.close()
+            except Exception:
+                pass
+        self._osc_clients = {}
 
     def tick(self):
         if not self.loaded:
             return
         now = time.monotonic()
         fs = self._fs
+        # Polled once per port here, not inside the per-step loop below -
+        # several osc_in widgets can share one OSCServer (see _claim_osc),
+        # and its dispatch_map callback (_make_osc_in_handler) already
+        # writes straight into the relevant widget's values['in'], so the
+        # osc_in step itself has nothing further to do at tick time.
+        for srv in self._osc_servers.values():
+            try:
+                srv.poll()
+            except Exception as e:
+                print("standalone_interpreter: OSC poll failed:", e)
         for step in self.steps:
             kind = step[0]
             if kind == 'map':
@@ -1316,6 +1489,34 @@ class StandaloneInterpreter:
                         fs._handle_analog_write(idx, pulse_us)
                     else:
                         fs._handle_analog_write(idx, out_value)
+            elif kind == 'osc_out':
+                wid = step[1]
+                w = self.widgets[wid]
+                values = w['values']
+                out_value = _num(values.get('out'), 0.0)
+                # Only send on an actual change, matching the live-
+                # connection host-side OSC.js's own sendOSCMessage() -
+                # avoids flooding the network with an identical value
+                # every tick just because this step runs every tick.
+                if w['state'].get('_osc_last_sent') == out_value:
+                    continue
+                w['state']['_osc_last_sent'] = out_value
+                client = self._osc_clients.get((_osc_host(values), int(_num(values.get('port'), 57120))))
+                if client is None:
+                    continue
+                address = values.get('messageName') or '/ntk/out/1'
+                # roundToInt from SignalChainFunctions.js, applied here
+                # (not via CHAIN_TYPES) since it only matters for what
+                # actually goes out over the network - see CHAIN_TYPES'
+                # own comment on why OSCOut isn't in that set.
+                if values.get('valueType') == 'int':
+                    args, types = [int(out_value)], ('i',)
+                else:
+                    args, types = [out_value], ('f',)
+                try:
+                    client.send(self._microosc.OscMsg(address, args, types))
+                except Exception as e:
+                    print("standalone_interpreter: OSC send failed:", e)
 
     def monitor_fields(self, wid):
         """(field_name, numeric_value) pairs worth reporting to a
