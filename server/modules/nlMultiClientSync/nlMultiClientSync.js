@@ -391,18 +391,21 @@ module.exports = function(options) {
 			// patch-export.md's "Push/Pull standalone patch" section) -
 			// v1 assumes one device per patch, so Patcher.js's caller
 			// already resolved which hardwareKey to target
-			// (getActiveNetworkDeviceKey) before either of these fire.
-			// A missing hardwareModel here means the device was never
-			// actually connected (shouldn't happen - the client only
-			// offers Push/Pull when it IS - but reported cleanly rather
-			// than throwing if it somehow does).
+			// (getActiveNetworkDeviceKey), which may come from an actual
+			// wired widget OR straight from the Add Widgets panel's own
+			// Device/IP fields with nothing wired up yet (added
+			// 2026-09-23 - Pull especially wants to work before any
+			// widget exists, to check what's already on a device). Same
+			// create-if-missing fallback client:changeIOMode above
+			// already uses, so this works in the latter case too.
 			socket.on('client:pushPatchToDevice', function(data) {
 				var options = JSON.parse(data);
-				var hardwareModel = self.hardwareModels[options.hardwareKey];
-				if(!hardwareModel) {
-					socket.emit('server:pushPatchResult', {ok: false, error: 'Device is not connected.'});
-					return;
+				if(self.hardwareModels[options.hardwareKey] == undefined) {
+					var typeAddressPort = options.hardwareKey.split(':');
+					self.hardwareModels[options.hardwareKey] = new nlHardware({deviceType: options.hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+					self.bindModelToTransport(self.hardwareModels[options.hardwareKey]);
 				}
+				var hardwareModel = self.hardwareModels[options.hardwareKey];
 				if(typeof hardwareModel.pushPatch !== 'function') {
 					socket.emit('server:pushPatchResult', {ok: false, error: 'This device type doesn\'t support Push/Pull.'});
 					return;
@@ -414,11 +417,12 @@ module.exports = function(options) {
 
 			socket.on('client:pullPatchFromDevice', function(data) {
 				var options = JSON.parse(data);
-				var hardwareModel = self.hardwareModels[options.hardwareKey];
-				if(!hardwareModel) {
-					socket.emit('server:pullPatchResult', {patch: null, error: 'Device is not connected.'});
-					return;
+				if(self.hardwareModels[options.hardwareKey] == undefined) {
+					var typeAddressPort = options.hardwareKey.split(':');
+					self.hardwareModels[options.hardwareKey] = new nlHardware({deviceType: options.hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+					self.bindModelToTransport(self.hardwareModels[options.hardwareKey]);
 				}
+				var hardwareModel = self.hardwareModels[options.hardwareKey];
 				if(typeof hardwareModel.pullPatch !== 'function') {
 					socket.emit('server:pullPatchResult', {patch: null, error: 'This device type doesn\'t support Push/Pull.'});
 					return;

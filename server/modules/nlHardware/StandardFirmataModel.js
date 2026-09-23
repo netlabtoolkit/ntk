@@ -26,7 +26,23 @@ module.exports = function(five) {
 	var PUSH_PATCH_ERROR = 2;
 	var PULL_PATCH_FOUND = 1;
 	var PULL_PATCH_NONE = 2;
-	var PUSH_PULL_TIMEOUT_MS = 8000;
+	// Generous enough to cover a hardwareModel created on demand for
+	// this exact call (see nlMultiClientSync.js's create-if-missing
+	// fallback, added 2026-09-23 for Push/Pull without a widget already
+	// wired up) going through a full connection from scratch - not just
+	// the TCP handshake, but firmata-io's own "ready" event, which
+	// FirmataServer.on_connect() (firmata_server.py) deliberately
+	// doesn't rush: it relies on firmata-io's own 5-second "haven't
+	// heard a version yet" fallback timer to kick off the handshake at
+	// all (see that function's own comment for why - answering
+	// immediately breaks "ready" from ever firing). Real WiFi/TCP
+	// latency stacks on top of that 5s floor. 8000ms was too tight for
+	// this cold-start case - hands-on testing 2026-09-23 timed out a
+	// Pull from a clean canvas (no widget already connected) that would
+	// have succeeded with a few more seconds. Doesn't affect the common
+	// case (an already-connected widget) - self.connected is already
+	// true there, so trySend() below fires on the very next tick either way.
+	var PUSH_PULL_TIMEOUT_MS = 15000;
 
 	// Reverse of firmata_server.py's _encode_sysex_string: each raw byte
 	// as two 7-bit sysex bytes (low 7 bits, then the 8th bit alone).
@@ -199,7 +215,31 @@ module.exports = function(five) {
 				callback(false, 'No response from the device (timed out).');
 			}, PUSH_PULL_TIMEOUT_MS);
 			this._pendingPushPatchCallback = wrappedCallback;
-			this.board.io.sysexCommand([PUSH_PATCH_REQUEST].concat(encodeSysexString(patchJson)));
+
+			// A hardwareModel created on demand for this call (see
+			// nlMultiClientSync.js's client:pushPatchToDevice - same
+			// create-if-missing fallback client:changeIOMode already
+			// uses) won't be connected yet the instant it's constructed -
+			// retry until it is, same pattern setIOMode already uses
+			// below. Deliberately NOT re-arming the pending callback/
+			// timeout on each retry - PUSH_PULL_TIMEOUT_MS above already
+			// covers the whole operation, connection time included.
+			var trySend = function() {
+				// Bail out once this operation is no longer the current
+				// pending one - either the timeout above already fired,
+				// or (shouldn't happen given the "already in progress"
+				// guard at the top) something else claimed the slot.
+				// Without this, a device that never actually connects
+				// leaves this retrying forever in the background, long
+				// after the timeout's own error already reached the user.
+				if(self._pendingPushPatchCallback !== wrappedCallback) return;
+				if(!self.connected) {
+					setTimeout(trySend, 500);
+					return;
+				}
+				self.board.io.sysexCommand([PUSH_PATCH_REQUEST].concat(encodeSysexString(patchJson)));
+			};
+			trySend();
 		},
 		pullPatch: function pullPatch(callback) {
 			if(this._pendingPullPatchCallback) {
@@ -218,7 +258,19 @@ module.exports = function(five) {
 				callback(null, 'No response from the device (timed out).');
 			}, PUSH_PULL_TIMEOUT_MS);
 			this._pendingPullPatchCallback = wrappedCallback;
-			this.board.io.sysexCommand([PULL_PATCH_REQUEST]);
+
+			// See pushPatch's identical comment above (both comments -
+			// the retry pattern and why it has to check the pending
+			// callback reference before each retry).
+			var trySend = function() {
+				if(self._pendingPullPatchCallback !== wrappedCallback) return;
+				if(!self.connected) {
+					setTimeout(trySend, 500);
+					return;
+				}
+				self.board.io.sysexCommand([PULL_PATCH_REQUEST]);
+			};
+			trySend();
 		},
 		get: function(field) {
 			field = field.toUpperCase();

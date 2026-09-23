@@ -992,16 +992,24 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 		/**
 		 * getActiveNetworkDeviceKey - the hardwareKey (e.g.
 		 * "network:192.168.0.145:3030") of the CircuitPython WiFi device
-		 * this patch is currently connected to, for pushPatchToDevice/
-		 * pullPatchFromDevice. v1 assumes one device per patch (see
-		 * plans/standalone-patch-export.md's "Push/Pull standalone
-		 * patch" section) - the first match wins if there happen to be
-		 * more than one. A widget-to-widget mapping's modelWID is just a
-		 * plain wid (e.g. "n5"); a hardware mapping's is always
+		 * to target for pushPatchToDevice/pullPatchFromDevice. v1 assumes
+		 * one device per patch (see plans/standalone-patch-export.md's
+		 * "Push/Pull standalone patch" section).
+		 *
+		 * Prefers an actual live hardware mapping already in this patch,
+		 * if one exists - a widget-to-widget mapping's modelWID is just
+		 * a plain wid (e.g. "n5"), a hardware mapping's is always
 		 * "<deviceType>:<server>" (see mapToModel's hardware branch
-		 * above) - restricted to "network:" specifically since Push/Pull
-		 * is a WiFi-firmware-only feature (a serial ArduinoUno device's
-		 * model class has no pushPatch/pullPatch methods).
+		 * above), restricted to "network:" since Push/Pull is WiFi-
+		 * firmware-only (a serial ArduinoUno device's model class has no
+		 * pushPatch/pullPatch methods). Falls back to window.app.defaultDevice
+		 * (the Add Widgets panel's own Device/IP/port fields) if no widget
+		 * is wired up yet - same source ToolBar.js's toggleMonitor already
+		 * connects from with no widget required either. Added 2026-09-23
+		 * after hands-on feedback that requiring a widget first made Pull
+		 * (checking what's on a device before building anything) needlessly
+		 * redundant - Pull in particular is often exactly what you'd want
+		 * to do BEFORE adding any widgets, not after.
 		 *
 		 * @return {string|null}
 		 */
@@ -1012,6 +1020,12 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 					return modelWID;
 				}
 			}
+
+			var defaultDevice = window.app.defaultDevice;
+			if(defaultDevice && defaultDevice.deviceType === 'network' && defaultDevice.server) {
+				return 'network:' + defaultDevice.server + ':' + (defaultDevice.port || 3030);
+			}
+
 			return null;
 		},
 		/**
@@ -1026,7 +1040,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 		pushPatchToDevice: function() {
 			var hardwareKey = this.getActiveNetworkDeviceKey();
 			if(!hardwareKey) {
-				alert('No Network device is currently connected in this patch - Push needs an active connection.');
+				alert('No Network device to push to - either wire up a hardware widget, or set the Add Widgets panel\'s Device picker to Network with an IP address.');
 				return;
 			}
 
@@ -1083,7 +1097,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 		pullPatchFromDevice: function() {
 			var hardwareKey = this.getActiveNetworkDeviceKey();
 			if(!hardwareKey) {
-				alert('No Network device is currently connected in this patch - Pull needs an active connection.');
+				alert('No Network device to pull from - either wire up a hardware widget, or set the Add Widgets panel\'s Device picker to Network with an IP address.');
 				return;
 			}
 
