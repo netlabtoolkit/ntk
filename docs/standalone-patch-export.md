@@ -44,7 +44,7 @@ Whenever a normal (non-monitoring) connection reaches the board, it switches to 
 
 You can watch a standalone patch's live values from NTK without switching the board into Controlled mode:
 
-1. Load the same patch in NTK (the `.ntk` file you exported from, via **Import**).
+1. Load the same patch in NTK — either **Import** the `.ntk` file you exported from, or click **Pull from Device** to fetch exactly what's on the board directly, which is also the surer way to know the two actually match.
 2. Set the Settings drawer's Device picker to **Network**, with the board's IP address.
 3. Click **Monitor Device**.
 
