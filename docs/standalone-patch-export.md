@@ -4,9 +4,11 @@ Normally your patch's logic runs on your computer, and NTK talks to the board ov
 
 ## Which widgets work
 
-AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, GroveIn, IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse, Sequence, Tween, Data.
+AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, GroveIn, IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse, Sequence, Tween, Data, OSCIn, OSCOut.
 
-Anything else — camera/ML widgets, speech widgets, LLM, Code, OSC/Cloud/Webhook, and desktop-only widgets like Text or Button — can't run standalone.
+Anything else — camera/ML widgets, speech widgets, LLM, Code, Cloud/Webhook, and desktop-only widgets like Text or Button — can't run standalone.
+
+**OSCOut needs a real network address to be useful standalone.** Its usual default target, 127.0.0.1, means "the same computer running NTK" — but once the board is running on its own with no computer involved, that address just points back at the board itself. Set OSCOut's IP field (in its "more" panel) to the actual address of whatever's receiving the OSC messages — another computer, a Raspberry Pi, anything reachable on the board's own WiFi network. OSCIn works as-is; it just listens on the board's own IP.
 
 ## Exporting and deploying
 
