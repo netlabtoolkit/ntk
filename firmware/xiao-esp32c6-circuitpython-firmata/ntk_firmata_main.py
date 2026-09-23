@@ -30,6 +30,7 @@ at the top of that file for why:
 """
 
 import errno
+import gc
 import json
 import os
 import sys
@@ -554,9 +555,22 @@ def _check_keypress():
     connected. 'v' prints the standalone interpreter's live inlet/outlet
     values, 't' reprints its patch topology (both silently a no-op with
     no standalone patch loaded), 'r' prints the current WiFi RSSI
-    (silently a no-op in AP mode). Replaces the old automatic every-10s
-    RSSI log, which printed constantly whether anyone was looking at the
-    console or not."""
+    (silently a no-op in AP mode), 'm' prints current free memory.
+    Replaces the old automatic every-10s RSSI log, which printed
+    constantly whether anyone was looking at the console or not.
+
+    'm' specifically exists so free-memory checks (relevant to this
+    board's real, previously-hit heap-fragmentation crashes - see
+    code.py's own module docstring) can be read from INSIDE the normal
+    running loop, undisturbed - checking via a Ctrl-C/REPL interrupt
+    instead changes the very state being measured (unwinds whatever
+    stack frames were active, and can itself drop the WiFi connection
+    or trigger a watchdog reset - both hardware-verified elsewhere this
+    session), so a reading taken that way doesn't reflect real steady-
+    state operation. gc.collect() first so this reports genuinely-
+    reclaimed free memory, not memory that's dead but not yet swept -
+    a HIGHER number after collect() than before would itself indicate
+    reclaimable garbage was piling up between passes."""
     if not supervisor.runtime.serial_bytes_available:
         return
     key = sys.stdin.read(1)
@@ -566,6 +580,9 @@ def _check_keypress():
         _standalone.print_topology()
     elif key == "r":
         _print_rssi()
+    elif key == "m":
+        gc.collect()
+        print("Free memory:", gc.mem_free(), "bytes")
 
 
 _MONITOR_REQUEST_BYTES = bytes([START_SYSEX, STANDALONE_MONITOR_REQUEST, END_SYSEX])
@@ -729,11 +746,23 @@ def run_server():
     if _standalone is not None:
         _standalone.claim_hardware()
         print("Standalone interpreter running (no client connected)")
-        print("Press 'v' for live values, 't' for topology, 'r' for WiFi RSSI, at any time on this console.")
+        print("Press 'v' for live values, 't' for topology, 'r' for WiFi RSSI, 'm' for free memory, at any time on this console.")
         print("(Click in this pane, press the desired key, and hit Enter.)")
     else:
-        print("Press 'r' for WiFi RSSI at any time on this console.")
+        print("Press 'r' for WiFi RSSI, 'm' for free memory, at any time on this console.")
         print("(Click in this pane, press the desired key, and hit Enter.)")
+
+    # Steady-state post-init reading - WiFi up, server listening,
+    # standalone interpreter claimed (including any OSC sockets/pins it
+    # needed) if present, nobody connected yet. Taken here, after
+    # everything above has actually run, so it's the truest "fully
+    # booted, ready to serve" snapshot - the baseline to compare later
+    # 'm' keypress readings against as the board keeps running. See
+    # _check_keypress()'s own comment for why this has to be read from
+    # inside the running loop, not via a REPL interrupt, to mean
+    # anything.
+    gc.collect()
+    print("Free memory at boot:", gc.mem_free(), "bytes")
 
     read_buffer = bytearray(128)
 
