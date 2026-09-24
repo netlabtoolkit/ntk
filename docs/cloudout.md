@@ -1,48 +1,51 @@
 # CloudOut
 
-The CloudOut widget periodically sends the widget's incoming numeric value to an [Adafruit IO](https://io.adafruit.com) feed.
+The CloudOut widget publishes its incoming value to an [MQTT](https://en.wikipedia.org/wiki/MQTT) topic on any broker whenever it changes - use it to send data to another device, script, cloud dashboard, or automation.
 
 ## How it works
 
-- Check the checkbox on the widget to start sending. The widget counts down ("Send in: Ns") between checks, and briefly flashes red when it actually sends a value.
-- CloudOut only sends when the value has *changed* since the last send, and won't send more than once per "send every" interval even if the value keeps changing - so it won't spam the feed with a repeated, unchanged value, or send updates faster than the interval you've set.
-- With **avg inputs** checked, CloudOut averages every value it receives during a send interval instead of just using whatever value arrived last; leave it unchecked to send the latest value as-is.
-- If a send fails, sending stops automatically (the checkbox unchecks itself) and the widget's display explains why - see Troubleshooting below.
+- Wire a widget into CloudOut's inlet (left edge). CloudOut connects to the broker at **host**/**port** and publishes to **topic**.
+- The checkbox on the right edge turns sending on and off. **It is off by default** - nothing is sent until you check it, and CloudOut never auto-reconnects on its own when a patch loads, even if it was checked when the patch was saved.
+- The upper display shows the incoming value. The lower display shows the last value CloudOut actually sent, and stays on that number (with a brief green flash marking the moment) until the next real send - it does not continuously track the incoming value the way the upper display does.
+- The dial in the widget body lets you **send test messages by hand** - drag it to publish a value (0-1023) without wiring anything into the inlet. Use it to confirm the receiving side is set up correctly before building the rest of the patch.
+- CloudOut only sends when the value actually changes. Sending the same value twice in a row produces just one message.
 
 ## Settings ("more" panel)
 
-- **avg inputs** - checkbox, see above.
-- **send every** - how often, in milliseconds, to check for and send a changed value (default `10000` = 10 seconds).
-- **username** - your Adafruit IO account username.
-- **AIO key** - your Adafruit IO account's active key.
-- **feed name** - the name of the specific feed to write to.
+- **host** - the broker's address (e.g. `io.adafruit.com`, or a LAN IP for a broker on your own network).
+- **port** - the broker's port. `1883` is the standard plain (non-TLS) MQTT port; `8883` is the standard TLS port.
+- **topic** - the MQTT topic to publish to.
+- **TLS** - check this if the broker requires an encrypted connection. Leave it off for a plain local broker; most self-hosted brokers (e.g. Mosquitto) don't require it, but some hosted services do.
+- **user** / **pass** - credentials, if the broker requires them. Leave blank for a broker that allows anonymous connections.
+- **min ms** - the minimum time, in milliseconds, between actual sends (default `2000`). Rate-limited services (Adafruit IO's free tier allows 30 points/minute) need this set comfortably above their limit; set to `0` to send on every change with no minimum.
+- **avg** - when checked, and **min ms** is above `0`, CloudOut publishes the *mean* of every value it saw during that interval instead of just whatever value happened to be current when the interval closed. Useful for a noisy or fast-changing input where you want a representative value rather than a snapshot. Once the input stops changing, CloudOut sends one more message with the exact final value (not an average) so the last thing published always matches where the input actually settled.
 
-## Getting your Adafruit IO username, key, and feed name
+## Sharing a broker with CloudIn
 
-CloudOut talks to [io.adafruit.com](https://io.adafruit.com), Adafruit's cloud data service (free tier available). You'll need a free Adafruit account, plus these three pieces of information from it:
+CloudIn and CloudOut widgets pointed at the same **host**/**port** share one underlying connection to that broker, so you don't need a separate connection per widget.
 
-1. **Create an account and a feed**
-   Sign up or log in at [io.adafruit.com](https://io.adafruit.com). Click **Feeds** in the left sidebar, then **+ New Feed**, and give it a name (e.g. "temperature"). Adafruit IO generates a URL-safe feed key from that name automatically.
+The first widget to actually connect sets the username/password/TLS for that shared connection - if you point two widgets at the same broker with different credentials, whichever connects first wins for the rest of that session. Remove and re-add a widget to force a fresh connection attempt with corrected credentials.
 
-2. **Find your username**
-   It's shown in the upper right of the Adafruit IO dashboard, and it's also the first segment of any of your feed URLs: `io.adafruit.com/USERNAME/feeds/...`
+**Don't point CloudOut and CloudIn at the same topic on the same broker in one patch.** MQTT has no way to tell a client "don't deliver my own published messages back to me," so a connection that both publishes and subscribes to one topic sees its own messages as if they'd arrived from somewhere else. NTK detects and suppresses this to avoid a feedback loop, which as a side effect means a CloudIn on the same topic will never receive anything. Use two different topics (or two feeds, if you're using Adafruit IO) for two-way testing.
 
-3. **Find your AIO Key**
-   Click your account icon, then **My Key**. This shows your **Active Key** - a long string. Treat it like a password: anyone with it can read and write your feeds.
+## Connecting to Adafruit IO
 
-4. **Find your feed name**
-   On the feed's own page, the feed's identifier is shown under its name, and is also the last segment of the feed's URL. It's usually the lowercase, dashed version of whatever name you gave the feed (a feed named "Kitchen Temp" gets the key `kitchen-temp`) - enter that exact value into CloudOut's "feed name" field, not the display name, if the two differ.
+Adafruit IO's MQTT broker works like any other:
 
-Enter those three values into CloudOut's "more" panel: **username**, **AIO key**, **feed name**.
+1. Create a free account and a feed at [io.adafruit.com](https://io.adafruit.com) (**Feeds** → **+ New Feed**).
+2. Set **host** to `io.adafruit.com` and **port** to `1883` (or `8883` with **TLS** checked).
+3. Set **topic** to `USERNAME/feeds/FEEDKEY` - your username is shown in the upper right of the dashboard; the feed key is shown on the feed's own page (usually the lowercase, dashed version of the feed's display name). Adafruit IO rejects a topic in any other format.
+4. Set **user** to your Adafruit IO username and **pass** to your account's Active Key (find it under your account icon → **My Key**).
+5. Set **min ms** to at least `2000` to stay under the free tier's rate limit.
+6. Check the CloudOut checkbox.
 
 ## Troubleshooting
 
-- **"Invalid key"** - the AIO Key is wrong, or was regenerated on the Adafruit IO site (regenerating immediately invalidates the old key).
-- **"Invalid feed"** - the feed name doesn't match any feed under that username. Double-check for typos, and make sure you're using the feed's key/URL-slug, not its display name (see step 4 above).
-- **"Can't connect"** - a network problem, a timeout, or Adafruit IO is temporarily unreachable.
-- Any of the above stops sending - fix the setting, then re-check the box to retry.
-- Adafruit IO's free tier is rate-limited (30 data points/minute as of this writing) - don't set "send every" faster than you need to, especially with "avg inputs" off and a fast-changing input.
+- **Stays "Not connected"** - double check **host**/**port**/**TLS** match the broker exactly, and that **user**/**pass** are correct if the broker requires them.
+- **Connects, then immediately disconnects, repeatedly** - on Adafruit IO specifically, check their dashboard's own MQTT error log (visible on the feed's page) for the exact reason; a malformed **topic** (not `USERNAME/feeds/FEEDKEY`) is a common cause, and the broker drops the whole connection rather than just rejecting that one message.
+- **Getting rate-limited** - raise **min ms**, and check **avg** if you want a representative value from a fast-changing input rather than whatever it happened to be at the last instant.
+- **The receiver never sees an initial value on startup** - CloudOut only sends on change; nudge the input so a real change happens.
 
 ## What changed
 
-Earlier versions of CloudOut also supported data.sparkfun.com (via Phant) and particle.io, and later added thingspeak.com. All three have been removed - CloudOut now speaks to Adafruit IO only.
+Earlier versions of CloudOut only spoke to Adafruit IO's REST API. CloudOut now uses MQTT and works with any broker; the old **username**/**AIO key**/**feed name** fields are replaced by **host**/**port**/**TLS**/**topic**/**user**/**pass**, and **send every** is renamed **min ms**. **avg inputs** is back, working the same way it did before. If you were using Adafruit IO, see "Connecting to Adafruit IO" above for the equivalent new settings.
