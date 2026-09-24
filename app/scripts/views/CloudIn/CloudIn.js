@@ -4,85 +4,158 @@ define([
 	'views/item/WidgetMulti',
 	'text!./template.js',
 
-	// If you would like signal processing classes and functions include them here
 	'utils/SignalChainFunctions',
 	'utils/SignalChainClasses',
-	// and any other imported libraries you like should go here
-    'jqueryknob',
 ],
-function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalChainClasses, jqueryknob){
+function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalChainClasses){
     'use strict';
 
 	return WidgetView.extend({
-		// Define the inlets
 		ins: [
-			// title is decorative, to: <widget model field being set by inlet>
-			{title: 'in', to: 'in'},
 		],
 		outs: [
-			// title is decorative, from: <widget model field>, to: <widget model field being listened to>
 			{title: 'out', from: 'in', to: 'out'},
 		],
-        // Any custom DOM events should go here (Backbone style)
-        widgetEvents: {
-			'change .getFromCloud': 'getFromCloud',
-		},
-
-
+		widgetEvents: {},
 		typeID: 'CloudIn',
-        categories: ['network'],
+		deviceMode: 'in',
+		lastChanged: {in: 99},
 		className: 'cloudIn',
+		categories: ['network'],
 		template: _.template(Template),
 
 		initialize: function(options) {
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
 
-            // Call any custom DOM events here
-            this.model.set({
-                title: 'CloudIn',
-                getPeriod: 10000,
-                // io.adafruit.com
-                aioUsername: '',
-                aioKey: '',
-                aioFeedKey: '',
-                //
-                getFromCloud: false,
-                displayTimerStart: false,
-                displayText: "Stopped",
-            });
-
-            // private variables
-            this.startTime = 0;
-            this.lastSendToCloud = false;
-            this.lastTimeDiff = 0;
-            this.startCountdown = true;
-            this.redPulseCount = 0;
+			this.model.set({
+				title: 'CloudIn',
+				topic: '',
+				host: '',
+				port: 1883,
+				tls: false,
+				username: '',
+				password: '',
+				// false to match CloudOut's activeOut default - starts
+				// deactivated, user opts in explicitly (2026-09-24). The
+				// underlying subscribe still gets established once
+				// host+topic are set regardless of this flag (see the
+				// topic-change listener below) - 'active' only gates
+				// whether incoming values get applied locally and
+				// whether the widget shows "Connected".
+				active: false,
+				cloudConnected: false,
+			});
 
             this.signalChainFunctions.push(SignalChainFunctions.scale);
-			// If you would like to register any function to be called at frame rate (60fps)
-			//console.log('register!');
-			//window.app.server &&
-			this.localTimeKeeperFunc = function(frameCount) {
-				this.timeKeeper(frameCount);
+
+			window.app.timingController.registerFrameCallback(this.processSignalChain, this);
+
+			this.model.on('change', function(model) {
+				var changed = model.changedAttributes();
+
+				if(changed.topic !== undefined) {
+					for(var i=this.sources.length-1; i>=0; i--) {
+						this.sources[i].map.sourceField = model.get('topic');
+					}
+					this.model.set('outputMapping', model.get('topic'));
+
+					// Guarded on this.sources.length - PatchLoader.js sets
+					// EVERY widget's full saved field data (via
+					// setFromModel) in one loop BEFORE processing ANY
+					// widget's mappings in a separate, later loop. Without
+					// this guard, loading a saved patch with a real topic
+					// fired this listener while
+					// window.app.Patcher.Controller.widgetMappings was
+					// still globally empty (no widget's mapping
+					// established yet, not just this one's) - sending
+					// updateModelMappings with an empty array wiped out
+					// EVERY hardware connection's server-side registration,
+					// including a different widget's (e.g. CloudOut's)
+					// that had just been set up. Real regression found
+					// 2026-09-24, traced via nlMultiClientSync.js's
+					// pruneOrphanedHardwareModels logging
+					// "stillReferencedKeys: []". this.sources is only
+					// non-empty once THIS widget's own mapToModel has
+					// actually run, which can't happen before the mapping
+					// loop starts.
+					if (this.sources.length > 0) {
+						window.app.vent.trigger('updateModelMappings', window.app.Patcher.Controller.widgetMappings);
+					}
+				}
+
+				// Actually (re-)send the subscribe request whenever any
+				// connection-relevant field changes and a real topic
+				// exists - not just on topic changing. The bootstrap
+				// enableDevice() call from Patcher.js's onExternalAddWidget
+				// fires at widget CREATION time, when every field (topic
+				// AND username/password) is still blank - the server's
+				// client:changeIOMode handler silently no-ops on an empty
+				// topic, so that very first request never actually
+				// subscribes to anything (found 2026-09-24). Originally
+				// only re-fired on topic changing, which meant filling in
+				// host+topic BEFORE username/password (a natural order)
+				// sent one real request with blank credentials, got
+				// rejected, and nothing ever retried with the real
+				// credentials once they were filled in - CloudIn only
+				// ever recovered if some OTHER widget's later, correctly-
+				// credentialed connect happened to succeed first and
+				// swept CloudIn's already-seeded topic into its resubscribe
+				// (CloudModel.js's 'connect' handler). Found 2026-09-24,
+				// second round - the credentials-ignored-after-topic gap.
+				if (model.get('topic') && (changed.topic !== undefined || changed.host !== undefined
+					|| changed.port !== undefined || changed.tls !== undefined
+					|| changed.username !== undefined || changed.password !== undefined)) {
+					this.enableDevice();
+				}
+			}, this);
+
+			// Gated on this widget's own 'active' toggle, not just the
+			// shared broker connection's status - the underlying MQTT
+			// connection can legitimately stay up because another widget
+			// (e.g. a CloudOut on the same broker) still needs it, but
+			// THIS widget's own subscription is only actually live while
+			// its own checkbox is on (see WidgetMulti.js's syncWithSource,
+			// which only applies incoming values when 'active' is true) -
+			// showing "Connected" regardless of this widget's own toggle
+			// was confusing (2026-09-24).
+			// lastStatusInfo lets re-checking 'active' immediately show
+			// the right state, instead of waiting for another 'status'
+			// event that may never come again if the shared connection
+			// is already stable (see onModelChange's active===true
+			// branch below).
+			this.lastStatusInfo = null;
+			this.onHardwareStatus = function(data) {
+				if (data.modelType === this.getHardwareKey()) {
+					this.lastStatusInfo = data.info;
+					this.model.set('cloudConnected', this.model.get('active') === true && !!(data.info && data.info.connected));
+				}
 			}.bind(this);
+			window.app.vent.on('hardwareStatus', this.onHardwareStatus);
 
-			window.app.timingController.registerFrameCallback(this.localTimeKeeperFunc, this);
+			// No bootstrap Widget:hardwareSwitch trigger here (unlike
+			// OSCIn.js, which this was originally modeled on) - Patcher.js's
+			// onExternalAddWidget now calls mapToModel for a freshly-created
+			// CloudIn, which auto-invokes enableDevice() once already
+			// (deviceMode 'in' + active already true by this point in
+			// construction). A second, redundant trigger here raced with
+			// that one and could land while nlMultiClientSync.js's
+			// pruneOrphanedHardwareModels was mid-cycle, recreating the
+			// connection - found 2026-09-24.
 		},
+		onRender: function() {
+			// Must be registered before WidgetView.prototype.onRender
+			// below - see CLAUDE.md's Rivets/Backbone gotcha (a custom
+			// formatter registered after the base onRender's bind pass
+			// is silently never invoked).
+			rivets.formatters.cloudStatusText = function(connected) {
+				return connected ? 'Connected' : 'Not connected';
+			};
 
-        /**
-         * Called when widget is rendered
-		 * Most of your custom binding and functionality will happen here
-         *
-         * @return {void}
-         */
-        onRender: function() {
-			// always call the superclass
-            WidgetView.prototype.onRender.call(this);
+			WidgetView.prototype.onRender.call(this);
+			var self = this;
 
-            var self = this;
-
-            this.$('.dial').knob({
+			this.$('.dial').knob({
 				'fgColor':'#000000',
 				'bgColor':'#ffffff',
 				'inputColor' : '#000000',
@@ -102,101 +175,190 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				$(el).val(value);
 				$(el).trigger('change');
 			};
-        },
-
-
-		// Any custom function can be attached to the widget like this "limitServoRange" function
-		// and can be accessed via this.limitServoRange();
-		onRemove: function() {
-			window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
 		},
+		onRemove: function() {
+			window.app.vent.off('hardwareStatus', this.onHardwareStatus);
+		},
+		// Overrides WidgetMulti.js's base setFromModel - see CloudOut.js's
+		// matching override for the full reasoning. CloudIn always loads
+		// deactivated regardless of what 'active' was saved as.
+		setFromModel: function(model) {
+			this.$el.css({top: model.offsetTop, left: model.offsetLeft});
+			var loadedModel = _.extend({}, model, {active: false});
+			this.model.set(loadedModel);
+			this.model.set('active', false);
+			return this;
+		},
+		// 'Cloud:<host>:<port>' - matches nlHardware/Hardware.js's dispatch
+		// (deviceType 'Cloud' -> CloudModel.js) and nlMultiClientSync.js's
+		// hardwareModels key. Deliberately does NOT include username - one
+		// broker address is treated as one identity for all widgets that
+		// reference it in a patch (see plans/cloud-widgets.md); the first
+		// widget to connect sets the credentials the shared connection
+		// uses, later widgets pointed at the same host:port share it.
+		getHardwareKey: function() {
+			return 'Cloud:' + (this.model.get('host') || '') + ':' + (this.model.get('port') || 1883);
+		},
+		// mapToModel calls view.render() internally, and WidgetMulti.js's
+		// own onRender unconditionally hides the "more" panel's content
+		// every time (`this.$(".widgetBottom .content").hide()`) - fine
+		// for a widget that rarely reconnects, but CloudIn calls
+		// mapToModel on host/port edits, which happen WHILE the user is
+		// actively filling in fields inside that same panel. Without
+		// this, typing the host then moving to the topic field closed
+		// the panel out from under them mid-edit - found 2026-09-24.
+		// Restoring visibility synchronously after mapToModel returns
+		// works because render() completes before mapToModel does.
+		mapToModelKeepingPanelOpen: function(options) {
+			var panelWasOpen = this.$('.widgetBottom .content').is(':visible');
+			app.Patcher.Controller.mapToModel(options, true);
+			if (panelWasOpen) {
+				this.$('.widgetBottom .content').show();
+			}
+		},
+		onModelChange: function(model) {
+			for(var i=this.sources.length-1; i>=0; i--) {
+				this.syncWithSource(this.sources[i].model);
+			}
 
-        getFromCloud: function(e) {
-            if (!app.server && !this.model.get('sendToCloud')) {
-                this.setDisplayText("Stopped");
-            }
-        },
+			var changed = model.changedAttributes();
 
-        setDisplayText: function(text) {
-            if(!app.server) {
-                this.$('.timeLeft').text(text);
-            }
-        },
+			// Flip the indicator immediately on either edge, rather than
+			// waiting for a 'status' event that may not come again for a
+			// while (the underlying broker connection can stay up for
+			// another widget indefinitely, so re-checking 'active' with
+			// an already-stable connection would otherwise never see a
+			// fresh event to react to).
+			if (changed && changed.active === false) {
+				this.model.set('cloudConnected', false);
+			} else if (changed && changed.active === true) {
+				this.model.set('cloudConnected', !!(this.lastStatusInfo && this.lastStatusInfo.connected));
 
-        onModelChange: function(model) {
-            if(!app.server) {
-                if (model.changedAttributes().in) {
-                    this.$('.dial').val(this.model.get('in')).trigger('change');
-                }
-            }
-        },
+				// Checking the box should actually DO something, not just
+				// change what gets displayed - CloudOut's checkbox
+				// (activeOut) genuinely triggers a connection attempt;
+				// CloudIn's never did, since the design relied entirely on
+				// topic/host/etc field changes to (re)trigger enableDevice().
+				// If the connection is down or was never established (e.g.
+				// after a rate-limit disconnect, or before any field
+				// changed since this widget loaded), checking the box had
+				// no effect at all - found 2026-09-24. Harmless to call
+				// unconditionally: CloudModel.js's connect() is a no-op on
+				// an already-live connection with the same credentials.
+				if (this.model.get('topic')) {
+					this.enableDevice();
+				}
 
-        timeKeeper: function(frameCount) {
-            //console.log(frameCount);
-            if (this.model.get('getFromCloud')) {
-                var self = this;
-                var period = this.model.get('getPeriod');
-                if (this.lastSendToCloud == false) { // starting to send to cloud
-                    this.startTime = Date.now() - (period + 1) ;
-                    this.lastSendToCloud = true;
-                    //console.log("reset");
-                }
-                var timeDiff = Date.now() - this.startTime;
-                if (timeDiff > period) { // get from cloud
-                    //console.log("getting");
-                    this.startTime = Date.now();
-                    if(!app.server) this.$('.outvalue').css('color','#ff0000'); // start the RED pulse
-                    this.setDisplayText(' Get in: ' + (period / 1000).toFixed(1) + 's');
+				// Force a fresh pull from whatever value is ALREADY
+				// cached on the shared hardware model, right now - a
+				// retained/current value may have arrived earlier while
+				// 'active' was still false (syncWithSource's own gate
+				// skips applying it in that case, see WidgetMulti.js),
+				// and a broker may not redeliver a retained message on a
+				// redundant resubscribe. The value itself isn't lost
+				// though (receivedDeviceModelUpdate applies it to the
+				// shared model unconditionally) - this just re-reads
+				// whatever's already sitting there instead of waiting on
+				// a NEW message that might not come until the next
+				// genuine publish. Found 2026-09-24: CloudIn only ever
+				// updated once CloudOut changed again, never showing the
+				// value that was already live at connect time.
+				for(var i=this.sources.length-1; i>=0; i--) {
+					this.syncWithSource(this.sources[i].model);
+				}
+			}
 
-                    this.lastTimeDiff = 0;
-                    if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
-                        // only send if we're the server and in server mode, or the browser in authoring mode
+			// Same reasoning as OSCIn.js: must NOT be gated by the
+			// lastChanged['in'] throttle below, or a host/port edit with
+			// no 'in' key in this particular change gets silently
+			// swallowed as "no different".
+			if(changed && (changed.host !== undefined || changed.port !== undefined) && this.sources.length > 0) {
+				this.unMapHardwareInlet();
 
-                        // IO.ADAFRUIT.COM
-                        // https://io.adafruit.com/api/docs/#data - GET the
-                        // most recent value from the feed.
-                        var username = this.model.get('aioUsername');
-                        var feedKey = this.model.get('aioFeedKey');
-                        var url = "https://io.adafruit.com/api/v2/" + username + "/feeds/" + feedKey + "/data/last";
-                        $.ajax({
-                            url: url,
-                            type: 'GET',
-                            headers: { 'X-AIO-Key': this.model.get('aioKey') },
-                            dataType: 'json',
-                            timeout: 5000,
-                            success: function(response) {
-                                var value = parseFloat(response && response.value);
-                                if (isNaN(value)) {
-                                    self.model.set('getFromCloud', false);
-                                    self.setDisplayText("Bad data");
-                                } else {
-                                    self.model.set('in', value);
-                                }
-                            },
-                            error: function(jqxhr, textStatus, error) {
-                                console.log("Connection to cloud service failed: " + textStatus + ", " + error);
-                                self.model.set('getFromCloud', false);
-                                if (jqxhr.status === 401 || jqxhr.status === 403) {
-                                    self.setDisplayText("Invalid key");
-                                } else if (jqxhr.status === 404) {
-                                    self.setDisplayText("Invalid feed");
-                                } else {
-                                    self.setDisplayText("Can't connect");
-                                }
-                            }
-                        });
-                    }
-                    this.inputCount = 0;
-                    this.inputCumulative = 0;
-                } else if (timeDiff - this.lastTimeDiff >= 100) {
-                    this.setDisplayText(' Get in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
-                    if (!app.server && timeDiff >= 300) this.$('.outvalue').css('color','#000000'); // stop the RED pulse
-                    this.lastTimeDiff = timeDiff;
-                }
-            } else {
-                this.lastSendToCloud = false;
-            }
-        },
+				this.mapToModelKeepingPanelOpen({
+					view: this,
+					modelType: 'Cloud',
+					IOMapping: {sourceField: this.model.get('topic'), destinationField: 'in'},
+					server: (this.model.get('host') || '') + ':' + (this.model.get('port') || 1883),
+				});
+				// mapToModel's addedFromLoader=true skips its own
+				// updateModelMappings trigger - fine for widgets that
+				// don't otherwise need the SERVER's masterPatch.mappings
+				// to know about this mapping right away, but a Cloud
+				// connection does: nlMultiClientSync.js's
+				// pruneOrphanedHardwareModels() runs on every mapping
+				// sync (from ANY widget, not just this one) and deletes
+				// any hardwareModels entry not referenced in that
+				// server-side copy. Without this explicit sync, a shared
+				// Cloud connection could get pruned and silently
+				// recreated the moment anything else in the patch
+				// triggers a mapping sync - found 2026-09-24 (CloudIn
+				// showing "Connected" but never receiving data, because
+				// its subscription kept landing on an instance that got
+				// replaced out from under it).
+				window.app.vent.trigger('updateModelMappings', window.app.Patcher.Controller.widgetMappings);
+
+				this.enableDevice();
+			}
+
+			if(changed && (this.lastChanged['in'] !== changed['in']) ) {
+				this.lastChanged = changed;
+
+				var inactiveModels = this.inactiveModelsExist();
+
+				if( inactiveModels && this.model.get("active") == true ) {
+					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping');
+
+					this.unMapHardwareInlet();
+
+					this.mapToModelKeepingPanelOpen({
+						view: this,
+						modelType: 'Cloud',
+						IOMapping: {sourceField: sourceField, destinationField: 'in'},
+						server: (this.model.get('host') || '') + ':' + (this.model.get('port') || 1883),
+					});
+					// See the other mapToModel call above for why this is
+					// needed.
+					window.app.vent.trigger('updateModelMappings', window.app.Patcher.Controller.widgetMappings);
+
+					this.enableDevice();
+				}
+			}
+		},
+		unMapHardwareInlet: function unMapHardwareInlet() {
+			this.sourceToRemove = this.sources[0];
+			this.sources.length = 0;
+			this.sources = [];
+
+			if(this.sourceToRemove) {
+				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
+			}
+		},
+		inactiveModelsExist: function checkForInactiveModels() {
+			var inactiveModels = false;
+
+			if(this.sources.length > 0) {
+				for(var i=this.sources.length-1; i>=0; i--) {
+					var source = this.sources[i];
+
+					if(source.model.active === false) {
+						inactiveModels = true;
+					}
+				}
+			}
+
+			return inactiveModels;
+		},
+		enableDevice: function enableHardware() {
+			window.app.vent.trigger('Widget:hardwareSwitch', {
+				deviceType: this.getHardwareKey(),
+				port: this.model.get('topic'),
+				mode: 'in',
+				username: this.model.get('username'),
+				password: this.model.get('password'),
+				tls: this.model.get('tls'),
+			});
+		},
 
 	});
 });

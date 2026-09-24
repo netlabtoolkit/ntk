@@ -3,94 +3,270 @@ define([
     'rivets',
 	'views/item/WidgetMulti',
 	'text!./template.js',
-
-	// If you would like signal processing classes and functions include them here
-	'utils/SignalChainFunctions',
-	'utils/SignalChainClasses',
-	// and any other imported libraries you like should go here
     'jqueryknob',
+
+	'utils/SignalChainFunctions',
 ],
-function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalChainClasses, jqueryknob){
-    'use strict';
+function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunctions){
+	'use strict';
 
 	return WidgetView.extend({
-		// Define the inlets
-		ins: [
-			// title is decorative, to: <widget model field being set by inlet>
-			{title: 'in', to: 'in'},
-		],
-		outs: [
-			// title is decorative, from: <widget model field>, to: <widget model field being listened to>
-			{title: 'out', from: 'in', to: 'out'},
-		],
-        // Any custom DOM events should go here (Backbone style)
-        widgetEvents: {
-			'change .sendToCloud': 'sendToCloud',
-		},
-		// typeID us the unique ID for this widget. It must be a unique name as these are global.
 		typeID: 'CloudOut',
-        categories: ['network'],
+		deviceMode: 'out',
+		categories: ['network'],
 		className: 'cloudOut',
 		template: _.template(Template),
 
+		ins: [
+			{title: 'input', to: 'in'},
+		],
+		outs: [
+			{title: 'output', from: 'in', to: 'out'},
+		],
+		sources: [],
 		initialize: function(options) {
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
+			this.model.set({
+				title: 'CloudOut',
+				topic: '',
+				outputMapping: '',
+				host: '',
+				port: 1883,
+				tls: false,
+				username: '',
+				password: '',
+				activeOut: false,
+				cloudConnected: false,
+				// 2000ms default - safe headroom under Adafruit IO's free
+				// tier (30 points/min = 1 per 2s max); set to 0 for no
+				// minimum on a self-hosted/unlimited broker. See
+				// CloudModel.js's set() for where the actual throttle
+				// (and averaging, below) lives.
+				sendInterval: 2000,
+				// Mirrors the OLD CloudOut's averageInputs option - when
+				// on, publishes the mean of every value seen during the
+				// sendInterval window instead of just the latest one.
+				// Re-added 2026-09-24 per explicit request.
+				averageInputs: false,
+				// What the second numeric display actually shows - set
+				// ONLY by onHardwarePublished, holding whatever was
+				// actually last sent (average or settle value) until the
+				// next real send. Deliberately does NOT track the live
+				// dial (see plans/cloud-widgets.md for the back-and-forth
+				// that landed here).
+				displayOut: 0,
+			});
 
-            // Call any custom DOM events here
-            this.model.set({
-                title: 'CloudOut',
-                sendPeriod: 10000,
-                // io.adafruit.com
-                aioUsername: '',
-                aioKey: '',
-                aioFeedKey: '',
-                //
-                averageInputs: false,
-                roundOutput: true,
-                sendToCloud: false,
-                displayTimerStart: false,
-                displayText: "Stopped",
-                //
-                lastValueSentToCloud: "-1000",
-                lastTimeSentToCloud: 0,
+            this.signalChainFunctions.push(SignalChainFunctions.roundToInt);
 
-            });
+			// See AnalogOut.js - the widget effectively has no local
+			// output of its own (it only writes out to the cloud, and
+			// only from the server side), so processSignalChain still
+			// needs to run on every change to keep the on-widget display
+			// current.
+			this.model.on('change', this.processSignalChain, this);
 
-            // private variables
-            this.startTime = 0;
-            this.lastSendToCloud = false;
-            this.lastTimeDiff = 0;
-            this.inputLast = 0;
-            this.inputCumulative = 0;
-            this.inputCount = 0;
-            this.redPulseCount = 0;
+			this.model.on('change', function(model) {
+				var changed = model.changedAttributes();
 
+				if(changed.topic !== undefined) {
+					this.model.set('outputMapping', model.get('topic'));
+				}
+			}, this);
 
-            // If you want to register your own signal processing function, push them to signalChainFunctions
-			this.signalChainFunctions.push(this.watchData);
-
-			this.localTimeKeeperFunc = function(frameCount) {
-				this.timeKeeper(frameCount);
+			// Gated on this widget's own 'activeOut' toggle, not just the
+			// shared broker connection's status - see CloudIn.js's
+			// matching comment. lastStatusInfo lets re-checking
+			// 'activeOut' immediately show the right state instead of
+			// waiting for another 'status' event that may never come
+			// again if the shared connection is already stable.
+			this.lastStatusInfo = null;
+			this.onHardwareStatus = function(data) {
+				if (data.modelType === this.getHardwareKey()) {
+					this.lastStatusInfo = data.info;
+					this.model.set('cloudConnected', this.model.get('activeOut') === true && !!(data.info && data.info.connected));
+				}
 			}.bind(this);
-			// If you would like to register any function to be called at frame rate (60fps)
-			//window.app.server &&
-			window.app.timingController.registerFrameCallback(this.localTimeKeeperFunc, this);
+			window.app.vent.on('hardwareStatus', this.onHardwareStatus);
+
+			// Filtered on both modelType AND field - the shared broker
+			// connection can carry other CloudOut widgets publishing to
+			// different topics, whose 'published' events also arrive
+			// here. displayOut is set here ONLY - it does NOT track the
+			// live dial at all (see the removed model:change mirror
+			// above) - it holds whatever was actually last sent
+			// (average or settle value) and stays there until the next
+			// real send, per explicit request: "show the just sent
+			// value and stay there until the next send... shows the
+			// average all the time at each interval and when settle
+			// happens shows that value." The color flash is just a
+			// brief attention cue on top of that, not what shows the
+			// value - the number change itself is the persistent part.
+			this.onHardwarePublished = function(data) {
+				if (data.modelType === this.getHardwareKey() && data.field === this.model.get('outputMapping')) {
+					this.model.set('displayOut', data.value);
+					this.$('.outvalue').css('color', '#2e7d32');
+					clearTimeout(this.publishFlashTimeout);
+					this.publishFlashTimeout = setTimeout(function() {
+						this.$('.outvalue').css('color', '');
+					}.bind(this), 300);
+				}
+			}.bind(this);
+			window.app.vent.on('hardwarePublished', this.onHardwarePublished);
 		},
+		onRemove: function() {
+			window.app.vent.off('hardwareStatus', this.onHardwareStatus);
+			window.app.vent.off('hardwarePublished', this.onHardwarePublished);
+			clearTimeout(this.publishFlashTimeout);
+		},
+		// Overrides WidgetMulti.js's base setFromModel (called by
+		// PatchLoader when a saved patch loads) - the base version
+		// restores activeOut exactly as saved and auto-calls
+		// enableDevice() if it was true, which for every OTHER output
+		// widget just means "resume driving the pin/message it already
+		// had". For CloudOut that means silently opening a real MQTT
+		// connection and starting to publish again the moment a patch
+		// loads - explicitly requested (2026-09-24) to NOT happen
+		// automatically, since repeated test restarts kept re-consuming
+		// a rate-limited broker's quota. CloudOut always loads
+		// deactivated regardless of what was saved; the user re-checks
+		// the box to reconnect deliberately.
+		setFromModel: function(model) {
+			this.$el.css({top: model.offsetTop, left: model.offsetLeft});
+			var loadedModel = _.extend({}, model, {activeOut: false});
+			this.model.set(loadedModel);
+			this.model.set('active', loadedModel.active);
+			this.model.set('activeOut', false);
+			return this;
+		},
+		getHardwareKey: function() {
+			return 'Cloud:' + (this.model.get('host') || '') + ':' + (this.model.get('port') || 1883);
+		},
+		inactiveModelsExist: function checkForInactiveModels() {
+			var inactiveModels = false;
 
-        /**
-         * Called when widget is rendered
-		 * Most of your custom binding and functionality will happen here
-         *
-         * @return {void}
-         */
+			if(this.sources.length > 0) {
+				for(var i=this.sources.length-1; i>=0; i--) {
+					var source = this.sources[i];
+
+					if(source.model.active === false) {
+						inactiveModels = true;
+					}
+				}
+			}
+
+			return inactiveModels;
+		},
+		// See CloudIn.js's matching helper for the full reasoning -
+		// mapToModel's internal view.render() unconditionally hides the
+		// "more" panel content, which closed it out from under the user
+		// while editing fields inside it (found 2026-09-24).
+		mapToModelKeepingPanelOpen: function(options) {
+			var panelWasOpen = this.$('.widgetBottom .content').is(':visible');
+			app.Patcher.Controller.mapToModel(options, true);
+			if (panelWasOpen) {
+				this.$('.widgetBottom .content').show();
+			}
+		},
+		unMapHardwareInlet: function unMapHardwareInlet() {
+			this.sourceToRemove = this.sources[0];
+			this.sources.length = 0;
+			this.sources = [];
+
+			if(this.sourceToRemove) {
+				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
+			}
+		},
+		enableDevice: function enableHardware() {
+			var modelType = this.getHardwareKey();
+			var outputModel = {};
+			outputModel[this.model.get('outputMapping')] = this.model.get('out');
+
+			window.app.vent.trigger('Widget:hardwareSwitch', {
+				deviceType: modelType,
+				port: this.model.get('outputMapping'),
+				mode: 'out',
+				hasInput: false,
+				username: this.model.get('username'),
+				password: this.model.get('password'),
+				tls: this.model.get('tls'),
+				// The real throttle (and averaging) lives server-side now
+				// (CloudModel.js's set()) - see that file for why. This
+				// just tells it what interval/mode to use for this topic.
+				sendInterval: this.model.get('sendInterval'),
+				averageInputs: this.model.get('averageInputs'),
+			});
+
+			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel, modeRequested: 3});
+		},
+		onModelChange: function(model) {
+			for(var i=this.sources.length-1; i>=0; i--) {
+				this.syncWithSource(this.sources[i].model);
+			}
+
+			var changed = model.changedAttributes();
+
+			if (changed && changed.activeOut === false) {
+				this.model.set('cloudConnected', false);
+			} else if (changed && changed.activeOut === true) {
+				this.model.set('cloudConnected', !!(this.lastStatusInfo && this.lastStatusInfo.connected));
+			}
+
+			if(changed) {
+				// A host/port edit needs a real new MQTT connection - force
+				// an explicit re-enable rather than silently reconnecting
+				// under a topic that's still being typed. Same pattern
+				// AnalogOut.js uses for server/port.
+				if(changed.host !== undefined) {
+					this.model.set({host: changed.host, activeOut: false});
+				}
+				if(changed.port !== undefined) {
+					this.model.set({port: changed.port, activeOut: false});
+				}
+
+				var inactiveModels = this.inactiveModelsExist();
+
+				// See AnalogOut.js's own comment on this exact condition -
+				// the 2026-09-22 continuous-write-gap fix: activeOut
+				// switching on has to re-run this even when
+				// inactiveModelsExist() would say nothing changed
+				// structurally.
+				if( (inactiveModels || changed.activeOut === true) && this.model.get("activeOut") == true ) {
+					this.unMapHardwareInlet();
+
+					this.mapToModelKeepingPanelOpen({
+						view: this,
+						modelType: 'Cloud',
+						IOMapping: {sourceField: "out", destinationField: this.model.get('outputMapping')},
+						server: (this.model.get('host') || '') + ':' + (this.model.get('port') || 1883),
+					});
+					// mapToModel's addedFromLoader=true skips its own
+					// updateModelMappings trigger, which left the
+					// server's masterPatch.mappings never actually
+					// learning about a Cloud connection - see CloudIn.js
+					// for the fuller explanation of the pruning bug this
+					// caused (found 2026-09-24: a shared broker
+					// connection could get deleted and silently rebuilt
+					// mid-flight the moment ANYTHING else in the patch
+					// triggered a mapping sync).
+					window.app.vent.trigger('updateModelMappings', window.app.Patcher.Controller.widgetMappings);
+
+					this.enableDevice();
+				}
+			}
+		},
         onRender: function() {
+			// Must be registered before WidgetView.prototype.onRender
+			// below - see CLAUDE.md's Rivets/Backbone gotcha.
+			rivets.formatters.cloudStatusText = function(connected) {
+				return connected ? 'Connected' : 'Not connected';
+			};
+
 			// always call the superclass
-            WidgetView.prototype.onRender.call(this);
+			WidgetView.prototype.onRender.call(this);
 
-            var self = this;
-
-            this.$('.dial').knob({
+			this.$('.dial').knob({
 				'fgColor':'#000000',
 				'bgColor':'#ffffff',
 				'inputColor' : '#000000',
@@ -102,7 +278,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				'displayInput':false,
 				'min': 0,
 				'max': 1023,
-				'change' : function (v) { self.model.set('in', parseInt(v)); }
+				'change' : function (v) { this.model.set('in', parseFloat(v)); }.bind(this)
 			});
 
 			rivets.binders.knob = function(el, value) {
@@ -110,128 +286,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				$(el).val(value);
 				$(el).trigger('change');
 			};
-        },
-
-
-		// Any custom function can be attached to the widget like this "limitServoRange" function
-		// and can be accessed via this.limitServoRange();
-		onRemove: function() {
-			window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
-		},
-
-        watchData: function(input) {
-            var value = input;
-
-            if (this.model.get('averageInputs')) {
-                this.inputCount++;
-                this.inputCumulative += Number(input);
-                value = this.inputCumulative / this.inputCount;
-            }
-
-            if (this.model.get('roundOutput')) {
-                value = Math.round(value);
-            }
-
-            return value;
-        },
-
-        sendToCloud: function(e) {
-            //console.log('sendtocloud: ' + this.model.get('sendToCloud'));
-            if(!app.server && !this.model.get('sendToCloud')) {
-                //console.log('stopped');
-                this.setDisplayText("Stopped");
-            }
-        },
-
-        setDisplayText: function(text) {
-            if(!app.server) {
-                this.$('.timeLeft').text(text);
-            }
-        },
-
-        timeKeeper: function(frameCount) {
-            if (this.model.get('sendToCloud')) {
-                var self = this;
-                var period = this.model.get('sendPeriod');
-
-
-                if (this.lastSendToCloud == false) { // starting to send to cloud
-                    this.startTime = Date.now() - (period + 1) ;
-                    this.lastSendToCloud = true;
-                    //console.log("reset");
-                }
-
-                var timeDiff = Date.now() - this.startTime;
-                var lastTimeSentTimeDiff = Date.now() - this.model.get('lastTimeSentToCloud');
-                var theValue = (this.model.get('out')).toString();
-
-                if (timeDiff >= period ||
-                    (this.model.get('lastValueSentToCloud') != theValue && lastTimeSentTimeDiff >= period)) {
-                    // send to cloud
-
-                    this.startTime = Date.now();
-                    if(!app.server) this.$('.outvalue').css('color','#ff0000'); // start the RED pulse
-                    this.setDisplayText(' Send in: ' + (period / 1000).toFixed(1) + 's');
-
-                    this.lastTimeDiff = 0;
-
-
-                    if (this.model.get('lastValueSentToCloud') != theValue) {
-                        // Only send changed values - no periodic resend of
-                        // an unchanged value. Adafruit IO's REST API is
-                        // stateless (no connection/session to keep alive),
-                        // and resending unchanged values just burns into
-                        // the free tier's 30-points/minute rate limit for
-                        // no benefit other than a slightly more continuous-
-                        // looking dashboard chart.
-                        console.log('actually sending: ' + theValue);
-
-                        if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
-                            this.model.set('lastTimeSentToCloud', Date.now());
-                            // only send if we're the server and in server mode, or the browser and in authoring mode
-                            //console.log("sending to cloud service, app.serverMode: " + app.serverMode);
-
-                            // IO.ADAFRUIT.COM
-                            // https://io.adafruit.com/api/docs/#data - POST
-                            // a new value onto the feed.
-                            var username = this.model.get('aioUsername');
-                            var feedKey = this.model.get('aioFeedKey');
-                            var url = "https://io.adafruit.com/api/v2/" + username + "/feeds/" + feedKey + "/data";
-                            $.ajax({
-                                url: url,
-                                type: 'POST',
-                                headers: { 'X-AIO-Key': this.model.get('aioKey') },
-                                contentType: 'application/json',
-                                data: JSON.stringify({ value: theValue }),
-                                timeout: 5000,
-                            })
-                                .done(function(response) {
-                                    //console.log(response);
-                                })
-                                .fail(function(jqxhr, textStatus, error) {
-                                    console.log("Connection to cloud service failed: " + textStatus + ", " + error);
-                                    self.model.set('sendToCloud', false);
-                                    if (jqxhr.status === 401 || jqxhr.status === 403) {
-                                        self.setDisplayText("Invalid key");
-                                    } else if (jqxhr.status === 404) {
-                                        self.setDisplayText("Invalid feed");
-                                    } else {
-                                        self.setDisplayText("Can't connect");
-                                    }
-                                });
-                            this.model.set('lastValueSentToCloud',theValue);
-                            this.inputCount = 0;
-                            this.inputCumulative = 0;
-                        }
-                    }
-                } else if (timeDiff - this.lastTimeDiff >= 100) {
-                    this.setDisplayText(' Send in: ' + ((period - timeDiff) / 1000).toFixed(1) + 's');
-                    if (!app.server && timeDiff >= 300) this.$('.outvalue').css('color','#000000'); // stop the RED pulse
-                    this.lastTimeDiff = timeDiff;
-                }
-            } else {
-                this.lastSendToCloud = false;
-            }
         },
 
 	});

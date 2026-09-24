@@ -378,6 +378,15 @@ body.ntk-monitoring .monitorBlockOverlay {
             margin-left: 5px;
         }
 
+        // CloudIn/CloudOut's connected/disconnected indicator (see
+        // template.js's rv-class-cloudconnected) - reuses .timeLeft's
+        // position/spacing, just recolors the text so the widget always
+        // shows its actual live connection state instead of staying
+        // silent about it (see CLAUDE.md's widget design principles).
+        .timeLeft.cloudconnected {
+            color: #2e7d32;
+        }
+
         .ifFalse {
             background-color: #f8c885;
         }

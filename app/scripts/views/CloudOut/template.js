@@ -14,29 +14,31 @@
     <div class="widgetBody">
         <div class="dialwrapper" style="position:relative;">
            <div class="display invalue" rv-text="widget:in | rounded">100</div>
-            <div class="display outvalue" rv-text="widget:out | rounded">1023</div>
+            <div class="display outvalue" rv-text="widget:displayOut | rounded">1023</div>
             <div style="position:relative;"><input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/></div>
         </div>
-        <br><div class='timeLeft'>Send in: 10s</div>
+        <br><div class='timeLeft' rv-class-cloudconnected="widget:cloudConnected" rv-text="widget:cloudConnected | cloudStatusText"></div>
 
     </div>
 
     <div class="widgetRight">
-        <div class=rightTab><input class="sendToCloud" type="checkbox" rv-checked="widget:sendToCloud" /></div>
+        <div class=rightTab><input type="checkbox" rv-checked="widget:activeOut" /></div>
     </div>
 
 
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-            <label for="avg">avg inputs</label> <input name="avg" type="checkbox" rv-checked="widget:averageInputs" /> <br>
-<!--            <label for="round">rnd output</label> <input name="avg" type="checkbox" rv-checked="widget:roundOutput" /> <br>-->
-            <label for="send">send every</label> <input name="send" type="text" rv-value="widget:sendPeriod"><br>
+            <label>host</label> <input name="host" type="text" placeholder="broker host" rv-value="widget:host"><br>
+            <label>port</label> <input class="port" type="text" pattern="[0-9]*" rv-value="widget:port"><br>
+            <label>topic</label> <input name="topic" type="text" rv-value="widget:topic"><br>
+            <label>TLS</label> <input name="tls" type="checkbox" rv-checked="widget:tls">
             <hr>
-            io.adafruit.com<br>
-            <label for="aioUsername">username</label> <input name="aioUsername" class="keys" type="text" rv-value="widget:aioUsername"><br>
-            <label for="aioKey">AIO key</label> <input name="aioKey" class="keys" type="text" placeholder="AIO Key" rv-value="widget:aioKey"><br>
-            <label for="aioFeedKey">feed name</label> <input name="aioFeedKey" class="keys" type="text" placeholder="Feed Name" rv-value="widget:aioFeedKey"><br>
+            <label>user</label> <input name="username" type="text" rv-value="widget:username"><br>
+            <label>pass</label> <input name="password" type="password" rv-value="widget:password">
+            <hr>
+            <label>min ms</label> <input class="moreParam" style="margin-right:8px" name="sendInterval" type="text" pattern="[0-9]*" rv-value="widget:sendInterval">
+            <label class="narrowLabel">avg</label> <input name="averageInputs" type="checkbox" rv-checked="widget:averageInputs">
             <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/cloudout/" target="_blank">Widget help</a>
         </div>

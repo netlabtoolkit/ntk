@@ -33,7 +33,15 @@ module.exports = function(options) {
 	// never touched by that widget's own code - only `activeOut` is),
 	// so checking `active` on an output widget would always look "still
 	// wanted" even when its connect toggle is off.
-	var OUTPUT_TYPE_IDS = {Servo: true, AnalogOut: true, DigitalOut: true, OSCOut: true};
+	// CloudOut added 2026-09-24 - it was missing here entirely, which is
+	// the OPPOSITE failure from what this list normally guards against:
+	// CloudOut never sets an `active` field at all (only `activeOut`), so
+	// checking `active` on it read as `undefined === true` -> always
+	// false -> "not wanted", regardless of the real activeOut state.
+	// Where the comment above describes an output widget getting stuck
+	// ON forever, this bug pruned a genuinely-active CloudOut connection
+	// out from under itself.
+	var OUTPUT_TYPE_IDS = {Servo: true, AnalogOut: true, DigitalOut: true, OSCOut: true, CloudOut: true};
 
 	function widgetWantsConnection(widget) {
 		if (!widget) return false;
@@ -147,6 +155,9 @@ module.exports = function(options) {
 			}, this);
 
 			if (!stillWanted) {
+				if (hardwareKey.indexOf('Cloud:') === 0) {
+					console.log('[Cloud] pruneHardwareModelIfUnused deleting', hardwareKey, '- mappedWidgetIds:', mappedWidgetIds);
+				}
 				if (typeof model.close === 'function') {
 					model.close();
 				}
@@ -176,6 +187,9 @@ module.exports = function(options) {
 			var stillReferencedKeys = _.pluck(this.masterPatch.mappings, 'modelWID');
 			for(var key in this.hardwareModels) {
 				if(!_.contains(stillReferencedKeys, key)) {
+					if (key.indexOf('Cloud:') === 0) {
+						console.log('[Cloud] pruneOrphanedHardwareModels deleting', key, '- stillReferencedKeys:', stillReferencedKeys);
+					}
 					var model = this.hardwareModels[key];
 					if(typeof model.close === 'function') {
 						model.close();
@@ -260,6 +274,26 @@ module.exports = function(options) {
 			// isn't reachable.
 			model.on('connectionFailed', function(info) {
 				this.transport.emit('server:hardwareConnectionFailed', info);
+			}.bind(this));
+
+			// Generic status channel, separate from 'change' (reserved
+			// for actual field/value updates) - added for CloudModel.js's
+			// connected/disconnected/error reporting, but any hardware
+			// model can emit 'status' and get the same relay for free.
+			// model.address is the same key used everywhere else here
+			// (see the 'change' listener above), so the client can match
+			// a status update back to the right widget's own modelType.
+			model.on('status', function(info) {
+				this.transport.emit('server:hardwareStatus', {modelType: model.address, info: info});
+			}.bind(this));
+
+			// What actually got sent, separate from 'change' (incoming
+			// topic values) - currently only CloudModel.js emits this,
+			// so CloudOut can display the real published value instead
+			// of just its own current dial position (matters with
+			// averaging/throttling on, where they can differ).
+			model.on('published', function(info) {
+				this.transport.emit('server:hardwarePublished', {modelType: model.address, field: info.field, value: info.value});
 			}.bind(this));
 		},
 		/**

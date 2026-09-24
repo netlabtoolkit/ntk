@@ -69,13 +69,16 @@ on the device once deployed, no host required.
     PoseRecog — didn't exist when this was first scoped). **Blank** is
     a visual-only no-op (canvas spacer) — not meaningfully portable or
     unportable, just irrelevant on-device.
-  - **Gray area, deferred:** CloudIn / CloudOut / OSCIn / OSCOut / Webhook
-    — technically possible over the board's own WiFi (UDP / HTTPS) but
-    real extra firmware work (TLS, etc.); not in v1 scope. **LLM**
-    (didn't exist when this was first scoped) belongs in this same
-    bucket, not "never portable" — its Anthropic/Ollama API call is a
-    network request the board's own WiFi could technically carry, same
-    category of future work as Webhook/CloudOut, just deferred.
+  - **Gray area, deferred:** Webhook — technically possible over the
+    board's own WiFi (HTTPS) but real extra firmware work; not in v1
+    scope. **LLM** (didn't exist when this was first scoped) belongs in
+    this same bucket, not "never portable" — its Anthropic/Ollama API
+    call is a network request the board's own WiFi could technically
+    carry, same category of future work as Webhook, just deferred.
+    **OSCIn/OSCOut** were promoted out of this bucket and built
+    2026-09-23 (see the section below). **CloudIn/CloudOut** were
+    promoted out of this bucket and scoped (not yet built) 2026-09-23 —
+    see [plans/cloud-widgets.md](cloud-widgets.md).
   - Any export / deploy step needs a compatibility check that clearly
     rejects a patch using an unsupported widget, not a silent failure -
     **built 2026-09-17**, see [Compatibility checker](#compatibility-checker-built-2026-09-17) below.

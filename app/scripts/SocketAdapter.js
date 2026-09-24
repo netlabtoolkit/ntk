@@ -69,6 +69,23 @@ function( Backbone ) {
 				window.app.vent.trigger('hardwareConnectionFailed', info);
 			});
 
+			// Generic hardware-model status channel (see
+			// nlMultiClientSync.js's bindModelToTransport) - currently
+			// only CloudModel.js emits this, for CloudIn/CloudOut's
+			// connected/disconnected indicator, but any future hardware
+			// model can reuse it the same way.
+			socket.on("server:hardwareStatus", function(data) {
+				window.app.vent.trigger('hardwareStatus', data);
+			});
+
+			// What a hardware model actually published, separate from
+			// incoming values - currently only CloudOut.js listens, to
+			// show what really went out (matters with averaging/
+			// throttling on, where it can differ from the current dial).
+			socket.on("server:hardwarePublished", function(data) {
+				window.app.vent.trigger('hardwarePublished', data);
+			});
+
 			// List of currently connected serial ports, for the Serial device port picker
 			socket.on("serialPortList", function(ports) {
 				window.app.vent.trigger('serialPortList', ports);

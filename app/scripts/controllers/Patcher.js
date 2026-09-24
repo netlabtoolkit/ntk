@@ -24,12 +24,14 @@ define([
     'views/Servo/Servo',
     'views/OSCIn/OSCIn',
     'views/OSCOut/OSCOut',
+    'views/CloudIn/CloudIn',
+    'views/CloudOut/CloudOut',
     'views/Splitter/Splitter',
     'views/item/RestrictiveOverlay',
     'views/GroveSensor/GroveSensor',
     'utils/StandaloneCompatibility',
 ],
-function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, SplitterView, RestrictiveOverlayView, GroveSensorView, StandaloneCompatibility){
+function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, CloudInView, CloudOutView, SplitterView, RestrictiveOverlayView, GroveSensorView, StandaloneCompatibility){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -338,6 +340,58 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 							IOMapping: {sourceField: "out", destinationField: defaultOutputMapping},
 							modelType: 'OSC',
 							server: '127.0.0.1:57190',
+						}, addedFromLoader);
+					}
+
+					return newWidget;
+                }
+                else if(widgetType === 'CloudIn') {
+					// No universal default topic (unlike OSC's /ntk/in/N
+					// convention) - host/topic start empty, the user has
+					// to configure a real broker. What matters here isn't
+					// a meaningful first connection, it's calling
+					// mapToModel AT ALL at creation time (mirroring every
+					// other hardware widget above) so this.sources gets
+					// populated and - critically - so the mapping reaches
+					// the server via updateModelMappings when
+					// addedFromLoader is false. Without this, CloudIn had
+					// NO bootstrap mapToModel call anywhere (its own
+					// onModelChange logic all requires this.sources.length
+					// > 0 to do anything, a chicken-and-egg gap that let
+					// its underlying broker connection get pruned by
+					// nlMultiClientSync.js the moment anything else in the
+					// patch synced its mappings - found 2026-09-24.
+					var newWidget = new CloudInView({
+						model: newModel,
+					});
+
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
+					if(!addedFromLoader) {
+						this.mapToModel({
+							view: newWidget,
+							modelType: 'Cloud',
+							IOMapping: {sourceField: '', destinationField: 'in'},
+							server: ':1883',
+						}, addedFromLoader);
+					}
+
+					return newWidget;
+                }
+                else if(widgetType === 'CloudOut') {
+					// See CloudIn above for why this call exists at all.
+					var newWidget = new CloudOutView({
+						model: newModel,
+					});
+
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
+					if(!addedFromLoader) {
+						this.mapToModel({
+							view: newWidget,
+							modelType: 'Cloud',
+							IOMapping: {sourceField: "out", destinationField: ''},
+							server: ':1883',
 						}, addedFromLoader);
 					}
 
@@ -891,7 +945,14 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 				return this.hardwareModelInstances[modelServerQuery].model;
 			}
 			else {
-				var newModelInstance = new Models[modelType]();
+				// 2nd arg is Backbone's own constructor `options` (available
+				// to a model's initialize(attributes, options)) - purely
+				// additive, every existing model type (ArduinoUno/network/
+				// OSC) ignores it. models/Cloud.js reads it to know its own
+				// specific "Cloud:host:port" identity, since (unlike OSC's
+				// one shared default instance) different Cloud instances
+				// can each be a genuinely different broker.
+				var newModelInstance = new Models[modelType]({}, {modelServerQuery: modelServerQuery});
 				this.hardwareModelInstances[modelServerQuery] = {
 					model: newModelInstance,
 					server: server,

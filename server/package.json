@@ -9,6 +9,7 @@
     "firmata": "^2.3.0",
     "formidable": "^1.0.16",
     "johnny-five": "^2.1.0",
+    "mqtt": "^5.16.0",
     "node-osc": "^1.1.0",
     "pdf-parse": "^1.1.4",
     "socket.io": "~1.0.0",

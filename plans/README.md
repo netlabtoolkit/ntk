@@ -231,3 +231,7 @@ and shipped. Its historical step-by-step plan is at
   inputs, for both accelerometer-axis and dissimilar-sensor fusion), and
   a separate, bigger multi-channel Gesture redesign for real
   gesture-recognition accuracy. Recommendation: build Fusion first.
+- **[Cloud widgets](cloud-widgets.md)** — rewrite the existing
+  Adafruit-IO-only CloudIn/CloudOut to generic, host-agnostic MQTT, and
+  give them standalone on-device support like OSCIn/OSCOut — the
+  feature that makes NTK a genuine IoT device authoring tool.
