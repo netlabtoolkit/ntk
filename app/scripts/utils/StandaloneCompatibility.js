@@ -14,7 +14,7 @@ function () {
 	var PORTABLE_TYPE_IDS = [
 		'AnalogIn', 'AnalogOut', 'DigitalIn', 'DigitalOut', 'Servo', 'GroveSensor',
 		'IfThen', 'Boolean', 'Gate', 'Mix', 'Splitter', 'Process', 'Count', 'Concat',
-		'Pulse', 'Sequence', 'Tween', 'Data', 'OSCIn', 'OSCOut',
+		'Pulse', 'Sequence', 'Tween', 'Data', 'OSCIn', 'OSCOut', 'CloudIn', 'CloudOut',
 	];
 
 	return {

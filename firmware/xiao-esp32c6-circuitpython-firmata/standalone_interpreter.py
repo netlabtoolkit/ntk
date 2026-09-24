@@ -19,7 +19,7 @@ app/scripts/utils/StandaloneCompatibility.js's PORTABLE_TYPE_IDS; there's
 no shared source between JS and Python:
     AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, GroveSensor,
     IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse,
-    Sequence, Tween, Data, OSCIn, OSCOut
+    Sequence, Tween, Data, OSCIn, OSCOut, CloudIn, CloudOut
 load() rejects anything outside this list the same way the JS checker
 does - clearly, not silently.
 
@@ -42,6 +42,35 @@ address), mirroring how the live-connection host-side OSC.js hardware
 model already shares one receiving socket across every /ntk/in/N
 widget - opening a separate UDP listener per widget isn't necessary or
 desirable on a memory-constrained board.
+
+CloudIn/CloudOut (added 2026-09-24) use adafruit_minimqtt
+(lib/adafruit_minimqtt/, MIT - vendored, not written here; depends on
+lib/adafruit_ticks.mpy) for the actual MQTT wire protocol - same
+reuse-not-reimplement approach as MicroOSC above. Mirrors the live-
+connection host-side design in server/modules/nlHardware/CloudModel.js:
+one MQTT connection is shared by every CloudIn/CloudOut widget pointed
+at the same (host, port, username) - see _claim_cloud. The first
+widget in a group supplies the password/TLS setting for that whole
+connection, same "first widget wins" rule CloudModel.js uses live.
+TLS is opt-in per widget (`tls` field) and the `ssl` module is only
+ever imported if some group actually needs it - a patch using only
+plaintext brokers pays nothing for TLS support existing in the
+firmware. `connect_retries=1` on every MQTT client (this library's own
+default is 5, with exponential backoff up to 32s BETWEEN attempts,
+which would stall the whole interpreter tick loop for a long time if a
+broker is unreachable) - a failed connect just leaves that group
+unconnected until the next claim_hardware() call (e.g. a full patch
+reload, or regaining control after a client disconnects) retries it;
+there is no continuous automatic reconnect-while-ticking in this v1,
+unlike the live-connection widget's mqtt.js client. Self-echo
+suppression (a connection receiving its own just-published message
+back, since MQTT has no protocol-level way to prevent this) mirrors
+CloudModel.js's fix for the exact same problem - see _claim_cloud's
+`_cloud_last_published` tracking. CloudOut's sendInterval/averageInputs
+throttle and settle-publish are NOT ported here - v1 sends on every
+actual change only, same simplification OSCOut already makes for its
+own roundToInt-only chain handling; the full throttle/average/settle
+machinery is a possible future addition, not attempted in this pass.
 
 GroveSensor reuses the SAME `GROVE_SENSOR_CATALOG` (from pins.py)
 firmata_server.py's sysex handler reads from - subscribing calls a
@@ -86,6 +115,7 @@ PORTABLE_TYPE_IDS = frozenset([
     'AnalogIn', 'AnalogOut', 'DigitalIn', 'DigitalOut', 'Servo', 'GroveSensor',
     'IfThen', 'Boolean', 'Gate', 'Mix', 'Splitter', 'Process', 'Count',
     'Concat', 'Pulse', 'Sequence', 'Tween', 'Data', 'OSCIn', 'OSCOut',
+    'CloudIn', 'CloudOut',
 ])
 
 HARDWARE_INPUT_TYPES = frozenset(['AnalogIn', 'DigitalIn'])
@@ -94,12 +124,13 @@ HARDWARE_OUTPUT_TYPES = frozenset(['AnalogOut', 'DigitalOut', 'Servo'])
 # Chain-driven types: their real output comes from piping outs[].from
 # through a per-type list of signal-chain functions into outs[].to -
 # exactly WidgetMulti.js's processSignalChain()/signalChainFunctions
-# mechanism, ported generically instead of one-off per type. OSCOut is
-# deliberately NOT here - its only chain function (roundToInt) is
-# handled inline at send time in tick()'s osc_out step instead (see
-# there), since it only matters for what actually goes out over the
-# network, not the widget's own 'out' field value.
-CHAIN_TYPES = frozenset(['AnalogIn', 'DigitalIn', 'AnalogOut', 'DigitalOut', 'Servo', 'Process', 'IfThen', 'OSCIn'])
+# mechanism, ported generically instead of one-off per type. OSCOut/
+# CloudOut are deliberately NOT here - their only chain function
+# (roundToInt) is handled inline at send time in tick()'s osc_out/
+# cloud_out steps instead (see there), since it only matters for what
+# actually goes out over the network, not the widget's own 'out' field
+# value.
+CHAIN_TYPES = frozenset(['AnalogIn', 'DigitalIn', 'AnalogOut', 'DigitalOut', 'Servo', 'Process', 'IfThen', 'OSCIn', 'CloudIn'])
 
 
 def _num(v, default=None):
@@ -135,6 +166,19 @@ def _osc_host(values):
     if not server or server is True:
         return '127.0.0.1'
     return str(server)
+
+
+def _cloud_group_key(values):
+    """(host, port, username) - matches server/modules/nlHardware/
+    CloudModel.js's own sharing rule: everything with the same key
+    shares one MQTT connection. Deliberately excludes password/tls -
+    the first widget to connect for a given key supplies those, same
+    "first widget wins" behavior CloudModel.js already has (see the
+    module docstring)."""
+    host = values.get('host') or ''
+    port = int(_num(values.get('port'), 1883))
+    username = values.get('username') or ''
+    return (str(host), port, str(username))
 
 
 # ==================== easing (Tween) ====================
@@ -470,6 +514,7 @@ CHAIN_FUNCTIONS_BY_TYPE = {
     'Servo': ['limit180'],
     'DigitalOut': ['threshold'],
     'OSCIn': ['scale'],
+    'CloudIn': ['scale'],
 }
 
 
@@ -919,6 +964,8 @@ OUTS_BY_TYPE = {
     'Data': [('dataOut', 'out')],
     'OSCIn': [('in', 'out')],
     'OSCOut': [('in', 'out')],
+    'CloudIn': [('in', 'out')],
+    'CloudOut': [('in', 'out')],
 }
 
 
@@ -979,6 +1026,19 @@ class StandaloneInterpreter:
         self._osc_pool = None
         self._osc_servers = {}  # port -> microosc.OSCServer
         self._osc_clients = {}  # (host, port) -> microosc.OSCClient
+        # CloudIn/CloudOut support (see module docstring) - lazily
+        # imported (adafruit_minimqtt, wifi, socketpool, ssl) and only
+        # ever touched at all if a loaded patch actually has a cloud_in/
+        # cloud_out step, so a patch with no Cloud widgets pays zero
+        # cost for any of this.
+        self._minimqtt = None
+        self._cloud_wifi = None
+        self._cloud_pool = None
+        self._cloud_ssl_context = None  # only created if some group needs TLS
+        self._cloud_clients = {}         # group key -> MQTT.MQTT
+        self._cloud_topic_widgets = {}   # group key -> {topic: [wid, ...]} (cloud_in routing)
+        self._cloud_last_published = {}  # (group key, topic) -> (value_str, monotonic_time) - self-echo guard
+        self._cloud_last_poll = 0.0      # shared gate so MQTT polling doesn't run every single tick
 
     def load(self, patch):
         widgets = (patch or {}).get('widgets', [])
@@ -1035,6 +1095,10 @@ class StandaloneInterpreter:
                 hw_in_pin[step[1]] = "OSC"
             elif kind == 'osc_out':
                 hw_out_pin[step[1]] = "OSC"
+            elif kind == 'cloud_in':
+                hw_in_pin[step[1]] = "Cloud"
+            elif kind == 'cloud_out':
+                hw_out_pin[step[1]] = "Cloud"
             elif kind == 'map':
                 _, src_wid, src_field, dst_wid, _dst_field = step
                 outgoing.setdefault(src_wid, []).append((dst_wid, src_field))
@@ -1136,6 +1200,8 @@ class StandaloneInterpreter:
         grove_mappings = {}   # wid -> [mapping, ...] - GroveSensor has one per reading
         osc_in_mappings = {}   # wid -> mapping (OSCIn) - just marks "actively mapped", see _claim_osc
         osc_out_mappings = {}  # wid -> mapping (OSCOut)
+        cloud_in_mappings = {}   # wid -> mapping (CloudIn) - just marks "actively mapped", see _claim_cloud
+        cloud_out_mappings = {}  # wid -> mapping (CloudOut)
 
         for m in mappings:
             model_wid, view_wid = m.get('modelWID'), m.get('viewWID')
@@ -1154,6 +1220,10 @@ class StandaloneInterpreter:
                     osc_in_mappings[view_wid] = m
                 elif type_id == 'OSCOut':
                     osc_out_mappings[view_wid] = m
+                elif type_id == 'CloudIn':
+                    cloud_in_mappings[view_wid] = m
+                elif type_id == 'CloudOut':
+                    cloud_out_mappings[view_wid] = m
 
         # Kahn's algorithm - widgets with no unresolved dependency go
         # first. A cycle (shouldn't happen in a normal patch) just gets
@@ -1191,6 +1261,13 @@ class StandaloneInterpreter:
                 steps.append(('osc_in', wid))
             if wid in osc_out_mappings:
                 steps.append(('osc_out', wid))
+            if wid in cloud_in_mappings:
+                # No further config carried on the step itself -
+                # _claim_cloud reads host/port/username/topic straight
+                # from the widget's own values, same as osc_in above.
+                steps.append(('cloud_in', wid))
+            if wid in cloud_out_mappings:
+                steps.append(('cloud_out', wid))
             if wid in grove_mappings:
                 # sourceField is "grove-<sensorId>-<readingIndex>" (see
                 # GroveSensor.js's remapSensor()) - the index is what
@@ -1248,6 +1325,7 @@ class StandaloneInterpreter:
             elif step[0] == 'grove_in':
                 self._subscribe_grove_sensor(step[1])
         self._claim_osc()
+        self._claim_cloud()
 
     def _claim_osc(self):
         """Set up MicroOSC receiving/sending for every osc_in/osc_out
@@ -1376,6 +1454,7 @@ class StandaloneInterpreter:
                     pass
         self._grove_subscriptions = {}
         self._release_osc()
+        self._release_cloud()
 
     def _release_osc(self):
         """Closes the raw UDP sockets MicroOSC opened - it exposes no
@@ -1397,6 +1476,184 @@ class StandaloneInterpreter:
                 pass
         self._osc_clients = {}
 
+    def _claim_cloud(self):
+        """Set up MQTT connections for every cloud_in/cloud_out step (see
+        module docstring). Called from claim_hardware() - same "call
+        again after regaining control" contract _claim_osc() has, and
+        the same reasoning: a client that was driving this device may
+        have been the one actually reachable at these MQTT brokers.
+
+        Widgets are grouped by (host, port, username) - see
+        _cloud_group_key - since a real MQTT connection needs one
+        identity; multiple CloudIn/CloudOut widgets sharing a group
+        share ONE MQTT.MQTT client and its one TCP connection,
+        mirroring CloudModel.js's live-connection sharing. Already-
+        connected groups (self._cloud_clients already has the key) are
+        left alone - this only attempts NEW connections, so a group
+        that failed last time gets retried, but a group that's already
+        up doesn't get needlessly torn down and rebuilt."""
+        cloud_in_by_group = {}    # group key -> {topic: [wid, ...]}
+        cloud_out_groups = set()  # group key (out widgets just need the connection to exist)
+        group_options = {}        # group key -> (password, tls) from the FIRST widget seen in that group
+        for step in self.steps:
+            if step[0] not in ('cloud_in', 'cloud_out'):
+                continue
+            wid = step[1]
+            values = self.widgets[wid]['values']
+            key = _cloud_group_key(values)
+            if key not in group_options:
+                group_options[key] = (values.get('password') or '', bool(values.get('tls')))
+            if step[0] == 'cloud_in':
+                topic = values.get('topic') or ''
+                if topic:
+                    cloud_in_by_group.setdefault(key, {}).setdefault(topic, []).append(wid)
+            else:
+                cloud_out_groups.add(key)
+
+        all_groups = set(cloud_in_by_group.keys()) | cloud_out_groups
+        if not all_groups:
+            return
+
+        if self._minimqtt is None:
+            try:
+                import wifi
+                import socketpool
+                import adafruit_minimqtt.adafruit_minimqtt as minimqtt
+                self._minimqtt = minimqtt
+                self._cloud_pool = socketpool.SocketPool(wifi.radio)
+                self._cloud_wifi = wifi
+            except Exception as e:
+                print("standalone_interpreter: Cloud setup failed (adafruit_minimqtt/wifi/socketpool):", e)
+                self._minimqtt = False  # sentinel: don't retry every claim_hardware() call
+                return
+        elif self._minimqtt is False:
+            return
+
+        for key in all_groups:
+            if key in self._cloud_clients:
+                continue
+            host, port, username = key
+            if not host:
+                continue
+            password, tls = group_options.get(key, ('', False))
+
+            ssl_context = None
+            if tls:
+                # Lazily imported and built once, shared by every TLS
+                # group - a patch using only plaintext brokers never
+                # imports ssl at all (see module docstring on why this
+                # matters on a memory-constrained board).
+                if self._cloud_ssl_context is None:
+                    try:
+                        import ssl
+                        self._cloud_ssl_context = ssl.create_default_context()
+                    except Exception as e:
+                        print("standalone_interpreter: Cloud TLS setup failed for", host, ":", e)
+                        continue
+                ssl_context = self._cloud_ssl_context
+
+            try:
+                client = self._minimqtt.MQTT(
+                    broker=host,
+                    port=port,
+                    username=username or None,
+                    password=password or None,
+                    is_ssl=tls,
+                    socket_pool=self._cloud_pool,
+                    ssl_context=ssl_context,
+                    # socket_timeout governs BOTH the connect handshake's
+                    # internal socket read/write waits AND every later
+                    # loop() call's polling budget (confirmed by reading
+                    # adafruit_minimqtt's own source) - it is NOT just a
+                    # "how often does tick() poll" knob. A short value
+                    # here (an earlier version of this code tried 0.05s)
+                    # makes connect() fail almost immediately against a
+                    # real broker over real WiFi+internet latency, since
+                    # there isn't enough time for the TCP handshake and
+                    # CONNACK round trip. The library's own default (1s)
+                    # is used instead - see tick()'s poll gate for how
+                    # the resulting per-call blocking cost is amortized.
+                    # connect_retries=1: this library's own default (5,
+                    # with exponential backoff up to 32s BETWEEN
+                    # attempts) would block claim_hardware() itself for
+                    # a long time against an unreachable broker - a
+                    # failed connect here just leaves the group
+                    # unconnected until the next claim_hardware() call
+                    # retries it, no blocking retry loop.
+                    socket_timeout=1.0,
+                    connect_retries=1,
+                )
+                client.on_message = self._make_cloud_message_handler(key)
+                client.connect()
+            except Exception as e:
+                print("standalone_interpreter: Cloud connect failed for", host, ":", port, "-", e)
+                continue
+
+            self._cloud_clients[key] = client
+            self._cloud_topic_widgets[key] = cloud_in_by_group.get(key, {})
+            for topic in cloud_in_by_group.get(key, {}):
+                try:
+                    client.subscribe(topic)
+                except Exception as e:
+                    print("standalone_interpreter: Cloud subscribe failed for", topic, "-", e)
+
+    def _make_cloud_message_handler(self, key):
+        """One closure per broker connection, used as its on_message
+        callback - adafruit_minimqtt calls this with (client, topic,
+        message) for ANY subscribed topic on this connection (unlike
+        MicroOSC's per-address dispatch_map), so this looks up which
+        widget(s) actually want this specific topic itself. message
+        arrives already decoded to a str; stored as-is in values['in'] -
+        the chain-function caller already wraps every from-field read in
+        _num() (see _eval_widget), so a numeric string converts
+        correctly there, matching how any other text-valued inlet
+        already works."""
+        def handler(client, topic, message):
+            # Self-echo suppression - see module docstring. A connection
+            # that both publishes and subscribes to one topic sees its
+            # own just-published message come back as an ordinary
+            # incoming one; MQTT has no protocol-level way to prevent
+            # this. Mirrors CloudModel.js's identical fix.
+            last = self._cloud_last_published.get((key, topic))
+            if last is not None and last[0] == message and (time.monotonic() - last[1]) < 5.0:
+                return
+            for wid in self._cloud_topic_widgets.get(key, {}).get(topic, []):
+                self.widgets[wid]['values']['in'] = message
+        return handler
+
+    def _release_cloud(self):
+        """Disconnects every MQTT connection this interpreter opened -
+        same "give it back before a real client connects" contract
+        _release_osc() has."""
+        for client in self._cloud_clients.values():
+            try:
+                if client.is_connected():
+                    client.disconnect()
+            except Exception:
+                pass
+        self._cloud_clients = {}
+        self._cloud_topic_widgets = {}
+
+    def _drop_cloud_client(self, key):
+        """Removes a broken connection from self._cloud_clients so tick()
+        stops hammering a dead socket every poll/publish - confirmed
+        needed 2026-09-24: an Adafruit IO rate-limit block closed the
+        connection server-side, and without this every subsequent tick
+        kept trying to publish/poll on it, failing with EPIPE (errno 32)
+        forever, once per tick, spamming the console. Deliberately does
+        NOT attempt a reconnect itself - the group key simply becomes
+        eligible again the next time _claim_cloud() runs (i.e. the next
+        release_hardware()/claim_hardware() cycle, same as any other
+        never-attempted group), rather than retrying in a tight loop
+        against a broker that may still be actively rate-limiting."""
+        client = self._cloud_clients.pop(key, None)
+        self._cloud_topic_widgets.pop(key, None)
+        if client is not None:
+            try:
+                client.disconnect()
+            except Exception:
+                pass
+
     def tick(self):
         if not self.loaded:
             return
@@ -1412,6 +1669,35 @@ class StandaloneInterpreter:
                 srv.poll()
             except Exception as e:
                 print("standalone_interpreter: OSC poll failed:", e)
+        # Gated, not polled every tick like OSC's plain UDP recv above -
+        # MQTT.loop() unconditionally blocks for its full timeout= on
+        # every call (confirmed by reading adafruit_minimqtt's own
+        # source: it spins until that much wall-clock time has elapsed,
+        # not "until either a message arrives or timeout passes" - see
+        # _claim_cloud's socket_timeout comment for why that timeout
+        # can't be made small). At 1.0s that's a real, unavoidable
+        # per-call stall for the rest of the interpreter (all other
+        # widgets' pin reads/chain evaluation/hw_out writes happen
+        # synchronously in this same tick() loop), so this only pays
+        # that cost roughly once every 2s rather than every tick -
+        # trading CloudIn message latency (up to ~3s worst case) for
+        # keeping the rest of a patch responsive the other ~2 out of
+        # every ~3 seconds. Matches the live CloudOut widget's own
+        # sendInterval default (2000ms) closely enough that this isn't
+        # a surprising step down in responsiveness for anyone already
+        # using Cloud widgets.
+        if self._cloud_clients and (now - self._cloud_last_poll) >= 2.0:
+            self._cloud_last_poll = now
+            broken_keys = []
+            for key, client in self._cloud_clients.items():
+                try:
+                    if client.is_connected():
+                        client.loop(timeout=1.0)
+                except Exception as e:
+                    print("standalone_interpreter: Cloud poll failed:", e)
+                    broken_keys.append(key)
+            for key in broken_keys:
+                self._drop_cloud_client(key)
         for step in self.steps:
             kind = step[0]
             if kind == 'map':
@@ -1517,6 +1803,54 @@ class StandaloneInterpreter:
                     client.send(self._microosc.OscMsg(address, args, types))
                 except Exception as e:
                     print("standalone_interpreter: OSC send failed:", e)
+            elif kind == 'cloud_out':
+                wid = step[1]
+                w = self.widgets[wid]
+                values = w['values']
+                out_value = _num(values.get('out'), 0.0)
+                if w['state'].get('_cloud_last_sent') == out_value:
+                    continue
+                # sendInterval throttle (field matches CloudOut.js's own,
+                # default 2000ms) - NOT the live widget's full averaging/
+                # settle-publish behavior (deliberately not ported, see
+                # module docstring), just a floor on send rate. Without
+                # this, a real ADC's per-tick read noise on AnalogIn (or
+                # any other fast-changing source) would publish on
+                # nearly every tick - hundreds of times a second - which
+                # is exactly what got this device's Adafruit IO account
+                # rate-limited during testing (2026-09-24). A tick where
+                # the interval hasn't elapsed yet is skipped WITHOUT
+                # updating _cloud_last_sent, so the very next tick where
+                # enough time has passed re-checks against the CURRENT
+                # out_value and sends that - no averaging, just "send
+                # the latest value no more often than sendInterval".
+                min_interval_s = _num(values.get('sendInterval'), 2000.0) / 1000.0
+                last_sent_at = w['state'].get('_cloud_last_sent_at')
+                if last_sent_at is not None and (now - last_sent_at) < min_interval_s:
+                    continue
+                w['state']['_cloud_last_sent'] = out_value
+                w['state']['_cloud_last_sent_at'] = now
+                topic = values.get('topic') or ''
+                if not topic:
+                    continue
+                key = _cloud_group_key(values)
+                client = self._cloud_clients.get(key)
+                if client is None or not client.is_connected():
+                    continue
+                # CloudOut.js's signal chain always applies roundToInt
+                # (no float/int toggle unlike OSCOut) - matches that
+                # here rather than sending a raw float string.
+                payload = str(int(round(out_value)))
+                try:
+                    client.publish(topic, payload)
+                    # Recorded BEFORE any echo could come back, so the
+                    # message handler's suppression check (see
+                    # _make_cloud_message_handler) is guaranteed to see
+                    # this value already in place.
+                    self._cloud_last_published[(key, topic)] = (payload, time.monotonic())
+                except Exception as e:
+                    print("standalone_interpreter: Cloud publish failed:", e)
+                    self._drop_cloud_client(key)
 
     def monitor_fields(self, wid):
         """(field_name, numeric_value) pairs worth reporting to a

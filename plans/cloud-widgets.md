@@ -15,8 +15,13 @@ non-Adafruit broker under sustained use. Also verified against
 `test.mosquitto.org` (plain, no auth) earlier in the same debugging
 session, but only briefly. Promotes CloudIn/CloudOut out of
 `standalone-patch-export.md`'s "gray area, deferred" bucket, the
-same way OSCIn/OSCOut were promoted out of it and built 2026-09-23. Step
-2 (standalone on-device support) and step 3 (docs) not started.
+same way OSCIn/OSCOut were promoted out of it and built 2026-09-23.
+**Shipped as v2026.8.0** (commit `1cd1090`, tag pushed, signed/notarized
+release published) 2026-09-24. **Step 3 (docs) also done** same day -
+`docs/cloudin.md`/`docs/cloudout.md` rewritten for the new field set
+(commit `5407d48`). **Step 2 (standalone on-device support) also DONE,
+hardware-verified both directions, same day** - see "Standalone build
+(step 2), 2026-09-24" below.
 
 **Real bugs found and fixed during the 2026-09-24 build:**
 - `CloudModel.js`'s `connect()` read `this.address`/`this.port` for the
@@ -366,6 +371,110 @@ it working:**
   being silently dropped. CloudIn has no equivalent field - it's
   push-based on the SUBSCRIBE side, driven entirely by whatever rate the
   broker/publisher sends at, nothing NTK controls to throttle.
+
+## Standalone build (step 2), 2026-09-24
+
+Vendored `adafruit_minimqtt` (+ `adafruit_ticks`) into `firmware/xiao-
+esp32c6-circuitpython-firmata/lib/`, added `cloud_in`/`cloud_out` step
+kinds to `standalone_interpreter.py` mirroring OSC's `_claim_osc()`/
+`_release_osc()` shape (`_claim_cloud()`/`_release_cloud()`, grouped by
+`(host, port, username)` via a new `_cloud_group_key()` helper - same
+sharing rule `CloudModel.js` already uses app-side), and added `CloudIn`/
+`CloudOut` to `StandaloneCompatibility.js`'s `PORTABLE_TYPE_IDS`. Both
+directions hardware-verified against Adafruit IO (plain and TLS-on-8883,
+the latter only tested app-side, not standalone - see "Open" below).
+
+**Real bugs found and fixed, all same day:**
+- **Missing dependency**: newer `adafruit_minimqtt` imports
+  `adafruit_connection_manager` internally (`get_connection_manager
+  (socket_pool)` at construction) - not vendored initially, since the
+  library's own top-level source only shows this via one `from ... import`
+  line easy to miss without reading the whole file. Board's console
+  showed the exact gap: `no module named 'adafruit_connection_manager'`.
+  Fixed by vendoring `lib/adafruit_connection_manager.mpy` from the same
+  bundle zip as the other Cloud dependencies (header bytes confirmed
+  matching, `43 06 00 1f`).
+- **`socket_timeout` set too low, broke `connect()` itself.** First pass
+  used `socket_timeout=0.05` (50ms), reasoning it'd bound `tick()`'s
+  polling cost per call - true, but the SAME parameter also governs the
+  connect handshake's internal socket read/write waits (confirmed by
+  reading `adafruit_minimqtt`'s source, not assumed), and 50ms is nowhere
+  near enough for a real TCP+CONNACK round trip over WiFi+internet to
+  Adafruit IO. Every connect attempt failed with `('Connect failure',
+  None)`. **Fixed** by using the library's own default (`1.0`) for
+  `socket_timeout`, and gating `tick()`'s `client.loop()` poll to run
+  roughly every 2s instead of every 0.1s (since `loop(timeout=)`
+  unconditionally blocks for its FULL timeout on every call - confirmed
+  by reading the source, it's not "return early once a message arrives" -
+  so a 1s per-call cost has to be paid rarely, not constantly, or it caps
+  the whole interpreter's tick rate). Trades CloudIn message latency (up
+  to ~3s worst case) for keeping the rest of a patch responsive; roughly
+  matches CloudOut's own `sendInterval` default anyway.
+- **No publish throttle in the standalone `cloud_out` step at all** (v1
+  deliberately didn't port `sendInterval`/`averageInputs`/settle-publish -
+  documented as a known simplification) - meant a real ADC's per-tick
+  read noise on AnalogIn published on nearly every tick, hundreds of
+  times a second, which is exactly what got the test Adafruit IO account
+  rate-limited (`user is temporarily blocked`) during testing. **Fixed**
+  by adding a `sendInterval`-based floor (reads the same field CloudOut.js
+  already saves, default 2000ms) - not the live widget's full averaging,
+  just "send the latest value no more often than sendInterval".
+- **A broken/rate-limited connection kept retrying every tick forever**,
+  once the rate-limit block above actually happened - `client.publish()`/
+  `client.loop()` started failing with `errno 32` (EPIPE, broken pipe)
+  on a connection the broker had already closed server-side, and nothing
+  dropped the dead client, so every tick (and every ~2s poll) kept
+  re-attempting on the same dead socket, spamming the console forever.
+  **Fixed** with `_drop_cloud_client(key)`, called from both the
+  `cloud_out` publish's except block and the poll loop's except block -
+  removes the broken client from `self._cloud_clients` so it stops being
+  retried every tick; a fresh attempt only happens on the next real
+  `claim_hardware()` cycle (a client connecting then disconnecting from
+  the board), same recovery model OSC already has, deliberately not a
+  tight retry loop against a broker that may still be rate-limiting.
+- **Unrelated but found and fixed in the same session: dev-mode Electron
+  couldn't reach ANY local network device (`EHOSTUNREACH`), consistently,
+  while the packaged/signed build always could.** Root cause: dev mode's
+  raw `node_modules/electron/dist/Electron.app` carries Electron's stock
+  `com.github.Electron` bundle identifier, ad-hoc-signed - a generic
+  identity shared by virtually every unpackaged Electron dev tool on the
+  machine, and macOS TCC appears to silently deny (never even prompt for)
+  Local Network access to an ad-hoc-signed binary under that shared
+  identity, unlike the packaged build's real Developer ID signature.
+  **Fixed** in `buildScripts/patchDevElectronPlist.sh` (already run
+  before every `npm run electron`): gives dev its own stable
+  `CFBundleIdentifier` (`com.commotion.ntk-dev`), adds the missing
+  `NSLocalNetworkUsageDescription` key (its absence caused a silent hang
+  with no prompt and no error at all, separate from the identity issue),
+  and re-signs with the project's real Developer ID cert when available
+  (falls back to ad-hoc on a machine without it). Separately found: even
+  with a correctly-signed dev binary, LAUNCH METHOD also matters - a
+  process launched via `open`/LaunchServices (Dock, Finder double-click,
+  or an AppleScript app using `do shell script`/`tell application
+  Terminal to do script`) gets denied, while the exact same binary
+  launched directly from an interactive shell (Terminal, or this
+  session's own Bash tool) connects fine. Practical resolution: a
+  `NTK Dev.command` file (runs `npm run electron` when opened - Finder's
+  default handler for `.command` is Terminal, so this IS a direct
+  Terminal launch, not remote-scripted) plus a thin `NTK Dev Launcher.app`
+  wrapper whose only job is `do shell script "open '.../NTK Dev.command'"`
+  (delegating to the exact `open` invocation already proven to work,
+  rather than scripting Terminal directly) - this one IS Dock-pinnable
+  and connects reliably. Both live in `/Applications`.
+
+**Open, not yet done:**
+- TLS only verified standalone-side in principle (lazy `ssl` import +
+  `ssl_context`/`is_ssl` wiring exists in `_claim_cloud()`), not actually
+  hardware-tested - explicitly deprioritized ("not sure it's worth the
+  effort"). App-side TLS (port 8883) WAS hardware-verified working
+  against Adafruit IO.
+- No soak/long-running test of the standalone Cloud connection yet
+  (matches the existing open item for OSC/Firmata network connections in
+  general - see "Every standalone network client..." above).
+- `_claim_cloud()`'s per-group connect failure is only retried on the
+  next `claim_hardware()` cycle (a client connect/disconnect), same as
+  OSC - no standalone-side periodic retry while no client is connected
+  and nothing else triggers a cycle.
 
 ## Current state
 
