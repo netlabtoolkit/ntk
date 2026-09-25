@@ -168,7 +168,14 @@
 	.networkInfo {
 		clear: both;
 		float: left;
-		width: calc(250px - 20px);
+		// Fills the panel's full 250px width (see #toolBarRegion
+		// .settings, .addWidgets above), unlike every other section
+		// here (.category, .defaultDevice's children, etc.), which all
+		// use "250px - 20px" and sit 20px narrower - invisible on
+		// those since none of them have their own background color,
+		// but this box's solid darkgrey background made that gap
+		// clearly visible on its right edge. Found 2026-09-25.
+		width: 250px;
 		padding: 10px;
 		box-sizing: border-box;
 
@@ -178,13 +185,15 @@
 		font-size: 0.75em;
 		color: #333;
 
-		.softApInfo {
-			margin-top: 4px;
-		}
-
-		.localIpDisplay {
-			font-weight: bold;
-		}
+		// Overrides the panel-wide user-select:none set above (see the
+		// #toolBarRegion .settings, .addWidgets rule near the top of
+		// this file) - useful text to actually copy (an IP address),
+		// unlike the rest of this drag-and-drop-heavy panel where
+		// accidental text selection is more annoying than useful.
+		-webkit-user-select: text;
+		-moz-user-select: text;
+		-ms-user-select: text;
+		user-select: text;
 	}
 
 	.category {
