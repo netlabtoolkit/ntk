@@ -26,6 +26,18 @@ module.exports = function(five) {
 	var PUSH_PATCH_ERROR = 2;
 	var PULL_PATCH_FOUND = 1;
 	var PULL_PATCH_NONE = 2;
+	// For telling the device to re-read standalone_patch.json after it
+	// was written some OTHER way than a normal push over this
+	// connection - specifically the local-CIRCUITPY-mount fallback
+	// below, which writes the file directly through the host
+	// filesystem with no signal to the device at all otherwise. Empty
+	// payload. Byte-for-byte match to firmata_server.py's constants of
+	// the same name. Added 2026-09-25 alongside making the device's own
+	// push handling reload in place instead of rebooting.
+	var RELOAD_STANDALONE_REQUEST = 0x09;
+	var RELOAD_STANDALONE_REPLY = 0x0A;
+	var RELOAD_STANDALONE_OK = 1;
+	var RELOAD_STANDALONE_ERROR = 2;
 	// Generous enough to cover a hardwareModel created on demand for
 	// this exact call (see nlMultiClientSync.js's create-if-missing
 	// fallback, added 2026-09-23 for Push/Pull without a widget already
@@ -62,6 +74,71 @@ module.exports = function(five) {
 			bytes.push((data[i] | (data[i + 1] << 7)) & 0xFF);
 		}
 		return Buffer.from(bytes).toString('utf8');
+	}
+
+	// Push/Pull's local-mount fallback (macOS only for now - see
+	// plans/standalone-patch-export.md). CircuitPython's filesystem is
+	// writable from the host computer by default and read-only from
+	// code running ON the board - the OPPOSITE of what the sysex round-
+	// trip path above needs (that writes standalone_patch.json from
+	// device code, which only works if boot.py has remounted for code
+	// write access, permanently giving up Finder/drag-and-drop editing
+	// of the CIRCUITPY drive the whole time it's plugged in). When the
+	// board's CIRCUITPY volume happens to also be mounted locally (i.e.
+	// it's USB-tethered to the same computer running NTK, the normal
+	// dev/testing setup), reading/writing standalone_patch.json directly
+	// through the host filesystem needs NONE of that - it uses exactly
+	// the write access CircuitPython already grants the host by default,
+	// so a board can stay in its default (Finder-writable) state and
+	// Push/Pull still both work. Falls back to the network sysex path
+	// below when no local mount is found (the real "board deployed on
+	// WiFi only, no USB cable" scenario this feature was originally
+	// built for).
+	//
+	// Deliberately does NOT try to match the mounted volume to a
+	// specific device (by IP, serial number, etc.) - just checks for
+	// ANY mounted CIRCUITPY volume with a real CircuitPython boot_out.txt
+	// marker. Fine for the single-board-at-a-time dev/testing case this
+	// was built for (2026-09-25); would pick the wrong board if more
+	// than one CircuitPython device were mounted locally at once - a
+	// known limitation, not a hidden one.
+	var LOCAL_CIRCUITPY_PATH = '/Volumes/CIRCUITPY';
+	var LOCAL_CIRCUITPY_PATCH_FILE = LOCAL_CIRCUITPY_PATH + '/standalone_patch.json';
+
+	function findLocalCircuitpyMount() {
+		if(process.platform !== 'darwin') return null;
+		var fs = require('fs');
+		try {
+			fs.accessSync(LOCAL_CIRCUITPY_PATH + '/boot_out.txt', fs.constants.R_OK);
+			return LOCAL_CIRCUITPY_PATH;
+		}
+		catch(e) {
+			return null;
+		}
+	}
+
+	// pushPatch needs WRITE access specifically, which findLocalCircuitpyMount
+	// above does NOT guarantee - CircuitPython's own boot.py (see
+	// firmware/xiao-esp32c6-circuitpython-firmata/boot.py) can remount
+	// the filesystem for CODE write access instead of host write access
+	// (its default, needed for the original network sysex push path to
+	// work at all), which makes the mount READ-ONLY from here despite
+	// being present and readable. Found 2026-09-25 immediately after
+	// building the fallback above: a push attempt failed with EROFS
+	// because the board's boot.py had done exactly that. Checking write
+	// access up front lets pushPatch correctly fall through to the
+	// network path in that case, instead of failing outright.
+	function findWritableLocalCircuitpyMount() {
+		var mount = findLocalCircuitpyMount();
+		if(!mount) return null;
+		var fs = require('fs');
+		try {
+			fs.accessSync(mount, fs.constants.W_OK);
+			return mount;
+		}
+		catch(e) {
+			return null;
+		}
 	}
 
 	// Decodes one of firmware's 3x-7-bit-byte, x100 fixed-point Grove
@@ -185,8 +262,87 @@ module.exports = function(five) {
 				var found = data[0] === PULL_PATCH_FOUND;
 				callback(found ? decodeSysexString(data.slice(1)) : null);
 			});
+
+			// Best-effort, not request/reply-tracked like push/pull above -
+			// by the time requestStandaloneReload() sends this, the local
+			// write it followed has ALREADY succeeded (the file is on
+			// disk), so there's no user-facing outcome left riding on
+			// whether the device actually receives/acts on this in time.
+			// Just logged for visibility.
+			this.board.io.clearSysexResponse(RELOAD_STANDALONE_REPLY);
+			this.board.io.sysexResponse(RELOAD_STANDALONE_REPLY, function(data) {
+				var ok = data[0] === RELOAD_STANDALONE_OK;
+				if(ok) {
+					console.log('[Push] device confirmed reload of the newly-pushed standalone patch');
+				}
+				else {
+					console.log('[Push] device failed to reload the newly-pushed standalone patch:', decodeSysexString(data.slice(1)));
+				}
+			});
+		},
+		// Tells an already-connected device to re-read standalone_patch.json
+		// - see RELOAD_STANDALONE_REQUEST's own comment above for why this
+		// exists (the local-CIRCUITPY-mount push fallback below has no
+		// other way to make a just-written patch take effect without a
+		// manual reset). A no-op if not currently connected - the file is
+		// already written either way, so there's nothing to retry here;
+		// the device picks it up on its own next natural reload path
+		// (a client connect/disconnect cycle, or a manual reset).
+		requestStandaloneReload: function requestStandaloneReload() {
+			if(!this.connected) return;
+			this.board.io.sysexCommand([RELOAD_STANDALONE_REQUEST]);
 		},
 		pushPatch: function pushPatch(patchJson, callback) {
+			// Network path is tried FIRST, matching boot.py's own default
+			// (host-writable, so Finder/Thonny drag-and-drop keeps
+			// working) - the local-mount write below is a FALLBACK for
+			// when that default means the device itself can't write its
+			// own file (EROFS), not the primary path. See boot.py's own
+			// comment for the fuller reasoning (2026-09-25: an earlier
+			// version of this had the priority backwards, which meant
+			// Push only worked by permanently sacrificing Finder access
+			// to the CIRCUITPY drive).
+			var self = this;
+			this._pushPatchOverNetwork(patchJson, function(ok, errorMessage) {
+				if(ok) {
+					callback(true, errorMessage);
+					return;
+				}
+				var mount = findWritableLocalCircuitpyMount();
+				if(!mount) {
+					callback(false, errorMessage);
+					return;
+				}
+				var fs = require('fs');
+				try {
+					// writeFileSync alone only guarantees the write()
+					// syscall returned, not that a USB-MSC-mounted FAT
+					// volume has actually flushed it to the device's own
+					// flash - found 2026-09-25 via hands-on testing: the
+					// device's reload (triggered by requestStandaloneReload
+					// below, sent immediately after) read a stale/
+					// incomplete file and rejected it with "syntax error
+					// in JSON". Opening the same path again and calling
+					// fsync() on it forces that flush before the reload
+					// signal goes out.
+					var fd = fs.openSync(LOCAL_CIRCUITPY_PATCH_FILE, 'w');
+					fs.writeSync(fd, patchJson);
+					fs.fsyncSync(fd);
+					fs.closeSync(fd);
+					console.log('pushPatch: network path failed (' + errorMessage + ') - wrote', LOCAL_CIRCUITPY_PATCH_FILE, 'via local CIRCUITPY mount instead');
+					// The write succeeded either way (the file's on disk),
+					// so the user-facing callback fires now regardless of
+					// whether this signal actually lands - see
+					// requestStandaloneReload's own comment.
+					self.requestStandaloneReload();
+					callback(true, '');
+				}
+				catch(e) {
+					callback(false, 'Network push failed (' + errorMessage + '), and the local CIRCUITPY fallback also failed: ' + e.message);
+				}
+			});
+		},
+		_pushPatchOverNetwork: function _pushPatchOverNetwork(patchJson, callback) {
 			if(this._pendingPushPatchCallback) {
 				callback(false, 'A push or pull is already in progress on this device.');
 				return;
@@ -242,6 +398,45 @@ module.exports = function(five) {
 			trySend();
 		},
 		pullPatch: function pullPatch(callback) {
+			// Network path first, same priority reasoning as pushPatch
+			// above - only fall back to a local read on a genuine
+			// network FAILURE (timeout, no connection), not on a
+			// legitimate "nothing pushed to this board yet" result
+			// (patchJson null with no error), which just passes through
+			// as-is.
+			this._pullPatchOverNetwork(function(patchJson, errorMessage) {
+				if(!errorMessage) {
+					callback(patchJson, errorMessage);
+					return;
+				}
+				var mount = findLocalCircuitpyMount();
+				if(!mount) {
+					callback(patchJson, errorMessage);
+					return;
+				}
+				var fs = require('fs');
+				try {
+					var localPatchJson = fs.readFileSync(LOCAL_CIRCUITPY_PATCH_FILE, 'utf8');
+					console.log('pullPatch: network path failed (' + errorMessage + ') - read', LOCAL_CIRCUITPY_PATCH_FILE, 'via local CIRCUITPY mount instead');
+					callback(localPatchJson, null);
+				}
+				catch(e) {
+					// ENOENT (no standalone patch saved yet) is the normal
+					// "nothing pushed to this board yet" case, not an
+					// error - matches PULL_PATCH_NONE's own non-error
+					// semantics in the network path. Anything else
+					// (permissions, a real I/O error) IS reported, along
+					// with the original network failure that led here.
+					if(e.code === 'ENOENT') {
+						callback(null, null);
+					}
+					else {
+						callback(null, 'Network pull failed (' + errorMessage + '), and the local CIRCUITPY fallback also failed: ' + e.message);
+					}
+				}
+			});
+		},
+		_pullPatchOverNetwork: function _pullPatchOverNetwork(callback) {
 			if(this._pendingPullPatchCallback) {
 				callback(null, 'A push or pull is already in progress on this device.');
 				return;

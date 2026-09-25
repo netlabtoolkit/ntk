@@ -1200,12 +1200,25 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 		 */
 		onPushPatchResult: function(result) {
 			if(result.ok) {
-				// Generic enough to cover both a normal push (loads and
-				// runs it) and an erase (an empty patch - see
-				// pushPatchToDevice's own comment) without being wrong
-				// for either; the confirm dialog already said which one
-				// this was before the user agreed to it.
-				alert('Done - the device is restarting. NTK\'s connection to it will drop for a moment.');
+				// No reboot either way as of 2026-09-25 - the device
+				// reloads the patch in place (StandaloneInterpreter is
+				// swapped for a freshly-loaded one, not rebuilt via a
+				// full reset). Network path: ntk_firmata_main.py's
+				// _handle_push_patch_request reloads right after writing.
+				// Local-CIRCUITPY-mount fallback path (StandardFirmataModel.js's
+				// pushPatch, macOS only): the write itself has no signal
+				// to the device, so requestStandaloneReload() sends a
+				// separate best-effort "please reload" message over the
+				// still-live connection right after - usually still
+				// effectively immediate, but not GUARANTEED to land (a
+				// dropped connection at exactly the wrong moment), hence
+				// "should" rather than promising it outright. Generic
+				// wording also covers both a normal push and an erase
+				// (an empty patch - see pushPatchToDevice's own comment)
+				// without being wrong for either; the confirm dialog
+				// already said which one this was before the user agreed
+				// to it.
+				alert('Done - the device should reload the new patch within a few seconds, no restart needed. If it doesn\'t, reset it manually.');
 			}
 			else {
 				alert('Push failed: ' + (result.error || 'unknown error'));

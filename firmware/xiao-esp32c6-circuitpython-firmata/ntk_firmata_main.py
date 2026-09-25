@@ -347,55 +347,95 @@ from pins import PIN_TABLE, GROVE_SENSOR_CATALOG
 # reliability regression, not just a style preference.
 STANDALONE_PATCH_PATH = "standalone_patch.json"
 
-_standalone = None
-try:
-    os.stat(STANDALONE_PATCH_PATH)
-    _has_standalone_patch = True
-except OSError:
-    _has_standalone_patch = False
+def _load_standalone_patch(for_live_client=False):
+    """(Re)loads STANDALONE_PATCH_PATH into a fresh StandaloneInterpreter
+    and sets the module-level _standalone to it (None if no file exists,
+    it's malformed, or it's rejected as incompatible). Called once at
+    import time below, and again - safely, without a reboot - by
+    _handle_push_patch_request and _handle_reload_standalone_request
+    whenever a new patch lands on disk.
 
-if _has_standalone_patch:
+    Safe to call at ANY time, not just at boot: this only ever runs
+    while _standalone (if any) is already in its released state -
+    either never claimed yet (first boot), or released because a real
+    client is currently connected (always true when a push/reload
+    request is in flight, since that's the only way either message can
+    arrive at all - see run_server()'s explicit-handoff release_hardware()
+    call right after accept()). Building a fresh interpreter and
+    swapping it in has nothing to conflict with. The new interpreter is
+    NOT claimed here - that happens naturally the next time a client
+    disconnects (run_server()'s own claim_hardware()/release_hardware()
+    handoff), exactly like a boot-time-loaded one. This is what makes a
+    reboot unnecessary for either request - found 2026-09-25, replacing
+    an earlier version of both handlers that called microcontroller.reset()
+    unconditionally, on the mistaken assumption that _standalone being a
+    module-level object built once meant it could never be swapped
+    while running."""
+    global _standalone
+    _standalone = None
+    try:
+        os.stat(STANDALONE_PATCH_PATH)
+        has_patch = True
+    except OSError:
+        has_patch = False
+
+    if not has_patch:
+        return
+
+    print("Loading standalone patch...")
+
     try:
         from standalone_interpreter import StandaloneInterpreter, load_patch_file
     except ImportError:
-        StandaloneInterpreter = None
+        print("Standalone patch present but standalone_interpreter import failed")
+        return
 
-    if StandaloneInterpreter is not None:
-        _standalone_patch = load_patch_file(STANDALONE_PATCH_PATH)
-        if _standalone_patch is not None:
-            _candidate = StandaloneInterpreter(PIN_TABLE, GROVE_SENSOR_CATALOG)
-            if _candidate.load(_standalone_patch):
-                _standalone = _candidate
-                print("Standalone patch loaded and compatible:", STANDALONE_PATCH_PATH)
-            else:
-                print("Standalone patch present but rejected:", _candidate.error)
+    patch = load_patch_file(STANDALONE_PATCH_PATH)
+    if patch is None:
+        return
+
+    candidate = StandaloneInterpreter(PIN_TABLE, GROVE_SENSOR_CATALOG)
+    if candidate.load(patch):
+        _standalone = candidate
+        # Only "ready to run... when NTK disconnects" from the push/
+        # reload callers below (called while a client is always
+        # connected already, at that exact moment - see this
+        # function's own docstring) - at boot (the module-level call
+        # right after this function's definition), run_server() claims
+        # it and starts ticking immediately, no client ever having been
+        # connected to disconnect FROM, so that phrasing would be
+        # backwards there. Callers pass explicitly rather than this
+        # function guessing from context.
+        if for_live_client:
+            print("Standalone patch loaded and compatible:", STANDALONE_PATCH_PATH, "- ready to run standalone once NTK disconnects or switches to Monitor")
+        else:
+            print("Standalone patch loaded and compatible:", STANDALONE_PATCH_PATH)
+    else:
+        print("Standalone patch present but rejected:", candidate.error)
+
+
+_standalone = None
+_load_standalone_patch()  # for_live_client=False: boot-time, no client ever connected yet
 
 
 def _handle_push_patch_request(firmata):
     """Called from run_server()'s main per-connection loop when
     firmata.pending_push_patch is set (see firmata_server.py's
     PUSH_PATCH_REQUEST handling) - writes the received JSON to
-    STANDALONE_PATCH_PATH and resets the board so it reloads with the
-    new patch. A reset (not an in-place reload) is necessary: _standalone
-    above is a module-level object built once at import time - the
-    running interpreter has no mechanism to swap in a freshly-written
-    patch without a fresh boot. NTK's own StandaloneCompatibility.js
-    check already runs host-side before a push is ever sent, but this
-    still does its own json.loads() sanity check before writing/acking -
-    a truncated or corrupted transmission (unlikely, but not otherwise
+    STANDALONE_PATCH_PATH and reloads it via _load_standalone_patch(),
+    in place, no reboot. NTK's own StandaloneCompatibility.js check
+    already runs host-side before a push is ever sent, but this still
+    does its own json.loads() sanity check before writing/acking - a
+    truncated or corrupted transmission (unlikely, but not otherwise
     caught anywhere in this path) would otherwise silently overwrite a
-    good patch with something _standalone rejects at the next boot, with
-    no feedback that anything went wrong.
+    good patch with something _load_standalone_patch() then rejects,
+    with no feedback that anything went wrong.
 
     A patch with zero widgets is a deliberate ERASE, not a real push
     (added 2026-09-23, reusing this same request rather than a separate
     command) - deletes STANDALONE_PATCH_PATH instead of writing a
-    valid-but-inert empty patch to it. Writing an empty-but-present file
-    would still make _has_standalone_patch True at the next boot (see
-    the os.stat() check above), leaving the device showing as
-    "standalone running" with nothing to do - not the same as genuinely
-    having no standalone patch, which is what erasing is supposed to
-    mean."""
+    valid-but-inert empty patch to it, then reloads (which just sets
+    _standalone back to None, since the file's gone)."""
     patch_json = firmata.pending_push_patch
     firmata.pending_push_patch = None
     try:
@@ -403,28 +443,60 @@ def _handle_push_patch_request(firmata):
         if not parsed.get("widgets"):
             try:
                 os.remove(STANDALONE_PATCH_PATH)
-                print("Standalone patch erased (empty patch received) - resetting")
+                print("Standalone patch erased (empty patch received)")
             except OSError:
-                print("Standalone patch erase requested, but none was saved - resetting anyway")
+                print("Standalone patch erase requested, but none was saved")
             firmata.send_push_patch_reply(True)
-            time.sleep(0.3)
-            microcontroller.reset()
+            _load_standalone_patch(for_live_client=True)
             return
 
         with open(STANDALONE_PATCH_PATH, "w") as f:
             f.write(patch_json)
         firmata.send_push_patch_reply(True)
-        print("Standalone patch received (%d bytes) - resetting to load it" % len(patch_json))
-        # The ack above must actually reach the host before this
-        # connection drops with the rest of the board on reset().
-        time.sleep(0.3)
-        microcontroller.reset()
+        print("Standalone patch received (%d bytes) - reloading it" % len(patch_json))
+        _load_standalone_patch(for_live_client=True)
     except Exception as e:
-        print("Push patch failed:", e)
+        # errno 30 (EROFS) is the expected, routine outcome whenever
+        # this board's boot.py hasn't remounted for code writes (its
+        # own default - see boot.py's docstring) - NOT a real failure
+        # by itself, since NTK's local-CIRCUITPY-mount push fallback
+        # (StandardFirmataModel.js, macOS only) picks up from exactly
+        # this reply and completes the write a different way. Only
+        # printed calmly here for that reason; any OTHER exception
+        # still prints as a real failure, since those aren't expected
+        # or handled by that fallback. Added 2026-09-25 after this
+        # printing as "Push patch failed" made a normal, working push
+        # look broken from the device's own console.
+        if getattr(e, "errno", None) == 30:
+            print("Receiving standalone patch... NTK will send it via the CIRCUITPY drive")
+        else:
+            print("Push patch failed:", e)
         try:
             firmata.send_push_patch_reply(False, str(e))
         except Exception:
             pass  # connection may already be in a bad state - nothing more to do
+
+
+def _handle_reload_standalone_request(firmata):
+    """Called from run_server()'s main per-connection loop when
+    firmata.reload_standalone_requested is set (see firmata_server.py's
+    RELOAD_STANDALONE_REQUEST handling). For when standalone_patch.json
+    was written some OTHER way than a normal Push over this connection -
+    specifically, NTK's local-CIRCUITPY-mount Push fallback
+    (StandardFirmataModel.js, macOS only), which writes the file
+    directly through the host filesystem with no signal to the device
+    at all otherwise. Just re-reads and reloads - doesn't write
+    anything itself, unlike _handle_push_patch_request above."""
+    firmata.reload_standalone_requested = False
+    try:
+        _load_standalone_patch(for_live_client=True)
+        firmata.send_reload_standalone_reply(True)
+    except Exception as e:
+        print("Reload standalone patch failed:", e)
+        try:
+            firmata.send_reload_standalone_reply(False, str(e))
+        except Exception:
+            pass
 
 
 def _handle_pull_patch_request(firmata):
@@ -919,15 +991,18 @@ def run_server():
 
                 if not disconnected:
                     # See firmata_server.py's PUSH_PATCH_REQUEST/
-                    # PULL_PATCH_REQUEST handling - these flags are only
-                    # ever set from inside firmata.feed() above (called
-                    # via the recv_into branch earlier this same
-                    # iteration), so checking them here is never more
-                    # than one loop iteration stale.
+                    # PULL_PATCH_REQUEST/RELOAD_STANDALONE_REQUEST
+                    # handling - these flags are only ever set from
+                    # inside firmata.feed() above (called via the
+                    # recv_into branch earlier this same iteration), so
+                    # checking them here is never more than one loop
+                    # iteration stale.
                     if firmata.pending_push_patch is not None:
                         _handle_push_patch_request(firmata)
                     elif firmata.pull_patch_requested:
                         _handle_pull_patch_request(firmata)
+                    elif firmata.reload_standalone_requested:
+                        _handle_reload_standalone_request(firmata)
 
                 if disconnected:
                     break

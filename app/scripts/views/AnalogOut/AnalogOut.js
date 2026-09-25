@@ -123,8 +123,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				// any kind). changed.activeOut === true directly
 				// captures "the user just turned this on" instead.
 				if( (inactiveModels || changed.activeOut === true) && this.model.get("activeOut") == true ) {
-					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
-						modelType = this.getDeviceModelType();
+					var modelType = this.getDeviceModelType();
 
 					this.unMapHardwareInlet();
 
@@ -170,14 +169,36 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			return inactiveModels;
 		},
 		unMapHardwareInlet: function unMapHardwareInlet() {
-
-			this.sourceToRemove = this.sources[0];
-			this.sources.length = 0;
-			this.sources = [];
-
-			if(this.sourceToRemove) {
-				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
+			// Only removes the HARDWARE mapping (destinationField is a
+			// pin name like 'D3', never the literal string 'in') -
+			// this.sources can ALSO hold a widget-to-widget cable
+			// mapping (destinationField 'in', from this widget's own
+			// `ins` declaration), added via the SAME addInputMap() call
+			// Patcher.js's mapToModel makes for a hardware connection
+			// (see mapToModel's `if(view) { view.addInputMap(...) }`,
+			// unconditional on which branch built mappingObject).
+			// Previously wiped this.sources ENTIRELY regardless of
+			// which kind of entry was in it - silently destroyed a live
+			// widget-to-widget cable (e.g. AnalogIn -> AnalogOut) the
+			// instant this widget connected to hardware: syncWithSource
+			// had nothing left to iterate (values stopped flowing), and
+			// unMapInlet's own lookup into the now-empty this.sources
+			// found nothing to remove (the cable looked visually fine
+			// but was stuck/undraggable - its drawn position comes from
+			// cached coordinates, independent of this.sources).
+			// Root-caused 2026-09-25 via hands-on testing (XIAO
+			// ESP32-S3 bring-up); same copy-pasted bug existed in
+			// DigitalOut.js/Servo.js too, fixed there identically.
+			var kept = [];
+			for(var i=0; i<this.sources.length; i++) {
+				if(this.sources[i].map.destinationField === 'in') {
+					kept.push(this.sources[i]);
+				}
+				else {
+					window.app.vent.trigger('Widget:removeMapping', this.sources[i], this.model.get('wid'));
+				}
 			}
+			this.sources = kept;
 		},
 		enableDevice: function enableHardware() {
 			var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();

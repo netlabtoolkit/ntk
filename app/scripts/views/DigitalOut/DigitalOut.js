@@ -122,8 +122,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				// here). changed.activeOut === true directly captures
 				// "the user just turned this on" instead.
 				if( (inactiveModels || changed.activeOut === true) && this.model.get("activeOut") == true ) {
-					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
-						modelType = this.getDeviceModelType();
+					var modelType = this.getDeviceModelType();
 
 					this.unMapHardwareInlet();
 
@@ -169,14 +168,19 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			return inactiveModels;
 		},
 		unMapHardwareInlet: function unMapHardwareInlet() {
-
-			this.sourceToRemove = this.sources[0];
-			this.sources.length = 0;
-			this.sources = [];
-
-			if(this.sourceToRemove) {
-				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
+			// Only removes the HARDWARE mapping - see AnalogOut.js's
+			// identical method for the full explanation. Same copy-
+			// pasted bug, fixed identically. Root-caused 2026-09-25.
+			var kept = [];
+			for(var i=0; i<this.sources.length; i++) {
+				if(this.sources[i].map.destinationField === 'in') {
+					kept.push(this.sources[i]);
+				}
+				else {
+					window.app.vent.trigger('Widget:removeMapping', this.sources[i], this.model.get('wid'));
+				}
 			}
+			this.sources = kept;
 		},
 		enableDevice: function enableHardware() {
 			var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();

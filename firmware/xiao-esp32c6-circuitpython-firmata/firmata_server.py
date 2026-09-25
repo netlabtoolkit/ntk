@@ -104,6 +104,21 @@ PUSH_PATCH_ERROR = 2
 PULL_PATCH_FOUND = 1
 PULL_PATCH_NONE = 2
 
+# For when standalone_patch.json was written some OTHER way than a
+# normal PUSH_PATCH_REQUEST over this connection - specifically NTK's
+# local-CIRCUITPY-mount Push fallback (StandardFirmataModel.js, macOS
+# only), which writes the file directly through the host filesystem
+# with no signal to the device at all otherwise. Empty payload, same
+# shape as PULL_PATCH_REQUEST - just tells the device "re-read and
+# reload whatever's on disk now." Added 2026-09-25 alongside making
+# PUSH_PATCH_REQUEST itself reload in place instead of rebooting (see
+# ntk_firmata_main.py's _load_standalone_patch()).
+RELOAD_STANDALONE_REQUEST = 0x09  # host -> device, empty payload
+RELOAD_STANDALONE_REPLY = 0x0A  # device -> host, ack or error
+
+RELOAD_STANDALONE_OK = 1
+RELOAD_STANDALONE_ERROR = 2
+
 # Pin modes - matches board.MODES in firmata-io exactly (these values are
 # part of the wire protocol, not an internal implementation detail).
 INPUT = 0x00
@@ -284,6 +299,10 @@ class FirmataServer:
         # is a plain flag since a pull request carries no payload.
         self.pending_push_patch = None
         self.pull_patch_requested = False
+        # Set by RELOAD_STANDALONE_REQUEST (see _dispatch_sysex below) -
+        # same plain-flag shape as pull_patch_requested, since this
+        # carries no payload either.
+        self.reload_standalone_requested = False
 
     # ---------------- connection lifecycle ----------------
 
@@ -432,6 +451,8 @@ class FirmataServer:
                 self.send_push_patch_reply(False, "decode failed: %s" % e)
         elif cmd == PULL_PATCH_REQUEST:
             self.pull_patch_requested = True
+        elif cmd == RELOAD_STANDALONE_REQUEST:
+            self.reload_standalone_requested = True
         # Anything else (generic I2C/string/one-wire/stepper) - out of scope, ignore.
 
     # ---------------- outgoing responses ----------------
@@ -539,6 +560,17 @@ class FirmataServer:
             return
         data = [START_SYSEX, PULL_PATCH_REPLY, PULL_PATCH_FOUND]
         data.extend(_encode_sysex_string(patch_json))
+        data.append(END_SYSEX)
+        self._send(bytes(data))
+
+    def send_reload_standalone_reply(self, ok, error_message=""):
+        """Called by ntk_firmata_main.py's run_server() loop once it's
+        actually tried to reload standalone_patch.json from disk - same
+        shape as send_push_patch_reply's own comment on why this is
+        public."""
+        data = [START_SYSEX, RELOAD_STANDALONE_REPLY, RELOAD_STANDALONE_OK if ok else RELOAD_STANDALONE_ERROR]
+        if not ok and error_message:
+            data.extend(_encode_sysex_string(error_message))
         data.append(END_SYSEX)
         self._send(bytes(data))
 

@@ -152,8 +152,18 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				// nothing to point at why. Re-map whenever this widget's
 				// own current mapping doesn't match what it's actually
 				// supposed to be, regardless of the shared model's state.
-				var mappingStale = this.sources[0] !== undefined
-					&& this.sources[0].map.destinationField !== this.model.get('outputMapping');
+				// Finds the HARDWARE entry specifically (destinationField a
+				// pin name, never the literal string 'in') rather than
+				// assuming this.sources[0] - this.sources can ALSO hold a
+				// widget-to-widget cable mapping (destinationField 'in'), and
+				// which one lands at index 0 depends on creation order (e.g.
+				// wiring a cable to this Servo BEFORE connecting it to
+				// hardware puts the cable at index 0). See unMapHardwareInlet's
+				// own comment below for the fuller story - found 2026-09-25
+				// fixing that same ordering assumption there.
+				var hardwareSource = _.find(this.sources, function(s) { return s.map.destinationField !== 'in'; });
+				var mappingStale = hardwareSource !== undefined
+					&& hardwareSource.map.destinationField !== this.model.get('outputMapping');
 
 				// If we haven't made the hardware model yet, then we should bind everything together.
 				// changed.activeOut === true also directly captures "the user just
@@ -161,8 +171,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				// case where neither inactiveModels nor mappingStale catches a
 				// re-toggle after e.g. fixing a bad IP on an already-fully-mapped Servo.
 				if( (inactiveModels || mappingStale || changed.activeOut === true) && this.model.get("activeOut") == true ) {
-					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
-						modelType = this.getDeviceModelType();
+					var modelType = this.getDeviceModelType();
 
 					this.unMapHardwareInlet();
 
@@ -277,14 +286,19 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			return inactiveModels;
 		},
 		unMapHardwareInlet: function unMapHardwareInlet() {
-
-			this.sourceToRemove = this.sources[0];
-			this.sources.length = 0;
-			this.sources = [];
-
-			if(this.sourceToRemove) {
-				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
+			// Only removes the HARDWARE mapping - see AnalogOut.js's
+			// identical method for the full explanation. Same copy-
+			// pasted bug, fixed identically. Root-caused 2026-09-25.
+			var kept = [];
+			for(var i=0; i<this.sources.length; i++) {
+				if(this.sources[i].map.destinationField === 'in') {
+					kept.push(this.sources[i]);
+				}
+				else {
+					window.app.vent.trigger('Widget:removeMapping', this.sources[i], this.model.get('wid'));
+				}
 			}
+			this.sources = kept;
 		},
 		//enableDevice: function enableHardware() {
 			//var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
