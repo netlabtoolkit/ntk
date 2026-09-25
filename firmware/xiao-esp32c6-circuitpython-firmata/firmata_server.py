@@ -304,6 +304,8 @@ class FirmataServer:
         # carries no payload either.
         self.reload_standalone_requested = False
 
+        self._drive_unclaimed_pins_low()
+
     # ---------------- connection lifecycle ----------------
 
     def on_connect(self, send):
@@ -605,6 +607,48 @@ class FirmataServer:
         # connection, same "in use" failure the comment above describes.
         for sensor_id in list(self._grove_subscriptions.keys()):
             self._unsubscribe_grove_sensor(sensor_id)
+
+    def _drive_unclaimed_pins_low(self):
+        """Called once, at the end of __init__ - every real (non-virtual)
+        pin starts as a digital output driven LOW, rather than left
+        floating (CircuitPython/the MCU's own reset state for an
+        unclaimed pin, not actively driven either way). A floating pin
+        picks up noise/capacitive coupling from neighboring signals and
+        can read as an inconsistent "medium" voltage rather than a
+        clean 0V - confirmed via hands-on measurement 2026-09-25 (found
+        as "boots with digital ports at a medium level, not full high").
+
+        Harmless to whatever a real widget configures afterward:
+        _apply_pin_mode() already deinits a pin's existing io object
+        (see _release_pin_io) before reconfiguring it for INPUT/PWM/
+        SERVO/etc, so this never conflicts with real configuration - it
+        only matters for the window before anything has explicitly
+        claimed a given pin.
+
+        Applies on every FirmataServer construction, not just the
+        board's true power-on boot - a fresh instance is built for
+        every new TCP connection (see run_server()'s per-connection
+        loop) and for the standalone interpreter's own persistent one
+        (see standalone_interpreter.py's __init__). Deliberate
+        trade-off: a pin a PREVIOUS connection had driven HIGH (e.g. an
+        LED/relay left on) will glitch LOW for a moment on reconnect,
+        before whatever widget owns it re-asserts its real state - an
+        acceptable cost for guaranteeing every unclaimed pin has a
+        clean, defined level rather than an ambiguous floating one
+        (arguably the safer default regardless, e.g. for anything
+        driving a MOSFET gate, where floating is the more dangerous
+        state of the two)."""
+        import digitalio
+        for pin in self.pins:
+            if pin.board_pin is None:
+                continue
+            try:
+                io = digitalio.DigitalInOut(pin.board_pin)
+                io.switch_to_output(value=False)
+                pin.io = io
+                pin.mode = OUTPUT
+            except Exception:
+                pass
 
     def _apply_pin_mode(self, pin_index, mode):
         if pin_index < 0 or pin_index >= len(self.pins):

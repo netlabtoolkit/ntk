@@ -335,6 +335,51 @@ from firmata_server import (
 )
 from pins import PIN_TABLE, GROVE_SENSOR_CATALOG
 
+# Boot-time default: every digital-capable pin driven LOW rather than
+# left floating, for the window before ANYTHING has claimed the board
+# (no standalone patch loaded, no client connected yet) - found
+# 2026-09-25 that FirmataServer._drive_unclaimed_pins_low() (see
+# firmata_server.py) only runs when a FirmataServer actually gets
+# constructed, which does NOT happen at all during this idle window
+# (neither the standalone interpreter's own instance nor a per-
+# connection one exists yet), so a pin left HIGH by a PREVIOUS session
+# (e.g. an AnalogOut widget) stayed HIGH indefinitely with nothing here
+# to notice or correct it - exactly the "boots with a pin on" symptom
+# this fixes. A plain digitalio list here, not a FirmataServer, since
+# there's no per-pin mode/reporting bookkeeping needed for this
+# temporary role - just "hold everything low until a real owner takes
+# over". Released (see _release_boot_default_pins) right before
+# whichever real owner claims the board next, so there's no lasting
+# pin-conflict with FirmataServer's own claim.
+_boot_default_pins = []
+
+
+def _claim_boot_default_pins():
+    import board
+    import digitalio
+    for (board_pin, _analog_channel, _virtual_read) in PIN_TABLE:
+        if board_pin is None:
+            continue
+        try:
+            io = digitalio.DigitalInOut(board_pin)
+            io.switch_to_output(value=False)
+            _boot_default_pins.append(io)
+        except Exception:
+            pass
+
+
+def _release_boot_default_pins():
+    """Safe to call more than once (e.g. on every new client connection,
+    not just the first) - a no-op once the list is already empty from
+    an earlier release."""
+    while _boot_default_pins:
+        io = _boot_default_pins.pop()
+        try:
+            io.deinit()
+        except Exception:
+            pass
+
+
 # Standalone patch execution (see plans/standalone-patch-export.md) - v1,
 # not on every board yet, so this whole feature is optional. Deliberately
 # checks for standalone_patch.json's presence FIRST, before ever
@@ -818,7 +863,16 @@ def run_server():
     # from the "working on WiFi" blink to whichever idle pattern applies.
     led_set_pattern(_LED_STANDALONE_RUNNING if _standalone is not None else _LED_WAITING)
 
+    # Covers the window before ANYTHING else claims the board - see
+    # _claim_boot_default_pins's own comment. Released just below (if a
+    # standalone patch is about to claim hardware) or later, right
+    # before the first real client connection constructs its own
+    # FirmataServer (which then holds pins low itself via
+    # _drive_unclaimed_pins_low) - never left floating in between.
+    _claim_boot_default_pins()
+
     if _standalone is not None:
+        _release_boot_default_pins()
         _standalone.claim_hardware()
         print("Standalone interpreter running (no client connected)")
         print("Press 'v' for live values, 't' for topology, 'r' for WiFi RSSI, 'm' for free memory, at any time on this console.")
@@ -910,6 +964,15 @@ def run_server():
                 print("(RSSI check failed:", e, ")")
         led_solid_on()
 
+        # Releases the boot-default pins (see _claim_boot_default_pins)
+        # if they're still held - only actually does anything the FIRST
+        # time a client ever connects with no standalone patch loaded;
+        # a no-op on every later reconnect, since they were already
+        # released by then. FirmataServer's own construction below
+        # immediately re-claims every pin LOW itself either way (see
+        # _drive_unclaimed_pins_low), so there's no gap where a pin
+        # goes back to floating even momentarily.
+        _release_boot_default_pins()
         firmata = FirmataServer(PIN_TABLE, GROVE_SENSOR_CATALOG)
         # on_connect() just registers the send callback - it deliberately
         # sends nothing itself (see the comment on FirmataServer.on_connect
