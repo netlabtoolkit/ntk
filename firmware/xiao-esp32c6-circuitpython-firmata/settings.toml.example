@@ -34,3 +34,14 @@ NTK_WIFI_PASSWORD="your-wifi-password"
 # NTK_WIFI_MODE = "ap"
 # NTK_AP_SSID = "NTK-Firmata"
 # NTK_AP_PASSWORD = "netlabtoolkit"   # 8-63 chars; set to "" for an open network
+
+# --- Optional: let Push work with no computer plugged in at all (boot.py) ---
+# By default the board stays writable from a computer (Finder/Thonny
+# drag-and-drop keep working normally) - Push to this board still works
+# in that state, NTK just falls back to writing the file a different way
+# when your computer's plugged in (macOS only). This setting is only for
+# a board that's genuinely standalone - no computer ever plugged in - but
+# still needs to accept a Push over WiFi sometime after being deployed.
+# Uncomment it, then a hard reset (not Ctrl-D) - see boot.py's own
+# comment for the full explanation, including how to undo it.
+# NTK_REMOUNT_FOR_CODE_WRITES = true
