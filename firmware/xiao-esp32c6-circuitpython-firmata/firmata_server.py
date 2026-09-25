@@ -829,6 +829,16 @@ class FirmataServer:
                     print("Grove sensor", sensor_id, "needs a real pin, none given")
                     self._send_grove_status(sensor_id, GROVE_STATUS_ERROR)
                     return
+                # make_read() below constructs the sensor's own driver
+                # (e.g. adafruit_dht.DHT11) directly on this pin, bypassing
+                # _apply_pin_mode()/pin.io entirely - so it needs this
+                # pin's existing io object (if any) released first, or the
+                # driver's own claim collides with it ("pin in use").
+                # Every pin normally has one after __init__'s
+                # _drive_unclaimed_pins_low() (see its own comment) -
+                # found 2026-09-25 the first time a "needs_pin" sensor was
+                # actually tested after that fix landed.
+                self._release_pin_io(self.pins[data[3]])
                 try:
                     read_fn, cleanup_fn = entry["make_read"](self.pins[data[3]].board_pin)
                 except Exception as e:

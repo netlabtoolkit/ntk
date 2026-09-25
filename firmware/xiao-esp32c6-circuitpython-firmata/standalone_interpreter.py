@@ -1424,6 +1424,14 @@ class StandaloneInterpreter:
                 if idx is None or self._fs.pins[idx].board_pin is None:
                     print("standalone_interpreter: GroveSensor", wid, "- no usable pin", pin_str)
                     return
+                # Same reasoning as firmata_server.py's own
+                # _handle_grove_sensor_request: make_read() constructs the
+                # sensor's own driver directly on this pin, bypassing
+                # _apply_pin_mode()/pin.io - release this pin's existing io
+                # object first (every pin normally has one after __init__'s
+                # _drive_unclaimed_pins_low()) or the driver's own claim
+                # collides with it ("pin in use"). Found 2026-09-25.
+                self._fs._release_pin_io(self._fs.pins[idx])
                 read_fn, cleanup_fn = entry['make_read'](self._fs.pins[idx].board_pin)
             elif entry.get('needs_mode'):
                 mode = int(_num(values.get('mode'), 0.0))

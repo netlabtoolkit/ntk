@@ -454,7 +454,16 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		 * @return {void}
 		 */
 		pinChanged: function(e) {
-			this.subscribeSensor(this.model.get('sensor'));
+			// Same "don't connect before the checkbox is on" reasoning
+			// as remapSensor()'s own subscribeSensor() gate - this call
+			// bypasses remapSensor() entirely (goes straight to
+			// subscribeSensor()), so it needs its own active check.
+			// Found 2026-09-25, same session as that fix: editing the
+			// pin field while inactive triggered a live subscribe
+			// anyway.
+			if(this.model.get('active')) {
+				this.subscribeSensor(this.model.get('sensor'));
+			}
 		},
 
 		/**
@@ -467,7 +476,10 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		 */
 		modeChanged: function(e) {
 			this.model.set('mode', parseInt(this.$('.modeSelect').val(), 10));
-			this.subscribeSensor(this.model.get('sensor'));
+			// See pinChanged's identical comment above.
+			if(this.model.get('active')) {
+				this.subscribeSensor(this.model.get('sensor'));
+			}
 		},
 
 		/**
@@ -567,6 +579,15 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				}
 			}, this);
 
+			// mapToModel() below just establishes data-flow ROUTING
+			// (this.sources, so an incoming reading knows which widget
+			// field to land on) - it doesn't itself make the device
+			// start sending anything, and inactiveModelsExist() (see
+			// onModelChange's reconnect-on-active-flip logic) depends
+			// on this.sources already being populated to even notice a
+			// reconnect is needed. So this stays unconditional, same as
+			// it always was - only the actual device-level subscribe
+			// trigger below is gated on active.
 			var server = this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 
 			_.each(catalogEntry.readings, function(reading, index) {
@@ -578,10 +599,26 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				}, true);
 			}, this);
 
-			// mapToModel() above already re-renders the view once per
-			// call (reflecting the outs/mappings already set above by
-			// the time the last one runs) - no need to render again here.
-			this.subscribeSensor(sensorId);
+			// subscribeSensor() is what actually tells the device to
+			// start reporting (Widget:hardwareSwitch) - THIS is what
+			// needs gating on active, not the mapToModel loop above.
+			// Found 2026-09-25: remapSensor() is called unconditionally
+			// both from Patcher.js's widget-creation bootstrap and from
+			// setFromModel() below (patch load), neither of which
+			// checked active first - meaning a freshly-dragged or just-
+			// loaded GroveIn widget subscribed on the device
+			// immediately, with its own connect checkbox still
+			// unchecked. (First attempt at this fix gated the
+			// mapToModel loop too, which broke reconnecting via the
+			// checkbox entirely - inactiveModelsExist() had nothing to
+			// find with this.sources never populated. Gating only the
+			// subscribe call avoids that.) mapToModel() above already
+			// re-renders the view once per call (reflecting the outs/
+			// mappings already set above by the time the last one
+			// runs) - no need to render again here either way.
+			if(this.model.get('active')) {
+				this.subscribeSensor(sensorId);
+			}
 		},
 
 		/**
