@@ -39,6 +39,7 @@ import time
 import wifi
 import socketpool
 import microcontroller
+import oled_display
 
 try:
     import watchdog as _watchdog
@@ -718,6 +719,7 @@ def _serve_monitor_connection(conn, addr):
     write-while-monitoring design decision in the session that added
     this)."""
     print("Client connected from", addr, "(monitor mode)")
+    oled_display.set_status(connected=True)
     led_set_pattern(_LED_MONITORING)
     read_buffer = bytearray(64)
     # Fixed-cadence schedule (next_push += interval), not "elapsed
@@ -769,6 +771,7 @@ def _serve_monitor_connection(conn, addr):
         except Exception:
             pass
         print("Monitor client disconnected")
+        oled_display.set_status(connected=False)
         led_set_pattern(_LED_STANDALONE_RUNNING)
 
 
@@ -861,6 +864,11 @@ def run_server():
             if time.monotonic() - last_wifi_check > 5.0:
                 last_wifi_check = time.monotonic()
                 _check_wifi_still_connected()  # resets the board if the radio dropped - see its own docstring
+                if not _ap_mode_active:
+                    try:
+                        oled_display.set_status(rssi=wifi.radio.ap_info.rssi)
+                    except Exception:
+                        pass
             try:
                 conn, addr = server_socket.accept()
             except OSError:
@@ -891,6 +899,7 @@ def run_server():
         except Exception:
             pass  # not critical if unsupported on this CircuitPython build
         print("Client connected from", addr)
+        oled_display.set_status(connected=True)
         if not _ap_mode_active:
             # ap_info is the station side's "AP I'm joined to" info -
             # meaningless in AP mode, where this board IS the AP.
@@ -1013,6 +1022,7 @@ def run_server():
             except Exception:
                 pass
             print("Client disconnected")
+            oled_display.set_status(connected=False)
             # Back to waiting for the next client.
             led_set_pattern(_LED_STANDALONE_RUNNING if _standalone is not None else _LED_WAITING)
             if _standalone is not None:

@@ -91,6 +91,22 @@ wifi_mode = str(os.getenv("NTK_WIFI_MODE") or "station").strip().lower()
 
 FIRMATA_PORT = 3030
 
+# Optional SSD1306 status display (see oled_display.py's own module
+# docstring) - shown here, before the WiFi calls below, so it can
+# display "Connecting..." the same way test/boot-with-oled.py's
+# original example did. Safe regarding the heap-fragmentation crash
+# this file's own docstring warns about (which was traced to the
+# CALLING module - i.e. this file - accumulating a lot of its OWN
+# compiled function definitions before the WiFi call, not to what gets
+# imported): oled_display.init() is one function CALL into an already-
+# separately-compiled module, not new function DEFINITIONS added to
+# this file's own bytecode. Still new/not yet hardware-soak-tested
+# through many boot cycles though - if a mysterious WiFi connect
+# failure ever reappears after adding this, suspect this exact
+# assumption first, same as the original bug's own history.
+import oled_display
+oled_display.init()
+
 
 def _connect_station():
     """Plain station-mode join - see the module docstring for why this
@@ -152,8 +168,10 @@ def _connect_station():
     # there's no battery-life reason to keep power-save enabled.
     wifi.radio.power_management = wifi.PowerManagement.NONE
     print("Connected. IP address:", wifi.radio.ipv4_address)
+    oled_display.set_status(ip=str(wifi.radio.ipv4_address))
     try:
         print("Signal strength: RSSI", wifi.radio.ap_info.rssi, "channel", wifi.radio.ap_info.channel)
+        oled_display.set_status(rssi=wifi.radio.ap_info.rssi)
     except Exception:
         pass
 
@@ -254,6 +272,7 @@ if wifi_mode == "ap":
 
         ap_ip = wifi.radio.ipv4_address_ap
         print("SoftAP started. IP address:", ap_ip)
+        oled_display.set_status(ip=str(ap_ip))
         print(
             "Join WiFi '%s'%s, then point NTK (Device: Network) at %s port %d"
             % (ssid, "" if password else " (open)", ap_ip, FIRMATA_PORT)
