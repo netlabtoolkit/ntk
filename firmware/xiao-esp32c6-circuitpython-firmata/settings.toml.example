@@ -15,16 +15,17 @@ NTK_WIFI_PASSWORD="your-wifi-password"
 # a different value here. Requires a resolver that understands mDNS/
 # Bonjour (macOS has this built in; Windows needs Bonjour installed).
 #
-# NOT CURRENTLY WORKING as of CircuitPython 10.3.1 on the ESP32-C6
-# (hardware-verified 2026-09-23): code.py calls mdns.Server correctly
-# (hostname set, advertise_service() called, no errors, console prints
-# the expected line) but the board never actually answers mDNS queries
-# from other devices on the network - confirmed with both `dns-sd -Q`
-# and a service browse, against a network that resolves other real
-# devices (AirPlay/HomeKit/printers) fine. Left in place since it's
-# harmless when set (silently fails the same way) and may start
-# working on a future CircuitPython release - just don't rely on it
-# yet. Use the DHCP-assigned IP (or SoftAP's fixed 192.168.4.1) instead.
+# Hardware-verified working 2026-09-26 (CircuitPython 10.3.1, ESP32-C6).
+# The earlier "not working" finding (2026-09-23) was a code.py bug, not
+# a platform limitation: mdns.Server() was held in a local variable
+# inside _connect_station(), so it (and the native responder it wraps)
+# was eligible for garbage collection the moment that function returned
+# - the responder was going silent shortly after WiFi connected, well
+# before any query could arrive. Fixed by keeping it in a module-level
+# global instead. Separately, NTK's own connection code needed a longer
+# timeout - Node's DNS resolution of a ".local" name reliably takes
+# ~5s on macOS, longer than the 5s connect timeout NTK used - fixed in
+# server/modules/nlHardware/NetworkModel.js.
 # NTK_MDNS_HOSTNAME = "ntk-device"
 
 # --- Optional: SoftAP mode (board makes its own WiFi, fixed IP 192.168.4.1) ---

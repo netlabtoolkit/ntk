@@ -91,6 +91,18 @@ wifi_mode = str(os.getenv("NTK_WIFI_MODE") or "station").strip().lower()
 
 FIRMATA_PORT = 3030
 
+# Must be a module-level global, not a local inside _connect_station() -
+# confirmed root cause 2026-09-26 of the mDNS responder going silent
+# shortly after WiFi connects (previous attempt, parked 2026-09-23): a
+# local variable holding the only reference to mdns.Server() is eligible
+# for garbage collection the instant _connect_station() returns, and
+# mdns.Server wraps a native responder that a GC pass tears down with
+# it - so queries got no answer well before ntk_firmata_main.run() even
+# started. A known-working reference script (test/remote-mdns.py) keeps
+# its own mdns.Server as a top-level global for the program's entire
+# life, never re-assigned or dropped - this mirrors that.
+_mdns_server = None
+
 # Optional SSD1306 status display (see oled_display.py's own module
 # docstring) - shown here, before the WiFi calls below, so it can
 # display "Connecting..." the same way test/boot-with-oled.py's
@@ -186,6 +198,7 @@ def _connect_station():
     # ships the mdns module, hence the broad except.
     mdns_hostname = os.getenv("NTK_MDNS_HOSTNAME")
     if mdns_hostname:
+        global _mdns_server
         try:
             import mdns
             _mdns_server = mdns.Server(wifi.radio)

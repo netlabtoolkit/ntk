@@ -4,6 +4,27 @@ module.exports = function(attributes) {
 
 	var EtherPortClient = require("etherport-client").EtherPortClient;
 
+	// etherport-client hardcodes a 5000ms connect timeout in its own
+	// _connect() (node_modules/etherport-client/index.js) - too short
+	// for an mDNS ".local" hostname on macOS. net.Socket.connect() does
+	// its own DNS resolution internally, and dns.lookup('somename.local')
+	// reliably takes ~5s to resolve via getaddrinfo() here (confirmed
+	// empirically 2026-09-26: 5007ms against this library's 5000ms
+	// timeout - always loses the race by a hair). A plain IP address
+	// resolves instantly and is unaffected.
+	// Patched on the shared prototype, not just this instance - the
+	// constructor calls this._connect() synchronously as its last
+	// statement, before `new EtherPortClient(...)` below ever returns
+	// control here, so an instance-level override would miss that first
+	// attempt and only take effect on the next 15s auto-retry (meaning
+	// every FIRST connection to an mDNS hostname would appear to fail
+	// for ~20s before silently succeeding on retry).
+	EtherPortClient.prototype._connect = function () {
+		this._tcp.setNoDelay(true);
+		this._tcp.setTimeout(10000);
+		this._tcp.connect(this.port, this.host);
+	};
+
 	var _ = require('underscore'),
 		five = require("johnny-five"),
 		net = require("net"),
