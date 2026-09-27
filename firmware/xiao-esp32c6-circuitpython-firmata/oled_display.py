@@ -33,6 +33,12 @@ stacking, keeping the antenna area clear. A separate (non-stacking)
 OLED module wired to board.I2C() via a normal Grove cable should not
 have this problem at all, since it doesn't sit directly on the board.
 
+Confirmed 2026-09-27: a XIAO ESP32-S3 with the external-antenna variant
+works well with the same stacking OLED expansion board - no detuning,
+since the antenna itself isn't the onboard trace antenna this caveat is
+about. The issue is specific to boards relying on the small onboard
+antenna (like the plain XIAO ESP32-C6).
+
 Usage:
     import oled_display
     oled_display.init()  # once, after board.I2C() is safe to call
