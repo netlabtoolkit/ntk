@@ -365,6 +365,18 @@ def _sc_limit_255(value, values):
     return max(0.0, min(255.0, value))
 
 
+def _sc_gamma_correct(value, values):
+    # Ported from AnalogOut.js's gammaCorrect() signal-chain function -
+    # runs after limit255 here too (see CHAIN_FUNCTIONS_BY_TYPE), so
+    # value is already clamped to 0-255.
+    if not values.get('gammaCorrect'):
+        return value
+    gamma = _num(values.get('gammaValue'), 2.8)
+    if _is_nan(gamma) or gamma <= 0:
+        gamma = 2.8
+    return round(255.0 * ((value / 255.0) ** gamma))
+
+
 def _sc_limit_180(value, values):
     return max(0.0, min(180.0, value))
 
@@ -496,6 +508,8 @@ def _run_chain(fn_names, value, values, state):
             value = _chain_smoother(value, values, state)
         elif name == 'limit255':
             value = _sc_limit_255(value, values)
+        elif name == 'gammaCorrect':
+            value = _sc_gamma_correct(value, values)
         elif name == 'limit180':
             value = _sc_limit_180(value, values)
         elif name == 'threshold':
@@ -510,7 +524,7 @@ CHAIN_FUNCTIONS_BY_TYPE = {
     'DigitalIn': ['scale', 'invert', 'easing', 'smoother'],
     'Process': ['math', 'scale', 'invert', 'easing', 'smoother'],
     'IfThen': ['ifTest'],
-    'AnalogOut': ['limit255'],
+    'AnalogOut': ['limit255', 'gammaCorrect'],
     'Servo': ['limit180'],
     'DigitalOut': ['threshold'],
     'OSCIn': ['scale'],

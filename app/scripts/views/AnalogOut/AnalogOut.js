@@ -35,9 +35,12 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				outputMapping: options.outputMapping,
 				activeOut: false,
 				port: this.model.get('port') || 3030,
+				gammaCorrect: this.model.get('gammaCorrect') || false,
+				gammaValue: this.model.get('gammaValue') || 2.8,
 			});
 
             this.signalChainFunctions.push(this.limitRange);
+            this.signalChainFunctions.push(this.gammaCorrect);
 
 			// This is here because this widget effectively does not output (only outputs to hardware and then, only on server)
 			// So we go ahead and process so the output can be shown in the widget
@@ -263,6 +266,25 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
             output = Math.max(output, 0);
             output = Math.min(output, 255);
             return Number(output);
+        },
+
+        // Runs after limitRange, so input is already a clamped 0-255
+        // number here. Standard LED brightness gamma curve - PWM duty
+        // cycle vs. perceived brightness isn't linear (the eye is far
+        // more sensitive to changes at low duty cycles), so a linear
+        // "in" value looks like it jumps straight to bright and then
+        // barely changes for the rest of the dial's range unless
+        // compressed like this. Off by default (gammaCorrect: false in
+        // initialize()) - must not silently change behavior for a
+        // saved patch driving something that isn't an LED (a motor
+        // speed controller, for instance), where linear PWM is correct.
+        gammaCorrect: function(input, attrs) {
+            if (!attrs.gammaCorrect) return input;
+            // rv-value binds a text input as a string (see CLAUDE.md's
+            // Rivets gotcha) - parseFloat before using it arithmetically.
+            var gamma = parseFloat(attrs.gammaValue);
+            if (!gamma || gamma <= 0) gamma = 2.8;
+            return Math.round(255 * Math.pow(input / 255, gamma));
         },
 	});
 });
