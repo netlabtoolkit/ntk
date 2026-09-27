@@ -180,7 +180,12 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 					return newWidget;
 				}
 				else if(widgetType === 'AnalogOut') {
-					var defaultMapping = '';
+					// D7 is PWM-capable on both the C6 and S3 CircuitPython
+					// firmware and isn't one of the pins reserved/shared by
+					// I2C (D4/D5) - a reasonable default so a freshly-added
+					// AnalogOut widget already has a usable pin instead of
+					// requiring the user to open the more panel first.
+					var defaultMapping = 'D7';
 
 					var existingMapping = this.existingMappingExists(defaultMapping, "ArduinoUno" );
 
