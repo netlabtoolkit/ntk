@@ -8,12 +8,17 @@
 NTK_WIFI_SSID="your-wifi-name"
 NTK_WIFI_PASSWORD="your-wifi-password"
 
-# --- Optional: mDNS hostname (station mode only) ---
-# Lets you point NTK at "ntk-device.local" instead of reading the
-# DHCP-assigned IP off the serial console. A single fixed hostname -
-# if you run more than one board on the same network, give each one
-# a different value here. Requires a resolver that understands mDNS/
-# Bonjour (macOS has this built in; Windows needs Bonjour installed).
+# --- Optional: override (or disable) the mDNS hostname ---
+# mDNS is ON BY DEFAULT (code.py), even with this key absent entirely -
+# the board advertises itself as "ntk-device.local", matching NTK's own
+# default device address (see application.js's App.defaultDevice), so
+# a freshly-set-up board and a fresh NTK install just find each other
+# with nothing to configure here. Only set this key if you need a
+# DIFFERENT name - most commonly because you're running more than one
+# board on the same network and need to tell them apart (type that
+# board's own hostname into NTK instead) - or set it to "none" to turn
+# mDNS off entirely. Requires a resolver that understands mDNS/Bonjour
+# (macOS has this built in; Windows needs Bonjour installed).
 #
 # Hardware-verified working 2026-09-26 (CircuitPython 10.3.1, ESP32-C6).
 # The earlier "not working" finding (2026-09-23) was a code.py bug, not

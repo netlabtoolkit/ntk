@@ -179,15 +179,10 @@ def _connect_station():
     # always-on traffic. This board runs off USB power throughout, so
     # there's no battery-life reason to keep power-save enabled.
     wifi.radio.power_management = wifi.PowerManagement.NONE
-    print("Connected. IP address:", wifi.radio.ipv4_address)
-    oled_display.set_status(ip=str(wifi.radio.ipv4_address))
-    try:
-        print("Signal strength: RSSI", wifi.radio.ap_info.rssi, "channel", wifi.radio.ap_info.channel)
-        oled_display.set_status(rssi=wifi.radio.ap_info.rssi)
-    except Exception:
-        pass
 
-    # Single fixed hostname, station mode only (settings.toml-driven) -
+    # On by default - "ntk-device" unless overridden by settings.toml's
+    # NTK_MDNS_HOSTNAME (only needed to disambiguate more than one board
+    # on the same network). Single fixed hostname, station mode only -
     # so a user can point NTK at "<hostname>.local" instead of having to
     # read the DHCP-assigned IP off this console. Deliberately v1-scoped:
     # no discovery/browsing, no per-board auto-derived name. Runs from
@@ -196,8 +191,16 @@ def _connect_station():
     # which ends up here too - any time we actually have a real DHCP
     # lease, advertising it makes sense. Not every CircuitPython build
     # ships the mdns module, hence the broad except.
-    mdns_hostname = os.getenv("NTK_MDNS_HOSTNAME")
-    if mdns_hostname:
+    #
+    # Runs BEFORE the "Connected" print below (not after, as it used to)
+    # so a successful hostname setup can be folded into that same line
+    # instead of printed as a separate line afterward - keeps the
+    # console output to one line for the common case.
+    mdns_hostname = os.getenv("NTK_MDNS_HOSTNAME") or "ntk-device"
+    mdns_suffix = ""
+    # NTK_MDNS_HOSTNAME = "none" is the explicit opt-out - anything else
+    # (including it being absent entirely) leaves mDNS on by default.
+    if mdns_hostname.lower() != "none":
         global _mdns_server
         try:
             import mdns
@@ -213,9 +216,17 @@ def _connect_station():
             _mdns_server.advertise_service(
                 service_type="_ntk", protocol="_tcp", port=FIRMATA_PORT
             )
-            print("mDNS: reachable at %s.local port %d" % (mdns_hostname, FIRMATA_PORT))
+            mdns_suffix = " (also reachable at %s.local port %d)" % (mdns_hostname, FIRMATA_PORT)
         except Exception as e:
             print("(mDNS unavailable:", e, ")")
+
+    print("Connected. IP address: %s%s" % (wifi.radio.ipv4_address, mdns_suffix))
+    oled_display.set_status(ip=str(wifi.radio.ipv4_address))
+    try:
+        print("Signal strength: RSSI", wifi.radio.ap_info.rssi, "channel", wifi.radio.ap_info.channel)
+        oled_display.set_status(rssi=wifi.radio.ap_info.rssi)
+    except Exception:
+        pass
 
 
 ap_started = False

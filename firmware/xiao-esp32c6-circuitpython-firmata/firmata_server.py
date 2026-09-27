@@ -779,13 +779,27 @@ class FirmataServer:
                 pin.mode = ANALOG
                 pin.report = True
             except ValueError as e:
-                # Some pins listed as analog-capable in pins.py may not
+                # Two distinct, known causes end up here, both harmless
+                # (leave the pin unclaimed, keep the connection alive
+                # rather than crashing the whole server over one pin):
+                # (1) some pins listed as analog-capable in pins.py don't
                 # actually have a working ADC channel on this specific
-                # chip (seen on real XIAO ESP32-C6 hardware: channel 4
-                # raised "Invalid pin" here). Leave the pin unclaimed and
-                # keep the connection alive instead of crashing the whole
-                # server over one bad pin.
-                print("Pin", pin_index, "(analog channel", channel, ") rejected by analogio - not usable as analog input on this board:", e)
+                # chip ("Invalid pin" - seen on the XIAO ESP32-C6's
+                # D3-D5, see that board's own pins.py); (2) the pin is
+                # already claimed by something else, most commonly the
+                # onboard I2C bus ("<pin> in use") - D4/D5 on XIAO boards
+                # double as SDA/SCL, so they're unavailable for anything
+                # else the whole time an OLED display or Grove I2C
+                # sensor is attached and active. NTK requests reports
+                # from every analog-capable pin at connect time
+                # regardless of what's actually wired in the patch (see
+                # addDefaultPins() in StandardFirmataModel.js), so this
+                # is routine even when nothing in the patch uses this
+                # channel - not a sign anything is actually wrong.
+                reason = str(e)
+                if "in use" in reason:
+                    reason += " - probably the onboard I2C bus (OLED display / Grove I2C sensor), not a wiring problem"
+                print("Pin", pin_index, "(analog channel", channel, ") not available:", reason)
                 pin.mode = None
                 pin.report = False
         else:
