@@ -38,6 +38,10 @@ module.exports = function(five) {
 	var RELOAD_STANDALONE_REPLY = 0x0A;
 	var RELOAD_STANDALONE_OK = 1;
 	var RELOAD_STANDALONE_ERROR = 2;
+	// Display widget's three composed OLED lines - byte-for-byte match
+	// to firmata_server.py's constant of the same name. Host -> device
+	// only, no reply (see that file's own comment for why).
+	var DISPLAY_TEXT_REQUEST = 0x0B;
 	// Generous enough to cover a hardwareModel created on demand for
 	// this exact call (see nlMultiClientSync.js's create-if-missing
 	// fallback, added 2026-09-23 for Push/Pull without a widget already
@@ -291,6 +295,18 @@ module.exports = function(five) {
 		requestStandaloneReload: function requestStandaloneReload() {
 			if(!this.connected) return;
 			this.board.io.sysexCommand([RELOAD_STANDALONE_REQUEST]);
+		},
+		// Display widget's send path - genuinely not a pin write (see
+		// DISPLAY_TEXT_REQUEST's own comment in firmata_server.py), so
+		// it doesn't go through the generic sendDeviceModelUpdate/.set()
+		// pin-write pipeline nlMultiClientSync.js otherwise uses; called
+		// directly from there instead (see its client:sendDisplayText
+		// handler). A no-op if not currently connected - the widget will
+		// send again on its next model change once a connection exists,
+		// same "nothing to retry here" reasoning as requestStandaloneReload.
+		sendDisplayText: function sendDisplayText(lines) {
+			if(!this.connected || !this.board) return;
+			this.board.io.sysexCommand([DISPLAY_TEXT_REQUEST].concat(encodeSysexString(JSON.stringify(lines))));
 		},
 		pushPatch: function pushPatch(patchJson, callback) {
 			// Network path is tried FIRST, matching boot.py's own default

@@ -109,17 +109,23 @@ import json
 import time
 
 import firmata_server
+import oled_display
 
 
 PORTABLE_TYPE_IDS = frozenset([
     'AnalogIn', 'AnalogOut', 'DigitalIn', 'DigitalOut', 'Servo', 'GroveSensor',
     'IfThen', 'Boolean', 'Gate', 'Mix', 'Splitter', 'Process', 'Count',
     'Concat', 'Pulse', 'Sequence', 'Tween', 'Data', 'OSCIn', 'OSCOut',
-    'CloudIn', 'CloudOut',
+    'CloudIn', 'CloudOut', 'Display',
 ])
 
 HARDWARE_INPUT_TYPES = frozenset(['AnalogIn', 'DigitalIn'])
 HARDWARE_OUTPUT_TYPES = frozenset(['AnalogOut', 'DigitalOut', 'Servo'])
+# Display is deliberately NOT in HARDWARE_OUTPUT_TYPES above - it has no
+# pin (its mapping's destinationField is meaningless, see DISPLAY_TEXT_
+# REQUEST in firmata_server.py), so it needs its own 'display_out' step
+# kind instead of 'hw_out' (which always resolves destinationField as a
+# pin name). See _build_steps()/tick()'s own comments for where.
 
 # Chain-driven types: their real output comes from piping outs[].from
 # through a per-type list of signal-chain functions into outs[].to -
@@ -368,8 +374,12 @@ def _sc_limit_255(value, values):
 def _sc_gamma_correct(value, values):
     # Ported from AnalogOut.js's gammaCorrect() signal-chain function -
     # runs after limit255 here too (see CHAIN_FUNCTIONS_BY_TYPE), so
-    # value is already clamped to 0-255.
-    if not values.get('gammaCorrect'):
+    # value is already clamped to 0-255. Defaults to True when the key
+    # is absent entirely (an older patch saved before this feature
+    # existed, never re-saved since) - matches AnalogOut.js's own
+    # on-by-default initialize() logic; an explicit False in the saved
+    # patch (the widget's own checkbox unchecked) is still honored.
+    if not values.get('gammaCorrect', True):
         return value
     gamma = _num(values.get('gammaValue'), 2.8)
     if _is_nan(gamma) or gamma <= 0:
@@ -673,6 +683,28 @@ def _eval_concat(values, state, now):
     values['out1'] = sep.join(parts)
 
 
+def _eval_display(values, state, now):
+    # Ported from Display.js's own per-line compose (prepend + value +
+    # append) - see that file for the live-connection equivalent. Three
+    # lines only (in1-in3), matching the widget's three inlets and the
+    # OLED's own line 3-5 budget (see oled_display.py's module
+    # docstring) - lines 1-2 are reserved for system status.
+    for i in (1, 2, 3):
+        prepend = values.get('line%dPrepend' % i) or ''
+        append = values.get('line%dAppend' % i) or ''
+        v = values.get('in%d' % i)
+        if v is None or v == '':
+            v_text = ''
+        elif isinstance(v, (int, float)) and not isinstance(v, bool):
+            # Always exactly 2 decimal places (5 -> "5.00"), matching
+            # Display.js's formatValue()/toFixed(2) on the live-
+            # connection side - see that comment for why.
+            v_text = '%.2f' % v
+        else:
+            v_text = str(v)
+        values['line%dText' % i] = '%s%s%s' % (prepend, v_text, append)
+
+
 def _eval_pulse(values, state, now):
     threshold = _num(values.get('threshold'), 512.0)
     in_value = _num(values.get('in'))
@@ -954,6 +986,7 @@ BESPOKE_EVAL = {
     'Tween': _eval_tween,
     'Sequence': _eval_sequence,
     'Data': _eval_data,
+    'Display': _eval_display,
 }
 
 # outs[].{from,to} per type - what field each type's real computed value
@@ -1211,6 +1244,7 @@ class StandaloneInterpreter:
         w2w_mappings = []
         hw_in_mappings = {}   # wid -> mapping (AnalogIn/DigitalIn)
         hw_out_mappings = {}  # wid -> mapping (AnalogOut/DigitalOut/Servo)
+        display_mappings = {}  # wid -> mapping (Display) - no pin, see below
         grove_mappings = {}   # wid -> [mapping, ...] - GroveSensor has one per reading
         osc_in_mappings = {}   # wid -> mapping (OSCIn) - just marks "actively mapped", see _claim_osc
         osc_out_mappings = {}  # wid -> mapping (OSCOut)
@@ -1228,6 +1262,13 @@ class StandaloneInterpreter:
                     hw_in_mappings[view_wid] = m
                 elif type_id in HARDWARE_OUTPUT_TYPES:
                     hw_out_mappings[view_wid] = m
+                elif type_id == 'Display':
+                    # Marks "actively mapped to a device" same as
+                    # osc_in/cloud_in below - the mapping's
+                    # destinationField is meaningless here (Display has
+                    # no pin), so it's never read, just used as the
+                    # presence check.
+                    display_mappings[view_wid] = m
                 elif type_id == 'GroveSensor':
                     grove_mappings.setdefault(view_wid, []).append(m)
                 elif type_id == 'OSCIn':
@@ -1298,6 +1339,8 @@ class StandaloneInterpreter:
             steps.append(('eval', wid))
             if wid in hw_out_mappings:
                 steps.append(('hw_out', wid, hw_out_mappings[wid]['map']['destinationField']))
+            if wid in display_mappings:
+                steps.append(('display_out', wid))
 
         self.steps = steps
 
@@ -1797,6 +1840,25 @@ class StandaloneInterpreter:
                         fs._handle_analog_write(idx, pulse_us)
                     else:
                         fs._handle_analog_write(idx, out_value)
+            elif kind == 'display_out':
+                # No pin (see _build_steps()'s own comment) - straight to
+                # the OLED. Change-detection + a 1s minimum interval,
+                # same reasoning as oled_display.py's own set_lines()
+                # docstring: each refresh is a real blocking I2C write,
+                # and an inlet could in principle be changing every
+                # tick, so this avoids flooding the display with
+                # redundant/too-frequent writes the way the live-
+                # connection path's own debounced send (Display.js/
+                # NetworkModel.js) does on that side.
+                _, wid = step
+                w = self.widgets[wid]
+                values = w['values']
+                lines = [values.get('line1Text', ''), values.get('line2Text', ''), values.get('line3Text', '')]
+                state = w['state']
+                if lines != state.get('display_last_lines') and (now - state.get('display_last_sent', 0.0)) >= 1.0:
+                    state['display_last_lines'] = list(lines)
+                    state['display_last_sent'] = now
+                    oled_display.set_lines(lines)
             elif kind == 'osc_out':
                 wid = step[1]
                 w = self.widgets[wid]

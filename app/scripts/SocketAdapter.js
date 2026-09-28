@@ -233,6 +233,15 @@ function( Backbone ) {
 					socket.emit('client:pushPatchToDevice', JSON.stringify( options ));
 				}
 			});
+			// Display widget's three composed OLED lines - not a pin
+			// write (see StandardFirmataModel.js's sendDisplayText), so
+			// it's its own event rather than going through
+			// sendDeviceModelUpdate below.
+			window.app.vent.on('Widget:sendDisplayText', function(options) {
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('client:sendDisplayText', JSON.stringify( options ));
+				}
+			});
 			window.app.vent.on('Widget:pullPatchFromDevice', function(options) {
 				if(window.app.server || !window.app.serverMode) {
 					socket.emit('client:pullPatchFromDevice', JSON.stringify( options ));

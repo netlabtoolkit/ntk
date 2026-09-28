@@ -22,6 +22,7 @@ define([
 	'views/Code/Code',
 	'views/Blank/Blank',
     'views/Servo/Servo',
+    'views/Display/Display',
     'views/OSCIn/OSCIn',
     'views/OSCOut/OSCOut',
     'views/CloudIn/CloudIn',
@@ -31,7 +32,7 @@ define([
     'views/GroveSensor/GroveSensor',
     'utils/StandaloneCompatibility',
 ],
-function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, CloudInView, CloudOutView, SplitterView, RestrictiveOverlayView, GroveSensorView, StandaloneCompatibility){
+function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, DisplayView, OSCInView, OSCOutView, CloudInView, CloudOutView, SplitterView, RestrictiveOverlayView, GroveSensorView, StandaloneCompatibility){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -210,6 +211,28 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 							view: newWidget,
 							modelType: deviceMapping.modelType,
 							IOMapping: {sourceField: "out", destinationField: defaultOutputMapping},
+							server: deviceMapping.server,
+						}, addedFromLoader);
+					}
+
+					return newWidget;
+				}
+				else if(widgetType === 'Display') {
+					var newWidget = new DisplayView({
+						model: newModel,
+					});
+
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
+					if(!addedFromLoader) {
+						this.applyDefaultDeviceToModel(newModel);
+						var deviceMapping = this.getDefaultDeviceMapping(serverAddress);
+						this.mapToModel({
+							view: newWidget,
+							modelType: deviceMapping.modelType,
+							// 'display' is a sentinel, not a real pin - see
+							// Display.js's own onModelChange comment.
+							IOMapping: {sourceField: "out", destinationField: 'display'},
 							server: deviceMapping.server,
 						}, addedFromLoader);
 					}

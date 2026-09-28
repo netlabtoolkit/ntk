@@ -449,6 +449,23 @@ module.exports = function(options) {
 				});
 			});
 
+			// Display widget's three composed OLED lines - not a pin
+			// write, so it doesn't go through the generic
+			// 'sendModelUpdate' handler above (see StandardFirmataModel.js's
+			// sendDisplayText). No reply expected.
+			socket.on('client:sendDisplayText', function(data) {
+				var options = JSON.parse(data);
+				if(self.hardwareModels[options.hardwareKey] == undefined) {
+					var typeAddressPort = options.hardwareKey.split(':');
+					self.hardwareModels[options.hardwareKey] = new nlHardware({deviceType: options.hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+					self.bindModelToTransport(self.hardwareModels[options.hardwareKey]);
+				}
+				var hardwareModel = self.hardwareModels[options.hardwareKey];
+				if(typeof hardwareModel.sendDisplayText === 'function') {
+					hardwareModel.sendDisplayText(options.lines);
+				}
+			});
+
 			socket.on('client:pullPatchFromDevice', function(data) {
 				var options = JSON.parse(data);
 				if(self.hardwareModels[options.hardwareKey] == undefined) {

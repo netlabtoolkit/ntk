@@ -545,6 +545,24 @@ def _handle_reload_standalone_request(firmata):
             pass
 
 
+def _handle_display_text_request(firmata):
+    """Called from run_server()'s main per-connection loop when
+    firmata.pending_display_text is set (see firmata_server.py's
+    DISPLAY_TEXT_REQUEST handling) - decodes the JSON array of up to
+    three strings the Display widget sent and forwards it to
+    oled_display.set_lines(). No reply sent (see DISPLAY_TEXT_REQUEST's
+    own comment in firmata_server.py for why) - a malformed payload or
+    an absent display are both silently harmless, same as every other
+    oled_display call in this firmware."""
+    payload = firmata.pending_display_text
+    firmata.pending_display_text = None
+    try:
+        lines = json.loads(payload)
+        oled_display.set_lines(lines)
+    except Exception as e:
+        print("Display widget: bad DISPLAY_TEXT_REQUEST payload:", e)
+
+
 def _handle_pull_patch_request(firmata):
     """Called from run_server()'s main per-connection loop when
     firmata.pull_patch_requested is set. Deliberately re-reads
@@ -764,7 +782,7 @@ def _serve_monitor_connection(conn, addr):
     write-while-monitoring design decision in the session that added
     this)."""
     print("Client connected from", addr, "(monitor mode)")
-    oled_display.set_status(connected=True)
+    oled_display.set_mode("monitored")
     led_set_pattern(_LED_MONITORING)
     read_buffer = bytearray(64)
     # Fixed-cadence schedule (next_push += interval), not "elapsed
@@ -816,7 +834,10 @@ def _serve_monitor_connection(conn, addr):
         except Exception:
             pass
         print("Monitor client disconnected")
-        oled_display.set_status(connected=False)
+        # Monitor mode only ever exists while a standalone patch is
+        # already running (see this function's own docstring) - it
+        # resumes that same state on disconnect, never "waiting".
+        oled_display.set_mode("standalone")
         led_set_pattern(_LED_STANDALONE_RUNNING)
 
 
@@ -874,10 +895,12 @@ def run_server():
     if _standalone is not None:
         _release_boot_default_pins()
         _standalone.claim_hardware()
+        oled_display.set_mode("standalone")
         print("Standalone interpreter running (no client connected)")
         print("Press 'v' for live values, 't' for topology, 'r' for WiFi RSSI, 'm' for free memory, at any time on this console.")
         print("(Click in this pane, press the desired key, and hit Enter.)")
     else:
+        oled_display.set_mode("waiting")
         print("Press 'r' for WiFi RSSI, 'm' for free memory, at any time on this console.")
         print("(Click in this pane, press the desired key, and hit Enter.)")
 
@@ -953,7 +976,7 @@ def run_server():
         except Exception:
             pass  # not critical if unsupported on this CircuitPython build
         print("Client connected from", addr)
-        oled_display.set_status(connected=True)
+        oled_display.set_mode("controlled")
         if not _ap_mode_active:
             # ap_info is the station side's "AP I'm joined to" info -
             # meaningless in AP mode, where this board IS the AP.
@@ -1075,6 +1098,8 @@ def run_server():
                         _handle_pull_patch_request(firmata)
                     elif firmata.reload_standalone_requested:
                         _handle_reload_standalone_request(firmata)
+                    elif firmata.pending_display_text is not None:
+                        _handle_display_text_request(firmata)
 
                 if disconnected:
                     break
@@ -1085,8 +1110,10 @@ def run_server():
             except Exception:
                 pass
             print("Client disconnected")
-            oled_display.set_status(connected=False)
-            # Back to waiting for the next client.
+            # Back to waiting for the next client - or resuming the
+            # standalone patch, if one's loaded (see the claim_hardware()
+            # call just below).
+            oled_display.set_mode("standalone" if _standalone is not None else "waiting")
             led_set_pattern(_LED_STANDALONE_RUNNING if _standalone is not None else _LED_WAITING)
             if _standalone is not None:
                 # Explicit handoff, the other direction - the client that

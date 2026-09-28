@@ -2190,3 +2190,59 @@ body.ntk-monitoring .monitorBlockOverlay {
         }
     }
 }
+
+.displayWidget {
+    // A small live emulation of the physical OLED's own three
+    // widget-controlled lines (see oled_display.py's module docstring
+    // for the full 5-line layout - this widget owns lines 3-5, not
+    // the system-status lines above them) - lets a patch's Display
+    // widget be built/verified with no hardware attached, per this
+    // project's own widget-design principle.
+    .widgetBody .oledPreview {
+        margin: 4px;
+        padding: 4px;
+        background-color: #000;
+        border-radius: 2px;
+        height: 96px;
+        box-sizing: border-box;
+        overflow: hidden;
+
+        .oledLine {
+            font-family: monospace;
+            font-size: 9px;
+            line-height: 14px;
+            color: #7CFC7C;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    }
+
+    .widgetBottom .content {
+        .lineConfig {
+            margin-bottom: 4px;
+            white-space: nowrap;
+
+            .linePrepend, .lineAppend {
+                width: 48px;
+                box-sizing: border-box;
+                font-size: 0.8em;
+            }
+
+            // The live current value, shown between prepend/append per
+            // Phil's own |prepend| value |append| layout - read-only
+            // (not an input), same rounding as what actually gets sent
+            // (Display.js's formatValue()/displayValuePreview formatter).
+            .lineValue {
+                display: inline-block;
+                width: 34px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                text-align: center;
+                font-size: 0.8em;
+                color: #666;
+                vertical-align: middle;
+            }
+        }
+    }
+}

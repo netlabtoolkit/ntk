@@ -118,6 +118,7 @@ _mdns_server = None
 # assumption first, same as the original bug's own history.
 import oled_display
 oled_display.init()
+oled_display.set_mode("connecting")
 
 
 def _connect_station():

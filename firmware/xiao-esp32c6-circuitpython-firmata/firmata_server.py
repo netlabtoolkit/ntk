@@ -119,6 +119,16 @@ RELOAD_STANDALONE_REPLY = 0x0A  # device -> host, ack or error
 RELOAD_STANDALONE_OK = 1
 RELOAD_STANDALONE_ERROR = 2
 
+# Custom sysex extension for the Display widget - lets NTK push up to
+# three composed text lines to the device's OLED (see oled_display.py's
+# set_lines()). Host -> device only, no reply - a failed/no-display
+# write is low-stakes (worst case the screen just doesn't update),
+# same "silently no-op if absent" convention oled_display.py already
+# uses throughout. Payload is a JSON array of strings, encoded as a
+# standard Firmata string payload (same shape PUSH_PATCH_REQUEST uses
+# for patch JSON). Next free ID after RELOAD_STANDALONE_REPLY.
+DISPLAY_TEXT_REQUEST = 0x0B  # host -> device, JSON array of strings
+
 # Pin modes - matches board.MODES in firmata-io exactly (these values are
 # part of the wire protocol, not an internal implementation detail).
 INPUT = 0x00
@@ -303,6 +313,14 @@ class FirmataServer:
         # same plain-flag shape as pull_patch_requested, since this
         # carries no payload either.
         self.reload_standalone_requested = False
+        # Set by DISPLAY_TEXT_REQUEST (see _dispatch_sysex below) - same
+        # shape as pending_push_patch (holds the decoded raw string,
+        # None until one arrives), consumed/reset by ntk_firmata_main.py's
+        # run_server() loop, which is where JSON parsing and the actual
+        # oled_display.set_lines() call happen (system-level concern
+        # outside what this class otherwise does, same reasoning as
+        # pending_push_patch's own comment above).
+        self.pending_display_text = None
 
         self._drive_unclaimed_pins_low()
 
@@ -455,6 +473,11 @@ class FirmataServer:
             self.pull_patch_requested = True
         elif cmd == RELOAD_STANDALONE_REQUEST:
             self.reload_standalone_requested = True
+        elif cmd == DISPLAY_TEXT_REQUEST:
+            try:
+                self.pending_display_text = _decode_sysex_string(payload[1:])
+            except Exception as e:
+                print("DISPLAY_TEXT_REQUEST decode failed:", e)
         # Anything else (generic I2C/string/one-wire/stepper) - out of scope, ignore.
 
     # ---------------- outgoing responses ----------------
