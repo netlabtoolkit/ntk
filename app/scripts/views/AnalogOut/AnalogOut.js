@@ -35,7 +35,10 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				outputMapping: options.outputMapping,
 				activeOut: false,
 				port: this.model.get('port') || 3030,
-				gammaCorrect: this.model.get('gammaCorrect') || false,
+				// On by default now (was off) - `|| true` would ignore a
+				// saved `false` (false || true is still true), so this
+				// checks "was anything saved at all" instead.
+				gammaCorrect: this.model.get('gammaCorrect') !== undefined ? this.model.get('gammaCorrect') : true,
 				gammaValue: this.model.get('gammaValue') || 2.8,
 			});
 
@@ -274,10 +277,11 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
         // more sensitive to changes at low duty cycles), so a linear
         // "in" value looks like it jumps straight to bright and then
         // barely changes for the rest of the dial's range unless
-        // compressed like this. Off by default (gammaCorrect: false in
-        // initialize()) - must not silently change behavior for a
-        // saved patch driving something that isn't an LED (a motor
-        // speed controller, for instance), where linear PWM is correct.
+        // compressed like this. On by default (gammaCorrect: true in
+        // initialize(), per Phil's own call - most AnalogOut use is
+        // driving an LED) - uncheck it in the more panel for something
+        // that isn't an LED (a motor speed controller, for instance),
+        // where linear PWM is correct instead.
         gammaCorrect: function(input, attrs) {
             if (!attrs.gammaCorrect) return input;
             // rv-value binds a text input as a string (see CLAUDE.md's
