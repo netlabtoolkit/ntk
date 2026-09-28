@@ -430,6 +430,33 @@ def _load_standalone_patch(for_live_client=False):
 
     print("Loading standalone patch...")
 
+    # This file must ship as standalone_interpreter.mpy only (see that
+    # file's own module docstring) - but CircuitPython's import prefers
+    # a same-named .py over a .mpy when BOTH exist in the same
+    # directory, so a stray .py (e.g. left over from Thonny, or an old
+    # dev deploy) silently shadows every .mpy update from then on, with
+    # no error and nothing in the console to suggest why. Hit for real
+    # 2026-09-28: a stale .py from days earlier shadowed several rounds
+    # of .mpy updates - `import standalone_interpreter` kept returning
+    # code from the wrong file, only caught by directly querying
+    # PORTABLE_TYPE_IDS over the REPL. Self-heal here instead of
+    # silently misbehaving again: a .py with this exact name should
+    # never legitimately exist on a deployed device, so just remove it.
+    try:
+        os.stat("standalone_interpreter.py")
+        print("WARNING: standalone_interpreter.py found on device - this shadows standalone_interpreter.mpy and should never exist here. Deleting it.")
+        try:
+            os.remove("standalone_interpreter.py")
+        except OSError as e:
+            # Expected on a default (host-writable) setup - this board
+            # is read-only from code unless NTK_REMOUNT_FOR_CODE_WRITES
+            # is set (see boot.py). Delete it yourself via Finder/Thonny
+            # instead - it'll keep shadowing every .mpy update until
+            # then.
+            print("WARNING: couldn't delete it (%s) - delete standalone_interpreter.py yourself via Finder/Thonny, or every future .mpy update will keep being silently ignored." % e)
+    except OSError:
+        pass  # normal case - no stray .py present
+
     try:
         from standalone_interpreter import StandaloneInterpreter, load_patch_file
     except ImportError:
