@@ -40,21 +40,33 @@ module.exports = function(attributes) {
 		this.averageInputs = {};
 		this.pendingSum = {};
 		this.pendingCount = {};
-		// Self-echo suppression (see the 'message' handler below) -
-		// MQTT 3.1.1 has no way to tell a broker "don't deliver my own
-		// publishes back to me" (that's an MQTT5 subscribe option this
-		// protocol version doesn't have), so a client subscribed to the
-		// same topic it publishes to receives its own messages back as
-		// ordinary incoming ones. Without this, a CloudIn pointed at the
-		// same topic as a CloudOut on the same broker (a natural thing
-		// to do when testing round-trip) creates a real feedback loop:
-		// publish -> broker echoes it back -> looks like a genuine new
-		// value -> republished -> echoed again... Found 2026-09-24,
-		// most visible as averaging looking broken (a real N-sample
-		// average publishes correctly, immediately followed by a
-		// spurious "1-sample average" of that same value).
+		// Feedback-loop guard - see set() below for where this is
+		// actually checked. MQTT 3.1.1 has no way to tell a broker
+		// "don't deliver my own publishes back to me" (that's an MQTT5
+		// subscribe option this protocol version doesn't have), so a
+		// client subscribed to the same topic it publishes to receives
+		// its own messages back as ordinary incoming ones - if CloudIn's
+		// output is wired back into CloudOut's input on that same topic,
+		// that creates a real feedback loop: publish -> broker echoes it
+		// back -> CloudIn applies it -> republished -> echoed again...
+		// Found 2026-09-24.
+		//
+		// Originally guarded on the INBOUND side instead (CloudIn
+		// discarding anything matching its own model's recent publish) -
+		// replaced 2026-09-29 because that blocked a legitimate, distinct
+		// case: a CloudIn simply pointed at the same topic as a CloudOut
+		// to watch round-trip, with nothing wired back into CloudOut at
+		// all - no loop risk there, but the old inbound check couldn't
+		// tell the two situations apart and silently dropped CloudOut's
+		// own publishes from CloudIn's view either way. Guarding the
+		// REPUBLISH instead (in set(), below) targets the actual loop
+		// mechanism - a received value flowing straight back out
+		// unchanged - so CloudIn now always sees genuine incoming
+		// values, including a CloudOut's on the same topic.
 		this.lastPublishedValue = {};
 		this.lastPublishedAt = {};
+		this.lastReceivedValue = {};
+		this.lastReceivedAt = {};
 
 		return this;
 	};
@@ -81,6 +93,24 @@ module.exports = function(attributes) {
 			var username = options && options.username,
 				password = options && options.password,
 				tls = !!(options && options.tls);
+
+			// Refuse to even try with no real host configured - CloudOut's
+			// own default is a blank host, and setIOMode() calls connect()
+			// unconditionally (see its own comment) any time a field
+			// changes while activeOut happens to be true, or from a
+			// premature/accidental activation before the more panel is
+			// filled in. Without this, a blank address builds the URL
+			// "mqtt://:1883", which Node's own net/URL handling silently
+			// treats as localhost - producing an mqtt.js client that
+			// retries against 127.0.0.1 every reconnectPeriod (5s)
+			// forever, with nothing short of restarting NTK to stop it,
+			// against a broker that was never actually configured. Found
+			// 2026-09-29 via exactly that symptom in the console.
+			if (!address) {
+				console.log('[Cloud] connect() called with no host set for', this.address, '- refusing (nothing to connect to)');
+				this.emit('status', {connected: false, error: 'No broker host set'});
+				return;
+			}
 
 			if (this.client) {
 				// A client already exists for this broker - normally a
@@ -199,20 +229,12 @@ module.exports = function(attributes) {
 			this.client.on('message', function(topic, payload) {
 				var value = payload.toString();
 
-				// Self-echo suppression - see the constructor comment on
-				// lastPublishedValue/lastPublishedAt. A 5s window is
-				// generous relative to any realistic sendInterval,
-				// deliberately: a genuine external publisher happening
-				// to send the exact same value we just did, within 5s of
-				// our own publish, on OUR OWN topic, is a coincidence
-				// worth risking - the alternative (no suppression) is a
-				// guaranteed infinite feedback loop whenever CloudIn/
-				// CloudOut share a topic, which is real and was hit
-				// tonight, not hypothetical.
-				if (self.lastPublishedValue[topic] === value && (Date.now() - (self.lastPublishedAt[topic] || 0)) < 5000) {
-					console.log('[Cloud] suppressing self-echo on', topic, '=', value);
-					return;
-				}
+				// Tracked for set()'s own feedback-loop guard (see the
+				// constructor comment) - recorded unconditionally, before
+				// anything else, so the guard sees every inbound value
+				// regardless of whether it changed this.receiving below.
+				self.lastReceivedValue[topic] = value;
+				self.lastReceivedAt[topic] = Date.now();
 
 				if (self.receiving[topic] !== value) {
 					self.receiving[topic] = value;
@@ -241,6 +263,27 @@ module.exports = function(attributes) {
 		// sees every one of them.
 		set: function(field, value) {
 			if (!this.client) {
+				return this;
+			}
+
+			// Feedback-loop guard - see the constructor comment. Skip
+			// entirely (don't even update 'sending' or accumulate into
+			// the averaging state below) if this exact value was JUST
+			// received on this exact topic - almost certainly a value
+			// flowing straight back out from a wired CloudIn, not a
+			// genuine new value to publish. String() on both sides:
+			// lastReceivedValue is always a string (payload.toString()
+			// in the 'message' handler), value here is often a raw
+			// number from the widget's own field. 2000ms is short
+			// relative to the old inbound suppression's 5s window,
+			// deliberately - a real feedback loop round-trips through
+			// the broker in well under a second, so this only needs to
+			// cover that, not "any realistic sendInterval" the way the
+			// old check did - a narrower window means less risk of ever
+			// skipping a genuine, coincidentally-identical republish
+			// from unrelated logic.
+			if (String(this.lastReceivedValue[field]) === String(value) && (Date.now() - (this.lastReceivedAt[field] || 0)) < 2000) {
+				console.log('[Cloud] skipping republish of', field, '=', value, '- just received on this same topic (feedback-loop guard)');
 				return this;
 			}
 

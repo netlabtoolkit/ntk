@@ -56,9 +56,30 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 				// dial (see plans/cloud-widgets.md for the back-and-forth
 				// that landed here).
 				displayOut: 0,
+				// Countdown to the next possible send - restored
+				// 2026-09-29 from the pre-MQTT-rewrite CloudOut, which had
+				// this (plus the red flash restored below) before the
+				// rewrite dropped both. Purely a local display computed
+				// from lastPublishedAt (see onHardwarePublished) and
+				// sendInterval, via updateSendCountdown()'s frame
+				// callback below - not synced from the server, since the
+				// 'published' broadcast every client already receives is
+				// enough to keep this in sync on its own.
+				sendCountdownText: '',
 			});
 
             this.signalChainFunctions.push(SignalChainFunctions.roundToInt);
+
+			// lastPublishedAt: instance state, not a model field - only
+			// updateSendCountdown() below reads it, so there's no reason
+			// to network-sync or persist it. 0 means "never published
+			// yet this session" (updateSendCountdown treats that as
+			// nothing to count down).
+			this.lastPublishedAt = 0;
+			this.localSendCountdownFunc = function(frameCount) {
+				this.updateSendCountdown();
+			}.bind(this);
+			window.app.timingController.registerFrameCallback(this.localSendCountdownFunc, this);
 
 			// See AnalogOut.js - the widget effectively has no local
 			// output of its own (it only writes out to the cloud, and
@@ -100,17 +121,30 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			// real send, per explicit request: "show the just sent
 			// value and stay there until the next send... shows the
 			// average all the time at each interval and when settle
-			// happens shows that value." The color flash is just a
+			// happens shows that value." The flash-then-fade is just a
 			// brief attention cue on top of that, not what shows the
 			// value - the number change itself is the persistent part.
+			// Red (not the prior green) + an actual CSS fade (Widget.scss's
+			// .cloudOut .outvalue transition), not an abrupt revert -
+			// restored 2026-09-29 to match the pre-MQTT-rewrite CloudOut's
+			// own flash-then-fade behavior (that version had no CSS
+			// transition either, just an abrupt color reset after 300ms -
+			// this is the same red flash with a real fade added, which is
+			// how it was actually remembered/described).
 			this.onHardwarePublished = function(data) {
 				if (data.modelType === this.getHardwareKey() && data.field === this.model.get('outputMapping')) {
 					this.model.set('displayOut', data.value);
-					this.$('.outvalue').css('color', '#2e7d32');
+					this.lastPublishedAt = Date.now();
+					// Toggling a class (not inline color directly) is what
+					// makes the flash instant - see Widget.scss's
+					// .outvalue.flashRed comment for why a plain
+					// .css('color', ...) call fought its own fade
+					// transition and never actually reached red.
+					this.$('.outvalue').addClass('flashRed');
 					clearTimeout(this.publishFlashTimeout);
 					this.publishFlashTimeout = setTimeout(function() {
-						this.$('.outvalue').css('color', '');
-					}.bind(this), 300);
+						this.$('.outvalue').removeClass('flashRed');
+					}.bind(this), 200);
 				}
 			}.bind(this);
 			window.app.vent.on('hardwarePublished', this.onHardwarePublished);
@@ -119,6 +153,27 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			window.app.vent.off('hardwareStatus', this.onHardwareStatus);
 			window.app.vent.off('hardwarePublished', this.onHardwarePublished);
 			clearTimeout(this.publishFlashTimeout);
+			window.app.timingController.removeFrameCallback(this.localSendCountdownFunc, this);
+		},
+		// Recomputes sendCountdownText from lastPublishedAt/sendInterval -
+		// called every frame (registerFrameCallback above), but only
+		// actually touches the model (and so the DOM, via rivets)
+		// when the rounded-to-a-tenth-of-a-second text would actually
+		// change, same "don't thrash the DOM every frame for a value
+		// that only needs ~10 updates/sec" reasoning the pre-rewrite
+		// version's own 100ms-gated timeKeeper had.
+		updateSendCountdown: function() {
+			var sendInterval = parseInt(this.model.get('sendInterval'), 10) || 0;
+			var text = '';
+
+			if (this.model.get('activeOut') && sendInterval > 0) {
+				var remaining = sendInterval - (Date.now() - this.lastPublishedAt);
+				text = 'send in ' + (Math.max(remaining, 0) / 1000).toFixed(1) + 's';
+			}
+
+			if (this.model.get('sendCountdownText') !== text) {
+				this.model.set('sendCountdownText', text);
+			}
 		},
 		// Overrides WidgetMulti.js's base setFromModel (called by
 		// PatchLoader when a saved patch loads) - the base version

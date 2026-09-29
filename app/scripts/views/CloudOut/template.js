@@ -18,6 +18,7 @@
             <div style="position:relative;"><input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/></div>
         </div>
         <br><div class='timeLeft' rv-class-cloudconnected="widget:cloudConnected" rv-text="widget:cloudConnected | cloudStatusText"></div>
+        <div class='sendCountdown' rv-text="widget:sendCountdownText"></div>
 
     </div>
 

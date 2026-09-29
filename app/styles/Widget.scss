@@ -2246,3 +2246,43 @@ body.ntk-monitoring .monitorBlockOverlay {
         }
     }
 }
+
+.cloudOut {
+    // Countdown-to-next-send + a real fade on the flash-to-red cue,
+    // restored 2026-09-29 from the pre-MQTT-rewrite CloudOut (see
+    // CloudOut.js's own comments for the fuller history) - that
+    // version reverted color with an abrupt setTimeout, no CSS
+    // transition; this adds one so the red genuinely fades out rather
+    // than snapping back.
+    //
+    // The transition lives on .outvalue itself (applies to the FADE
+    // BACK, when .flashRed below is removed), but .flashRed's own
+    // "transition: none" is what makes going TO red instant - without
+    // it, the same transition would also apply going in, so a flash
+    // held for less than the full 0.8s (CloudOut.js's own timeout)
+    // never actually reaches red, just a barely-visible blip toward it
+    // before reversing. Found 2026-09-29 testing this restoration live.
+    .outvalue {
+        transition: color 0.8s ease-out;
+    }
+    .outvalue.flashRed {
+        color: #ff0000;
+        transition: none;
+    }
+
+    .sendCountdown {
+        margin-left: 5px;
+        color: #888;
+    }
+
+    // One more stacked line under the dial than CloudIn (which only
+    // ever shows .timeLeft) needs a touch more room - no floated
+    // children here (the .display divs are position:absolute, not
+    // floated), so plain height:auto is enough, no clearfix needed
+    // (contrast the .widgetBodyLeft/Right float-clearing case
+    // elsewhere in this file).
+    .widgetBody {
+        height: auto;
+        min-height: 110px;
+    }
+}

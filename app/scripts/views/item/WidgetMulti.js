@@ -167,7 +167,31 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				this.enableDevice();
 			}
 
-			if(outputMapping) {
+			// CloudIn/CloudOut are excluded from both blocks below - they
+			// manage their own hardware addressing entirely through their
+			// own getHardwareKey()/enableDevice() (host+port, not the
+			// generic 'server' field getDeviceServerName()/Port() below
+			// assume), and mirror their own 'topic' field into
+			// outputMapping too (a naming leftover, not a real pin
+			// mapping) - so this generic fallback logic doesn't just
+			// duplicate their own correct hardware-switch call, it
+			// actively sends a WRONG one: getDeviceServerName() falls
+			// back to the literal string '127.0.0.1' when there's no
+			// 'server' field (which Cloud widgets never have, they use
+			// 'host' instead), and the resulting Widget:hardwareSwitch
+			// carries no username/password/tls/sendInterval either. That
+			// produces a real, spurious MQTT connection attempt to
+			// 127.0.0.1 - with reconnectPeriod:5000, retrying forever -
+			// the instant a user types into CloudOut/CloudIn's topic
+			// field, regardless of what's actually in the host field or
+			// whether the widget's own activeOut/active checkbox is even
+			// on. Found 2026-09-29 via exactly that symptom in the
+			// console. typeof this.getHardwareKey is used as the guard
+			// (not a typeID check) since that method is unique to
+			// CloudIn/CloudOut - no other widget defines it.
+			var managesOwnHardwareAddress = (typeof this.getHardwareKey === 'function');
+
+			if(outputMapping && !managesOwnHardwareAddress) {
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
 				// Do this for all sources and include the address of the source
 				for(var i=this.sources.length-1; i>=0; i--) {
@@ -184,7 +208,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 
 			var inputMapping = model.changedAttributes().inputMapping;
-			if(inputMapping) {
+			if(inputMapping && !managesOwnHardwareAddress) {
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
 				// Do this for all sources and include the address of the source
 				for(var i=this.sources.length-1; i>=0; i--) {
