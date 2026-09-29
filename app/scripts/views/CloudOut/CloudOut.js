@@ -135,16 +135,70 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 				if (data.modelType === this.getHardwareKey() && data.field === this.model.get('outputMapping')) {
 					this.model.set('displayOut', data.value);
 					this.lastPublishedAt = Date.now();
+
 					// Toggling a class (not inline color directly) is what
-					// makes the flash instant - see Widget.scss's
+					// makes each flash instant - see Widget.scss's
 					// .outvalue.flashRed comment for why a plain
 					// .css('color', ...) call fought its own fade
 					// transition and never actually reached red.
-					this.$('.outvalue').addClass('flashRed');
+					//
+					// Inline 'transition: none' is held for the ENTIRE
+					// blink+hold phase below, not just relying on
+					// .flashRed's own "transition: none" rule - removing
+					// that class on a blink-OFF toggle would otherwise
+					// fall back to .outvalue's base 0.8s transition (no
+					// override in effect at that moment), so each blink
+					// was a barely-visible partial fade interrupted 90ms
+					// later by the next toggle, not a clean flash. Only
+					// replaced with a real duration at the very end, when
+					// the actual fade-out starts. Found 2026-09-29 - the
+					// multi-blink version's very first attempt looked like
+					// a static, barely-changing red instead of blinking.
+					var self = this;
+					var $outvalue = this.$('.outvalue');
+					$outvalue.css('transition', 'none');
 					clearTimeout(this.publishFlashTimeout);
-					this.publishFlashTimeout = setTimeout(function() {
-						this.$('.outvalue').removeClass('flashRed');
-					}.bind(this), 200);
+					clearInterval(this.publishBlinkInterval);
+
+					// Blink a few times before settling, to actually draw
+					// the eye - a single flash was easy to miss, explicit
+					// request 2026-09-29. blinkToggles counts DOWN on
+					// every toggle (on AND off both count), so an odd
+					// starting count always ends on an "off" toggle right
+					// before the explicit addClass below forces it back on
+					// for the hold+fade - the exact parity doesn't matter
+					// because that final addClass is unconditional, not
+					// relying on where the toggling happened to land.
+					var blinkToggles = 5;
+					$outvalue.addClass('flashRed');
+					this.publishBlinkInterval = setInterval(function() {
+						blinkToggles--;
+						$outvalue.toggleClass('flashRed');
+						if (blinkToggles <= 0) {
+							clearInterval(self.publishBlinkInterval);
+							$outvalue.addClass('flashRed');
+							self.publishFlashTimeout = setTimeout(function() {
+								// Fade duration tracks the countdown to the
+								// next send (clamped to a sane range)
+								// instead of a fixed short duration - found
+								// via Phil's own feedback 2026-09-29 that a
+								// fixed fade finished well before the
+								// actual countdown did, making the flash
+								// feel disconnected from the timer it's
+								// supposed to reflect. Set as an inline
+								// style HERE (removing the class, not
+								// adding it) - it has to happen at this
+								// exact point, not when .flashRed was
+								// added, or it would override that class's
+								// own "transition: none" and slow down the
+								// flash-TO-red too (the same bug this whole
+								// toggled-class approach was built to avoid).
+								var sendInterval = parseInt(self.model.get('sendInterval'), 10) || 0;
+								var fadeSeconds = Math.min(Math.max((sendInterval - 200) / 1000, 0.3), 4);
+								$outvalue.css('transition', 'color ' + fadeSeconds + 's ease-out').removeClass('flashRed');
+							}, 200);
+						}
+					}, 90);
 				}
 			}.bind(this);
 			window.app.vent.on('hardwarePublished', this.onHardwarePublished);
@@ -153,6 +207,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			window.app.vent.off('hardwareStatus', this.onHardwareStatus);
 			window.app.vent.off('hardwarePublished', this.onHardwarePublished);
 			clearTimeout(this.publishFlashTimeout);
+			clearInterval(this.publishBlinkInterval);
 			window.app.timingController.removeFrameCallback(this.localSendCountdownFunc, this);
 		},
 		// Recomputes sendCountdownText from lastPublishedAt/sendInterval -

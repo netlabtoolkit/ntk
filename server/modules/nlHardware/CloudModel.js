@@ -89,10 +89,23 @@ module.exports = function(attributes) {
 		// already use for widget-specific extras beyond port/mode). See
 		// the guard below for exactly when a later call is allowed to
 		// take over vs. treated as a no-op.
-		connect: function connect(options) {
+		connect: function connect(options, mode) {
 			var username = options && options.username,
 				password = options && options.password,
 				tls = !!(options && options.tls);
+
+			// This connection is shared by every widget pointed at the
+			// same host:port (see the module docstring) - a CloudIn and
+			// a CloudOut on the same broker really can share one
+			// instance, so this prefix can't be guaranteed correct in
+			// every case. It's the mode of whichever call most recently
+			// triggered connect() (setIOMode passes its own 'in'/'out'
+			// straight through) - accurate for the overwhelmingly common
+			// case of debugging one widget's own connection attempts,
+			// which is what Phil actually asked for 2026-09-29 (plain
+			// "[Cloud]" on every line made it impossible to tell CloudIn
+			// and CloudOut's own attempts apart in the console).
+			var prefix = mode === 'in' ? '[CloudIn]' : mode === 'out' ? '[CloudOut]' : '[Cloud]';
 
 			// Refuse to even try with no real host configured - CloudOut's
 			// own default is a blank host, and setIOMode() calls connect()
@@ -107,7 +120,7 @@ module.exports = function(attributes) {
 			// against a broker that was never actually configured. Found
 			// 2026-09-29 via exactly that symptom in the console.
 			if (!address) {
-				console.log('[Cloud] connect() called with no host set for', this.address, '- refusing (nothing to connect to)');
+				console.log(prefix, 'connect() called with no host set for', this.address, '- refusing (nothing to connect to)');
 				this.emit('status', {connected: false, error: 'No broker host set'});
 				return;
 			}
@@ -162,7 +175,7 @@ module.exports = function(attributes) {
 					return;
 				}
 
-				console.log('[Cloud] retrying with different credentials for', this.address, '- previous attempt never connected');
+				console.log(prefix, 'retrying with different credentials for', this.address, '- previous attempt never connected');
 				this.client.end(true);
 				this.client = null;
 			}
@@ -174,7 +187,7 @@ module.exports = function(attributes) {
 			// like the same broker (whitespace, casing, etc.), which
 			// would create two separate model instances that each pass
 			// the guard above independently.
-			console.log('[Cloud] connect() called for instance key:', this.address);
+			console.log(prefix, 'connect() called for instance key:', this.address);
 
 			this._lastUsername = username;
 			this._lastPassword = password;
@@ -192,12 +205,12 @@ module.exports = function(attributes) {
 			var self = this;
 			this.client = mqtt.connect(url, connectOptions);
 
-			console.log('[Cloud] connecting to', url, '(username: ' + (username || '<none>') + ')');
+			console.log(prefix, 'connecting to', url, '(username: ' + (username || '<none>') + ')');
 
 			this.client.on('connect', function(connack) {
 				self.connected = true;
 				self.everConnected = true;
-				console.log('[Cloud] connected to', url, connack);
+				console.log(prefix, 'connected to', url, connack);
 				// 'status' is a generic event any hardware model can emit
 				// (see nlMultiClientSync.js's bindModelToTransport) -
 				// separate from 'change', which is reserved for actual
@@ -213,17 +226,17 @@ module.exports = function(attributes) {
 			});
 			this.client.on('reconnect', function() {
 				self.connected = false;
-				console.log('[Cloud] reconnecting to', url);
+				console.log(prefix, 'reconnecting to', url);
 				self.emit('status', {connected: false, reconnecting: true});
 			});
 			this.client.on('close', function() {
 				self.connected = false;
-				console.log('[Cloud] connection closed:', url);
+				console.log(prefix, 'connection closed:', url);
 				self.emit('status', {connected: false});
 			});
 			this.client.on('error', function(err) {
 				self.connected = false;
-				console.log('[Cloud] error on', url, '-', String(err && err.message || err));
+				console.log(prefix, 'error on', url, '-', String(err && err.message || err));
 				self.emit('status', {connected: false, error: String(err && err.message || err)});
 			});
 			this.client.on('message', function(topic, payload) {
@@ -283,7 +296,7 @@ module.exports = function(attributes) {
 			// skipping a genuine, coincidentally-identical republish
 			// from unrelated logic.
 			if (String(this.lastReceivedValue[field]) === String(value) && (Date.now() - (this.lastReceivedAt[field] || 0)) < 2000) {
-				console.log('[Cloud] skipping republish of', field, '=', value, '- just received on this same topic (feedback-loop guard)');
+				console.log('[CloudOut] skipping republish of', field, '=', value, '- just received on this same topic (feedback-loop guard)');
 				return this;
 			}
 
@@ -319,7 +332,7 @@ module.exports = function(attributes) {
 				var toSend = self.averageInputs[field]
 					? Math.round(self.pendingSum[field] / self.pendingCount[field])
 					: self.sending[field];
-				console.log('[Cloud] publishing', field, '=', toSend, '(averaged over', self.pendingCount[field], 'samples, sum:', self.pendingSum[field], ')');
+				console.log('[CloudOut] publishing', field, '=', toSend, '(averaged over', self.pendingCount[field], 'samples, sum:', self.pendingSum[field], ')');
 				self.pendingSum[field] = 0;
 				self.pendingCount[field] = 0;
 				self.lastPublishedValue[field] = String(toSend);
@@ -388,7 +401,7 @@ module.exports = function(attributes) {
 				}
 				var settledValue = self.sending[field];
 				if (self.client && String(settledValue) !== self.lastPublishedValue[field]) {
-					console.log('[Cloud] settle publish', field, '=', settledValue, '(last published was', self.lastPublishedValue[field], ')');
+					console.log('[CloudOut] settle publish', field, '=', settledValue, '(last published was', self.lastPublishedValue[field], ')');
 					self.lastPublishedValue[field] = String(settledValue);
 					self.lastPublishedAt[field] = Date.now();
 					self.client.publish(field, String(settledValue));
@@ -405,7 +418,7 @@ module.exports = function(attributes) {
 		// on the first call for a given widget (CloudIn.js/CloudOut.js
 		// send them on every enableDevice(), not just the first).
 		setIOMode: function setIOMode(topic, mode, options) {
-			this.connect(options);
+			this.connect(options, mode);
 
 			if (mode == 'in') {
 				if (this.receiving[topic] === undefined) {
