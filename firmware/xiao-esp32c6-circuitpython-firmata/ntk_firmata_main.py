@@ -9,7 +9,7 @@ repo, which already expects exactly this).
 
 Setup:
 1. Copy code.py, this file, firmata_server.py, and pins.py onto the
-   CIRCUITPY drive, and copy settings.toml.example to settings.toml
+   CIRCUITPY drive, and copy settings-example.toml to settings.toml
    (also on CIRCUITPY) with your own WiFi credentials filled in.
 2. Watch the serial console for the IP address DHCP assigns this board.
 3. In NTK, add an AnalogIn/AnalogOut/DigitalIn/DigitalOut/Servo widget,

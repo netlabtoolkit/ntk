@@ -42,7 +42,7 @@ const FIRMWARE_SRC_DIR = path.join(__dirname, '..', 'firmware', 'xiao-esp32c6-ci
 // mpy-cross rule). Never bundle both - CircuitPython's import
 // resolution between a same-named .py and .mpy in one directory isn't
 // something to rely on; ship only the one that's actually safe.
-const FIRMWARE_FILES = ['boot.py', 'code.py', 'ntk_firmata_main.py', 'firmata_server.py', 'oled_display.py', 'pins.py', 'standalone_interpreter.mpy', 'settings.toml.example'];
+const FIRMWARE_FILES = ['boot.py', 'code.py', 'ntk_firmata_main.py', 'firmata_server.py', 'oled_display.py', 'pins.py', 'standalone_interpreter.mpy', 'settings-example.toml'];
 const CIRCUITPYTHON_README = `# CircuitPython firmware for the Seeed XIAO ESP32-C6
 
 Turns a Seeed XIAO ESP32-C6 into an NTK "Network" device over WiFi - no
@@ -59,7 +59,7 @@ Arduino IDE, no C++, just these files copied onto the board.
 2. In Thonny's file browser, copy \`code.py\`, \`ntk_firmata_main.py\`,
    \`firmata_server.py\`, and \`pins.py\` from this folder onto the
    board, overwriting any existing \`code.py\`.
-3. Copy \`settings.toml.example\` to \`settings.toml\` on the board the
+3. Copy \`settings-example.toml\` to \`settings.toml\` on the board the
    same way, and edit it there to fill in your WiFi network name and
    password.
 4. The board resets and runs automatically. Watch its serial console

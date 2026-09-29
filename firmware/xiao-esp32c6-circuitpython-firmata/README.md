@@ -29,7 +29,7 @@ files on the device over its serial/REPL connection instead.
 1. In Thonny's file browser, copy `code.py`, `ntk_firmata_main.py`,
    `firmata_server.py`, and `pins.py` onto the board (overwriting any
    existing `code.py`).
-2. Copy `settings.toml.example` to `settings.toml` on the board the same
+2. Copy `settings-example.toml` to `settings.toml` on the board the same
    way, and fill in your WiFi SSID/password.
 3. The board will reset and run `code.py` automatically. Watch the
    serial console (e.g. `screen /dev/tty.usbmodem* 115200` on macOS, or

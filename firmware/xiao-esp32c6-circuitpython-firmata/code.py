@@ -130,7 +130,7 @@ def _connect_station():
     if not ssid:
         print(
             "NTK_WIFI_SSID not set in settings.toml - can't join a WiFi "
-            "network (copy settings.toml.example and fill it in)"
+            "network (copy settings-example.toml and fill it in)"
         )
         return
     print("Connecting to WiFi:", ssid)
