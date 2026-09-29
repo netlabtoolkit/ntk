@@ -15,8 +15,7 @@ Anything not on that list — camera/ML widgets (FaceTrack, PoseRecog, ObjectRec
 ## Exporting a patch
 
 1. Build your patch using only supported widgets (see above), wired to real hardware pins the way you normally would.
-2. Open the Settings drawer and click **Export Standalone**.
-3. If every widget is supported, this downloads `standalone_patch.json`. If something isn't, you get an alert listing exactly which widgets to remove or replace — nothing downloads until the patch is fully compatible.
+2. Open the Settings drawer and click **Export** - it downloads `standalone_patch.json` directly (the same button used for exporting any patch; it doesn't check widget compatibility itself - Push does, see the newer `standalone-patch-export.md` doc for the current Push/Pull workflow, which supersedes the manual-copy-only description below).
 
 ## Deploying it to the board
 

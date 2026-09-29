@@ -49,7 +49,7 @@
 
 
 
-	.downloadPatch, .downloadStandalonePatch, .pushPatchToDevice, .pullPatchFromDevice, .monitorDevice,
+	.downloadPatch, .pushPatchToDevice, .pullPatchFromDevice, .monitorDevice,
 	.loadPatch, .savePatch, .hideWidgets, .clearPatch, .fullScreen, .logo {
 		float: left;
 		width: calc(75px - 20px);
@@ -63,10 +63,39 @@
 		cursor: pointer;
 	}
 
-	.loadPatch, .savePatch, .downloadPatch, .downloadStandalonePatch, .pushPatchToDevice, .pullPatchFromDevice, .monitorDevice, .hideWidgets, .fullScreen, .clearPatch, .logo {
+	.loadPatch, .savePatch, .downloadPatch, .pushPatchToDevice, .pullPatchFromDevice, .monitorDevice, .hideWidgets, .fullScreen, .clearPatch, .logo {
 		background-color: dimgrey;
 		border-bottom: 1px solid grey;
 		margin-bottom: 0;
+	}
+
+	// Push/Pull/Monitor visually grouped into one box (was three more
+	// full-width stacked buttons indistinguishable from every other
+	// toolbar entry - crowded, and gave no hint they're a related set
+	// of device actions) - found via Phil's own "toolbar has gotten
+	// crowded" feedback 2026-09-28. clear:both/overflow:hidden clips
+	// the floated buttons inside within this box's own border, same
+	// float-containment issue documented elsewhere in this file
+	// (.widgetBottom's clearfix comment).
+	.deviceButtonGroup {
+		clear: both;
+		overflow: hidden;
+		margin: 4px 10px 4px 10px;
+		border: 1px solid grey;
+		border-radius: 3px;
+
+		.groupLabel {
+			clear: both;
+			padding: 4px 10px 2px 10px;
+			font-size: 0.6em;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			color: #aaa;
+		}
+
+		.monitorDevice {
+			border-bottom: none;
+		}
 	}
 
 	.monitorDevice.monitorActive {

@@ -108,7 +108,6 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 			window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
 			window.app.vent.on('ToolBar:savePatch', this.savePatch, this);
 			window.app.vent.on('ToolBar:exportPatch', this.exportPatch, this);
-			window.app.vent.on('ToolBar:exportStandalonePatch', this.exportStandalonePatch, this);
 			window.app.vent.on('ToolBar:pushPatchToDevice', this.pushPatchToDevice, this);
 			window.app.vent.on('ToolBar:pullPatchFromDevice', this.pullPatchFromDevice, this);
 			window.app.vent.on('pushPatchResult', this.onPushPatchResult, this);
@@ -1037,47 +1036,28 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 		savePatch: function() {
 			window.app.vent.trigger('savePatchToServer', {collection: this.widgetModels, mappings: this.widgetMappings});
 		},
+    // Filename matches STANDALONE_PATCH_PATH (ntk_firmata_main.py) so
+    // an exported patch can be dropped straight onto CIRCUITPY with no
+    // rename - exportStandalonePatch() (removed 2026-09-28, was
+    // functionally identical to this except for a compatibility
+    // pre-check and a different filename) used to be the dedicated way
+    // to get that filename. No compatibility check here deliberately -
+    // this button is for ANY patch, including ones that were never
+    // meant to run standalone (FaceTrack/LLM/HTML/etc, browser-only
+    // widgets); the device itself already rejects an incompatible
+    // standalone_patch.json with a clear console message (see
+    // ntk_firmata_main.py's _load_standalone_patch()) if you do push
+    // one that can't run there - Push to Device (pushPatchToDevice,
+    // below) still has its own StandaloneCompatibility pre-check, since
+    // that action specifically means "run this standalone."
     exportPatch: function() {
       var patch = {
         widgets: this.widgetModels.toJSON(),
         mappings: this.widgetMappings,
       };
 
-			this.downloadPatchAsFile(patch, 'patch.ntk');
-    },
-		/**
-		 * exportStandalonePatch - like exportPatch, but for a patch meant to
-		 * run on the device's own on-device interpreter with no host
-		 * present. Rejects clearly (see plans/standalone-patch-export.md's
-		 * "Grounding facts") rather than silently downloading a patch the
-		 * device can't actually run, and names exactly which widgets are
-		 * the problem.
-		 *
-		 * @return {void}
-		 */
-		exportStandalonePatch: function() {
-			var patch = {
-				widgets: this.widgetModels.toJSON(),
-				mappings: this.widgetMappings,
-			};
-
-			var result = StandaloneCompatibility.checkPatch(patch);
-
-			if(!result.compatible) {
-				var widgetList = _.map(result.unsupportedWidgets, function(widget) {
-					return (widget.title || widget.typeID) + ' (' + widget.typeID + ')';
-				}).join('\n');
-
-				alert(
-					'This patch can\'t be exported for standalone use - it uses widgets ' +
-					'the on-device interpreter doesn\'t support yet:\n\n' + widgetList
-				);
-
-				return;
-			}
-
 			this.downloadPatchAsFile(patch, 'standalone_patch.json');
-		},
+    },
 		/**
 		 * getActiveNetworkDeviceKey - the hardwareKey (e.g.
 		 * "network:192.168.0.145:3030") of the CircuitPython WiFi device
@@ -1275,7 +1255,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 			this.loadPatch(result.patch);
 		},
 		/**
-		 * downloadPatchAsFile - shared by exportPatch/exportStandalonePatch.
+		 * downloadPatchAsFile - called by exportPatch.
 		 * Built and downloaded entirely client-side (Blob + a throwaway
 		 * <a download>), NOT round-tripped through the server's
 		 * GET /patch.ntk?patch=<entire JSON as a URL-encoded query

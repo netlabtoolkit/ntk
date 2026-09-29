@@ -1,10 +1,10 @@
 # Standalone patch export
 
-Normally your patch's logic runs on your computer, and NTK talks to the board over WiFi for every value. **Export Standalone** puts the patch's logic directly on the board instead, so it keeps running entirely on its own — no computer needed once it's deployed.
+Normally your patch's logic runs on your computer, and NTK talks to the board over WiFi for every value. **Exporting** a patch and copying it onto the board puts the patch's logic directly on the board instead, so it keeps running entirely on its own — no computer needed once it's deployed.
 
 ## Which widgets work
 
-AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, GroveIn, IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse, Sequence, Tween, Data, OSCIn, OSCOut.
+AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, GroveIn, Display, IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse, Sequence, Tween, Data, OSCIn, OSCOut.
 
 Anything else — camera/ML widgets, speech widgets, LLM, Code, Cloud/Webhook, and desktop-only widgets like Text or Button — can't run standalone.
 
@@ -13,9 +13,9 @@ Anything else — camera/ML widgets, speech widgets, LLM, Code, Cloud/Webhook, a
 ## Exporting and deploying
 
 1. Build your patch using only the supported widgets above.
-2. In the Settings drawer, click **Export Standalone**. If a widget you've used isn't supported, you'll get a list of exactly which ones — fix those first.
-3. This downloads `standalone_patch.json`. Copy it onto the board's `CIRCUITPY` drive, in the same folder as `code.py`.
-4. Reboot the board. It loads the patch and starts running it on its own.
+2. In the Settings drawer, click **Export**. It downloads `standalone_patch.json` directly - the same button as a general "save a copy of this patch" export, since that's all it does now. It doesn't check widget compatibility for you; if you'd rather find out before copying anything to the board, use Push instead (see below), which does check and tells you exactly which widget is unsupported if any are.
+3. Copy the downloaded file onto the board's `CIRCUITPY` drive, in the same folder as `code.py`.
+4. Reboot the board. It loads the patch and starts running it on its own - or, if it used an unsupported widget, prints exactly which one instead of starting.
 
 ## Push and Pull: deploy over WiFi, no USB needed
 
@@ -23,7 +23,7 @@ Once NTK can reach the board over the network, **Push** and **Pull** in the Sett
 
 **Push** sends your current patch straight to the board and restarts it to run that patch immediately.
 
-1. Build your patch using only the supported widgets above (same requirement as Export Standalone) — Push checks this the same way and shows the same list if something's unsupported.
+1. Build your patch using only the supported widgets above — Push checks this before sending and shows exactly which widget is unsupported if something is.
 2. Make sure NTK can reach the board: either a widget's Device picker is already set to Network with the board's address, or the Add Widgets panel's Device picker is — Push connects on its own if nothing's wired up on the canvas yet.
 3. Click **Push to Device** and confirm the dialog.
 4. The board saves the patch, restarts, and starts running it — NTK's connection drops for a moment while it reboots, then reconnects on its own.

@@ -12,7 +12,6 @@ function( app, Backbone, Template, Widgets ) {
 		events: {
 			'click .savePatch': 'savePatch',
 			'click .downloadPatch': 'downloadPatch',
-			'click .downloadStandalonePatch': 'downloadStandalonePatch',
 			'click .pushPatchToDevice': 'pushPatchToDevice',
 			'click .pullPatchFromDevice': 'pullPatchFromDevice',
 			'click .loadPatch': 'showUploadFileDialog',
@@ -332,9 +331,6 @@ function( app, Backbone, Template, Widgets ) {
 			// live in-memory widget models, it was never depending on
 			// the save having happened first.
 			window.app.vent.trigger('ToolBar:exportPatch');
-		},
-		downloadStandalonePatch: function() {
-			window.app.vent.trigger('ToolBar:exportStandalonePatch');
 		},
 		pushPatchToDevice: function() {
 			window.app.vent.trigger('ToolBar:pushPatchToDevice');

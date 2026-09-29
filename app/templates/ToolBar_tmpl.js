@@ -1,12 +1,14 @@
 <div class="settings open">
     <div class="logo"><img src="assets/images/ntk_logo.svg" alt="Netlab Toolkit"></div>
 	<div class="savePatch">Save</div>
-	<div class="loadPatch">Import</div>
     <div class="downloadPatch">Export</div>
-    <div class="downloadStandalonePatch">Export Standalone</div>
-    <div class="pushPatchToDevice">Push to Device</div>
-    <div class="pullPatchFromDevice">Pull from Device</div>
-    <div class="monitorDevice">Monitor Device</div>
+	<div class="loadPatch">Import</div>
+    <div class="deviceButtonGroup">
+        <div class="groupLabel">Device</div>
+        <div class="pushPatchToDevice">Push</div>
+        <div class="pullPatchFromDevice">Pull</div>
+        <div class="monitorDevice">Monitor</div>
+    </div>
 	<div class="clearPatch">Clear</div>
 	<form method="post" enctype="multipart/form-data" action="loadPatch" class="inputForm">
 		<input type="file" name="images" id="patchFileUpload" style="display:none" />
