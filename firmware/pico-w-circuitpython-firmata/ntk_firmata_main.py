@@ -295,7 +295,25 @@ def _check_wifi_still_connected():
     keeps resetting. Station mode only - in AP mode this board IS the
     access point, so wifi.radio.connected (the station-side property)
     doesn't apply the same way. Skipped entirely on a build with no
-    usable nvm."""
+    usable nvm.
+
+    Tried 2026-09-30 (Pico W/RP2040): bracketing the property read below
+    with a freshly armed short watchdog (arm, read wifi.radio.connected,
+    disarm), on the theory that this call - like wifi.radio.ap_info,
+    see _print_rssi()'s comment - might hang rather than raise on this
+    platform. Reverted: it broke the Display widget's live (non-
+    standalone) updates to the physical OLED, which worked before this
+    change was deployed and stopped working once it was - not yet
+    reconfirmed working again post-revert. microcontroller.watchdog is
+    very likely the SAME underlying object this module's shared feed()
+    calls throughout the live per-connection loop (see
+    _use_existing_watchdog()) - arming
+    then disarming it from inside this periodic idle-loop check most
+    likely left it in a state that interfered with those calls once a
+    client connected, even though this function itself only ever runs
+    from the idle accept-wait loop. Left unguarded again; the ap_info
+    hang this was modeled on remains fixed (that one's cosmetic-only,
+    so it was safe to just remove outright instead)."""
     if _ap_mode_active or wifi.radio.connected:
         return
     try:
@@ -700,14 +718,19 @@ def send_all(conn, data, on_wait=None):
 
 
 def _print_rssi():
-    # Station mode only - ap_info is the station-side "AP I'm joined to"
-    # info, meaningless in AP mode, where this board IS the AP.
-    if _ap_mode_active:
-        return
-    try:
-        print("(WiFi RSSI:", wifi.radio.ap_info.rssi, ")")
-    except Exception as e:
-        print("(RSSI check failed:", e, ")")
+    # wifi.radio.ap_info is disabled entirely on this board - hardware-
+    # verified 2026-09-30 (Pico W/RP2040): not just the empty-message
+    # exception this used to catch and print ("(RSSI check failed: )"),
+    # but a real hang - correlated live with a Pull-patch request that
+    # connected, then the board became unreachable (network AND serial
+    # console both unresponsive) until physically power-cycled. Unlike
+    # a quick exception, a genuine C-level hang can't be caught from
+    # Python, and this board's watchdog can't safely wrap it either
+    # (see code.py's own comment on the 8s RP2040 cap fighting the 10s
+    # WiFi connect timeout - same class of problem here). Simplest safe
+    # fix: never call it on this board, rather than trying to make an
+    # unreliable blocking call "safe" after the fact.
+    print("(WiFi RSSI: not available on this board)")
 
 
 def _check_keypress():
@@ -969,11 +992,11 @@ def run_server():
             if time.monotonic() - last_wifi_check > 5.0:
                 last_wifi_check = time.monotonic()
                 _check_wifi_still_connected()  # resets the board if the radio dropped - see its own docstring
-                if not _ap_mode_active:
-                    try:
-                        oled_display.set_status(rssi=wifi.radio.ap_info.rssi)
-                    except Exception:
-                        pass
+                # wifi.radio.ap_info disabled on this board - see
+                # _print_rssi()'s own comment. This periodic call (every
+                # 5s, whenever idle) is the leading suspect for the
+                # hangs found 2026-09-30, since it ran far more often
+                # than the connect-time check.
             try:
                 conn, addr = server_socket.accept()
             except OSError:
@@ -1005,14 +1028,10 @@ def run_server():
             pass  # not critical if unsupported on this CircuitPython build
         print("Client connected from", addr)
         oled_display.set_mode("controlled")
-        if not _ap_mode_active:
-            # ap_info is the station side's "AP I'm joined to" info -
-            # meaningless in AP mode, where this board IS the AP.
-            try:
-                _info = wifi.radio.ap_info
-                print("(WiFi signal at connect: RSSI", _info.rssi, "channel", _info.channel, ")")
-            except Exception as e:
-                print("(RSSI check failed:", e, ")")
+        # wifi.radio.ap_info disabled on this board - see _print_rssi()'s
+        # own comment (hardware-verified 2026-09-30: a real hang, not
+        # just an exception, correlated live with a Pull-patch request
+        # that connected then made the board unreachable).
         led_solid_on()
 
         # Releases the boot-default pins (see _claim_boot_default_pins)
