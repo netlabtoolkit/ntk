@@ -331,25 +331,56 @@ module.exports = function(five) {
 				}
 				var fs = require('fs');
 				try {
-					// writeFileSync alone only guarantees the write()
-					// syscall returned, not that a USB-MSC-mounted FAT
-					// volume has actually flushed it to the device's own
-					// flash - found 2026-09-25 via hands-on testing: the
-					// device's reload (triggered by requestStandaloneReload
-					// below, sent immediately after) read a stale/
-					// incomplete file and rejected it with "syntax error
-					// in JSON". Opening the same path again and calling
-					// fsync() on it forces that flush before the reload
-					// signal goes out.
-					var fd = fs.openSync(LOCAL_CIRCUITPY_PATCH_FILE, 'w');
-					fs.writeSync(fd, patchJson);
-					fs.fsyncSync(fd);
-					fs.closeSync(fd);
-					console.log('pushPatch: network path failed (' + errorMessage + ') - wrote', LOCAL_CIRCUITPY_PATCH_FILE, 'via local CIRCUITPY mount instead');
-					// The write succeeded either way (the file's on disk),
-					// so the user-facing callback fires now regardless of
-					// whether this signal actually lands - see
-					// requestStandaloneReload's own comment.
+					// An empty-widgets patch is a deliberate ERASE (see
+					// ntk_firmata_main.py's _handle_push_patch_request,
+					// which this fallback otherwise mirrors) - deletes
+					// the file instead of writing valid-but-inert empty
+					// JSON to it, so the device's _standalone genuinely
+					// becomes None (reports "Waiting") rather than a
+					// technically-loaded-but-empty patch (reports
+					// "Standalone"). Real bug, hardware-verified
+					// 2026-09-30: this fallback used to write the empty
+					// patch JSON unconditionally, same as any other
+					// push, silently breaking that distinction whenever
+					// an erase happened to hit this fallback (which it
+					// does by default - EROFS is this board's normal,
+					// expected state, not an edge case).
+					var parsedForErase;
+					try { parsedForErase = JSON.parse(patchJson); } catch(parseErr) { parsedForErase = null; }
+					var isErase = parsedForErase && (!parsedForErase.widgets || parsedForErase.widgets.length === 0);
+
+					if(isErase) {
+						try {
+							fs.unlinkSync(LOCAL_CIRCUITPY_PATCH_FILE);
+							console.log('pushPatch: network path failed (' + errorMessage + ') - erased', LOCAL_CIRCUITPY_PATCH_FILE, 'via local CIRCUITPY mount instead');
+						}
+						catch(unlinkErr) {
+							if(unlinkErr.code !== 'ENOENT') { throw unlinkErr; }
+							console.log('pushPatch: erase requested via local CIRCUITPY mount, but no patch file was there to remove');
+						}
+					}
+					else {
+						// writeFileSync alone only guarantees the write()
+						// syscall returned, not that a USB-MSC-mounted FAT
+						// volume has actually flushed it to the device's own
+						// flash - found 2026-09-25 via hands-on testing: the
+						// device's reload (triggered by requestStandaloneReload
+						// below, sent immediately after) read a stale/
+						// incomplete file and rejected it with "syntax error
+						// in JSON". Opening the same path again and calling
+						// fsync() on it forces that flush before the reload
+						// signal goes out.
+						var fd = fs.openSync(LOCAL_CIRCUITPY_PATCH_FILE, 'w');
+						fs.writeSync(fd, patchJson);
+						fs.fsyncSync(fd);
+						fs.closeSync(fd);
+						console.log('pushPatch: network path failed (' + errorMessage + ') - wrote', LOCAL_CIRCUITPY_PATCH_FILE, 'via local CIRCUITPY mount instead');
+					}
+					// The write/erase succeeded either way (the file's
+					// state on disk is now correct), so the user-facing
+					// callback fires now regardless of whether this
+					// signal actually lands - see requestStandaloneReload's
+					// own comment.
 					self.requestStandaloneReload();
 					callback(true, '');
 				}

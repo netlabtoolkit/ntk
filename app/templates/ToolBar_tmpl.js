@@ -40,6 +40,10 @@
 		</select>
 	</div>
 </div>
+<div class="deviceStatusBar">
+	<div class="deviceStatusLine"><span class="deviceStatusLabel">DEVICE STATUS:</span> <span class="deviceStatusValue"></span></div>
+	<div class="deviceStatusExplanation"></div>
+</div>
 <div class="networkInfo">
 	<div class="softApInfo">When your remote device is running SoftAP, use this IP: 192.168.4.1</div>
 </div>

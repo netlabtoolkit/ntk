@@ -123,6 +123,13 @@ function( Backbone ) {
 				window.app.vent.trigger('pullPatchResult', result);
 			});
 
+			// Background "is this device idle with a standalone patch
+			// loaded" poll (see DeviceStatus.js) - result.status is
+			// 'waiting', 'standalone', 'in-use', or null (unreachable).
+			socket.on("server:deviceStatusResult", function(result) {
+				window.app.vent.trigger('deviceStatusResult', result);
+			});
+
 		},
 		registerOutboundClientEvents: function registerClientEvents(socket) {
 			// MODEL AND PATCH UPDATES
@@ -282,6 +289,14 @@ function( Backbone ) {
 			});
 			window.app.vent.on('stopMonitor', function() {
 				socket.emit('client:stopMonitor');
+			});
+
+			window.app.vent.on('checkDeviceStatus', function(options) {
+				socket.emit('client:checkDeviceStatus', JSON.stringify(options));
+			});
+
+			window.app.vent.on('closeHardwareConnection', function(options) {
+				socket.emit('client:closeHardwareConnection', JSON.stringify(options));
 			});
 		},
 	};

@@ -194,6 +194,98 @@
 		}
 	}
 
+	// Background poll result (ToolBar.js's renderDeviceStatus) - a
+	// full-width colored bar, deliberately visually distinct from
+	// .defaultDevice's own grey box above it rather than blended into
+	// it, so it reads as a status callout rather than another form
+	// field. Hidden entirely (not just empty text) when there's
+	// nothing worth showing (Serial device, no server entered yet).
+	// Color keyed per status via a modifier class on the bar itself,
+	// not just the text - .deviceStatusLabel/.deviceStatusValue are
+	// deliberately different shades of the SAME bar's foreground color
+	// (label dimmer, value the bar's full accent color) rather than
+	// unrelated colors, so each status still reads as one coherent
+	// callout rather than two arbitrarily-colored words.
+	.deviceStatusBar {
+		clear: both;
+		float: left;
+		// Full 250px, NOT the calc(250px - 20px) every backgroundless
+		// section here uses - this box has its own solid background
+		// color, so the narrower width exposes the panel's own
+		// background as a visible gap on the right edge. Same bug,
+		// same fix as .networkInfo's own comment below already
+		// documents (found 2026-09-25) - missed it here since this
+		// section was copied from .defaultDevice's (backgroundless)
+		// width instead.
+		width: 250px;
+		box-sizing: border-box;
+		padding: 10px;
+
+		font-size: 0.85em;
+		line-height: 1.4;
+
+		display: none;
+		&.hasStatus {
+			display: block;
+		}
+
+		.deviceStatusLabel {
+			font-weight: bold;
+			opacity: 0.7;
+		}
+
+		.deviceStatusValue {
+			font-weight: bold;
+		}
+
+		.deviceStatusExplanation {
+			margin-top: 4px;
+			opacity: 0.9;
+		}
+
+		// Neutral default (e.g. 'in-use' with no special call-out) -
+		// per-status modifiers below override background/text color.
+		background-color: #ddd;
+		color: #333;
+
+		&.status-standalone {
+			// Worth a user's attention (a patch already on the device,
+			// might not be intended) but not an alarm - red read as too
+			// urgent for "just informational, may well be intentional".
+			background-color: #6a3fa0;
+			color: #fff;
+		}
+		&.status-controlled {
+			background-color: #2e7d32;
+			color: #fff;
+		}
+		&.status-monitored {
+			// Matches #monitorModeBanner's own color exactly (see
+			// MonitorController.js's showBanner) - same concept
+			// (NTK is watching this device via Monitor mode), same
+			// color, so the two are recognizable as the same thing.
+			background-color: #b35c00;
+			color: #fff;
+		}
+		&.status-waiting {
+			background-color: #607d8b;
+			color: #fff;
+		}
+		&.status-pending {
+			// White/empty while the first poll is still in flight -
+			// shown immediately (see ToolBar.js's pollDeviceStatus)
+			// rather than leaving the bar hidden/blank, which reads as
+			// broken during a real check's up-to-several-second delay.
+			background-color: #fff;
+			color: #999;
+			border: 1px solid #ccc;
+
+			.deviceStatusLabel {
+				opacity: 0.5;
+			}
+		}
+	}
+
 	.networkInfo {
 		clear: both;
 		float: left;

@@ -129,6 +129,26 @@ RELOAD_STANDALONE_ERROR = 2
 # for patch JSON). Next free ID after RELOAD_STANDALONE_REPLY.
 DISPLAY_TEXT_REQUEST = 0x0B  # host -> device, JSON array of strings
 
+# Lightweight "is anything already running on this device" probe -
+# added 2026-09-30 after a real, confusing debugging session where a
+# standalone patch was left loaded on a device and nobody in NTK could
+# tell before connecting for real. Same early-peek pattern as
+# STANDALONE_MONITOR_REQUEST (see run_server()'s _peek_for_special_
+# request()), but unlike that one, this works even with no standalone
+# patch loaded, and never touches hardware or releases anything - it's
+# purely a status snapshot, answered once, connection then closed by
+# the host. Deliberately does NOT report "controlled"/"monitored" -
+# those mean some OTHER connection already holds the device's single
+# connection slot, so a status probe can't even get through to ask
+# (see the design discussion this was built from - NTK's own banner/
+# widget state already covers those cases when NTK itself is that
+# other connection).
+DEVICE_STATUS_REQUEST = 0x0C  # host -> device, sent right after connecting, empty payload
+DEVICE_STATUS_REPLY = 0x0D  # device -> host, one byte: DEVICE_STATUS_WAITING or DEVICE_STATUS_STANDALONE
+
+DEVICE_STATUS_WAITING = 1  # no standalone patch loaded
+DEVICE_STATUS_STANDALONE = 2  # a standalone patch is loaded (running or paused)
+
 # Pin modes - matches board.MODES in firmata-io exactly (these values are
 # part of the wire protocol, not an internal implementation detail).
 INPUT = 0x00
@@ -226,6 +246,13 @@ def encode_standalone_monitor_reply(wid, fields):
         data.extend(_encode_fixed_point21(value))
     data.append(END_SYSEX)
     return bytes(data)
+
+
+def encode_device_status_reply(status):
+    """One sysex message answering DEVICE_STATUS_REQUEST - status is
+    DEVICE_STATUS_WAITING or DEVICE_STATUS_STANDALONE. Single-byte
+    payload, no string encoding needed."""
+    return bytes([START_SYSEX, DEVICE_STATUS_REPLY, status & 0x7F, END_SYSEX])
 
 
 class _Pin:

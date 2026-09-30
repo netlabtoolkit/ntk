@@ -332,6 +332,10 @@ from firmata_server import (
     END_SYSEX,
     STANDALONE_MONITOR_REQUEST,
     encode_standalone_monitor_reply,
+    DEVICE_STATUS_REQUEST,
+    DEVICE_STATUS_WAITING,
+    DEVICE_STATUS_STANDALONE,
+    encode_device_status_reply,
 )
 from pins import PIN_TABLE, GROVE_SENSOR_CATALOG
 
@@ -508,7 +512,22 @@ def _handle_push_patch_request(firmata):
     (added 2026-09-23, reusing this same request rather than a separate
     command) - deletes STANDALONE_PATCH_PATH instead of writing a
     valid-but-inert empty patch to it, then reloads (which just sets
-    _standalone back to None, since the file's gone)."""
+    _standalone back to None, since the file's gone).
+
+    Real bug, hardware-verified 2026-09-30: os.remove() on a read-only
+    filesystem (this board's own boot.py default - see this function's
+    outer except below) raises OSError with errno 30 (EROFS), same as
+    open(..., "w") does in the normal-push branch below - but this
+    branch used to catch ANY OSError here and treat it as "nothing was
+    saved", silently swallowing EROFS along with the genuine ENOENT
+    (file doesn't exist) case. Result: the erase silently failed on a
+    read-only setup, but still replied success and reloaded whatever
+    was already on disk - unchanged, since it was never actually
+    deleted. Only ENOENT is treated as "nothing to erase" now;
+    anything else (EROFS included) re-raises into the outer except,
+    which already knows how to fall back to NTK's local-CIRCUITPY-mount
+    write path for a real push - the erase case needs that exact same
+    fallback, not a silently-ignored failure."""
     patch_json = firmata.pending_push_patch
     firmata.pending_push_patch = None
     try:
@@ -517,8 +536,11 @@ def _handle_push_patch_request(firmata):
             try:
                 os.remove(STANDALONE_PATCH_PATH)
                 print("Standalone patch erased (empty patch received)")
-            except OSError:
-                print("Standalone patch erase requested, but none was saved")
+            except OSError as e:
+                if getattr(e, "errno", None) == errno.ENOENT:
+                    print("Standalone patch erase requested, but none was saved")
+                else:
+                    raise
             firmata.send_push_patch_reply(True)
             _load_standalone_patch(for_live_client=True)
             return
@@ -572,6 +594,10 @@ def _handle_reload_standalone_request(firmata):
             pass
 
 
+_display_last_lines = None
+_display_last_sent = 0.0
+
+
 def _handle_display_text_request(firmata):
     """Called from run_server()'s main per-connection loop when
     firmata.pending_display_text is set (see firmata_server.py's
@@ -580,12 +606,31 @@ def _handle_display_text_request(firmata):
     oled_display.set_lines(). No reply sent (see DISPLAY_TEXT_REQUEST's
     own comment in firmata_server.py for why) - a malformed payload or
     an absent display are both silently harmless, same as every other
-    oled_display call in this firmware."""
+    oled_display call in this firmware.
+
+    Change-detection + a 1s minimum interval, same guard
+    standalone_interpreter.py's own display_out step already applies
+    (see its comment) and for the exact same reason: hardware-verified
+    2026-09-30 (found on the Pico W firmware, ported here for
+    consistency) - this call site had NO throttle at all before, unlike
+    standalone's deliberate one, so a live connection could drive
+    oled_display.set_lines() as fast as the Display widget's own
+    inlets changed (every value tick, potentially many times a
+    second) - a real, blocking I2C write each time, exactly the "would
+    measurably slow things down" risk oled_display.py's own docstring
+    warns about. Reusing the same 1.0s floor keeps live and standalone
+    mode behaving consistently instead of live mode being silently
+    unthrottled."""
+    global _display_last_lines, _display_last_sent
     payload = firmata.pending_display_text
     firmata.pending_display_text = None
     try:
         lines = json.loads(payload)
-        oled_display.set_lines(lines)
+        now = time.monotonic()
+        if lines != _display_last_lines and (now - _display_last_sent) >= 1.0:
+            _display_last_lines = list(lines)
+            _display_last_sent = now
+            oled_display.set_lines(lines)
     except Exception as e:
         print("Display widget: bad DISPLAY_TEXT_REQUEST payload:", e)
 
@@ -749,19 +794,24 @@ def _check_keypress():
 
 
 _MONITOR_REQUEST_BYTES = bytes([START_SYSEX, STANDALONE_MONITOR_REQUEST, END_SYSEX])
+_STATUS_REQUEST_BYTES = bytes([START_SYSEX, DEVICE_STATUS_REQUEST, END_SYSEX])
 _MONITOR_PEEK_WINDOW_S = 0.3
 _MONITOR_PUSH_INTERVAL_S = 0.3
 
 
-def _peek_for_monitor_request(conn):
+def _peek_for_special_request(conn):
     """Non-blocking peek at a freshly-accepted connection for an
-    immediate STANDALONE_MONITOR_REQUEST sysex, sent by a client that
-    wants to watch a running standalone patch's live values instead of
-    taking over from it (see plans/standalone-patch-export.md). Must
-    run BEFORE the normal explicit-handoff release_hardware() call, in
-    the narrow window right after accept() - once that release happens
-    the interpreter has already given up its pins, so there would be
-    nothing live left to monitor.
+    immediate STANDALONE_MONITOR_REQUEST or DEVICE_STATUS_REQUEST sysex
+    - either lets a client ask something about this device without
+    taking over from a running standalone patch (see
+    plans/standalone-patch-export.md for monitor mode; DEVICE_STATUS_
+    REQUEST is a newer, lighter one-shot "is anything already running
+    here" probe, added 2026-09-30). Must run BEFORE the normal explicit-
+    handoff release_hardware() call, in the narrow window right after
+    accept() - once that release happens the interpreter has already
+    given up its pins, so there would be nothing live left to monitor
+    (status doesn't care either way, but shares this same early window
+    since both are recognized the same way).
 
     Bounded to a short window (not the 5s a normal firmata-io client
     silently sits for before starting its own handshake - see
@@ -769,16 +819,17 @@ def _peek_for_monitor_request(conn):
     only ever pays this as a brief, fixed delay, not something that
     scales with a slow/absent handshake.
 
-    Returns (is_monitor_request, leftover_bytes). Real bug, hardware-
-    found 2026-09-21: this reads bytes off the socket to check them,
-    and a normal (non-monitor) client's own opening handshake bytes can
-    land in that same window - discarding them (the original behavior)
-    silently desynced that connection's Firmata byte stream from the
-    very first read, breaking every widget on it, recovering only once
-    it disconnected and a fresh connection/tick cycle began. The caller
-    must feed leftover_bytes into the real FirmataServer once it's
-    constructed, for any bytes read here that turned out not to be a
-    monitor request."""
+    Returns (request_type, leftover_bytes) - request_type is "monitor",
+    "status", or None. Real bug, hardware-found 2026-09-21: this reads
+    bytes off the socket to check them, and a normal (non-special)
+    client's own opening handshake bytes can land in that same window -
+    discarding them (the original behavior) silently desynced that
+    connection's Firmata byte stream from the very first read, breaking
+    every widget on it, recovering only once it disconnected and a
+    fresh connection/tick cycle began. The caller must feed
+    leftover_bytes into the real FirmataServer once it's constructed,
+    for any bytes read here that turned out not to be a special
+    request."""
     conn.settimeout(0)
     peek_buffer = bytearray(8)
     buf = bytearray()
@@ -790,12 +841,38 @@ def _peek_for_monitor_request(conn):
             n = 0
         if n:
             buf.extend(peek_buffer[:n])
-            if bytes(buf[:3]) == _MONITOR_REQUEST_BYTES:
-                return True, b""
-            if len(buf) >= len(_MONITOR_REQUEST_BYTES):
-                return False, bytes(buf)  # some other client - hand back what we read
+            prefix = bytes(buf[:3])
+            if prefix == _MONITOR_REQUEST_BYTES:
+                return "monitor", b""
+            if prefix == _STATUS_REQUEST_BYTES:
+                return "status", b""
+            if len(buf) >= 3:
+                return None, bytes(buf)  # some other client - hand back what we read
         time.sleep(0.01)
-    return False, bytes(buf)
+    return None, bytes(buf)
+
+
+def _serve_status_connection(conn, addr):
+    """Alternate to both the normal per-connection takeover AND monitor
+    mode - answers a single DEVICE_STATUS_REQUEST with whether a
+    standalone patch is currently loaded, then closes. Never touches
+    _standalone (no release_hardware(), no claim_hardware()) and works
+    even when no standalone patch is loaded at all (unlike monitor mode,
+    which only makes sense once one is) - purely a status snapshot for
+    NTK to poll before deciding whether to connect for real. See
+    firmata_server.py's DEVICE_STATUS_REQUEST comment for why this
+    can't also report "controlled"/"monitored" - those mean some OTHER
+    connection already holds the device's one connection slot, so this
+    probe can't get through to ask in the first place."""
+    status = DEVICE_STATUS_STANDALONE if _standalone is not None else DEVICE_STATUS_WAITING
+    try:
+        send_all(conn, encode_device_status_reply(status))
+    except OSError:
+        pass
+    try:
+        conn.close()
+    except Exception:
+        pass
 
 
 def _serve_monitor_connection(conn, addr):
@@ -952,9 +1029,21 @@ def run_server():
     server_started_at = time.monotonic()
     reset_count_cleared = False
     last_wifi_check = time.monotonic()
+    # A background device-status poll (see _serve_status_connection)
+    # connects, gets one reply, and disconnects almost instantly -
+    # without this, each one cycles this outer loop back around to
+    # print "Waiting for Client to connect..." again right away, and
+    # NTK's own status bar polls every 10-20s, hardware-verified
+    # 2026-09-30 to measurably clutter the console with prints that
+    # don't reflect anything actually changing. Suppressed only for
+    # the one loop iteration immediately following a status check, not
+    # generally - a real client connecting still prints normally.
+    _suppress_next_waiting_print = False
 
     while True:
-        print("Waiting for Client to connect...")
+        if not _suppress_next_waiting_print:
+            print("Waiting for Client to connect...")
+        _suppress_next_waiting_print = False
         conn = None
         while conn is None:
             feed()  # accept() blocks the VM for up to 1s per poll (0.1s - see above - while a standalone patch is loaded)
@@ -977,17 +1066,33 @@ def run_server():
                 conn, addr = server_socket.accept()
             except OSError:
                 pass  # timed out with no connection yet - keep polling
+        # Peeked for on EVERY connection (not just when a standalone
+        # patch is loaded) - DEVICE_STATUS_REQUEST works either way,
+        # unlike STANDALONE_MONITOR_REQUEST which only makes sense with
+        # a patch actually running. _peek_for_special_request itself
+        # still returns "monitor" even with no patch loaded; that case
+        # is treated as "not actually special" below and falls through
+        # to the normal handoff - but the 3 monitor-request bytes it
+        # already consumed have to be restored as leftover first, or
+        # they'd be silently dropped, desyncing that connection's
+        # Firmata byte stream from its very first read (the exact class
+        # of bug _peek_for_special_request's own docstring warns about).
         _peeked_leftover = b""
-        if _standalone is not None:
-            _is_monitor_request, _peeked_leftover = _peek_for_monitor_request(conn)
-            if _is_monitor_request:
-                # Monitoring connection - the interpreter keeps every pin
-                # and keeps ticking exactly as if nothing connected; see
-                # _serve_monitor_connection's own docstring. Explicitly
-                # does NOT fall through to the explicit-handoff release
-                # below - this is the whole point of monitor mode.
-                _serve_monitor_connection(conn, addr)
-                continue
+        _request_type, _peeked_leftover = _peek_for_special_request(conn)
+        if _request_type == "status":
+            _serve_status_connection(conn, addr)
+            _suppress_next_waiting_print = True
+            continue
+        if _request_type == "monitor" and _standalone is None:
+            _peeked_leftover = _MONITOR_REQUEST_BYTES
+        if _request_type == "monitor" and _standalone is not None:
+            # Monitoring connection - the interpreter keeps every pin
+            # and keeps ticking exactly as if nothing connected; see
+            # _serve_monitor_connection's own docstring. Explicitly
+            # does NOT fall through to the explicit-handoff release
+            # below - this is the whole point of monitor mode.
+            _serve_monitor_connection(conn, addr)
+            continue
         if _standalone is not None:
             # Explicit handoff (plans/standalone-patch-export.md) - a real
             # client is taking over now, so release every pin the
@@ -1049,12 +1154,13 @@ def run_server():
 
         firmata.on_connect(lambda data: send_all(conn, data, on_wait=_drain_incoming_once))
         if _peeked_leftover:
-            # Bytes read off this connection by _peek_for_monitor_request
-            # while checking whether it was a monitor client - it wasn't,
+            # Bytes read off this connection by _peek_for_special_request
+            # while checking whether it was a monitor/status client - it
+            # wasn't (or was a monitor request with no patch to monitor),
             # so they're real Firmata protocol bytes this client already
             # sent and is not going to send again. Must be fed in before
             # the main loop below starts its own recv_into, or they're
-            # simply gone - see _peek_for_monitor_request's docstring.
+            # simply gone - see _peek_for_special_request's docstring.
             firmata.feed(_peeked_leftover)
         conn.settimeout(0)
         connected_at = time.monotonic()

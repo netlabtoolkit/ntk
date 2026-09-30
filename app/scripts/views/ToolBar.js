@@ -48,6 +48,19 @@ function( app, Backbone, Template, Widgets ) {
 			// truth both surfaces read from.
 			window.app.vent.on('monitorStatus', this.indicateMonitorActive, this);
 			window.app.vent.on('hardwareConnectionFailed', this.indicateHardwareConnectionFailed, this);
+			window.app.vent.on('deviceStatusResult', this.onDeviceStatusResult, this);
+			// Otherwise the status bar keeps showing whatever it last
+			// polled (e.g. still "Controlled") for up to
+			// DEVICE_STATUS_POLL_INTERVAL_MS after a push actually
+			// changed the device's real state - true for both a real
+			// push (Patcher.js's own auto-Monitor already re-polls once
+			// IT fires, but that's ~2s later, not instant) and an erase
+			// (which has no auto-Monitor step at all, so without this
+			// the bar could go stale indefinitely until the next
+			// scheduled tick).
+			window.app.vent.on('pushPatchResult', function(result) {
+				if(result.ok) { this.pollDeviceStatus(); }
+			}, this);
 		},
 		render: function() {
 			this.el.innerHTML = this.template();
@@ -131,6 +144,7 @@ function( app, Backbone, Template, Widgets ) {
 			fileInput.addEventListener("change", this.loadPatch.bind(this) );
 
 			this.initDefaultDeviceUI();
+			this.startDeviceStatusPolling();
 		},
 		/**
 		 * initDefaultDeviceUI - reflect window.app.defaultDevice in the
@@ -180,6 +194,7 @@ function( app, Backbone, Template, Widgets ) {
 			if(window.app.defaultDevice.deviceType === 'ArduinoUno') {
 				this.requestDefaultSerialPorts();
 			}
+			this.pollDeviceStatus();
 		},
 		// Bound to both the ip text input (Network mode) and the serial port
 		// select (Serial mode) - like a widget's own Device panel, both
@@ -187,10 +202,12 @@ function( app, Backbone, Template, Widgets ) {
 		defaultDeviceServerChange: function(e) {
 			window.app.defaultDevice.server = $(e.currentTarget).val();
 			this.persistDefaultDevice();
+			this.pollDeviceStatus();
 		},
 		defaultDevicePortChange: function() {
 			window.app.defaultDevice.port = parseInt(this.$('.defaultDevicePortInput').val(), 10) || 3030;
 			this.persistDefaultDevice();
+			this.pollDeviceStatus();
 		},
 		/**
 		 * persistDefaultDevice - save window.app.defaultDevice to
@@ -208,6 +225,127 @@ function( app, Backbone, Template, Widgets ) {
 			catch(e) {
 				// Not fatal - just means the default won't be remembered next launch.
 			}
+		},
+		/**
+		 * Device status polling (Settings drawer's default Network
+		 * device only, see the design discussion this was built from -
+		 * added 2026-09-30 after a real debugging session where a
+		 * standalone patch was left loaded on a device with nothing in
+		 * NTK able to tell before connecting for real). Only meaningful
+		 * for the "idle" case: an existing real widget connection to
+		 * this device already shows its own live state (data flowing,
+		 * or the Monitor banner) with no polling needed - this exists
+		 * purely to answer "what's happening on this device before I
+		 * connect anything to it". See DeviceStatusCheck.js (server)
+		 * for why 'controlled'/'monitored' can't be told apart here -
+		 * both just look like "in-use" from a poll that can't get
+		 * through.
+		 */
+		DEVICE_STATUS_POLL_INTERVAL_MS: 10000,
+		startDeviceStatusPolling: function() {
+			// Hardware-verified real bug 2026-09-30: render() can run
+			// more than once for this view (Backbone/Marionette
+			// re-renders), and this used to set a fresh setInterval
+			// every time without ever clearing the previous one - each
+			// extra render() left another 10s polling loop running
+			// forever in the background, all independently offset from
+			// each other. Symptom matched exactly: the status bar
+			// updating at irregular sub-10s intervals instead of a
+			// clean 10s cadence, from several overlapping polls
+			// in flight at once. Clearing any existing timer first
+			// guarantees exactly one recurring poll loop no matter how
+			// many times this gets called.
+			if(this._deviceStatusPollTimer) {
+				window.clearInterval(this._deviceStatusPollTimer);
+			}
+			this.pollDeviceStatus();
+			this._deviceStatusPollTimer = window.setInterval(
+				this.pollDeviceStatus.bind(this),
+				this.DEVICE_STATUS_POLL_INTERVAL_MS
+			);
+		},
+		pollDeviceStatus: function() {
+			var defaultDevice = window.app.defaultDevice;
+			if(defaultDevice.deviceType !== 'network' || !defaultDevice.server || defaultDevice.server === 'auto') {
+				this.renderDeviceStatus(null);
+				return;
+			}
+			// Shown immediately, not left blank/hidden until the poll
+			// actually returns - a real device check can take a few
+			// seconds (DeviceStatusCheck.js's own up-to-8s timeout for
+			// .local hostnames), and leaving the bar empty that whole
+			// time reads as "broken" rather than "checking" (same
+			// principle as this project's other state-visibility fixes -
+			// see CLAUDE.md's widget design principles).
+			this.renderDeviceStatus('pending');
+			window.app.vent.trigger('checkDeviceStatus', {
+				host: defaultDevice.server,
+				port: defaultDevice.port || 3030,
+			});
+		},
+		onDeviceStatusResult: function(result) {
+			var defaultDevice = window.app.defaultDevice;
+			// A result for a host/port the user has since changed away
+			// from (e.g. a slow .local lookup finally landing after the
+			// IP field was edited) - stale, ignore it rather than show
+			// misleading status for the wrong device.
+			if(result.host !== defaultDevice.server || result.port !== (defaultDevice.port || 3030)) {
+				return;
+			}
+			this.renderDeviceStatus(result.status);
+		},
+		// label/explanation per status - see nlMultiClientSync.js's
+		// client:checkDeviceStatus for how 'controlled'/'monitored' are
+		// determined (server-side, from connections it already made -
+		// not something the device itself is asked). 'in-use' is the
+		// fallback for a real connection this server didn't establish
+		// itself watching for right now (should be rare in practice,
+		// but the device probe can still land there if neither check
+		// matched for some other reason).
+		DEVICE_STATUS_INFO: {
+			'pending': {
+				label: 'Checking...',
+				explanation: '',
+			},
+			'standalone': {
+				label: 'Standalone',
+				explanation: 'A standalone patch is loaded on this device and not currently connected to NTK - push a blank patch to remove it if you don\'t want it running.',
+			},
+			'waiting': {
+				label: 'Waiting',
+				explanation: 'Idle, no standalone patch loaded.',
+			},
+			'controlled': {
+				label: 'Controlled',
+				explanation: 'A widget in this patch is connected and driving this device live.',
+			},
+			'monitored': {
+				label: 'Monitored',
+				explanation: 'This device is running a standalone patch, being watched (not controlled) by NTK\'s Monitor mode.',
+			},
+			'in-use': {
+				label: 'In use',
+				explanation: 'Something else is already connected to this device.',
+			},
+		},
+		renderDeviceStatus: function(status) {
+			var $bar = this.$('.deviceStatusBar');
+			var info = this.DEVICE_STATUS_INFO[status];
+
+			$bar.toggleClass('hasStatus', !!info);
+			_.each(_.keys(this.DEVICE_STATUS_INFO), function(key) {
+				$bar.removeClass('status-' + key);
+			});
+
+			if(!info) {
+				this.$('.deviceStatusValue').text('');
+				this.$('.deviceStatusExplanation').text('');
+				return;
+			}
+
+			$bar.addClass('status-' + status);
+			this.$('.deviceStatusValue').text(info.label);
+			this.$('.deviceStatusExplanation').text(info.explanation);
 		},
 		requestDefaultSerialPorts: function() {
 			window.app.vent.trigger('listSerialPorts');
@@ -405,6 +543,12 @@ function( app, Backbone, Template, Widgets ) {
 			} else {
 				$button.removeClass('monitorActive').text('Monitor Device');
 			}
+			// Otherwise the device status bar wouldn't reflect a
+			// Monitor start/stop until the next scheduled poll (up to
+			// DEVICE_STATUS_POLL_INTERVAL_MS later) - this is a state
+			// change NTK itself just caused, no reason to wait to find
+			// out about it the same slow way a background poll would.
+			this.pollDeviceStatus();
 		},
 		// A Network device widget never managed to connect at all - see
 		// NetworkModel.js's own comment for why this used to fail

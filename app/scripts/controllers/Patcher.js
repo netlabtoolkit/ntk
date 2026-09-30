@@ -1139,6 +1139,16 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 				);
 				if(!confirmedErase) return;
 
+				// No auto-Monitor after an erase (see onPushPatchResult) -
+				// there's nothing left running on the device to watch.
+				// _lastErasedHardwareKey (separate from
+				// _lastPushHardwareKey, which stays null here) is used
+				// instead to close the connection client:pushPatchToDevice
+				// creates on demand to actually send the erase over - see
+				// onPushPatchResult's own comment for why that has to be
+				// closed explicitly here, unlike a real push.
+				this._lastPushHardwareKey = null;
+				this._lastErasedHardwareKey = hardwareKey;
 				window.app.vent.trigger('Widget:pushPatchToDevice', {
 					hardwareKey: hardwareKey,
 					patch: JSON.stringify(patch),
@@ -1171,12 +1181,14 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 			// even available in the first place).
 			var confirmed = confirm(
 				'Push this patch to the device at ' + hardwareKey.replace('network:', '') + '?\n\n' +
-				'It will run automatically once NTK disconnects, replacing any ' +
-				'standalone patch currently saved on the device. The device will ' +
-				'restart to load it.'
+				'It will replace any standalone patch currently saved on the device ' +
+				'and run automatically once NTK disconnects (no restart needed) - ' +
+				'NTK will then switch to Monitor mode to watch it run.'
 			);
 			if(!confirmed) return;
 
+			this._lastPushHardwareKey = hardwareKey;
+			this._lastErasedHardwareKey = null;
 			window.app.vent.trigger('Widget:pushPatchToDevice', {
 				hardwareKey: hardwareKey,
 				patch: JSON.stringify(patch),
@@ -1198,6 +1210,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 				return;
 			}
 
+			this._lastPullHardwareKey = hardwareKey;
 			window.app.vent.trigger('Widget:pullPatchFromDevice', {hardwareKey: hardwareKey});
 		},
 		/**
@@ -1227,6 +1240,48 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 				// already said which one this was before the user agreed
 				// to it.
 				alert('Done - the device should reload the new patch within a few seconds, no restart needed. If it doesn\'t, reset it manually.');
+
+				// Auto-switch to Monitor mode after a real push (not an
+				// erase - see pushPatchToDevice's own comment, which
+				// leaves _lastPushHardwareKey null for that case) so the
+				// device settles into standalone + watched instead of
+				// staying "controlled": left as-is, the pushed widgets'
+				// own connections would otherwise keep trying to
+				// reconnect and take over again (NetworkModel.js's
+				// etherport-client auto-reconnects forever), bouncing
+				// the device between controlled and standalone in quick
+				// succession every time that reconnect landed. Monitor
+				// mode's own client:startMonitor handler (nlMultiClientSync.js)
+				// already closes any conflicting hardware connection
+				// before connecting, so this doesn't need to do that
+				// itself - just wait for the device's own "within a few
+				// seconds" reload (see the alert above) before asking,
+				// rather than racing it.
+				if(this._lastPushHardwareKey) {
+					var parts = this._lastPushHardwareKey.split(':');
+					var host = parts[1], port = parts[2];
+					this._lastPushHardwareKey = null;
+					setTimeout(function() {
+						window.app.vent.trigger('Monitor:start', {host: host, port: port});
+					}, 2000);
+				}
+				// Erase (see pushPatchToDevice's own comment): no patch
+				// left to auto-Monitor, but client:pushPatchToDevice
+				// still created a real hardware connection on demand
+				// just to send the erase over, and nothing else was
+				// going to close it - hardware-verified 2026-09-30, the
+				// device status bar kept reporting "Controlled" after
+				// an erase with no widget anywhere using that
+				// connection. Closing it here returns the device to a
+				// genuinely idle state.
+				else if(this._lastErasedHardwareKey) {
+					var erasedParts = this._lastErasedHardwareKey.split(':');
+					this._lastErasedHardwareKey = null;
+					window.app.vent.trigger('closeHardwareConnection', {
+						host: erasedParts[1],
+						port: erasedParts[2],
+					});
+				}
 			}
 			else {
 				alert('Push failed: ' + (result.error || 'unknown error'));
@@ -1248,11 +1303,27 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 			// extra click when the canvas was already empty/saved.
 			var confirmed = confirm(
 				'Replace the current canvas with the patch pulled from the device?\n\n' +
-				'Any unsaved local changes will be lost.'
+				'Any unsaved local changes will be lost. NTK will then switch to ' +
+				'Monitor mode to watch it run.'
 			);
 			if(!confirmed) return;
 
 			this.loadPatch(result.patch);
+
+			// Same reasoning as the auto-Monitor-after-Push flow (see
+			// onPushPatchResult) - a Pull means "show me what this
+			// device is running", and the device is already known to
+			// have a real patch here (the !result.patch early-return
+			// above already ruled out "nothing to pull"). No reload
+			// delay needed first, unlike Push - Pull only READS the
+			// device's state, it doesn't change what's running there,
+			// so there's nothing to wait for before switching to watch
+			// it.
+			if(this._lastPullHardwareKey) {
+				var parts = this._lastPullHardwareKey.split(':');
+				this._lastPullHardwareKey = null;
+				window.app.vent.trigger('Monitor:start', {host: parts[1], port: parts[2]});
+			}
 		},
 		/**
 		 * downloadPatchAsFile - called by exportPatch.

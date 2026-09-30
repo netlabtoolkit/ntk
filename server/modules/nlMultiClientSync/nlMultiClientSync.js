@@ -6,6 +6,7 @@ module.exports = function(options) {
 		events = require('events'),
 		nlHardware = require('../nlHardware/Hardware'),
 		StandaloneMonitor = require('../nlHardware/StandaloneMonitor'),
+		checkDeviceStatus = require('../nlHardware/DeviceStatusCheck'),
 		utils = require('../../utils')(),
 		self;
 
@@ -610,13 +611,28 @@ module.exports = function(options) {
 				// slot) and the banner shows, but the device's console
 				// never logs a monitor connection and no values ever
 				// arrive - found via hands-on testing 2026-09-22.
-				var hardwareKey = 'network:' + host + ':' + port;
-				var existingHardwareModel = self.hardwareModels[hardwareKey];
+				//
+				// Matching by host:port suffix, not the literal
+				// 'network:host:port' key this block used to check for
+				// exactly - a real widget's own hardwareKey is prefixed
+				// with whatever deviceType IT was configured with
+				// (usually "ArduinoUno", see Display.js's
+				// getDeviceModelType()), not necessarily literally
+				// "network", so an exact-key check here could silently
+				// miss a real conflicting connection - the same class of
+				// hardwareKey-mismatch bug chased at length elsewhere
+				// this session (see client:checkDeviceStatus above,
+				// fixed the same way).
+				var suffix = ':' + host + ':' + port;
+				var existingKey = _.find(_.keys(self.hardwareModels), function(key) {
+					return key.slice(-suffix.length) === suffix;
+				});
+				var existingHardwareModel = existingKey && self.hardwareModels[existingKey];
 				if (existingHardwareModel) {
 					if (typeof existingHardwareModel.close === 'function') {
 						existingHardwareModel.close();
 					}
-					delete self.hardwareModels[hardwareKey];
+					delete self.hardwareModels[existingKey];
 					// The disconnect has to actually reach the device (a
 					// real WiFi round trip) and its own accept loop has to
 					// notice before it's ready for a new connection -
@@ -635,6 +651,83 @@ module.exports = function(options) {
 				if (existing) {
 					existing.close();
 					delete activeMonitors[socket.id];
+				}
+			});
+
+			// Background poll (app/scripts/views/ToolBar.js's
+			// pollDeviceStatus) asking "what's this device doing right
+			// now" - see DeviceStatusCheck.js for the raw-probe half of
+			// this story. 'controlled'/'monitored' are determined
+			// entirely server-side, from connections THIS server
+			// already established (self.hardwareModels / activeMonitors)
+			// - no need to ask the device at all for those, and no risk
+			// of disrupting either one the way client:startMonitor above
+			// deliberately does when taking over. Only falls through to
+			// the actual device probe (which can't tell 'controlled'
+			// from 'monitored' apart - see DeviceStatusCheck.js's own
+			// comment - but doesn't need to, since we already ruled both
+			// out here) when neither is currently active. Matching by
+			// host:port suffix, not exact hardwareKey, since a real
+			// widget's own hardwareKey is prefixed with whatever
+			// deviceType it's configured with (usually "ArduinoUno", see
+			// Display.js's getDeviceModelType()), not literally
+			// "network" - an exact-key check here would almost never
+			// match a real connection to the same device.
+			socket.on('client:checkDeviceStatus', function(data) {
+				var options = JSON.parse(data);
+				var host = options.host, port = options.port;
+				var suffix = ':' + host + ':' + port;
+
+				var monitored = _.some(_.values(activeMonitors), function(monitor) {
+					return monitor.host === host && String(monitor.port) === String(port);
+				});
+				if (monitored) {
+					socket.emit('server:deviceStatusResult', {host: host, port: port, status: 'monitored'});
+					return;
+				}
+
+				var controlled = _.some(_.pairs(self.hardwareModels), function(pair) {
+					var key = pair[0], model = pair[1];
+					return key.slice(-suffix.length) === suffix && model.connected;
+				});
+				if (controlled) {
+					socket.emit('server:deviceStatusResult', {host: host, port: port, status: 'controlled'});
+					return;
+				}
+
+				checkDeviceStatus(host, port, function(status, error) {
+					socket.emit('server:deviceStatusResult', {host: host, port: port, status: status, error: error});
+				});
+			});
+
+			// Patcher.js's pushPatchToDevice - only for the erase case
+			// (an empty-canvas push, see its own comment). client:
+			// pushPatchToDevice above creates its own hardwareModel on
+			// demand if nothing was already connected, so a push over
+			// an otherwise-idle device leaves that freshly-made
+			// connection sitting open afterward with no widget left to
+			// use it - hardware-verified 2026-09-30: the device status
+			// bar correctly (if confusingly) kept reporting "Controlled"
+			// after an erase, because that orphaned connection genuinely
+			// was still live. A real push doesn't need this - Patcher.js
+			// already switches to Monitor mode after one, which closes
+			// any conflicting connection as a side effect of connecting
+			// (see client:startMonitor above) - but an erase has nothing
+			// to monitor, so nothing else was ever closing it. Matching
+			// by host:port suffix, same reasoning as the other handlers
+			// here.
+			socket.on('client:closeHardwareConnection', function(data) {
+				var options = JSON.parse(data);
+				var suffix = ':' + options.host + ':' + options.port;
+				var existingKey = _.find(_.keys(self.hardwareModels), function(key) {
+					return key.slice(-suffix.length) === suffix;
+				});
+				if (existingKey) {
+					var model = self.hardwareModels[existingKey];
+					if (typeof model.close === 'function') {
+						model.close();
+					}
+					delete self.hardwareModels[existingKey];
 				}
 			});
 
