@@ -191,7 +191,24 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			// CloudIn/CloudOut - no other widget defines it.
 			var managesOwnHardwareAddress = (typeof this.getHardwareKey === 'function');
 
-			if(outputMapping && !managesOwnHardwareAddress) {
+			// Real bug, reported 2026-09-30 (a widget tried to connect
+			// the instant a pin was typed into its output mapping field,
+			// before the active checkbox was ever checked) - same class
+			// of problem as the CloudIn/CloudOut fix above (a generic
+			// base-class path firing a hardware-switch attempt with no
+			// regard for whether the widget is actually meant to be
+			// live yet), just a DIFFERENT unguarded trigger point that
+			// fix didn't touch: THIS block fires on outputMapping/
+			// inputMapping changing at all, unconditionally, unlike the
+			// changed.out block above (line ~166) which already
+			// correctly checks activeOut. Only relevant when this.sources
+			// is already populated (a widget wired into this one's inlet)
+			// - typing a pin with nothing wired in was already a no-op
+			// either way, which is presumably why this was missed for
+			// as long as it was.
+			var isActive = this.model.get('activeOut') === true;
+
+			if(outputMapping && !managesOwnHardwareAddress && isActive) {
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
 				// Do this for all sources and include the address of the source
 				for(var i=this.sources.length-1; i>=0; i--) {
@@ -208,7 +225,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 
 			var inputMapping = model.changedAttributes().inputMapping;
-			if(inputMapping && !managesOwnHardwareAddress) {
+			if(inputMapping && !managesOwnHardwareAddress && isActive) {
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
 				// Do this for all sources and include the address of the source
 				for(var i=this.sources.length-1; i>=0; i--) {

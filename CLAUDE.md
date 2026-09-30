@@ -113,6 +113,25 @@
   cause without patching the vendored `socket.io-client` to log the
   actual exception.
 
+- **A widget is rendered before a loaded patch's saved attributes reach its
+  model.** `PatchLoader.loadJSON` calls the widget's `addFunction` (which
+  renders it - Marionette's `addView` renders on add) and only afterward
+  calls `newWidget.setFromModel(widgets[i])` to apply the saved JSON onto
+  the model. Any imperative (non-Rivets) DOM sync that only runs off a
+  `widgetEvents` DOM `'change'` handler - not a Backbone model `'change'`
+  listener - will use the widget's `initialize()` hardcoded defaults at
+  render time and never re-run when `setFromModel` sets the real saved
+  value moments later, even though the model attribute itself ends up
+  correct. Symptom: a setting that's plainly present in the exported/saved
+  JSON still shows its default in the UI after reloading the patch - looks
+  exactly like "this doesn't save." Root-caused 2026-09-30 in Text.js's
+  on-canvas display box: `updateDisplay()`/`applyFontStyles()` (which push
+  `displayWidth`/`displayHeight`/font fields onto the detached box) were
+  only wired to their "more panel" inputs' own `change` events; fixed by
+  also calling them from `onModelChange` (already bound to the model) when
+  those fields change. Any widget with DOM state driven off `widgetEvents`
+  rather than a declarative `rv-*` binding is a candidate for the same bug.
+
 ## Widget CSS layout
 
 - **A per-widget `styles.scss` (e.g. `views/SomeWidget/styles.scss`) is

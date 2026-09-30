@@ -2290,3 +2290,41 @@ body.ntk-monitoring .monitorBlockOverlay {
         min-height: 110px;
     }
 }
+
+// Simulated red LED (template.js's .simLED, on any widget that has
+// one - currently AnalogOut and DigitalOut, both driven by their own
+// gammaCorrect/applyThreshold signal-chain function) - lets the
+// current output be read at a glance without hardware attached, same
+// "make state visible" principle as this project's other in-widget
+// simulation controls (CLAUDE.md's widget design principles). Shared
+// here rather than duplicated per widget type, since the positioning/
+// stacking concerns below are identical wherever a .dial sits in the
+// same .dialwrapper layout.
+//
+// Opacity alone (bound to widget:ledOpacity) fades both the base
+// color and its glow together, since box-shadow is part of the same
+// element's rendering - no second binding needed for the glow to
+// track brightness too.
+// Hardware/UI-verified 2026-09-30: jQuery Knob's own rendered canvas
+// (80x62px, matching the .dial's own width/height options) occupies
+// most of .dialwrapper's width, including this LED's top-right corner
+// position, even though it only visually PAINTS the circular gauge -
+// its rectangular canvas element still captures clicks and, evidently,
+// sits above this element in paint order regardless of DOM position.
+// pointer-events:none (below) stops the LED from stealing the dial's
+// own clicks, but doesn't fix the reverse - this needs an explicit
+// z-index to paint above the dial's canvas.
+.analogOut, .digitalOut {
+    .simLED {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        width: 10px;
+        height: 10px;
+        z-index: 5;
+        border-radius: 50%;
+        background-color: #ff0000;
+        box-shadow: 0 0 6px 2px #ff0000;
+        pointer-events: none;
+    }
+}

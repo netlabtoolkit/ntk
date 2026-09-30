@@ -258,7 +258,19 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
         applyThreshold: function(input, model) {
             var value = parseFloat(input, 10);
             var threshold = parseFloat(model.threshold, 10);
-            return value >= threshold ? 1023 : 0;
+            var out = value >= threshold ? 1023 : 0;
+            // Simulated LED brightness (template's .simLED) - see
+            // AnalogOut.js's identical field for the *100 rationale
+            // (rv-style-* is a custom binder, WidgetMulti.js's
+            // setWidgetBinders, that divides by 100 itself). No gamma
+            // curve here at all - unlike AnalogOut, this widget has no
+            // dimming concept, just a clean on/off digital output, so
+            // the LED is either fully lit or fully off to match.
+            var ledOpacity = out > 0 ? 100 : 0;
+            if (this.model.get('ledOpacity') !== ledOpacity) {
+                this.model.set('ledOpacity', ledOpacity);
+            }
+            return out;
         },
 	});
 });

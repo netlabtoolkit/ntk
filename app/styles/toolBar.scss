@@ -284,6 +284,17 @@
 				opacity: 0.5;
 			}
 		}
+		&.status-unreachable {
+			// Calm/muted, not alarming - a device just being powered
+			// off is a common, expected state, not an error condition.
+			// Distinct from .status-pending's white (that's "actively
+			// checking right now"; this is "checked, got nothing back") -
+			// dashed border signals "uncertain" rather than a confirmed
+			// state the way the solid-bordered colors above do.
+			background-color: #eee;
+			color: #777;
+			border: 1px dashed #bbb;
+		}
 	}
 
 	.networkInfo {
