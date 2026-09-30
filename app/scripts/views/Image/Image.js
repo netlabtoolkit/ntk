@@ -32,7 +32,7 @@ function(Backbone, rivets, WidgetView, Template){
 					{title: 'X Position', to: 'left'},
 					{title: 'Y Position', to: 'top'},
           {title: 'opacity', to: 'opacity'},
-          {title: 'width', to: 'displayWidth'},
+          {title: 'Scale', to: 'displayWidth'},
 				],
 				title: 'Image',
 				activeControlParameter: 'left',
@@ -76,10 +76,22 @@ function(Backbone, rivets, WidgetView, Template){
           },
 
         imgMoved: function(e) {
-            var offset = this.$('.detachedEl').offset();
-            this.model.set('left',offset.left);
-            this.model.set('top',offset.top);
+            // position:fixed box - read the raw css left/top (round-trips
+            // with the rv-positionx/y binders); .offset() adds page scroll
+            // and drifts the box on every move. Clamp so it stays reachable.
+            var $box = this.$('.detachedEl');
+            var left = parseInt($box.css('left'), 10) || 0;
+            var top = parseInt($box.css('top'), 10) || 0;
+            left = Math.max(0, Math.min(left, (window.innerWidth || 1200) - 60));
+            top = Math.max(0, Math.min(top, (window.innerHeight || 800) - 40));
+            $box.css({ left: left + 'px', top: top + 'px' });
+            this.model.set('left', left);
+            this.model.set('top', top);
             this.sendToFront();
+            // jQuery UI's drag pins an explicit height on the <img> during
+            // the drag; clear it so the Scale inlet keeps resizing the
+            // whole image proportionally (width, height:auto) afterwards.
+            this.setImageDimensions();
         },
 
         sendToFront: function() {
@@ -93,7 +105,12 @@ function(Backbone, rivets, WidgetView, Template){
 
         setImageDimensions: function() {
             if(!app.server) {
-                this.$( '.detachedEl' ).css( 'width', this.model.get('displayWidth'));
+                // height:auto (never a fixed height) so setting the width
+                // always scales the whole image proportionally.
+                this.$( '.detachedEl' ).css({
+                    width: this.model.get('displayWidth'),
+                    height: 'auto',
+                });
             }
         },
 

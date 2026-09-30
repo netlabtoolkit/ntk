@@ -59,6 +59,20 @@ function( Backbone, HardwareModel ) {
 				D13: 0,
 			},
 			outputs: {
+				// D1/D2 included here (unlike ArduinoUno.js, where excluding
+				// them is correct - those are the physical Serial RX/TX pins
+				// on a real Arduino Uno, unusable as GPIO). A WiFi/network
+				// Firmata device has no such restriction, and this project's
+				// own CircuitPython firmware advertises D1/D2 as ordinary
+				// output-capable pins in its capability response. Without
+				// this, Patcher.js's ongoing-update relay (updateHardwareModel,
+				// gated on `outputs[pin] !== undefined`) silently refused to
+				// relay any value change on D1/D2 - a Servo/AnalogOut/
+				// DigitalOut widget on one of those pins moved once (via
+				// enableDevice()'s one-time push, a separate code path that
+				// doesn't consult this list) and then never again.
+				D1: 0,
+				D2: 0,
 				D3: 0,
 				D4: 0,
 				D5: 0,

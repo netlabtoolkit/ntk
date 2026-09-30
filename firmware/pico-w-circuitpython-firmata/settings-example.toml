@@ -1,0 +1,53 @@
+# Deliberately NOT named CIRCUITPY_WIFI_SSID/CIRCUITPY_WIFI_PASSWORD -
+# CircuitPython's own supervisor auto-joins whatever network is under
+# those exact standard names, independently of code.py, for its own
+# status/title-bar purposes (hardware-verified 2026-09-19: this was
+# silently running the board in concurrent AP+STA mode the whole time
+# SoftAP mode was active below, degrading it - see code.py's own
+# comment). Using our own key names here avoids that entirely.
+NTK_WIFI_SSID="your-wifi-name"
+NTK_WIFI_PASSWORD="your-wifi-password"
+
+# --- Optional: override (or disable) the mDNS hostname ---
+# mDNS is ON BY DEFAULT (code.py), even with this key absent entirely -
+# the board advertises itself as "ntk-device.local", matching NTK's own
+# default device address (see application.js's App.defaultDevice), so
+# a freshly-set-up board and a fresh NTK install just find each other
+# with nothing to configure here. Only set this key if you need a
+# DIFFERENT name - most commonly because you're running more than one
+# board on the same network and need to tell them apart (type that
+# board's own hostname into NTK instead) - or set it to "none" to turn
+# mDNS off entirely. Requires a resolver that understands mDNS/Bonjour
+# (macOS has this built in; Windows needs Bonjour installed).
+#
+# Hardware-verified working 2026-09-26 (CircuitPython 10.3.1, ESP32-C6).
+# The earlier "not working" finding (2026-09-23) was a code.py bug, not
+# a platform limitation: mdns.Server() was held in a local variable
+# inside _connect_station(), so it (and the native responder it wraps)
+# was eligible for garbage collection the moment that function returned
+# - the responder was going silent shortly after WiFi connected, well
+# before any query could arrive. Fixed by keeping it in a module-level
+# global instead. Separately, NTK's own connection code needed a longer
+# timeout - Node's DNS resolution of a ".local" name reliably takes
+# ~5s on macOS, longer than the 5s connect timeout NTK used - fixed in
+# server/modules/nlHardware/NetworkModel.js.
+# NTK_MDNS_HOSTNAME = "ntk-device"
+
+# --- Optional: SoftAP mode (board makes its own WiFi, fixed IP 192.168.4.1) ---
+# Use when there is no usable router. The computer joins the board's network
+# (and loses its normal WiFi / internet while joined). Range is shorter than
+# station mode - the board's small antenna with no router to help.
+# NTK_WIFI_MODE = "ap"
+# NTK_AP_SSID = "NTK-Firmata"
+# NTK_AP_PASSWORD = "netlabtoolkit"   # 8-63 chars; set to "" for an open network
+
+# --- Optional: let Push work with no computer plugged in at all (boot.py) ---
+# By default the board stays writable from a computer (Finder/Thonny
+# drag-and-drop keep working normally) - Push to this board still works
+# in that state, NTK just falls back to writing the file a different way
+# when your computer's plugged in (macOS only). This setting is only for
+# a board that's genuinely standalone - no computer ever plugged in - but
+# still needs to accept a Push over WiFi sometime after being deployed.
+# Uncomment it, then a hard reset (not Ctrl-D) - see boot.py's own
+# comment for the full explanation, including how to undo it.
+# NTK_REMOUNT_FOR_CODE_WRITES = true

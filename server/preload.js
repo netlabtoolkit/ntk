@@ -14,6 +14,14 @@ contextBridge.exposeInMainWorld('ntkElectron', {
 		return ipcRenderer.invoke('pick-image-file');
 	},
 
+	// Text widget import / export.
+	readTextFile: function() {
+		return ipcRenderer.invoke('read-text-file');
+	},
+	writeTextFile: function(opts) {
+		return ipcRenderer.invoke('write-text-file', opts || {});
+	},
+
 	// SpeechIn (Apple Speech helper). macOS only - speechAvailable() is
 	// false elsewhere. See server/electronApp.js and
 	// server/speechHelper/speechhelper.swift.
@@ -61,5 +69,32 @@ contextBridge.exposeInMainWorld('ntkElectron', {
 		var listener = function(event, data) { callback(data); };
 		ipcRenderer.on('tts-result', listener);
 		return function() { ipcRenderer.removeListener('tts-result', listener); };
+	},
+
+	// LLM widget (Anthropic / Ollama proxy in the main process). See
+	// server/llmProxy.js.
+	llmKeyStatus: function(provider) {
+		return ipcRenderer.invoke('llm-key-status', { provider: provider });
+	},
+	llmOpenKeysFile: function() {
+		return ipcRenderer.invoke('llm-open-keys-file');
+	},
+	llmModels: function(opts) {
+		return ipcRenderer.invoke('llm-models', opts || {});
+	},
+	llmComplete: function(opts) {
+		return ipcRenderer.invoke('llm-complete', opts || {});
+	},
+	// "Attach document" (PDF/txt/md) - see server/electronApp.js and
+	// plans/llm-widget.md's "Document attach" section. Returns
+	// {name, path, text, wordCount, truncated} or {name, error} or null
+	// (canceled).
+	llmPickDocument: function() {
+		return ipcRenderer.invoke('llm-pick-document');
+	},
+	// "Show in Finder" for the attached document. Returns {ok: true} or
+	// {error}.
+	llmShowDocumentInFolder: function(path) {
+		return ipcRenderer.invoke('llm-show-document-in-folder', { path: path });
 	},
 });

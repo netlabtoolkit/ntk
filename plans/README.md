@@ -28,7 +28,7 @@ easy way to prototype tangible / IoT projects — drag-and-drop widgets, no
 code for the common case, hardware optional (most widgets should be
 testable by interacting with the widget itself before any hardware is
 connected — see the Widget design principles in `CLAUDE.md`). The AI
-widgets (Gesture, PoseTrack, FaceTrack, and the planned
+widgets (Gesture, PoseRecog, FaceTrack, and the planned
 [LLM widget](llm-widget.md)) extend that same mission to AI-assisted
 interaction design.
 
@@ -141,7 +141,12 @@ Set by Phil on 2026-09-03.
    scrolling** — combined into one step, built on step 3's selection.
 5. **[Standalone patch export](standalone-patch-export.md)**, including
    its folded-in Firmata → native-protocol replacement and the
-   reconnect-as-monitor feedback design.
+   reconnect-as-monitor feedback design. A scoped v1 (interpreter +
+   compat check + manual file copy + monitor over existing Firmata,
+   *deferring* the native-protocol fold-in) has no dependency on steps
+   1–2 and could lead the build order instead — see that doc's
+   [Sequencing](standalone-patch-export.md#sequencing-can-this-go-first)
+   section.
 6. **Possible elimination of serial and network Firmata support** —
    broader than the Firmata replacement folded into step 5 (which only
    scoped the WiFi CircuitPython firmware). This also covers dropping
@@ -185,7 +190,7 @@ Reaction to four claimed benefits of the overall strategy:
 3. **"Smaller .app"** — real but lopsided. Desktop: Electron's ~150–250 MB
    Chromium / Node baseline dominates and isn't touched by steps 1–6.
    iPadOS (step 7): dramatic, since WKWebView bundles no browser engine.
-   Separately, the MediaPipe WASM / model assets for PoseTrack / FaceTrack
+   Separately, the MediaPipe WASM / model assets for PoseRecog / FaceTrack
    are a non-trivial size cost none of these steps address.
 4. **"Real functional improvements"** — true, but concentrated in steps
    4, 5, and 7 (genuine new user-facing capability). Steps 1, 2, 3, 6 are
@@ -221,3 +226,12 @@ and shipped. Its historical step-by-step plan is at
 - **[LLM widget](llm-widget.md)** — text prompt → LLM → text response,
   provider (Anthropic / OpenAI / Ollama / OpenAI-compatible) and model
   picked in the "more" panel.
+- **[Sensor fusion](sensor-fusion.md)** — two options: a general
+  "Fusion" widget (weighted sum/average/magnitude across up to 6
+  inputs, for both accelerometer-axis and dissimilar-sensor fusion), and
+  a separate, bigger multi-channel Gesture redesign for real
+  gesture-recognition accuracy. Recommendation: build Fusion first.
+- **[Cloud widgets](cloud-widgets.md)** — rewrite the existing
+  Adafruit-IO-only CloudIn/CloudOut to generic, host-agnostic MQTT, and
+  give them standalone on-device support like OSCIn/OSCOut — the
+  feature that makes NTK a genuine IoT device authoring tool.

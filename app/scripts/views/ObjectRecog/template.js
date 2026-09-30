@@ -6,13 +6,11 @@
     </div>
 
     <div class="widgetLeft">
-        <div class="leftTab"><input type="checkbox" rv-checked="widget:active" /></div>
+        <div class="leftTab cameraToggle" data-tooltip="Camera on/off - uncheck to turn the camera off"><input type="checkbox" rv-checked="widget:active" /></div>
     </div>
 
     <div class="widgetBody">
         <div class="widgetBodyLeft">
-            <select class="trackModeSelect"></select>
-
             <div class="transportControls">
                 <div class="recordIcon" rv-class-recording="widget:recording" rv-class-countingdown="widget:countingDown" title="Record"></div>
                 <select class="recordSlot" rv-value="widget:recordSlot">
@@ -28,6 +26,7 @@
             </div>
             <div class="recordingCountdown" rv-show="widget:recording | or widget:countingDown" rv-text="widget:recordingCountdownText"></div>
 
+            <div class="cocoLabelReadout" rv-show="widget:cocoLabel">sees: <span rv-text="widget:cocoLabel"></span></div>
             <div class="currentMatch" rv-show="widget:currentMatchName" rv-text="widget:currentMatchName"></div>
 
             <div class="statusMessage" rv-show="widget:statusMessage" rv-text="widget:statusMessage"></div>
@@ -55,48 +54,27 @@
             <div class="recognitionLabel">slot <span rv-text="widget:recordSlot">1</span>: <span rv-text="widget:matchLevel | rounded">0</span>%</div>
             <div class="exampleCount">slot <span rv-text="widget:recordSlot">1</span>: <span rv-text="widget:selectedExampleCount">0</span> examples</div>
 
-            <canvas class="slotPreview" width="70" height="70"></canvas>
-            <label class="wide-label">name</label> <input class="slotNameInput" type="text" rv-value="widget:selectedSlotName" placeholder="e.g. Thumbs up"><br>
+            <img class="slotPreview" rv-src="widget:selectedPreview" width="70" height="70" alt="">
+            <label class="wide-label">name</label> <input class="slotNameInput" type="text" rv-value="widget:selectedSlotName" placeholder="e.g. My mug"><br>
+
+            <div class="recordTip">Recording lasts 5&nbsp;s. While the dot flashes red, <strong>slowly turn the object and move it closer and farther</strong> &mdash; a spread of views recognises much better than one still shot.</div>
+
+            <div class="inletValue"><input class="ignorePeopleInput" type="checkbox" rv-checked="widget:ignorePeople" /> ignore people</div>
+            <div class="inletValue"><input class="detectorCropInput" type="checkbox" rv-checked="widget:useDetectorCrop" /> focus on detected object</div>
+            <button class="testImageButton" type="button">test with an image file&hellip;</button>
 
             <label class="wide-label">match threshold %</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
             <label class="wide-label">wait time true</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:waitTimeTrue"><br>
             <label class="wide-label">wait time false</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:waitTimeFalse"><br>
-            <table class="rangeTable gestureOutputsTable" border="0" cellspacing="3" cellpadding="0">
-                <tr>
-                    <td></td>
-                    <td class="tableHeader">no match</td>
-                    <td class="tableHeader">match</td>
-                </tr>
-                <tr>
-                    <td>1</td>
-                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifNoMatch1 | rounded"></td>
-                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifMatch1 | rounded"></td>
-                </tr>
-                <tr>
-                    <td>2</td>
-                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifNoMatch2 | rounded"></td>
-                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifMatch2 | rounded"></td>
-                </tr>
-                <tr>
-                    <td>3</td>
-                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifNoMatch3 | rounded"></td>
-                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifMatch3 | rounded"></td>
-                </tr>
-                <tr>
-                    <td>4</td>
-                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifNoMatch4 | rounded"></td>
-                    <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:ifMatch4 | rounded"></td>
-                </tr>
-            </table>
 
             <div class="cameraPreview">
                 <% if(!server) { %>
-                <video class="poseVideo" width="190" height="143" autoplay muted playsinline></video>
-                <canvas class="poseCanvas" width="190" height="143"></canvas>
+                <video class="objectVideo" width="190" height="143" autoplay muted playsinline></video>
+                <canvas class="objectCanvas" width="190" height="143"></canvas>
                 <% } %>
             </div>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/posetrack/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/objectrecog/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

@@ -85,9 +85,8 @@ PIN_TABLE = [
 # rest of this firmware needs to know these aren't real ADC pins.
 #
 # Entirely optional and silently skipped if the sensor isn't attached
-# (or the bus lacks pull-ups - see the Grove LCD memory note for that
-# exact failure mode) - PIN_TABLE just ends up three entries shorter,
-# same as if this whole block were never here.
+# or the bus lacks pull-ups - PIN_TABLE just ends up three entries
+# shorter, same as if this whole block were never here.
 try:
     import adafruit_lis3dh
 

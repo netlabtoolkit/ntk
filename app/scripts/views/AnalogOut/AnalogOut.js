@@ -35,9 +35,15 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				outputMapping: options.outputMapping,
 				activeOut: false,
 				port: this.model.get('port') || 3030,
+				// On by default now (was off) - `|| true` would ignore a
+				// saved `false` (false || true is still true), so this
+				// checks "was anything saved at all" instead.
+				gammaCorrect: this.model.get('gammaCorrect') !== undefined ? this.model.get('gammaCorrect') : true,
+				gammaValue: this.model.get('gammaValue') || 2.8,
 			});
 
             this.signalChainFunctions.push(this.limitRange);
+            this.signalChainFunctions.push(this.gammaCorrect);
 
 			// This is here because this widget effectively does not output (only outputs to hardware and then, only on server)
 			// So we go ahead and process so the output can be shown in the widget
@@ -109,10 +115,21 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 				var inactiveModels = this.inactiveModelsExist();
 
-				// If we haven't made the hardware model yet, then we should bind everything together
-				if( inactiveModels && this.model.get("activeOut") == true ) {
-					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
-						modelType = this.getDeviceModelType();
+				// inactiveModelsExist() checks this.sources, which is
+				// NEVER populated for a hardware OUTPUT mapping in the
+				// first place - Patcher.Controller.mapToModel's hardware
+				// branch pushes to ITS OWN widgetMappings, not this
+				// view's this.sources (that's only for widget-to-widget/
+				// hardware-INPUT inlet connections via addInputMap). So
+				// inactiveModels is always false here, and this branch
+				// was structurally unreachable via re-toggling activeOut
+				// after fixing a bad IP - found via hands-on testing
+				// 2026-09-22 (editing the IP then re-toggling activeOut
+				// silently did nothing at all, no reconnect attempt of
+				// any kind). changed.activeOut === true directly
+				// captures "the user just turned this on" instead.
+				if( (inactiveModels || changed.activeOut === true) && this.model.get("activeOut") == true ) {
+					var modelType = this.getDeviceModelType();
 
 					this.unMapHardwareInlet();
 
@@ -158,14 +175,36 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			return inactiveModels;
 		},
 		unMapHardwareInlet: function unMapHardwareInlet() {
-
-			this.sourceToRemove = this.sources[0];
-			this.sources.length = 0;
-			this.sources = [];
-
-			if(this.sourceToRemove) {
-				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
+			// Only removes the HARDWARE mapping (destinationField is a
+			// pin name like 'D3', never the literal string 'in') -
+			// this.sources can ALSO hold a widget-to-widget cable
+			// mapping (destinationField 'in', from this widget's own
+			// `ins` declaration), added via the SAME addInputMap() call
+			// Patcher.js's mapToModel makes for a hardware connection
+			// (see mapToModel's `if(view) { view.addInputMap(...) }`,
+			// unconditional on which branch built mappingObject).
+			// Previously wiped this.sources ENTIRELY regardless of
+			// which kind of entry was in it - silently destroyed a live
+			// widget-to-widget cable (e.g. AnalogIn -> AnalogOut) the
+			// instant this widget connected to hardware: syncWithSource
+			// had nothing left to iterate (values stopped flowing), and
+			// unMapInlet's own lookup into the now-empty this.sources
+			// found nothing to remove (the cable looked visually fine
+			// but was stuck/undraggable - its drawn position comes from
+			// cached coordinates, independent of this.sources).
+			// Root-caused 2026-09-25 via hands-on testing (XIAO
+			// ESP32-S3 bring-up); same copy-pasted bug existed in
+			// DigitalOut.js/Servo.js too, fixed there identically.
+			var kept = [];
+			for(var i=0; i<this.sources.length; i++) {
+				if(this.sources[i].map.destinationField === 'in') {
+					kept.push(this.sources[i]);
+				}
+				else {
+					window.app.vent.trigger('Widget:removeMapping', this.sources[i], this.model.get('wid'));
+				}
 			}
+			this.sources = kept;
 		},
 		enableDevice: function enableHardware() {
 			var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();
@@ -230,6 +269,26 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
             output = Math.max(output, 0);
             output = Math.min(output, 255);
             return Number(output);
+        },
+
+        // Runs after limitRange, so input is already a clamped 0-255
+        // number here. Standard LED brightness gamma curve - PWM duty
+        // cycle vs. perceived brightness isn't linear (the eye is far
+        // more sensitive to changes at low duty cycles), so a linear
+        // "in" value looks like it jumps straight to bright and then
+        // barely changes for the rest of the dial's range unless
+        // compressed like this. On by default (gammaCorrect: true in
+        // initialize(), per Phil's own call - most AnalogOut use is
+        // driving an LED) - uncheck it in the more panel for something
+        // that isn't an LED (a motor speed controller, for instance),
+        // where linear PWM is correct instead.
+        gammaCorrect: function(input, attrs) {
+            if (!attrs.gammaCorrect) return input;
+            // rv-value binds a text input as a string (see CLAUDE.md's
+            // Rivets gotcha) - parseFloat before using it arithmetically.
+            var gamma = parseFloat(attrs.gammaValue);
+            if (!gamma || gamma <= 0) gamma = 2.8;
+            return Math.round(255 * Math.pow(input / 255, gamma));
         },
 	});
 });

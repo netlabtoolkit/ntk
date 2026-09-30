@@ -3,6 +3,7 @@ define([
 	'backbone',
 	'communicator',
 	'SocketAdapter',
+	'controllers/MonitorController',
 	'cableManager',
 	'controllers/PatchLoader',
 	'controllers/Timing',
@@ -21,13 +22,17 @@ define([
 	'views/Code/Code',
 	'views/Blank/Blank',
     'views/Servo/Servo',
+    'views/Display/Display',
     'views/OSCIn/OSCIn',
     'views/OSCOut/OSCOut',
+    'views/CloudIn/CloudIn',
+    'views/CloudOut/CloudOut',
     'views/Splitter/Splitter',
     'views/item/RestrictiveOverlay',
     'views/GroveSensor/GroveSensor',
+    'utils/StandaloneCompatibility',
 ],
-function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, OSCInView, OSCOutView, SplitterView, RestrictiveOverlayView, GroveSensorView){
+function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableManager, PatchLoader, TimingController, WidgetsView, WidgetsCollection, ArduinoUnoModel, Models, Widgets, WidgetModel, OSCModel, AnalogInView, AnalogOutView, DigitalInView, DigitalOutView, ImageView, CodeView, BlankView, ServoView, DisplayView, OSCInView, OSCOutView, CloudInView, CloudOutView, SplitterView, RestrictiveOverlayView, GroveSensorView, StandaloneCompatibility){
 
 	var PatcherController = function(region) {
 		this.parentRegion = region;
@@ -50,6 +55,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			serverAddress: '127.0.0.1',
 			addFunction: this.onExternalAddWidget.bind(this),
 			mapFunction: this.mapToModel.bind(this),
+			updateLargestCID: this.updateLargestCID.bind(this),
 		});
 
 		window.OO = this;
@@ -84,6 +90,7 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			window.app.timingController = new TimingController();
 			// Bind to a socket server
 			Communicator.socketAdapter = new SocketAdapter();
+			MonitorController.initialize();
 
 			if(this.parentRegion) {
 				this.parentRegion.show(this.views.mainCanvas);
@@ -101,6 +108,10 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			window.app.vent.on('ToolBar:addWidget', this.onExternalAddWidget, this);
 			window.app.vent.on('ToolBar:savePatch', this.savePatch, this);
 			window.app.vent.on('ToolBar:exportPatch', this.exportPatch, this);
+			window.app.vent.on('ToolBar:pushPatchToDevice', this.pushPatchToDevice, this);
+			window.app.vent.on('ToolBar:pullPatchFromDevice', this.pullPatchFromDevice, this);
+			window.app.vent.on('pushPatchResult', this.onPushPatchResult, this);
+			window.app.vent.on('pullPatchResult', this.onPullPatchResult, this);
 			window.app.vent.on('ToolBar:loadPatch', this.loadPatch, this);
 			window.app.vent.on('ToolBar:clearPatch', this.clearPatch, this);
 			window.app.vent.on('receivedDeviceModelUpdate', function(data) {
@@ -122,6 +133,15 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 		},
 		onExternalAddWidget: function(widgetType, addedFromLoader, wid) {
+			// Structural patch edits are blocked while monitoring (see
+			// MonitorController.js's blockAndWarn) - a patch loaded from
+			// disk/server still needs to go through here uninterrupted,
+			// hence the addedFromLoader check.
+			if (!addedFromLoader && window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:blockedEdit');
+				return;
+			}
+
 			var newWidget,
 				serverAddress = window.location.host;
 
@@ -160,7 +180,12 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 					return newWidget;
 				}
 				else if(widgetType === 'AnalogOut') {
-					var defaultMapping = '';
+					// D7 is PWM-capable on both the C6 and S3 CircuitPython
+					// firmware and isn't one of the pins reserved/shared by
+					// I2C (D4/D5) - a reasonable default so a freshly-added
+					// AnalogOut widget already has a usable pin instead of
+					// requiring the user to open the more panel first.
+					var defaultMapping = 'D7';
 
 					var existingMapping = this.existingMappingExists(defaultMapping, "ArduinoUno" );
 
@@ -185,6 +210,28 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 							view: newWidget,
 							modelType: deviceMapping.modelType,
 							IOMapping: {sourceField: "out", destinationField: defaultOutputMapping},
+							server: deviceMapping.server,
+						}, addedFromLoader);
+					}
+
+					return newWidget;
+				}
+				else if(widgetType === 'Display') {
+					var newWidget = new DisplayView({
+						model: newModel,
+					});
+
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
+					if(!addedFromLoader) {
+						this.applyDefaultDeviceToModel(newModel);
+						var deviceMapping = this.getDefaultDeviceMapping(serverAddress);
+						this.mapToModel({
+							view: newWidget,
+							modelType: deviceMapping.modelType,
+							// 'display' is a sentinel, not a real pin - see
+							// Display.js's own onModelChange comment.
+							IOMapping: {sourceField: "out", destinationField: 'display'},
 							server: deviceMapping.server,
 						}, addedFromLoader);
 					}
@@ -325,6 +372,58 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 
 					return newWidget;
                 }
+                else if(widgetType === 'CloudIn') {
+					// No universal default topic (unlike OSC's /ntk/in/N
+					// convention) - host/topic start empty, the user has
+					// to configure a real broker. What matters here isn't
+					// a meaningful first connection, it's calling
+					// mapToModel AT ALL at creation time (mirroring every
+					// other hardware widget above) so this.sources gets
+					// populated and - critically - so the mapping reaches
+					// the server via updateModelMappings when
+					// addedFromLoader is false. Without this, CloudIn had
+					// NO bootstrap mapToModel call anywhere (its own
+					// onModelChange logic all requires this.sources.length
+					// > 0 to do anything, a chicken-and-egg gap that let
+					// its underlying broker connection get pruned by
+					// nlMultiClientSync.js the moment anything else in the
+					// patch synced its mappings - found 2026-09-24.
+					var newWidget = new CloudInView({
+						model: newModel,
+					});
+
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
+					if(!addedFromLoader) {
+						this.mapToModel({
+							view: newWidget,
+							modelType: 'Cloud',
+							IOMapping: {sourceField: '', destinationField: 'in'},
+							server: ':1883',
+						}, addedFromLoader);
+					}
+
+					return newWidget;
+                }
+                else if(widgetType === 'CloudOut') {
+					// See CloudIn above for why this call exists at all.
+					var newWidget = new CloudOutView({
+						model: newModel,
+					});
+
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
+					if(!addedFromLoader) {
+						this.mapToModel({
+							view: newWidget,
+							modelType: 'Cloud',
+							IOMapping: {sourceField: "out", destinationField: ''},
+							server: ':1883',
+						}, addedFromLoader);
+					}
+
+					return newWidget;
+                }
                 else if(widgetType === 'GroveSensor') {
 					var newWidget = new GroveSensorView({
 						model: newModel,
@@ -418,6 +517,26 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			});
 
 			return existingMapping;
+		},
+		/**
+		 * updateLargestCID - keeps the counter addWidgetToStage uses to
+		 * mint fresh widget ids ("n" + largestCID) ahead of every id a
+		 * loaded patch actually uses. Without this, a widget added after
+		 * loading a patch can mint an id that collides with one already
+		 * in the file (see PatchLoader.loadJSON, which calls this once
+		 * per loaded widget before any of them are added to the stage) -
+		 * a real bug found 2026-09-19 via a duplicate "n6" in an exported
+		 * standalone patch, silently dropping one of the two widgets'
+		 * data on the floor.
+		 *
+		 * @param {string} wid e.g. "n6"
+		 * @return {void}
+		 */
+		updateLargestCID: function(wid) {
+			var n = parseInt(String(wid).slice(1), 10);
+			if(!isNaN(n) && n > this.largestCID) {
+				this.largestCID = n;
+			}
 		},
 		/**
 		 * Render a view to the appropriate Canvas DOM element
@@ -636,6 +755,11 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
          * @return {void}
          */
 		removeWidget: function(widgetView, calledFromLoader) {
+			if (!calledFromLoader && window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:blockedEdit');
+				return;
+			}
+
 			this.widgets = _.reject(this.widgets, function(view) { return widgetView === view; });
 			this.widgetModels.remove(widgetView.model);
 
@@ -660,6 +784,19 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 			for(var i=relatedMappings.length-1; i>=0; i--) {
 				this.removeMapping(relatedMappings[i], widgetView.model.get('wid'));
 			}
+
+			// Drop any cached hardware-model instance no widget references any
+			// more. Without this, its stale active===true flag makes the next
+			// widget added for that device think it's still connected and skip
+			// enableDevice() - so the server (which DID tear the connection
+			// down, see nlMultiClientSync's client:removeWidget handler) is
+			// never asked to reconnect, and only an app restart recovers.
+			var stillReferenced = _.pluck(this.widgetMappings, 'modelWID');
+			_.each(_.keys(this.hardwareModelInstances), function(key) {
+				if(!_.contains(stillReferenced, key)) {
+					delete this.hardwareModelInstances[key];
+				}
+			}, this);
 
 			if(!calledFromLoader) {
 				window.app.vent.trigger('removeWidget', widgetView.model.get( 'wid' ));
@@ -835,7 +972,14 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 				return this.hardwareModelInstances[modelServerQuery].model;
 			}
 			else {
-				var newModelInstance = new Models[modelType]();
+				// 2nd arg is Backbone's own constructor `options` (available
+				// to a model's initialize(attributes, options)) - purely
+				// additive, every existing model type (ArduinoUno/network/
+				// OSC) ignores it. models/Cloud.js reads it to know its own
+				// specific "Cloud:host:port" identity, since (unlike OSC's
+				// one shared default instance) different Cloud instances
+				// can each be a genuinely different broker.
+				var newModelInstance = new Models[modelType]({}, {modelServerQuery: modelServerQuery});
 				this.hardwareModelInstances[modelServerQuery] = {
 					model: newModelInstance,
 					server: server,
@@ -892,35 +1036,326 @@ function(app, Backbone, Communicator, SocketAdapter, CableManager, PatchLoader, 
 		savePatch: function() {
 			window.app.vent.trigger('savePatchToServer', {collection: this.widgetModels, mappings: this.widgetMappings});
 		},
+    // Filename matches STANDALONE_PATCH_PATH (ntk_firmata_main.py) so
+    // an exported patch can be dropped straight onto CIRCUITPY with no
+    // rename - exportStandalonePatch() (removed 2026-09-28, was
+    // functionally identical to this except for a compatibility
+    // pre-check and a different filename) used to be the dedicated way
+    // to get that filename. No compatibility check here deliberately -
+    // this button is for ANY patch, including ones that were never
+    // meant to run standalone (FaceTrack/LLM/HTML/etc, browser-only
+    // widgets); the device itself already rejects an incompatible
+    // standalone_patch.json with a clear console message (see
+    // ntk_firmata_main.py's _load_standalone_patch()) if you do push
+    // one that can't run there - Push to Device (pushPatchToDevice,
+    // below) still has its own StandaloneCompatibility pre-check, since
+    // that action specifically means "run this standalone."
     exportPatch: function() {
       var patch = {
         widgets: this.widgetModels.toJSON(),
         mappings: this.widgetMappings,
       };
 
-			// Built and downloaded entirely client-side (Blob + a throwaway
-			// <a download>), NOT round-tripped through the server's
-			// GET /patch.ntk?patch=<entire JSON as a URL-encoded query
-			// string> the way this used to work - a widget with any real
-			// amount of data (e.g. PoseTrack's recorded training examples)
-			// can push the encoded patch past the request-line length
-			// limit most HTTP servers enforce (Node's own default is well
-			// under 100KB), which fails the request outright. Worse, the
-			// old code drove that GET via window.location.href - a full-
-			// page navigation - so a failed request didn't just fail to
-			// download, it tore down the entire running SPA (blank/white
-			// canvas, "net::ERR_CONNECTION_RESET"). A Blob URL has no such
-			// size ceiling and never leaves the page.
+			this.downloadPatchAsFile(patch, 'standalone_patch.json');
+    },
+		/**
+		 * getActiveNetworkDeviceKey - the hardwareKey (e.g.
+		 * "network:192.168.0.145:3030") of the CircuitPython WiFi device
+		 * to target for pushPatchToDevice/pullPatchFromDevice. v1 assumes
+		 * one device per patch (see plans/standalone-patch-export.md's
+		 * "Push/Pull standalone patch" section).
+		 *
+		 * Prefers an actual live hardware mapping already in this patch,
+		 * if one exists - a widget-to-widget mapping's modelWID is just
+		 * a plain wid (e.g. "n5"), a hardware mapping's is always
+		 * "<deviceType>:<server>" (see mapToModel's hardware branch
+		 * above), restricted to "network:" since Push/Pull is WiFi-
+		 * firmware-only (a serial ArduinoUno device's model class has no
+		 * pushPatch/pullPatch methods). Falls back to window.app.defaultDevice
+		 * (the Add Widgets panel's own Device/IP/port fields) if no widget
+		 * is wired up yet - same source ToolBar.js's toggleMonitor already
+		 * connects from with no widget required either. Added 2026-09-23
+		 * after hands-on feedback that requiring a widget first made Pull
+		 * (checking what's on a device before building anything) needlessly
+		 * redundant - Pull in particular is often exactly what you'd want
+		 * to do BEFORE adding any widgets, not after.
+		 *
+		 * @return {string|null}
+		 */
+		getActiveNetworkDeviceKey: function() {
+			for(var i = 0; i < this.widgetMappings.length; i++) {
+				var modelWID = this.widgetMappings[i].modelWID;
+				if(modelWID && modelWID.indexOf('network:') === 0) {
+					return modelWID;
+				}
+			}
+
+			var defaultDevice = window.app.defaultDevice;
+			if(defaultDevice && defaultDevice.deviceType === 'network' && defaultDevice.server) {
+				return 'network:' + defaultDevice.server + ':' + (defaultDevice.port || 3030);
+			}
+
+			return null;
+		},
+		/**
+		 * pushPatchToDevice - sends the current patch to the connected
+		 * CircuitPython device over the same live connection, so it can
+		 * run standalone once NTK disconnects. See getActiveNetworkDeviceKey
+		 * and plans/standalone-patch-export.md's "Push/Pull standalone
+		 * patch" section.
+		 *
+		 * @return {void}
+		 */
+		pushPatchToDevice: function() {
+			var hardwareKey = this.getActiveNetworkDeviceKey();
+			if(!hardwareKey) {
+				alert('No Network device to push to - either wire up a hardware widget, or set the Add Widgets panel\'s Device picker to Network with an IP address.');
+				return;
+			}
+
+			var patch = {
+				widgets: this.widgetModels.toJSON(),
+				mappings: this.widgetMappings,
+			};
+
+			// An empty canvas is a deliberate way to ERASE the device's
+			// standalone patch entirely, added 2026-09-23 - reuses this
+			// same Push plumbing instead of a separate command.
+			// ntk_firmata_main.py's _handle_push_patch_request deletes
+			// standalone_patch.json on the device when it sees zero
+			// widgets, rather than writing a valid-but-inert empty patch
+			// (which would still show the device as "standalone
+			// running" with nothing to do - not the same as genuinely
+			// having none). Gets its own confirm wording - erasing is a
+			// meaningfully different, easier-to-trigger-by-accident
+			// action than a normal overwrite, so it's called out
+			// explicitly rather than folded into the generic message
+			// below.
+			if(patch.widgets.length === 0) {
+				var confirmedErase = confirm(
+					'The canvas is empty. Pushing now will ERASE the standalone patch ' +
+					'currently saved on the device at ' + hardwareKey.replace('network:', '') + ' ' +
+					'- it won\'t run anything when NTK disconnects. Continue?'
+				);
+				if(!confirmedErase) return;
+
+				// No auto-Monitor after an erase (see onPushPatchResult) -
+				// there's nothing left running on the device to watch.
+				// _lastErasedHardwareKey (separate from
+				// _lastPushHardwareKey, which stays null here) is used
+				// instead to close the connection client:pushPatchToDevice
+				// creates on demand to actually send the erase over - see
+				// onPushPatchResult's own comment for why that has to be
+				// closed explicitly here, unlike a real push.
+				this._lastPushHardwareKey = null;
+				this._lastErasedHardwareKey = hardwareKey;
+				window.app.vent.trigger('Widget:pushPatchToDevice', {
+					hardwareKey: hardwareKey,
+					patch: JSON.stringify(patch),
+				});
+				return;
+			}
+
+			var result = StandaloneCompatibility.checkPatch(patch);
+			if(!result.compatible) {
+				var widgetList = _.map(result.unsupportedWidgets, function(widget) {
+					return (widget.title || widget.typeID) + ' (' + widget.typeID + ')';
+				}).join('\n');
+
+				alert(
+					'This patch can\'t be pushed to the device - it uses widgets ' +
+					'the on-device interpreter doesn\'t support yet:\n\n' + widgetList
+				);
+
+				return;
+			}
+
+			// Explicit-Deploy-action is the primary safety net (see
+			// plans/standalone-patch-export.md) - this confirm is a
+			// second, lighter check since a push always overwrites
+			// whatever standalone patch the device currently has saved
+			// (there's no way to compare against it cheaply from here -
+			// see the scoping notes for why this isn't conditioned on
+			// "is a patch currently running", which the explicit-handoff
+			// design makes impossible to ask meaningfully while Push is
+			// even available in the first place).
+			var confirmed = confirm(
+				'Push this patch to the device at ' + hardwareKey.replace('network:', '') + '?\n\n' +
+				'It will replace any standalone patch currently saved on the device ' +
+				'and run automatically once NTK disconnects (no restart needed) - ' +
+				'NTK will then switch to Monitor mode to watch it run.'
+			);
+			if(!confirmed) return;
+
+			this._lastPushHardwareKey = hardwareKey;
+			this._lastErasedHardwareKey = null;
+			window.app.vent.trigger('Widget:pushPatchToDevice', {
+				hardwareKey: hardwareKey,
+				patch: JSON.stringify(patch),
+			});
+		},
+		/**
+		 * pullPatchFromDevice - fetches whatever standalone patch is
+		 * currently saved on the connected device and replaces the
+		 * canvas with it, so NTK's view matches what the device actually
+		 * runs. See getActiveNetworkDeviceKey and plans/standalone-patch-
+		 * export.md's "Push/Pull standalone patch" section.
+		 *
+		 * @return {void}
+		 */
+		pullPatchFromDevice: function() {
+			var hardwareKey = this.getActiveNetworkDeviceKey();
+			if(!hardwareKey) {
+				alert('No Network device to pull from - either wire up a hardware widget, or set the Add Widgets panel\'s Device picker to Network with an IP address.');
+				return;
+			}
+
+			this._lastPullHardwareKey = hardwareKey;
+			window.app.vent.trigger('Widget:pullPatchFromDevice', {hardwareKey: hardwareKey});
+		},
+		/**
+		 * onPushPatchResult / onPullPatchResult - handle
+		 * server:pushPatchResult/server:pullPatchResult, relayed via
+		 * SocketAdapter.js from the hardware model's pushPatch()/
+		 * pullPatch() callback.
+		 */
+		onPushPatchResult: function(result) {
+			if(result.ok) {
+				// No reboot either way as of 2026-09-25 - the device
+				// reloads the patch in place (StandaloneInterpreter is
+				// swapped for a freshly-loaded one, not rebuilt via a
+				// full reset). Network path: ntk_firmata_main.py's
+				// _handle_push_patch_request reloads right after writing.
+				// Local-CIRCUITPY-mount fallback path (StandardFirmataModel.js's
+				// pushPatch, macOS only): the write itself has no signal
+				// to the device, so requestStandaloneReload() sends a
+				// separate best-effort "please reload" message over the
+				// still-live connection right after - usually still
+				// effectively immediate, but not GUARANTEED to land (a
+				// dropped connection at exactly the wrong moment), hence
+				// "should" rather than promising it outright. Generic
+				// wording also covers both a normal push and an erase
+				// (an empty patch - see pushPatchToDevice's own comment)
+				// without being wrong for either; the confirm dialog
+				// already said which one this was before the user agreed
+				// to it.
+				alert('Done - the device should reload the new patch within a few seconds, no restart needed. If it doesn\'t, reset it manually.');
+
+				// Auto-switch to Monitor mode after a real push (not an
+				// erase - see pushPatchToDevice's own comment, which
+				// leaves _lastPushHardwareKey null for that case) so the
+				// device settles into standalone + watched instead of
+				// staying "controlled": left as-is, the pushed widgets'
+				// own connections would otherwise keep trying to
+				// reconnect and take over again (NetworkModel.js's
+				// etherport-client auto-reconnects forever), bouncing
+				// the device between controlled and standalone in quick
+				// succession every time that reconnect landed. Monitor
+				// mode's own client:startMonitor handler (nlMultiClientSync.js)
+				// already closes any conflicting hardware connection
+				// before connecting, so this doesn't need to do that
+				// itself - just wait for the device's own "within a few
+				// seconds" reload (see the alert above) before asking,
+				// rather than racing it.
+				if(this._lastPushHardwareKey) {
+					var parts = this._lastPushHardwareKey.split(':');
+					var host = parts[1], port = parts[2];
+					this._lastPushHardwareKey = null;
+					setTimeout(function() {
+						window.app.vent.trigger('Monitor:start', {host: host, port: port});
+					}, 2000);
+				}
+				// Erase (see pushPatchToDevice's own comment): no patch
+				// left to auto-Monitor, but client:pushPatchToDevice
+				// still created a real hardware connection on demand
+				// just to send the erase over, and nothing else was
+				// going to close it - hardware-verified 2026-09-30, the
+				// device status bar kept reporting "Controlled" after
+				// an erase with no widget anywhere using that
+				// connection. Closing it here returns the device to a
+				// genuinely idle state.
+				else if(this._lastErasedHardwareKey) {
+					var erasedParts = this._lastErasedHardwareKey.split(':');
+					this._lastErasedHardwareKey = null;
+					window.app.vent.trigger('closeHardwareConnection', {
+						host: erasedParts[1],
+						port: erasedParts[2],
+					});
+				}
+			}
+			else {
+				alert('Push failed: ' + (result.error || 'unknown error'));
+			}
+		},
+		onPullPatchResult: function(result) {
+			if(result.error) {
+				alert('Pull failed: ' + result.error);
+				return;
+			}
+			if(!result.patch) {
+				alert('No standalone patch is currently saved on this device.');
+				return;
+			}
+
+			// No dirty-tracking exists anywhere in NTK today to condition
+			// this on "are there actually unsaved changes" - always
+			// confirming errs toward safety instead, at the cost of one
+			// extra click when the canvas was already empty/saved.
+			var confirmed = confirm(
+				'Replace the current canvas with the patch pulled from the device?\n\n' +
+				'Any unsaved local changes will be lost. NTK will then switch to ' +
+				'Monitor mode to watch it run.'
+			);
+			if(!confirmed) return;
+
+			this.loadPatch(result.patch);
+
+			// Same reasoning as the auto-Monitor-after-Push flow (see
+			// onPushPatchResult) - a Pull means "show me what this
+			// device is running", and the device is already known to
+			// have a real patch here (the !result.patch early-return
+			// above already ruled out "nothing to pull"). No reload
+			// delay needed first, unlike Push - Pull only READS the
+			// device's state, it doesn't change what's running there,
+			// so there's nothing to wait for before switching to watch
+			// it.
+			if(this._lastPullHardwareKey) {
+				var parts = this._lastPullHardwareKey.split(':');
+				this._lastPullHardwareKey = null;
+				window.app.vent.trigger('Monitor:start', {host: parts[1], port: parts[2]});
+			}
+		},
+		/**
+		 * downloadPatchAsFile - called by exportPatch.
+		 * Built and downloaded entirely client-side (Blob + a throwaway
+		 * <a download>), NOT round-tripped through the server's
+		 * GET /patch.ntk?patch=<entire JSON as a URL-encoded query
+		 * string> the way this used to work - a widget with any real
+		 * amount of data (e.g. PoseRecog's recorded training examples)
+		 * can push the encoded patch past the request-line length
+		 * limit most HTTP servers enforce (Node's own default is well
+		 * under 100KB), which fails the request outright. Worse, the
+		 * old code drove that GET via window.location.href - a full-
+		 * page navigation - so a failed request didn't just fail to
+		 * download, it tore down the entire running SPA (blank/white
+		 * canvas, "net::ERR_CONNECTION_RESET"). A Blob URL has no such
+		 * size ceiling and never leaves the page.
+		 *
+		 * @param {object} patch {widgets, mappings}
+		 * @param {string} filename
+		 * @return {void}
+		 */
+		downloadPatchAsFile: function(patch, filename) {
 			var blob = new Blob([JSON.stringify(patch)], {type: 'application/octet-stream'});
 			var blobURL = URL.createObjectURL(blob);
 			var link = document.createElement('a');
 			link.href = blobURL;
-			link.download = 'patch.ntk';
+			link.download = filename;
 			document.body.appendChild(link);
 			link.click();
 			document.body.removeChild(link);
 			URL.revokeObjectURL(blobURL);
-    },
+		},
 		clearPatch: function() {
 			var emptyPatch = {"widgets":[],"mappings":[]};
 

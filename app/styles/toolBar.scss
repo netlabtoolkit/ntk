@@ -8,6 +8,12 @@
 	width: 250px;
 	height: 100%;
 
+	// Sit above every widget - including a widget's detached on-canvas
+	// box and a "more" panel that overlaps its neighbours. Widgets get a
+	// running z-index that is capped well under 100 (see WidgetMulti.js
+	// bringToFront / topWidgetZ).
+	z-index: 100;
+
 	margin: 0;
 	padding: 0;
 
@@ -43,8 +49,8 @@
 
 
 
-	.downloadPatch,
-	.loadPatch, .savePatch, .hideWidgets, .clearPatch, .fullScreen, .serverSwitch, .logo {
+	.downloadPatch, .pushPatchToDevice, .pullPatchFromDevice, .monitorDevice,
+	.loadPatch, .savePatch, .hideWidgets, .clearPatch, .fullScreen, .logo {
 		float: left;
 		width: calc(75px - 20px);
 		height: auto;
@@ -57,16 +63,45 @@
 		cursor: pointer;
 	}
 
-	.loadPatch, .savePatch, .downloadPatch, .hideWidgets, .fullScreen, .clearPatch, .serverSwitch, .logo {
+	.loadPatch, .savePatch, .downloadPatch, .pushPatchToDevice, .pullPatchFromDevice, .monitorDevice, .hideWidgets, .fullScreen, .clearPatch, .logo {
 		background-color: dimgrey;
 		border-bottom: 1px solid grey;
 		margin-bottom: 0;
 	}
-    
-    .serverSwitch {
-        background-color: LightSlateGray;
-    }
-    
+
+	// Push/Pull/Monitor visually grouped into one box (was three more
+	// full-width stacked buttons indistinguishable from every other
+	// toolbar entry - crowded, and gave no hint they're a related set
+	// of device actions) - found via Phil's own "toolbar has gotten
+	// crowded" feedback 2026-09-28. clear:both/overflow:hidden clips
+	// the floated buttons inside within this box's own border, same
+	// float-containment issue documented elsewhere in this file
+	// (.widgetBottom's clearfix comment).
+	.deviceButtonGroup {
+		clear: both;
+		overflow: hidden;
+		margin: 4px 10px 4px 10px;
+		border: 1px solid grey;
+		border-radius: 3px;
+
+		.groupLabel {
+			clear: both;
+			padding: 4px 10px 2px 10px;
+			font-size: 0.6em;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			color: #aaa;
+		}
+
+		.monitorDevice {
+			border-bottom: none;
+		}
+	}
+
+	.monitorDevice.monitorActive {
+		background-color: LightSlateGray;
+	}
+
     .logo {
         cursor: auto;
     }
@@ -159,10 +194,109 @@
 		}
 	}
 
+	// Background poll result (ToolBar.js's renderDeviceStatus) - a
+	// full-width colored bar, deliberately visually distinct from
+	// .defaultDevice's own grey box above it rather than blended into
+	// it, so it reads as a status callout rather than another form
+	// field. Hidden entirely (not just empty text) when there's
+	// nothing worth showing (Serial device, no server entered yet).
+	// Color keyed per status via a modifier class on the bar itself,
+	// not just the text - .deviceStatusLabel/.deviceStatusValue are
+	// deliberately different shades of the SAME bar's foreground color
+	// (label dimmer, value the bar's full accent color) rather than
+	// unrelated colors, so each status still reads as one coherent
+	// callout rather than two arbitrarily-colored words.
+	.deviceStatusBar {
+		clear: both;
+		float: left;
+		// Full 250px, NOT the calc(250px - 20px) every backgroundless
+		// section here uses - this box has its own solid background
+		// color, so the narrower width exposes the panel's own
+		// background as a visible gap on the right edge. Same bug,
+		// same fix as .networkInfo's own comment below already
+		// documents (found 2026-09-25) - missed it here since this
+		// section was copied from .defaultDevice's (backgroundless)
+		// width instead.
+		width: 250px;
+		box-sizing: border-box;
+		padding: 10px;
+
+		font-size: 0.85em;
+		line-height: 1.4;
+
+		display: none;
+		&.hasStatus {
+			display: block;
+		}
+
+		.deviceStatusLabel {
+			font-weight: bold;
+			opacity: 0.7;
+		}
+
+		.deviceStatusValue {
+			font-weight: bold;
+		}
+
+		.deviceStatusExplanation {
+			margin-top: 4px;
+			opacity: 0.9;
+		}
+
+		// Neutral default (e.g. 'in-use' with no special call-out) -
+		// per-status modifiers below override background/text color.
+		background-color: #ddd;
+		color: #333;
+
+		&.status-standalone {
+			// Worth a user's attention (a patch already on the device,
+			// might not be intended) but not an alarm - red read as too
+			// urgent for "just informational, may well be intentional".
+			background-color: #6a3fa0;
+			color: #fff;
+		}
+		&.status-controlled {
+			background-color: #2e7d32;
+			color: #fff;
+		}
+		&.status-monitored {
+			// Matches #monitorModeBanner's own color exactly (see
+			// MonitorController.js's showBanner) - same concept
+			// (NTK is watching this device via Monitor mode), same
+			// color, so the two are recognizable as the same thing.
+			background-color: #b35c00;
+			color: #fff;
+		}
+		&.status-waiting {
+			background-color: #607d8b;
+			color: #fff;
+		}
+		&.status-pending {
+			// White/empty while the first poll is still in flight -
+			// shown immediately (see ToolBar.js's pollDeviceStatus)
+			// rather than leaving the bar hidden/blank, which reads as
+			// broken during a real check's up-to-several-second delay.
+			background-color: #fff;
+			color: #999;
+			border: 1px solid #ccc;
+
+			.deviceStatusLabel {
+				opacity: 0.5;
+			}
+		}
+	}
+
 	.networkInfo {
 		clear: both;
 		float: left;
-		width: calc(250px - 20px);
+		// Fills the panel's full 250px width (see #toolBarRegion
+		// .settings, .addWidgets above), unlike every other section
+		// here (.category, .defaultDevice's children, etc.), which all
+		// use "250px - 20px" and sit 20px narrower - invisible on
+		// those since none of them have their own background color,
+		// but this box's solid darkgrey background made that gap
+		// clearly visible on its right edge. Found 2026-09-25.
+		width: 250px;
 		padding: 10px;
 		box-sizing: border-box;
 
@@ -172,13 +306,15 @@
 		font-size: 0.75em;
 		color: #333;
 
-		.softApInfo {
-			margin-top: 4px;
-		}
-
-		.localIpDisplay {
-			font-weight: bold;
-		}
+		// Overrides the panel-wide user-select:none set above (see the
+		// #toolBarRegion .settings, .addWidgets rule near the top of
+		// this file) - useful text to actually copy (an IP address),
+		// unlike the rest of this drag-and-drop-heavy panel where
+		// accidental text selection is more annoying than useful.
+		-webkit-user-select: text;
+		-moz-user-select: text;
+		-ms-user-select: text;
+		user-select: text;
 	}
 
 	.category {
@@ -287,6 +423,7 @@
 		position: fixed;
 		right: 0;
 		bottom: 0;
+		z-index: 101;
 
 		-webkit-transition: right 0.25s cubic-bezier(0.55, 0, 0.1, 1);
 		transition: right 0.25s cubic-bezier(0.55, 0, 0.1, 1);

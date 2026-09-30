@@ -83,6 +83,15 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
          * @return {void}
          */
         onRender: function() {
+            // Must be registered before WidgetView.prototype.onRender
+            // below - see CLAUDE.md's Rivets/Backbone gotcha.
+            if(!app.server) {
+                rivets.formatters.truncateText = function(value) {
+                    var text = (value === undefined || value === null) ? '' : String(value);
+                    return text.length > 8 ? text.slice(0, 8) + '…' : text;
+                };
+            }
+
 			// always call the superclass
             WidgetView.prototype.onRender.call(this);
 

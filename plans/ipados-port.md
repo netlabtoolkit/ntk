@@ -56,7 +56,7 @@ against a different wire format.
 
 ## What likely just works (needs testing, not re-architecture)
 
-- **PoseTrack / FaceTrack** — `getUserMedia` and WebAssembly both work in
+- **PoseRecog / FaceTrack** — `getUserMedia` and WebAssembly both work in
   WKWebView (since ~iOS 14.3), so MediaPipe Tasks Vision should run;
   camera-permission wiring on the native side (Info.plist + the usual
   WKWebView media-capture config) is required but standard. These already

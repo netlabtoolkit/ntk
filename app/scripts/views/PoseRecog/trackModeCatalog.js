@@ -2,13 +2,13 @@ define([], function() {
     'use strict';
 
     /**
-     * Client-side catalog of tracking modes for the PoseTrack widget -
+     * Client-side catalog of tracking modes for the PoseRecog widget -
      * hand-kept in sync with which MediaPipe Tasks-Vision landmarker/
      * model each mode actually needs. Both HandLandmarker and
      * PoseLandmarker expose the exact same result shape
      * (`result.landmarks[0]` = an array of {x,y,z} points for the first
      * detected hand/body, both normalized 0-1 in image space), so
-     * PoseTrack.js's detection/feature-extraction code is entirely
+     * PoseRecog.js's detection/feature-extraction code is entirely
      * generic across modes - only this catalog differs.
      *
      * originIndices/scaleReferenceIndices: landmark indices averaged
@@ -16,7 +16,7 @@ define([], function() {
      * normalized against (translate to origin, scale by the reference
      * distance) so the same pose reads consistently regardless of the
      * subject's size/distance from the camera. Both are arrays (even
-     * when just one index) so PoseTrack.js's normalization code doesn't
+     * when just one index) so PoseRecog.js's normalization code doesn't
      * need to special-case "one landmark" vs "midpoint of several".
      */
     return {
@@ -38,7 +38,7 @@ define([], function() {
             // [from, to] landmark index pairs - MediaPipe's standard
             // HAND_CONNECTIONS, used to draw a recognizable skeleton
             // (not just a cloud of dots) for a recorded slot's preview
-            // (see PoseTrack.js's drawSlotPreview) and the live overlay.
+            // (see PoseRecog.js's drawSlotPreview) and the live overlay.
             connections: [
                 [0, 1], [1, 2], [2, 3], [3, 4],
                 [0, 5], [5, 6], [6, 7], [7, 8],

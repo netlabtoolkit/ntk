@@ -61,6 +61,31 @@ function( Backbone ) {
 			});
 			//END MODEL AND PATCH UPDATES
 
+			// A hardware connection (any Network device) failed to
+			// connect at all - a bad/unset IP, wrong port, or an
+			// unreachable device generally. See NetworkModel.js's own
+			// comment for why this used to fail completely silently.
+			socket.on("server:hardwareConnectionFailed", function(info) {
+				window.app.vent.trigger('hardwareConnectionFailed', info);
+			});
+
+			// Generic hardware-model status channel (see
+			// nlMultiClientSync.js's bindModelToTransport) - currently
+			// only CloudModel.js emits this, for CloudIn/CloudOut's
+			// connected/disconnected indicator, but any future hardware
+			// model can reuse it the same way.
+			socket.on("server:hardwareStatus", function(data) {
+				window.app.vent.trigger('hardwareStatus', data);
+			});
+
+			// What a hardware model actually published, separate from
+			// incoming values - currently only CloudOut.js listens, to
+			// show what really went out (matters with averaging/
+			// throttling on, where it can differ from the current dial).
+			socket.on("server:hardwarePublished", function(data) {
+				window.app.vent.trigger('hardwarePublished', data);
+			});
+
 			// List of currently connected serial ports, for the Serial device port picker
 			socket.on("serialPortList", function(ports) {
 				window.app.vent.trigger('serialPortList', ports);
@@ -68,6 +93,41 @@ function( Backbone ) {
 
 			socket.on("disconnect", function() {
 				self.connected = false;
+			});
+
+			// Monitor mode (see MonitorController.js) - the server relays
+			// StandaloneMonitor's 'value'/status events. server:monitorValue
+			// is a BATCHED array of {wid, fields} (nlMultiClientSync.js
+			// coalesces everything that arrived within a short window into
+			// one emit, not one emit per widget - see its own comment for
+			// why: this exact old socket.io version choked on several
+			// synchronous same-tick emits).
+			socket.on("server:monitorValue", function(batch) {
+				for (var i = 0; i < batch.length; i++) {
+					window.app.vent.trigger('monitorValue', batch[i]);
+				}
+			});
+			socket.on("server:monitorStatus", function(status) {
+				window.app.vent.trigger('monitorStatus', status);
+			});
+
+			// Push/pull the standalone patch (see plans/standalone-
+			// patch-export.md's "Push/Pull standalone patch" section) -
+			// Patcher.js's pushPatchToDevice/pullPatchFromDevice trigger
+			// the client: side below, this relays the hardware model's
+			// pushPatch()/pullPatch() callback result back.
+			socket.on("server:pushPatchResult", function(result) {
+				window.app.vent.trigger('pushPatchResult', result);
+			});
+			socket.on("server:pullPatchResult", function(result) {
+				window.app.vent.trigger('pullPatchResult', result);
+			});
+
+			// Background "is this device idle with a standalone patch
+			// loaded" poll (see DeviceStatus.js) - result.status is
+			// 'waiting', 'standalone', 'in-use', or null (unreachable).
+			socket.on("server:deviceStatusResult", function(result) {
+				window.app.vent.trigger('deviceStatusResult', result);
 			});
 
 		},
@@ -175,6 +235,26 @@ function( Backbone ) {
 				}
 			});
 
+			window.app.vent.on('Widget:pushPatchToDevice', function(options) {
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('client:pushPatchToDevice', JSON.stringify( options ));
+				}
+			});
+			// Display widget's three composed OLED lines - not a pin
+			// write (see StandardFirmataModel.js's sendDisplayText), so
+			// it's its own event rather than going through
+			// sendDeviceModelUpdate below.
+			window.app.vent.on('Widget:sendDisplayText', function(options) {
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('client:sendDisplayText', JSON.stringify( options ));
+				}
+			});
+			window.app.vent.on('Widget:pullPatchFromDevice', function(options) {
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('client:pullPatchFromDevice', JSON.stringify( options ));
+				}
+			});
+
 			window.app.vent.on('loadPatchFileToServer', function(patch) {
 				if(window.app.server || !window.app.serverMode) {
 					socket.emit('loadPatchFile', {patch: JSON.stringify(patch)});
@@ -202,6 +282,21 @@ function( Backbone ) {
 
 			window.app.vent.on('listSerialPorts', function() {
 				socket.emit('client:listSerialPorts');
+			});
+
+			window.app.vent.on('startMonitor', function(options) {
+				socket.emit('client:startMonitor', options);
+			});
+			window.app.vent.on('stopMonitor', function() {
+				socket.emit('client:stopMonitor');
+			});
+
+			window.app.vent.on('checkDeviceStatus', function(options) {
+				socket.emit('client:checkDeviceStatus', JSON.stringify(options));
+			});
+
+			window.app.vent.on('closeHardwareConnection', function(options) {
+				socket.emit('client:closeHardwareConnection', JSON.stringify(options));
 			});
 		},
 	};

@@ -15,12 +15,41 @@ follow-ups). `settings.toml` key `NTK_WIFI_MODE = "station"` (default) |
 (default `netlabtoolkit`; explicit `""` = open; 8–63 char WPA2 rule
 enforced with graceful fallback to open).
 
-`start_ap()` in `code.py` + module-level dispatch before `run_server()`
-(which is untouched, still binds `0.0.0.0`); `start_dhcp_server()` wrapped
-in try / except; `start_ap()` failure falls back to `connect_wifi()`. The
-board is then reachable at a fixed **`192.168.4.1:3030`** with no IP to
-discover. There's a Ctrl-C window before the uninterruptible `start_ap()`
-call (see `_wait_for_ctrl_c_window()`).
+`start_ap()` logic (now inlined directly in `code.py`, not a separate
+function - see below) + fallback to `connect_wifi()` in `ntk_firmata_main.py`
+on any exception; `start_dhcp_server()` wrapped in try/except. The board
+is then reachable at a fixed **`192.168.4.1:3030`** with no IP to discover.
+
+**Hardware bug found and fixed 2026-09-19**: `wifi.radio.start_ap()`
+reliably hard-faulted ("Hard fault: memory access or instruction error" -
+a native crash, not a catchable Python exception) when called from
+anywhere inside the original single-file `code.py`, which had grown a lot
+of its own function definitions (mainly `run_server()`). Root cause,
+confirmed via extensive hardware bisection on the real board: this is a
+heap-fragmentation conflict between the WiFi driver's own allocation and
+CircuitPython's compiled representation of a large module - not a timing,
+watchdog, or LED issue as first suspected (each individually ruled out:
+the crash persisted with the watchdog deliberately left unarmed the whole
+time, with the LED/reset-guard/escape-hatch code removed, with pins.py/
+firmata_server.py's imports removed, with the call inlined with no
+function-call indirection, and with `gc.collect()` run immediately
+beforehand - plenty of free memory, so not about total free bytes, just
+about *where* `start_ap()` is called from). It disappeared the instant the
+same call ran from a file with only a handful of top-level statements and
+no large function defs, even immediately before importing that same large
+module.
+
+**Fix:** split `code.py` into a tiny bootstrap (does only the escape
+hatch and, for AP mode, the SoftAP bring-up itself - the only things
+that run before any large function definitions exist) and
+`ntk_firmata_main.py` (everything else - LED, watchdog, reset-loop guard,
+`connect_wifi()`, `run_server()`, GroveSensor/standalone-patch loading -
+imported only *after* WiFi is already up). Verified on real hardware:
+several clean reboots in AP mode and one in station mode, all reset via
+`microcontroller.reset()`, no crashes. See the comment at the top of
+`code.py` for the full writeup - it's the definitive reference if this
+resurfaces (e.g. if AP-mode logic ever migrates back into the main
+module).
 
 **Range caveat:** same radio as station mode, but usable range is shorter
 in practice — the link is now laptop ↔ the XIAO's weak onboard antenna

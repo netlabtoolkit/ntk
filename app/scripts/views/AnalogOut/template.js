@@ -46,6 +46,11 @@
               </select>
             </div>
             <hr>
+            <label class="wide-label">LED gamma</label> <input type="checkbox" rv-checked="widget:gammaCorrect" /><br>
+            <div rv-show="widget:gammaCorrect">
+              <label class="wide-label">gamma value</label> <input class="moreParam" type="text" pattern="[0-9.]*" rv-value="widget:gammaValue">
+            </div>
+            <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/analogout/" target="_blank">Widget help</a>
         </div>
     </div>

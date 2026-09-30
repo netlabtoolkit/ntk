@@ -16,6 +16,7 @@ module.exports = function(options) {
 		var modelMap = {
 			ArduinoUno: './ArduinoModel',
 			OSC: './OSC',
+			Cloud: './CloudModel',
 			network: './NetworkModel',
 		};
 		var sensors = [],

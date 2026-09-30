@@ -1,218 +1,169 @@
 """
 NTK Firmata bridge for the Seeed XIAO ESP32-C6, running CircuitPython.
 
-Speaks the same byte-level Firmata protocol as Arduino's official
-"StandardFirmataWiFi" sketch, over a plain TCP socket on port 3030 - so
-this is a drop-in replacement for a WiFi Firmata board as far as NTK is
-concerned (see server/modules/nlHardware/NetworkModel.js in the NTK
-repo, which already expects exactly this).
+This file is deliberately tiny - see ntk_firmata_main.py for the real
+logic (status LED, watchdog, the Firmata server itself, GroveSensor/
+standalone-patch support, etc) and for setup/usage instructions. WiFi
+setup (station join or SoftAP) happens right here instead - see below.
 
-Setup:
-1. Copy this file, firmata_server.py, and pins.py onto the CIRCUITPY
-   drive, and copy settings.toml.example to settings.toml (also on
-   CIRCUITPY) with your own WiFi credentials filled in.
-2. Watch the serial console for the IP address DHCP assigns this board.
-3. In NTK, add an AnalogIn/AnalogOut/DigitalIn/DigitalOut/Servo widget,
-   set its Device dropdown to "Network", and enter that IP with port
-   3030.
+Both SoftAP (settings.toml NTK_WIFI_MODE=ap) and normal station-mode
+WiFi join have to happen here, in this small file, BEFORE
+ntk_firmata_main is ever imported.
 
-WiFi mode (settings.toml, NTK_WIFI_MODE):
-  "station" (default) - join the WiFi named in CIRCUITPY_WIFI_SSID, as
-    above; the board's address comes from that network's DHCP.
-  "ap" - the board makes its OWN WiFi network (SoftAP) and is always
-    reachable at a fixed 192.168.4.1, port 3030. Use this when there's no
-    usable router (workshops, demos, locked-down guest WiFi). The computer
-    joins the board's network and loses its normal WiFi/internet while
-    joined, and range is shorter than station mode. Configure the network
-    name/password with NTK_AP_SSID / NTK_AP_PASSWORD.
+Hardware-verified 2026-09-19: wifi.radio.start_ap() reliably hard-
+faults ("Hard fault: memory access or instruction error" - a native
+crash, not a catchable Python exception) when called from inside a
+module that already has a lot of its own function definitions
+compiled (like ntk_firmata_main, mainly because of run_server()'s
+size) - a heap-fragmentation conflict with the WiFi driver's own
+allocation, not a timing, watchdog, or LED issue as first suspected.
+Ruled out via hardware bisection, each confirmed on real hardware: the
+crash persisted with the watchdog deliberately left unarmed the whole
+time, with the LED/reset-guard/escape-hatch code removed, and with
+pins.py/firmata_server.py's imports removed - so long as the call
+still happened from within a module with ntk_firmata_main's full set
+of function definitions already compiled. It also persisted with
+start_ap() itself inlined (no function-call indirection) and with
+gc.collect() run immediately beforehand (plenty of free memory - this
+isn't about total free bytes, just where start_ap() is called from).
+It disappeared the instant the exact same call ran from a file with
+only a handful of top-level statements and no large function defs -
+even immediately before importing that same large module.
 
-Optional Grove LCD RGB Backlight (see grove_lcd.py): if wired up to the
-board's I2C pins, this shows the station-mode IP address (and turns the
-backlight green) once connected - purely a convenience so you don't have
-to watch the serial console for it. Not attached? It's skipped silently.
+Same day, same finding for wifi.radio.connect() (plain station-mode
+join): it failed every time with "Unknown failure 205" when called
+from ntk_firmata_main.py's connect_wifi() (after that module - and its
+own imports of firmata_server.py/pins.py - had already been imported),
+but succeeded instantly, every time, called bare at the REPL. So
+station-mode join moved here too, for the same reason - it's not
+actually about SoftAP specifically, it's about calling either WiFi
+entry point from inside a module with a lot of compiled code already
+resident. Moving either call back into ntk_firmata_main.py would
+silently reintroduce its respective failure.
 """
 
-import errno
 import os
+import sys
 import time
-import wifi
-import socketpool
 import supervisor
+import wifi
+import microcontroller
 
-# wifi.radio.start_ap() further down can hang at a level Ctrl-C can't
-# reach - see _wait_for_ctrl_c_window()'s own docstring for why a plain
-# time.sleep() "press Ctrl-C now" window isn't actually good enough on
-# its own: the board starts running this file the instant it's powered
-# up, often well before anyone's even opened Thonny - by the time a
-# human is actually watching the console, a fixed few-second window
-# already counted down to nothing. Waiting for a real serial connection
-# first, then giving the countdown, means the window always lands while
-# someone's actually able to see and react to it.
-def _wait_for_ctrl_c_window(total_delay_s, action_description):
-    """Give Ctrl-C a real chance to land before a risky operation, even
-    if nobody's watching the console yet at the moment this runs.
+try:
+    import watchdog as _watchdog
+except ImportError:  # not every CircuitPython build ships it
+    _watchdog = None
 
-    First waits - fully interruptibly, via repeated short time.sleep()
-    calls - for an actual serial console connection
-    (supervisor.runtime.serial_connected), up to MAX_WAIT_FOR_SERIAL_S,
-    since that's a much better proxy for "a human might actually be
-    watching right now" than "some number of seconds since power-on".
-    Bounded so a genuinely unattended boot (no computer ever attached -
-    a permanent installation, say) doesn't stall forever waiting for a
-    connection that will never come.
+# ntk_version.py only exists when this firmware was bundled by a
+# packaged NTK app build (buildScripts/packageElectron.js writes it,
+# staying in sync with package.json automatically - never hand-edited).
+# A manual/dev deploy via Thonny has no such file, hence the
+# try/except - that's a normal, expected case, not an error, so it
+# prints nothing rather than a scary traceback. A single string
+# constant, no function definitions - negligible compiled-code weight
+# next to os/sys/time/supervisor/wifi/microcontroller already imported
+# above, unlike the heap-fragmentation crash this file's own docstring
+# warns about for large modules like ntk_firmata_main.
+try:
+    import ntk_version as _ntk_version
+    print("NTK version:", _ntk_version.NTK_VERSION)
+except ImportError:
+    pass
 
-    Once someone's actually connected, re-prints the countdown message
-    every second for total_delay_s instead of once - if Thonny was
-    ALREADY open and connected before this boot (e.g. it auto-reconnects
-    across a reset/replug), serial_connected can already read True the
-    very instant this function runs, but Thonny's own reconnect-and-
-    redraw can still take a beat to catch up on screen; a single print
-    right at that instant risks landing in that gap and never actually
-    being seen. Repeating it every second keeps a fresh, visible
-    reminder on screen for the whole window regardless of exactly when
-    the console visually catches up.
+# A byte on the serial console in the next few seconds drops straight
+# to the REPL, before anything below can hang or crash. Kept here,
+# inline, rather than as an imported helper - importing anything with
+# its own function definitions before start_ap() runs below risks the
+# same heap-fragmentation crash described above.
+_window_s = 4 if supervisor.runtime.serial_connected else 3
+print(
+    "NTK Firmata booting - press any key in the next %ds for the REPL..."
+    % _window_s
+)
+_deadline = time.monotonic() + _window_s
+while time.monotonic() < _deadline:
+    if supervisor.runtime.serial_bytes_available:
+        print("Interrupted - dropping to the REPL.")
+        sys.exit()
+    time.sleep(0.05)
 
-    total_delay_s: total seconds to keep prompting once a console is present.
-    action_description: e.g. "Starting SoftAP" - printed each second as
-      "<action_description> in <N>s - press Ctrl-C now...".
-    """
-    # This wait only ever DELAYS when the countdown starts (so it isn't
-    # wasted before anyone's watching) - it must never be a reason to
-    # skip the countdown altogether. Bailing out here if
-    # serial_connected never flips true within the bound (e.g. it
-    # doesn't reliably do so during some reconnect races - seen in
-    # practice after an unplug/replug while Thonny already had a session
-    # open) would silently drop the ENTIRE Ctrl-C protection right when
-    # it's needed most. So there's no early return: the countdown always
-    # runs unconditionally afterward, connected or not - worst case (truly
-    # nobody attached) the prints just go nowhere, harmlessly.
-    MAX_WAIT_FOR_SERIAL_S = 30
-    waited = 0
-    while not supervisor.runtime.serial_connected and waited < MAX_WAIT_FOR_SERIAL_S:
-        time.sleep(0.25)
-        waited += 0.25
-
-    remaining = total_delay_s
-    while remaining > 0:
-        print(action_description + " in " + str(remaining) + "s - press Ctrl-C now if you need to interrupt boot")
-        time.sleep(1)
-        remaining -= 1
-
-
-# pins.py probes each configured Grove I2C sensor (LIS3DHTR, VL53L0X) at
-# import time, via board.I2C() calls that can hang at the C driver level
-# rather than raising quickly if that bus currently has no pull-ups, a
-# disconnected sensor mid-transaction, or similar - a hang like that
-# blocks before CircuitPython's VM ever gets a chance to check for a
-# Ctrl-C, and can even keep Thonny's Stop button from working (same
-# class of problem as wifi.radio.start_ap() below). A "press Ctrl-C now"
-# countdown was tried here too, but in practice it didn't actually help
-# with the failure mode that mattered (Thonny reconnecting to a board
-# that's already mid-boot after an unplug/replug - a Thonny-side
-# connection race, not something a countdown printed from this side can
-# fix - see the README's Troubleshooting section for the actual
-# reliable recovery procedure). Removed rather than kept as dead weight.
-from firmata_server import FirmataServer
-from pins import PIN_TABLE, GROVE_SENSOR_CATALOG
+wifi_mode = str(os.getenv("NTK_WIFI_MODE") or "station").strip().lower()
 
 FIRMATA_PORT = 3030
 
-# Not necessarily defined in every CircuitPython build's errno module, so
-# hardcoded rather than referenced as errno.ENOTCONN. Seen empirically on
-# real XIAO ESP32-C6 hardware: recv_into() can spuriously raise this right
-# after accept() returns, before the underlying lwIP connection state has
-# finished settling - the connection is actually fine. Only tolerated for
-# a brief window after connecting (see CONNECTION_GRACE_PERIOD_S) so a
-# genuine later disconnect via this same errno still gets caught.
-ENOTCONN = 128
-CONNECTION_GRACE_PERIOD_S = 2
+# Must be a module-level global, not a local inside _connect_station() -
+# confirmed root cause 2026-09-26 of the mDNS responder going silent
+# shortly after WiFi connects (previous attempt, parked 2026-09-23): a
+# local variable holding the only reference to mdns.Server() is eligible
+# for garbage collection the instant _connect_station() returns, and
+# mdns.Server wraps a native responder that a GC pass tears down with
+# it - so queries got no answer well before ntk_firmata_main.run() even
+# started. A known-working reference script (test/remote-mdns.py) keeps
+# its own mdns.Server as a top-level global for the program's entire
+# life, never re-assigned or dropped - this mirrors that.
+_mdns_server = None
+
+# Optional SSD1306 status display (see oled_display.py's own module
+# docstring) - shown here, before the WiFi calls below, so it can
+# display "Connecting..." the same way test/boot-with-oled.py's
+# original example did. Safe regarding the heap-fragmentation crash
+# this file's own docstring warns about (which was traced to the
+# CALLING module - i.e. this file - accumulating a lot of its OWN
+# compiled function definitions before the WiFi call, not to what gets
+# imported): oled_display.init() is one function CALL into an already-
+# separately-compiled module, not new function DEFINITIONS added to
+# this file's own bytecode. Still new/not yet hardware-soak-tested
+# through many boot cycles though - if a mysterious WiFi connect
+# failure ever reappears after adding this, suspect this exact
+# assumption first, same as the original bug's own history.
+import oled_display
+oled_display.init()
+oled_display.set_mode("connecting")
 
 
-def send_all(conn, data):
-    # socket.send() returns the number of bytes actually accepted, same
-    # as POSIX send() - it can legitimately send fewer than requested
-    # (especially right after accept(), before this appears to have
-    # caused problems on this hardware) and raising no exception either
-    # way, so a bare conn.send(data) can silently drop bytes. This loops
-    # until every byte is confirmed sent.
-    sent_total = 0
-    view = memoryview(data)
-    while sent_total < len(data):
-        try:
-            n = conn.send(view[sent_total:])
-        except OSError as e:
-            if e.errno == errno.EAGAIN:
-                # Non-blocking socket (conn.settimeout(0)): send() can
-                # raise EAGAIN when the outgoing TCP buffer is
-                # momentarily full - ordinary backpressure, not a real
-                # error. Seen on real hardware: a burst of rapid analog
-                # reporting eventually outran what the link could
-                # drain. Busy-poll until there's room instead of giving
-                # up.
-                continue
-            # Anything else (e.g. ECONNRESET/EPIPE because the peer
-            # closed the connection) is a real failure - let it
-            # propagate so run_server()'s loop notices and reports the
-            # disconnect, instead of retrying forever on a socket that
-            # will never accept data again.
-            raise
-        if n == 0:
-            raise OSError("send() accepted 0 bytes")
-        sent_total += n
-
-
-def show_ip_on_lcd(ip_address):
-    """Best-effort: show this board's IP on an attached Grove LCD RGB
-    Backlight (see grove_lcd.py). Entirely optional - any failure (no
-    display wired up, wrong I2C address, no I2C bus on this board) is
-    swallowed here so a missing display never blocks booting into
-    run_server()."""
-    try:
-        import board
-        from grove_lcd import GroveLCD
-
-        # board.I2C() is a shared, cached bus - pins.py's Grove sensor
-        # setup (imported before this ever runs) already calls it too, to
-        # claim the bus unconditionally even if no sensor responds. This
-        # MUST reuse that same call rather than separately claiming
-        # board.SDA/board.SCL as raw digitalio pins (a previous version of
-        # this function did exactly that, as a best-effort internal
-        # pull-up workaround for an old LCD with no pull-ups of its own) -
-        # a raw digitalio claim on a pin the I2C peripheral already holds
-        # fails outright ("D4 in use"), so that workaround stopped working
-        # the moment pins.py started using I2C too. If a display genuinely
-        # needs the internal-pullup nudge, it has to happen once, wherever
-        # the bus is first opened (currently pins.py) - not re-attempted
-        # here on an already-claimed bus.
-        lcd = GroveLCD(board.I2C())
-        lcd.show_lines("NTK Firmata", str(ip_address) + ":" + str(FIRMATA_PORT))
-        lcd.set_rgb(0, 255, 0)
-        print("Grove LCD found")
-    except Exception:
-        # Silently skipped if not attached - "not attached" is the
-        # everyday case, not a real error worth printing every boot (see
-        # pins.py's matching _found_sensors summary for the same idea).
-        pass
-
-
-def connect_wifi():
-    ssid = os.getenv("CIRCUITPY_WIFI_SSID")
-    password = os.getenv("CIRCUITPY_WIFI_PASSWORD")
+def _connect_station():
+    """Plain station-mode join - see the module docstring for why this
+    has to run here rather than from ntk_firmata_main.py's old
+    connect_wifi() (removed; this replaces it)."""
+    ssid = os.getenv("NTK_WIFI_SSID")
+    password = os.getenv("NTK_WIFI_PASSWORD")
     if not ssid:
-        raise RuntimeError(
-            "Set CIRCUITPY_WIFI_SSID / CIRCUITPY_WIFI_PASSWORD in settings.toml "
-            "(copy settings.toml.example and fill it in)"
+        print(
+            "NTK_WIFI_SSID not set in settings.toml - can't join a WiFi "
+            "network (copy settings-example.toml and fill it in)"
         )
+        return
     print("Connecting to WiFi:", ssid)
+
+    # Watchdog protection for this call specifically - confirmed safe on
+    # real hardware 2026-09-19 (unlike start_ap(), an armed watchdog
+    # doesn't make wifi.radio.connect() itself fail). Station-mode only:
+    # AP mode's start_ap() above still runs with no watchdog at all, per
+    # this file's own module docstring and ntk_firmata_main.run()'s
+    # comment on the ongoing (not just call-time) SoftAP conflict.
+    wdt = None
+    if _watchdog is not None:
+        try:
+            wdt = microcontroller.watchdog
+            wdt.timeout = 20  # > wifi.radio.connect()'s own 10s timeout
+            wdt.mode = _watchdog.WatchDogMode.RESET
+            wdt.feed()
+        except Exception as e:
+            print("(watchdog unavailable:", e, ")")
+            wdt = None
+
     # wifi.radio.connect() is a single blocking hardware-level call that
     # CircuitPython can't service a keyboard interrupt during - without a
     # timeout it can block for a long, unpredictable time on a flaky
-    # network, making the board look completely unresponsive right after
-    # a reboot (Ctrl+C silently does nothing until this call returns).
-    # Bounding each attempt keeps that unresponsive window short and
-    # gives Ctrl+C a window to land between retries, while still
-    # eventually connecting on a flaky network same as before.
+    # network. Bounding each attempt keeps that unresponsive window
+    # short and gives Ctrl+C a window to land between retries, while
+    # still eventually connecting on a flaky network.
     while True:
+        if wdt is not None:
+            try:
+                wdt.feed()
+            except Exception:
+                pass
         try:
             if password:
                 wifi.radio.connect(ssid, password, timeout=10)
@@ -221,35 +172,79 @@ def connect_wifi():
             break
         except ConnectionError as e:
             print("WiFi connect attempt failed, retrying:", e)
-    print("Connected. IP address:", wifi.radio.ipv4_address)
-    show_ip_on_lcd(wifi.radio.ipv4_address)
+    # Default power-save (wifi.PowerManagement.MIN) sleeps the radio
+    # between the AP's beacon intervals and only wakes periodically -
+    # adds tens-to-hundreds of ms of latency to every packet and can
+    # outright drop a one-shot TCP SYN that arrives during a sleep
+    # window - wrong for a live Firmata connection's low-latency,
+    # always-on traffic. This board runs off USB power throughout, so
+    # there's no battery-life reason to keep power-save enabled.
+    wifi.radio.power_management = wifi.PowerManagement.NONE
+
+    # On by default - "ntk-device" unless overridden by settings.toml's
+    # NTK_MDNS_HOSTNAME (only needed to disambiguate more than one board
+    # on the same network). Single fixed hostname, station mode only -
+    # so a user can point NTK at "<hostname>.local" instead of having to
+    # read the DHCP-assigned IP off this console. Deliberately v1-scoped:
+    # no discovery/browsing, no per-board auto-derived name. Runs from
+    # here (inside _connect_station(), not the top-level wifi_mode
+    # branch) so it also covers the AP-start-failed fallback path below,
+    # which ends up here too - any time we actually have a real DHCP
+    # lease, advertising it makes sense. Not every CircuitPython build
+    # ships the mdns module, hence the broad except.
+    #
+    # Runs BEFORE the "Connected" print below (not after, as it used to)
+    # so a successful hostname setup can be folded into that same line
+    # instead of printed as a separate line afterward - keeps the
+    # console output to one line for the common case.
+    mdns_hostname = os.getenv("NTK_MDNS_HOSTNAME") or "ntk-device"
+    mdns_suffix = ""
+    # NTK_MDNS_HOSTNAME = "none" is the explicit opt-out - anything else
+    # (including it being absent entirely) leaves mDNS on by default.
+    if mdns_hostname.lower() != "none":
+        global _mdns_server
+        try:
+            import mdns
+            _mdns_server = mdns.Server(wifi.radio)
+            _mdns_server.hostname = mdns_hostname
+            # Setting .hostname alone does NOT make the responder answer
+            # queries - confirmed live on real hardware 2026-09-23 (a
+            # dns-sd query against the board got zero response until
+            # this was added). advertise_service() is what actually
+            # activates the mDNS responder; the service itself doesn't
+            # need to mean anything to NTK, since only the hostname's
+            # own A-record lookup matters here, not service discovery.
+            _mdns_server.advertise_service(
+                service_type="_ntk", protocol="_tcp", port=FIRMATA_PORT
+            )
+            mdns_suffix = " (also reachable at %s.local port %d)" % (mdns_hostname, FIRMATA_PORT)
+        except Exception as e:
+            print("(mDNS unavailable:", e, ")")
+
+    print("Connected. IP address: %s%s" % (wifi.radio.ipv4_address, mdns_suffix))
+    oled_display.set_status(ip=str(wifi.radio.ipv4_address))
+    try:
+        print("Signal strength: RSSI", wifi.radio.ap_info.rssi, "channel", wifi.radio.ap_info.channel)
+        oled_display.set_status(rssi=wifi.radio.ap_info.rssi)
+    except Exception:
+        pass
 
 
-def start_ap():
-    """SoftAP mode: the board runs its own WiFi network instead of joining
-    one, so it's always reachable at a fixed 192.168.4.1 with no DHCP
-    address to discover. See the module docstring for when to use this."""
-    # Unlike connect_wifi()'s wifi.radio.connect(), which takes a timeout
-    # so Ctrl-C gets a window to land between retries, wifi.radio.start_ap()
-    # has no such option - if it hangs, Ctrl-C cannot interrupt it (only
-    # Thonny's Stop button can). See _wait_for_ctrl_c_window()'s docstring
-    # for why this waits for an actual console connection first, rather
-    # than just sleeping - a fixed sleep counts down from power-on, which
-    # has usually already elapsed by the time anyone's actually watching.
-    _wait_for_ctrl_c_window(8, "Starting SoftAP")
-
+ap_started = False
+if wifi_mode == "ap":
     ssid = os.getenv("NTK_AP_SSID") or "NTK-Firmata"
 
-    # Absent key -> a sensible default password (keeps the network closed
-    # by default). An explicit empty string in settings.toml opts into an
-    # open network.
+    # Absent key -> a sensible default password (keeps the network
+    # closed by default). An explicit empty string in settings.toml
+    # opts into an open network.
     password = os.getenv("NTK_AP_PASSWORD")
     if password is None:
         password = "netlabtoolkit"
 
-    # WPA2 needs an 8-63 character passphrase. Rather than let start_ap()
-    # raise and leave the board unreachable, fall back to an open network
-    # with a loud warning if the configured password is out of range.
+    # WPA2 needs an 8-63 character passphrase. Rather than let
+    # start_ap() raise and leave the board unreachable, fall back to
+    # an open network with a loud warning if the configured password
+    # is out of range.
     if password and not (8 <= len(password) <= 63):
         print(
             "NTK_AP_PASSWORD must be 8-63 characters (got %d) - starting an "
@@ -258,127 +253,65 @@ def start_ap():
         password = ""
 
     print("Starting SoftAP:", ssid, "(secured)" if password else "(open)")
-    if password:
-        wifi.radio.start_ap(ssid, password)
-    else:
-        wifi.radio.start_ap(ssid)
-
-    # Recent CircuitPython starts the AP DHCP server automatically inside
-    # start_ap(); older builds need it explicit. Harmless to call when it's
-    # already running or absent.
     try:
-        wifi.radio.start_dhcp_server()
-    except Exception as e:
-        print("(start_dhcp_server not needed / unavailable:", e, ")")
+        if password:
+            wifi.radio.start_ap(ssid, password)
+        else:
+            wifi.radio.start_ap(ssid)
 
-    ap_ip = wifi.radio.ipv4_address_ap
-    print("SoftAP started. IP address:", ap_ip)
-    print(
-        "Join WiFi '%s'%s, then point NTK (Device: Network) at %s port %d"
-        % (ssid, "" if password else " (open)", ap_ip, FIRMATA_PORT)
-    )
-
-
-def run_server():
-    pool = socketpool.SocketPool(wifi.radio)
-    server_socket = pool.socket(pool.AF_INET, pool.SOCK_STREAM)
-    try:
-        server_socket.setsockopt(pool.SOL_SOCKET, pool.SO_REUSEADDR, 1)
-    except Exception:
-        pass  # not critical if unsupported on this CircuitPython build
-    server_socket.bind(("0.0.0.0", FIRMATA_PORT))
-    server_socket.listen(1)
-    # Without a timeout, accept() blocks at the C level with no way for
-    # CircuitPython to service a keyboard interrupt (Ctrl+C) or the REPL
-    # in the meantime - the board looks completely hung until a
-    # connection happens to arrive. Polling in a short loop instead
-    # keeps the board responsive while idle.
-    server_socket.settimeout(1)
-    print("Firmata server listening on port", FIRMATA_PORT)
-
-    read_buffer = bytearray(128)
-
-    while True:
-        print("Waiting for Client to connect...")
-        conn = None
-        while conn is None:
-            try:
-                conn, addr = server_socket.accept()
-            except OSError:
-                pass  # timed out with no connection yet - keep polling
+        # Hardware-verified 2026-09-19: without this, wifi.radio.stations_ap
+        # can show a joined client with zero IP assigned - the network
+        # connects but nothing can actually reach 192.168.4.1 (symptom:
+        # NTK either gets no connection at all, or one value then
+        # silence). The method is named start_dhcp_ap() on this
+        # CircuitPython build/version - a previous version of this line
+        # called the nonexistent start_dhcp_server(), which silently
+        # raised AttributeError and was swallowed by this same try/except,
+        # so the DHCP server never actually started. getattr() here so an
+        # older/newer build lacking either name just skips this (matching
+        # the original intent: harmless to call when it's already running
+        # via start_ap() or the method doesn't exist on this build).
         try:
-            # Disables Nagle, so small packets (most Firmata messages are
-            # 2-4 bytes) go out immediately instead of waiting to coalesce.
-            conn.setsockopt(pool.IPPROTO_TCP, pool.TCP_NODELAY, 1)
-        except Exception:
-            pass  # not critical if unsupported on this CircuitPython build
-        print("Client connected from", addr)
-
-        firmata = FirmataServer(PIN_TABLE, GROVE_SENSOR_CATALOG)
-        # on_connect() just registers the send callback - it deliberately
-        # sends nothing itself (see the comment on FirmataServer.on_connect
-        # in firmata_server.py for why: NTK's host-side firmata-io library
-        # only kicks off its handshake from its own 5-second "no version
-        # yet" fallback timer, so NTK will appear to do nothing for up to
-        # 5 seconds after "NTK connected" - that's expected, not a hang.
-        firmata.on_connect(lambda data: send_all(conn, data))
-        conn.settimeout(0)
-        connected_at = time.monotonic()
-
-        try:
-            while True:
-                disconnected = False
-                in_grace_period = (time.monotonic() - connected_at) < CONNECTION_GRACE_PERIOD_S
+            if hasattr(wifi.radio, "start_dhcp_ap"):
+                # A stop+start rather than a bare start: seen on real
+                # hardware 2026-09-19 - a joining client can associate
+                # fine (shows up, no error) but never get a lease,
+                # self-assigning a 169.254.x.x address instead -
+                # intermittently, not on every boot. Suspected cause: the
+                # AP's network interface isn't always fully settled the
+                # instant start_ap() returns, so a DHCP server started
+                # immediately after can silently bind against a
+                # not-yet-ready netif. stop_dhcp_ap() first (harmless if
+                # it wasn't running) plus the settle delay gives the
+                # netif a moment before the real start.
                 try:
-                    n = conn.recv_into(read_buffer)
-                    if n == 0:
-                        disconnected = True  # peer closed the connection cleanly
-                    else:
-                        firmata.feed(read_buffer[:n])
-                except OSError as e:
-                    # EAGAIN just means "no data available right now" on
-                    # this non-blocking socket - keep looping. ENOTCONN
-                    # right after connecting is the spurious lwIP quirk
-                    # described above - also not a real disconnect.
-                    # Anything else (e.g. ECONNRESET when the server side
-                    # forcibly closes the connection, as NTK does when a
-                    # widget referencing this device is removed, or
-                    # ENOTCONN well after the grace period) is real.
-                    if e.errno == errno.EAGAIN:
-                        pass
-                    elif e.errno == ENOTCONN and in_grace_period:
-                        pass
-                    else:
-                        disconnected = True
+                    wifi.radio.stop_dhcp_ap()
+                except Exception:
+                    pass
+                time.sleep(0.5)
+                wifi.radio.start_dhcp_ap()
+            elif hasattr(wifi.radio, "start_dhcp_server"):
+                wifi.radio.start_dhcp_server()
+        except Exception as e:
+            print("(start_dhcp_ap not needed / unavailable:", e, ")")
 
-                if not disconnected:
-                    try:
-                        firmata.update()
-                    except OSError as e:
-                        if e.errno != errno.EAGAIN:
-                            disconnected = True
-
-                if disconnected:
-                    break
-        finally:
-            firmata.release_all_pins()
-            try:
-                conn.close()
-            except Exception:
-                pass
-            print("Client disconnected")
-
-
-wifi_mode = str(os.getenv("NTK_WIFI_MODE") or "station").strip().lower()
-if wifi_mode == "ap":
-    try:
-        start_ap()
+        ap_ip = wifi.radio.ipv4_address_ap
+        print("SoftAP started. IP address:", ap_ip)
+        oled_display.set_status(ip=str(ap_ip))
+        print(
+            "Join WiFi '%s'%s, then point NTK (Device: Network) at %s port %d"
+            % (ssid, "" if password else " (open)", ap_ip, FIRMATA_PORT)
+        )
+        ap_started = True
     except Exception as e:
-        # If SoftAP can't start for any reason, fall back to joining the
-        # configured WiFi so the board is still reachable somehow rather
-        # than dead on the network.
+        # If SoftAP can't start for any reason, fall back to joining
+        # the configured WiFi so the board is still reachable somehow
+        # rather than dead on the network.
         print("start_ap() failed:", e, "- falling back to station mode")
-        connect_wifi()
+        _connect_station()
 else:
-    connect_wifi()
-run_server()
+    _connect_station()
+
+import ntk_firmata_main
+
+ntk_firmata_main.run(ap_started, FIRMATA_PORT)

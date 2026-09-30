@@ -9,6 +9,14 @@ define([
 function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouchpunch ) {
     'use strict';
 
+    // A "more" panel can be wider than the widget body and overlap a
+    // neighbour. Rather than fight over which wins, the widget whose panel
+    // is open sinks BELOW the others (Widget.scss gives .widget z-index 4;
+    // this drops it to 1) so every other widget stays fully clickable -
+    // the panel is just partly covered where a neighbour's small body
+    // sits over it, and dragging that neighbour aside reveals it.
+    var OPEN_PANEL_Z = 1;
+
     /**
      * Widget view base class
      *
@@ -81,6 +89,23 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.makeDraggable();
 
             this.$( ".widgetBottom .content" ).hide();
+
+			// "More" panel tuning fields (scale/invert/easing/etc.) are
+			// silently inert while monitoring - the suppressed signal
+			// chain never reads them (see processSignalChain's early
+			// return) - so block edits there instead of letting them
+			// look like they took effect. Always in the DOM; CSS (see
+			// body.ntk-monitoring in Widget.scss) is what actually shows/
+			// enables it, driven off MonitorController's start/stop, so
+			// this can't drift out of sync with the real monitoring
+			// state. A widget's primary body (the knob/button a user
+			// drags to simulate hardware) is deliberately left alone -
+			// see the session that scoped this.
+			this.$( ".widgetBottom .content" ).append('<div class="monitorBlockOverlay"></div>');
+			this.$( ".monitorBlockOverlay" ).on('mousedown', function(e) {
+				window.app.vent.trigger('Monitor:blockedEdit', e);
+			});
+
             this.$( ".widgetBottom .tab" ).click(function() {
 				// Widgets in this list manage .deviceIp's visibility
 				// declaratively (a rivets rv-class-networkmode binding
@@ -91,7 +116,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				// Serial mode would block the field from ever showing
 				// again even after switching to Network. Add a widget's
 				// typeID here once it's been converted to that pattern.
-				var usesDeclarativeDeviceVisibility = ['AnalogIn', 'Servo', 'AnalogOut', 'DigitalOut', 'GroveSensor'].indexOf(self.typeID) !== -1;
+				var usesDeclarativeDeviceVisibility = ['AnalogIn', 'Servo', 'AnalogOut', 'DigitalOut', 'GroveSensor', 'Display'].indexOf(self.typeID) !== -1;
 				if (!usesDeclarativeDeviceVisibility) {
 					if (self.model.get("deviceType") == "network") {
 						self.$('.deviceIp').show();
@@ -106,6 +131,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}
 
                 self.$( ".widgetBottom .content" ).toggle();
+                self.restoreStack();
             });
 
 			// Displays the cid on the widget for debugging purposes
@@ -122,10 +148,50 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 */
 		checkOutputMappingUpdate: function checkOutputMappingUpdate(model) {
 
-			var outputMapping = model.changedAttributes().outputMapping,
+			var changed = model.changedAttributes(),
+				outputMapping = changed.outputMapping,
 				hasInput = (this.deviceMode == 'in');
 
-			if(outputMapping) {
+			// Push every 'out' change to hardware while this widget is an
+			// active output device (AnalogOut/DigitalOut/Servo - each
+			// defines its own deviceMode and enableDevice()), not just
+			// the one snapshot enableDevice() sends when the widget
+			// FIRST becomes active. Without this, a continuously
+			// changing source (e.g. a free-running Pulse wired into
+			// AnalogOut) only ever reaches the physical pin once, at
+			// whatever value it happened to be at connect time - found
+			// via hands-on testing 2026-09-22 (a blinking Pulse
+			// correctly updated the widget's own display the whole
+			// time, but the physical LED only ever changed once).
+			if (changed.out !== undefined && this.deviceMode !== undefined && this.model.get('activeOut') === true && typeof this.enableDevice === 'function') {
+				this.enableDevice();
+			}
+
+			// CloudIn/CloudOut are excluded from both blocks below - they
+			// manage their own hardware addressing entirely through their
+			// own getHardwareKey()/enableDevice() (host+port, not the
+			// generic 'server' field getDeviceServerName()/Port() below
+			// assume), and mirror their own 'topic' field into
+			// outputMapping too (a naming leftover, not a real pin
+			// mapping) - so this generic fallback logic doesn't just
+			// duplicate their own correct hardware-switch call, it
+			// actively sends a WRONG one: getDeviceServerName() falls
+			// back to the literal string '127.0.0.1' when there's no
+			// 'server' field (which Cloud widgets never have, they use
+			// 'host' instead), and the resulting Widget:hardwareSwitch
+			// carries no username/password/tls/sendInterval either. That
+			// produces a real, spurious MQTT connection attempt to
+			// 127.0.0.1 - with reconnectPeriod:5000, retrying forever -
+			// the instant a user types into CloudOut/CloudIn's topic
+			// field, regardless of what's actually in the host field or
+			// whether the widget's own activeOut/active checkbox is even
+			// on. Found 2026-09-29 via exactly that symptom in the
+			// console. typeof this.getHardwareKey is used as the guard
+			// (not a typeID check) since that method is unique to
+			// CloudIn/CloudOut - no other widget defines it.
+			var managesOwnHardwareAddress = (typeof this.getHardwareKey === 'function');
+
+			if(outputMapping && !managesOwnHardwareAddress) {
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
 				// Do this for all sources and include the address of the source
 				for(var i=this.sources.length-1; i>=0; i--) {
@@ -142,7 +208,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 
 			var inputMapping = model.changedAttributes().inputMapping;
-			if(inputMapping) {
+			if(inputMapping && !managesOwnHardwareAddress) {
 				// If a change has occurred make sure to send the change along to the server so we can switch pin modes if needed
 				// Do this for all sources and include the address of the source
 				for(var i=this.sources.length-1; i>=0; i--) {
@@ -186,11 +252,17 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}
 			};
 
-			// Make Widget draggable
+			// Make Widget draggable. Lift it above its neighbours only for
+			// the duration of the drag, then drop it back to the shared
+			// baseline. (jQuery UI's `stack` option instead rewrites every
+			// widget's z-index on every drag and leaves the dragged one on
+			// top permanently - that's what kept parking one widget's wide
+			// "more" panel over the widget beside it.)
 			this.$el.draggable({
 				handle: '.dragHandle',
 				drag: (updateCables).bind(this),
-				stack: ".widget",
+				start: (function() { this.$el.css('z-index', 20); }).bind(this),
+				stop: (function() { this.restoreStack(); }).bind(this),
 			});
 
 			this.$el.css({position: 'absolute'});
@@ -296,17 +368,24 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 *
 		 * @return {undefined}
 		 */
+		// All widgets share one baseline z-index from CSS (.widget { z-index:
+		// 4 }); among equal z-indexes the later one in the DOM - i.e. the
+		// more recently added widget - paints on top, which is what this
+		// used to approximate by hand. Writing an inline z-index here just
+		// fought that CSS baseline, so it's now a no-op (kept as a hook).
 		setTopZIndex: function setTopZIndex() {
-			var topZIndex = 0;
+		},
 
-			$('.widget').each(function() {
-				var index = parseInt($(this).css('z-index'), 10);
-				if(index > topZIndex) {
-					topZIndex = index;
-				}
-			});
-
-			this.$el.css('z-index', topZIndex);
+		// The widget's resting z-index: the shared baseline from CSS
+		// (.widget { z-index: 4 }) normally, but dropped below the others
+		// (OPEN_PANEL_Z) whenever its "more" panel is open so a panel that
+		// overlaps a neighbour can't steal that neighbour's clicks. Called
+		// after toggling the panel and after a drag ends (the drag lifts
+		// the widget to z-index 20 for the duration and must not leave it
+		// there, nor forget an open panel).
+		restoreStack: function restoreStack() {
+			var open = this.$('.widgetBottom .content').is(':visible');
+			this.$el.css('z-index', open ? OPEN_PANEL_Z : '');
 		},
 		/**
 		 * Called when you drop onto an inlet. Maps the dropped model w/ parameter to the inlet
@@ -317,6 +396,12 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {void}
 		 */
 		onDrop: function(e, ui, model) {
+			// Wiring a new cable is a structural patch edit - blocked
+			// while monitoring (see MonitorController.js's blockAndWarn).
+			if (window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:blockedEdit', e);
+				return;
+			}
 
 			// REMOVE ANY CURRENTLY MAPPED INLETS
 			this.unMapInlet(e, ui);
@@ -358,8 +443,22 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		unMapInlet: function(e, ui, draggable) {
 			var inletField = e.target.dataset.field;
 
+			// Find without mutating anything yet - unwiring an existing
+			// cable is a structural patch edit, blocked while monitoring
+			// (see MonitorController.js's blockAndWarn), but only when
+			// there's actually a mapping here to remove; dragging an
+			// inlet with nothing mapped to it is a no-op either way and
+			// not worth a warning. Checked before this.sources gets
+			// mutated below, so a blocked attempt can't desync this.sources
+			// from the cable that's still visually there.
+			var existingMapping = _.find(this.sources, function(item){ return item.map.destinationField === inletField; });
+			if (existingMapping && window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:blockedEdit', e);
+				return;
+			}
+
 			// Remove all mappings that match this inlet's field
-			this.sourceToRemove = _.find(this.sources, function(item){ return item.map.destinationField === inletField; });
+			this.sourceToRemove = existingMapping;
 			this.sources = _.reject(this.sources, function(item){ return item.map.destinationField === inletField; });
 
 			if(this.sourceToRemove) {
@@ -407,6 +506,17 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {void}
 		 */
 		removeWidget: function(e, calledFromLoader) {
+			// Patcher.Controller.removeWidget blocks+warns and returns
+			// without doing its own bookkeeping when this is a user-
+			// initiated remove during monitoring, but it can't stop US
+			// from continuing on to tear down cables and remove this
+			// view's own DOM below - that has to be checked here too, or
+			// the widget disappears from the canvas even though the
+			// controller never actually removed it from its own state.
+			if (!calledFromLoader && window.app.monitoring && window.app.monitoring.active) {
+				window.app.vent.trigger('Monitor:blockedEdit', e);
+				return;
+			}
 
 			app.Patcher.Controller.removeWidget(this, calledFromLoader);
 
@@ -613,6 +723,28 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {undefined}
 		 */
 		processSignalChain: function() {
+			// Monitor mode (see MonitorController.js) - scoped per-widget
+			// (window.app.monitoring.wids, populated as values actually
+			// arrive for each wid), not a blanket "any monitoring session
+			// running anywhere" check. A widget actually being monitored
+			// just displays whatever MonitorController pushes into its
+			// model directly (model.set with updateNoTrigger, which is
+			// what rivets renders from) instead of computing its own
+			// value locally - skipping this early also means no locally-
+			// computed value ever reaches checkOutputMappingUpdate/a real
+			// hardware write for THAT widget, the whole point of
+			// monitoring instead of controlling it. Originally a global
+			// flag (no per-widget scoping at all) - found via hands-on
+			// testing 2026-09-23 that this silently froze every OTHER
+			// widget on canvas too, including a separately-added live
+			// widget (e.g. an OSCOut sender) with nothing to do with the
+			// monitored device - the gap this file's own MonitorController
+			// docstring already called out as deliberately deferred.
+			if (window.app.monitoring && window.app.monitoring.active &&
+				window.app.monitoring.wids && window.app.monitoring.wids[this.model.get('wid')]) {
+				return;
+			}
+
 			var outputs = this.model.get('outs'),
 				outputsObj = {};
 
@@ -656,7 +788,20 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.model.set('active', model.active);
 			this.model.set('activeOut', model.activeOut);
 
-			(this.enableDevice !== undefined) && this.enableDevice();
+			// Mirror mapToModel's active/activeOut gating (Patcher.js) -
+			// only actually connect if this widget was saved as active.
+			// Previously unconditional, which reconnected every
+			// Network-hardware widget on every patch load regardless of
+			// its own active toggle - a real bug found 2026-09-19 (NTK
+			// connecting on load with no connect checkbox on).
+			if(this.enableDevice !== undefined) {
+				var isActiveInput = (this.deviceMode === undefined || this.deviceMode === "in") && this.model.get('active') === true;
+				var isActiveOutput = this.deviceMode !== undefined && this.model.get('activeOut') === true;
+
+				if(isActiveInput || isActiveOutput) {
+					this.enableDevice();
+				}
+			}
 
 			return this;
 		},

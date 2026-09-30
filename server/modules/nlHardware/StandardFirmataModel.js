@@ -14,6 +14,137 @@ module.exports = function(five) {
 	var GROVE_READINGS = 1;
 	var GROVE_STATUS = 2;
 
+	// Push/pull the whole standalone patch over this same live connection
+	// (see plans/standalone-patch-export.md's "Push/Pull standalone
+	// patch" section) - byte-for-byte match to firmata_server.py's
+	// constants of the same name.
+	var PUSH_PATCH_REQUEST = 0x05;
+	var PUSH_PATCH_REPLY = 0x06;
+	var PULL_PATCH_REQUEST = 0x07;
+	var PULL_PATCH_REPLY = 0x08;
+	var PUSH_PATCH_OK = 1;
+	var PUSH_PATCH_ERROR = 2;
+	var PULL_PATCH_FOUND = 1;
+	var PULL_PATCH_NONE = 2;
+	// For telling the device to re-read standalone_patch.json after it
+	// was written some OTHER way than a normal push over this
+	// connection - specifically the local-CIRCUITPY-mount fallback
+	// below, which writes the file directly through the host
+	// filesystem with no signal to the device at all otherwise. Empty
+	// payload. Byte-for-byte match to firmata_server.py's constants of
+	// the same name. Added 2026-09-25 alongside making the device's own
+	// push handling reload in place instead of rebooting.
+	var RELOAD_STANDALONE_REQUEST = 0x09;
+	var RELOAD_STANDALONE_REPLY = 0x0A;
+	var RELOAD_STANDALONE_OK = 1;
+	var RELOAD_STANDALONE_ERROR = 2;
+	// Display widget's three composed OLED lines - byte-for-byte match
+	// to firmata_server.py's constant of the same name. Host -> device
+	// only, no reply (see that file's own comment for why).
+	var DISPLAY_TEXT_REQUEST = 0x0B;
+	// Generous enough to cover a hardwareModel created on demand for
+	// this exact call (see nlMultiClientSync.js's create-if-missing
+	// fallback, added 2026-09-23 for Push/Pull without a widget already
+	// wired up) going through a full connection from scratch - not just
+	// the TCP handshake, but firmata-io's own "ready" event, which
+	// FirmataServer.on_connect() (firmata_server.py) deliberately
+	// doesn't rush: it relies on firmata-io's own 5-second "haven't
+	// heard a version yet" fallback timer to kick off the handshake at
+	// all (see that function's own comment for why - answering
+	// immediately breaks "ready" from ever firing). Real WiFi/TCP
+	// latency stacks on top of that 5s floor. 8000ms was too tight for
+	// this cold-start case - hands-on testing 2026-09-23 timed out a
+	// Pull from a clean canvas (no widget already connected) that would
+	// have succeeded with a few more seconds. Doesn't affect the common
+	// case (an already-connected widget) - self.connected is already
+	// true there, so trySend() below fires on the very next tick either way.
+	var PUSH_PULL_TIMEOUT_MS = 15000;
+
+	// Reverse of firmata_server.py's _encode_sysex_string: each raw byte
+	// as two 7-bit sysex bytes (low 7 bits, then the 8th bit alone).
+	function encodeSysexString(s) {
+		var bytes = Buffer.from(s, 'utf8');
+		var data = [];
+		for(var i = 0; i < bytes.length; i++) {
+			data.push(bytes[i] & 0x7F);
+			data.push((bytes[i] >> 7) & 0x7F);
+		}
+		return data;
+	}
+
+	function decodeSysexString(data) {
+		var bytes = [];
+		for(var i = 0; i + 1 < data.length; i += 2) {
+			bytes.push((data[i] | (data[i + 1] << 7)) & 0xFF);
+		}
+		return Buffer.from(bytes).toString('utf8');
+	}
+
+	// Push/Pull's local-mount fallback (macOS only for now - see
+	// plans/standalone-patch-export.md). CircuitPython's filesystem is
+	// writable from the host computer by default and read-only from
+	// code running ON the board - the OPPOSITE of what the sysex round-
+	// trip path above needs (that writes standalone_patch.json from
+	// device code, which only works if boot.py has remounted for code
+	// write access, permanently giving up Finder/drag-and-drop editing
+	// of the CIRCUITPY drive the whole time it's plugged in). When the
+	// board's CIRCUITPY volume happens to also be mounted locally (i.e.
+	// it's USB-tethered to the same computer running NTK, the normal
+	// dev/testing setup), reading/writing standalone_patch.json directly
+	// through the host filesystem needs NONE of that - it uses exactly
+	// the write access CircuitPython already grants the host by default,
+	// so a board can stay in its default (Finder-writable) state and
+	// Push/Pull still both work. Falls back to the network sysex path
+	// below when no local mount is found (the real "board deployed on
+	// WiFi only, no USB cable" scenario this feature was originally
+	// built for).
+	//
+	// Deliberately does NOT try to match the mounted volume to a
+	// specific device (by IP, serial number, etc.) - just checks for
+	// ANY mounted CIRCUITPY volume with a real CircuitPython boot_out.txt
+	// marker. Fine for the single-board-at-a-time dev/testing case this
+	// was built for (2026-09-25); would pick the wrong board if more
+	// than one CircuitPython device were mounted locally at once - a
+	// known limitation, not a hidden one.
+	var LOCAL_CIRCUITPY_PATH = '/Volumes/CIRCUITPY';
+	var LOCAL_CIRCUITPY_PATCH_FILE = LOCAL_CIRCUITPY_PATH + '/standalone_patch.json';
+
+	function findLocalCircuitpyMount() {
+		if(process.platform !== 'darwin') return null;
+		var fs = require('fs');
+		try {
+			fs.accessSync(LOCAL_CIRCUITPY_PATH + '/boot_out.txt', fs.constants.R_OK);
+			return LOCAL_CIRCUITPY_PATH;
+		}
+		catch(e) {
+			return null;
+		}
+	}
+
+	// pushPatch needs WRITE access specifically, which findLocalCircuitpyMount
+	// above does NOT guarantee - CircuitPython's own boot.py (see
+	// firmware/xiao-esp32c6-circuitpython-firmata/boot.py) can remount
+	// the filesystem for CODE write access instead of host write access
+	// (its default, needed for the original network sysex push path to
+	// work at all), which makes the mount READ-ONLY from here despite
+	// being present and readable. Found 2026-09-25 immediately after
+	// building the fallback above: a push attempt failed with EROFS
+	// because the board's boot.py had done exactly that. Checking write
+	// access up front lets pushPatch correctly fall through to the
+	// network path in that case, instead of failing outright.
+	function findWritableLocalCircuitpyMount() {
+		var mount = findLocalCircuitpyMount();
+		if(!mount) return null;
+		var fs = require('fs');
+		try {
+			fs.accessSync(mount, fs.constants.W_OK);
+			return mount;
+		}
+		catch(e) {
+			return null;
+		}
+	}
+
 	// Decodes one of firmware's 3x-7-bit-byte, x100 fixed-point Grove
 	// sensor values (see _encode_grove_value in firmata_server.py) back
 	// into a float - the reverse of that exact encoding.
@@ -28,6 +159,13 @@ module.exports = function(five) {
 	var StandardFirmataModel = {
 		addDefaultPins: function addDefaultPins() {
 			self = this;
+			// This instance, captured in a real closure variable. The bare
+			// `self` above is a module-global that the NEXT NetworkModel's
+			// addDefaultPins() overwrites - so a Sensor "data" callback that
+			// closed over `self` would, on a second connection, write this
+			// board's readings onto the other model. Use `boundModel` in the
+			// per-sensor callbacks instead.
+			var boundModel = this;
 			// Store all pin mode mappings (string -> integer)
 			this.PINMODES = this.board.io.MODES;
 
@@ -35,22 +173,40 @@ module.exports = function(five) {
 
 			for(var index in this.board.pins) {
 				var reportedPin = this.board.pins[index];
+				// "Has an analog channel" and "can be a digital/PWM/servo
+				// output" used to be treated as mutually exclusive here -
+				// true on classic Arduino (A0-A5 genuinely can't be
+				// outputs there), but not on this project's own
+				// CircuitPython firmware, which deliberately makes D0-D5
+				// dual-purpose (same physical pins as A0-A5 - see that
+				// firmware's README pin table). A pin like D1 having an
+				// analog channel meant it was only ever added to `inputs`,
+				// never `outputs` - so a Servo/AnalogOut/DigitalOut widget
+				// on D1 failed silently with setIOMode's "pin D1 was never
+				// reported by this device" (a real bug, not a hardware or
+				// wiring problem). Register both; `supportedModes` (learned
+				// from the CAPABILITY_QUERY response, checked in
+				// setHardwarePin/setIOMode) is what actually gates which
+				// modes are usable, so this is harmless for a classic
+				// board's genuinely input-only analog pins.
 				if(reportedPin.analogChannel < 127) {
 					var sensor = new five.Sensor({
 						pin: "A"+reportedPin.analogChannel,
 						freq: pollFreq,
+						// Without an explicit board, johnny-five's Board.mount()
+						// hands every Sensor boards[0] - the FIRST board ever
+						// created - so a second device's sensors would poll the
+						// first (often dead) board. Pin it to this model's board.
+						board: this.board,
 					});
 
 					sensor.scale([0, 1023]).on("data", function() {
-						self.set("A"+this.pin, Math.floor(this.value));
+						boundModel.set("A"+this.pin, Math.floor(this.value));
 					});
 
 					this.inputs["A"+reportedPin.analogChannel] = {pin: sensor, value: 0};
 				}
-				else {
-					//this.outputs["D"+index] = {pin: {}, value: 0, supportedModes: reportedPin.supportedModes};
-					this.outputs["D"+index] = {pin: reportedPin,  value: 0, supportedModes: reportedPin.supportedModes};
-				}
+				this.outputs["D"+index] = {pin: reportedPin, value: 0, supportedModes: reportedPin.supportedModes};
 			}
 
 			// Firmata.SYSEX_RESPONSE (inside firmata-io) is a class-level
@@ -84,6 +240,279 @@ module.exports = function(five) {
 					self.emit('change', {field: field, value: data[3]});
 				}
 			});
+
+			// Push/pull are one-shot request/reply, not an ongoing
+			// stream like Grove above - pushPatch()/pullPatch() stash a
+			// callback on the model instance right before sending, and
+			// these handlers (registered once here, same reconnect-safe
+			// clear-then-register pattern) route the reply to whichever
+			// one is currently pending, then clear it. A reply with
+			// nothing pending is ignored (e.g. a stray/duplicate).
+			this.board.io.clearSysexResponse(PUSH_PATCH_REPLY);
+			this.board.io.sysexResponse(PUSH_PATCH_REPLY, function(data) {
+				var callback = boundModel._pendingPushPatchCallback;
+				if(!callback) return;
+				boundModel._pendingPushPatchCallback = null;
+				var ok = data[0] === PUSH_PATCH_OK;
+				var errorMessage = ok ? '' : decodeSysexString(data.slice(1));
+				callback(ok, errorMessage);
+			});
+
+			this.board.io.clearSysexResponse(PULL_PATCH_REPLY);
+			this.board.io.sysexResponse(PULL_PATCH_REPLY, function(data) {
+				var callback = boundModel._pendingPullPatchCallback;
+				if(!callback) return;
+				boundModel._pendingPullPatchCallback = null;
+				var found = data[0] === PULL_PATCH_FOUND;
+				callback(found ? decodeSysexString(data.slice(1)) : null);
+			});
+
+			// Best-effort, not request/reply-tracked like push/pull above -
+			// by the time requestStandaloneReload() sends this, the local
+			// write it followed has ALREADY succeeded (the file is on
+			// disk), so there's no user-facing outcome left riding on
+			// whether the device actually receives/acts on this in time.
+			// Just logged for visibility.
+			this.board.io.clearSysexResponse(RELOAD_STANDALONE_REPLY);
+			this.board.io.sysexResponse(RELOAD_STANDALONE_REPLY, function(data) {
+				var ok = data[0] === RELOAD_STANDALONE_OK;
+				if(ok) {
+					console.log('[Push] device confirmed reload of the newly-pushed standalone patch');
+				}
+				else {
+					console.log('[Push] device failed to reload the newly-pushed standalone patch:', decodeSysexString(data.slice(1)));
+				}
+			});
+		},
+		// Tells an already-connected device to re-read standalone_patch.json
+		// - see RELOAD_STANDALONE_REQUEST's own comment above for why this
+		// exists (the local-CIRCUITPY-mount push fallback below has no
+		// other way to make a just-written patch take effect without a
+		// manual reset). A no-op if not currently connected - the file is
+		// already written either way, so there's nothing to retry here;
+		// the device picks it up on its own next natural reload path
+		// (a client connect/disconnect cycle, or a manual reset).
+		requestStandaloneReload: function requestStandaloneReload() {
+			if(!this.connected) return;
+			this.board.io.sysexCommand([RELOAD_STANDALONE_REQUEST]);
+		},
+		// Display widget's send path - genuinely not a pin write (see
+		// DISPLAY_TEXT_REQUEST's own comment in firmata_server.py), so
+		// it doesn't go through the generic sendDeviceModelUpdate/.set()
+		// pin-write pipeline nlMultiClientSync.js otherwise uses; called
+		// directly from there instead (see its client:sendDisplayText
+		// handler). A no-op if not currently connected - the widget will
+		// send again on its next model change once a connection exists,
+		// same "nothing to retry here" reasoning as requestStandaloneReload.
+		sendDisplayText: function sendDisplayText(lines) {
+			if(!this.connected || !this.board) return;
+			this.board.io.sysexCommand([DISPLAY_TEXT_REQUEST].concat(encodeSysexString(JSON.stringify(lines))));
+		},
+		pushPatch: function pushPatch(patchJson, callback) {
+			// Network path is tried FIRST, matching boot.py's own default
+			// (host-writable, so Finder/Thonny drag-and-drop keeps
+			// working) - the local-mount write below is a FALLBACK for
+			// when that default means the device itself can't write its
+			// own file (EROFS), not the primary path. See boot.py's own
+			// comment for the fuller reasoning (2026-09-25: an earlier
+			// version of this had the priority backwards, which meant
+			// Push only worked by permanently sacrificing Finder access
+			// to the CIRCUITPY drive).
+			var self = this;
+			this._pushPatchOverNetwork(patchJson, function(ok, errorMessage) {
+				if(ok) {
+					callback(true, errorMessage);
+					return;
+				}
+				var mount = findWritableLocalCircuitpyMount();
+				if(!mount) {
+					callback(false, errorMessage);
+					return;
+				}
+				var fs = require('fs');
+				try {
+					// An empty-widgets patch is a deliberate ERASE (see
+					// ntk_firmata_main.py's _handle_push_patch_request,
+					// which this fallback otherwise mirrors) - deletes
+					// the file instead of writing valid-but-inert empty
+					// JSON to it, so the device's _standalone genuinely
+					// becomes None (reports "Waiting") rather than a
+					// technically-loaded-but-empty patch (reports
+					// "Standalone"). Real bug, hardware-verified
+					// 2026-09-30: this fallback used to write the empty
+					// patch JSON unconditionally, same as any other
+					// push, silently breaking that distinction whenever
+					// an erase happened to hit this fallback (which it
+					// does by default - EROFS is this board's normal,
+					// expected state, not an edge case).
+					var parsedForErase;
+					try { parsedForErase = JSON.parse(patchJson); } catch(parseErr) { parsedForErase = null; }
+					var isErase = parsedForErase && (!parsedForErase.widgets || parsedForErase.widgets.length === 0);
+
+					if(isErase) {
+						try {
+							fs.unlinkSync(LOCAL_CIRCUITPY_PATCH_FILE);
+							console.log('pushPatch: network path failed (' + errorMessage + ') - erased', LOCAL_CIRCUITPY_PATCH_FILE, 'via local CIRCUITPY mount instead');
+						}
+						catch(unlinkErr) {
+							if(unlinkErr.code !== 'ENOENT') { throw unlinkErr; }
+							console.log('pushPatch: erase requested via local CIRCUITPY mount, but no patch file was there to remove');
+						}
+					}
+					else {
+						// writeFileSync alone only guarantees the write()
+						// syscall returned, not that a USB-MSC-mounted FAT
+						// volume has actually flushed it to the device's own
+						// flash - found 2026-09-25 via hands-on testing: the
+						// device's reload (triggered by requestStandaloneReload
+						// below, sent immediately after) read a stale/
+						// incomplete file and rejected it with "syntax error
+						// in JSON". Opening the same path again and calling
+						// fsync() on it forces that flush before the reload
+						// signal goes out.
+						var fd = fs.openSync(LOCAL_CIRCUITPY_PATCH_FILE, 'w');
+						fs.writeSync(fd, patchJson);
+						fs.fsyncSync(fd);
+						fs.closeSync(fd);
+						console.log('pushPatch: network path failed (' + errorMessage + ') - wrote', LOCAL_CIRCUITPY_PATCH_FILE, 'via local CIRCUITPY mount instead');
+					}
+					// The write/erase succeeded either way (the file's
+					// state on disk is now correct), so the user-facing
+					// callback fires now regardless of whether this
+					// signal actually lands - see requestStandaloneReload's
+					// own comment.
+					self.requestStandaloneReload();
+					callback(true, '');
+				}
+				catch(e) {
+					callback(false, 'Network push failed (' + errorMessage + '), and the local CIRCUITPY fallback also failed: ' + e.message);
+				}
+			});
+		},
+		_pushPatchOverNetwork: function _pushPatchOverNetwork(patchJson, callback) {
+			if(this._pendingPushPatchCallback) {
+				callback(false, 'A push or pull is already in progress on this device.');
+				return;
+			}
+			var self = this;
+			// wrappedCallback (not the raw callback) is what actually
+			// gets stored below - comparing against that same reference
+			// here, not the raw callback, is what makes this timeout's
+			// staleness check meaningful. Comparing against `callback`
+			// itself (an earlier version of this code's real bug, found
+			// via hands-on testing 2026-09-23: pullPatch's equivalent
+			// timeout silently never fired, since _pendingPullPatchCallback
+			// was reassigned to a wrapper immediately after being set to
+			// the raw callback - the two were never `===` again, so this
+			// guard always returned early) would mean a lost reply
+			// leaves _pendingPushPatchCallback stuck set forever, with
+			// no timeout error ever surfacing - just a silently hung UI
+			// action and "already in progress" on any later attempt.
+			var wrappedCallback = function(ok, errorMessage) {
+				clearTimeout(timeoutID);
+				callback(ok, errorMessage);
+			};
+			var timeoutID = setTimeout(function() {
+				if(self._pendingPushPatchCallback !== wrappedCallback) return;
+				self._pendingPushPatchCallback = null;
+				callback(false, 'No response from the device (timed out).');
+			}, PUSH_PULL_TIMEOUT_MS);
+			this._pendingPushPatchCallback = wrappedCallback;
+
+			// A hardwareModel created on demand for this call (see
+			// nlMultiClientSync.js's client:pushPatchToDevice - same
+			// create-if-missing fallback client:changeIOMode already
+			// uses) won't be connected yet the instant it's constructed -
+			// retry until it is, same pattern setIOMode already uses
+			// below. Deliberately NOT re-arming the pending callback/
+			// timeout on each retry - PUSH_PULL_TIMEOUT_MS above already
+			// covers the whole operation, connection time included.
+			var trySend = function() {
+				// Bail out once this operation is no longer the current
+				// pending one - either the timeout above already fired,
+				// or (shouldn't happen given the "already in progress"
+				// guard at the top) something else claimed the slot.
+				// Without this, a device that never actually connects
+				// leaves this retrying forever in the background, long
+				// after the timeout's own error already reached the user.
+				if(self._pendingPushPatchCallback !== wrappedCallback) return;
+				if(!self.connected) {
+					setTimeout(trySend, 500);
+					return;
+				}
+				self.board.io.sysexCommand([PUSH_PATCH_REQUEST].concat(encodeSysexString(patchJson)));
+			};
+			trySend();
+		},
+		pullPatch: function pullPatch(callback) {
+			// Network path first, same priority reasoning as pushPatch
+			// above - only fall back to a local read on a genuine
+			// network FAILURE (timeout, no connection), not on a
+			// legitimate "nothing pushed to this board yet" result
+			// (patchJson null with no error), which just passes through
+			// as-is.
+			this._pullPatchOverNetwork(function(patchJson, errorMessage) {
+				if(!errorMessage) {
+					callback(patchJson, errorMessage);
+					return;
+				}
+				var mount = findLocalCircuitpyMount();
+				if(!mount) {
+					callback(patchJson, errorMessage);
+					return;
+				}
+				var fs = require('fs');
+				try {
+					var localPatchJson = fs.readFileSync(LOCAL_CIRCUITPY_PATCH_FILE, 'utf8');
+					console.log('pullPatch: network path failed (' + errorMessage + ') - read', LOCAL_CIRCUITPY_PATCH_FILE, 'via local CIRCUITPY mount instead');
+					callback(localPatchJson, null);
+				}
+				catch(e) {
+					// ENOENT (no standalone patch saved yet) is the normal
+					// "nothing pushed to this board yet" case, not an
+					// error - matches PULL_PATCH_NONE's own non-error
+					// semantics in the network path. Anything else
+					// (permissions, a real I/O error) IS reported, along
+					// with the original network failure that led here.
+					if(e.code === 'ENOENT') {
+						callback(null, null);
+					}
+					else {
+						callback(null, 'Network pull failed (' + errorMessage + '), and the local CIRCUITPY fallback also failed: ' + e.message);
+					}
+				}
+			});
+		},
+		_pullPatchOverNetwork: function _pullPatchOverNetwork(callback) {
+			if(this._pendingPullPatchCallback) {
+				callback(null, 'A push or pull is already in progress on this device.');
+				return;
+			}
+			var self = this;
+			// See pushPatch's identical comment above - same bug, same fix.
+			var wrappedCallback = function(patchJson) {
+				clearTimeout(timeoutID);
+				callback(patchJson, null);
+			};
+			var timeoutID = setTimeout(function() {
+				if(self._pendingPullPatchCallback !== wrappedCallback) return;
+				self._pendingPullPatchCallback = null;
+				callback(null, 'No response from the device (timed out).');
+			}, PUSH_PULL_TIMEOUT_MS);
+			this._pendingPullPatchCallback = wrappedCallback;
+
+			// See pushPatch's identical comment above (both comments -
+			// the retry pattern and why it has to check the pending
+			// callback reference before each retry).
+			var trySend = function() {
+				if(self._pendingPullPatchCallback !== wrappedCallback) return;
+				if(!self.connected) {
+					setTimeout(trySend, 500);
+					return;
+				}
+				self.board.io.sysexCommand([PULL_PATCH_REQUEST]);
+			};
+			trySend();
 		},
 		get: function(field) {
 			field = field.toUpperCase();
@@ -357,7 +786,14 @@ module.exports = function(five) {
 						if( !(currentPin instanceof five.Led) ) {
 							var hardwarePin = parseInt(pin.substr(1),10);
 
-							var outputPin = new five.Led(hardwarePin);
+							// Explicit board: - see the Sensor case above.
+							// Without it, johnny-five's Board.mount() hands
+							// this Led boards[0] (the first board ever
+							// created in this process) instead of this
+							// model's own board - a second (or reconnected)
+							// device's PWM/AnalogOut writes would silently
+							// go to the wrong or a dead board.
+							var outputPin = new five.Led({ pin: hardwarePin, board: this.board });
 							this.outputs[pin].pin = outputPin;
 						}
 					}
@@ -401,9 +837,18 @@ module.exports = function(five) {
 					if(pinExists) {
 						var hardwarePin = parseInt(pin.substr(1),10);
 
+						// Explicit board: - see the Sensor case above.
+						// Without it, johnny-five's Board.mount() hands
+						// this Servo boards[0] (the first board ever
+						// created in this process) instead of this
+						// model's own board - writes would silently go to
+						// the wrong or a dead board (no error, no
+						// movement) whenever more than one board has ever
+						// existed in this server process.
 						var outputPin = new five.Servo({
 							pin: hardwarePin,
 							range: [0,180],
+							board: this.board,
 						});
 
 						this.outputs[pin].pin = outputPin;

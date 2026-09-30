@@ -19,7 +19,7 @@
                 rv-class-groveerror="widget:sensorStatus | isGroveStatus error"></div>
             <span class="statusText" rv-text="widget:sensorStatus"></span>
         </div>
-        <div class="outletLabels" rv-text="widget:outs | outletTitles"></div>
+        <div class="outletLabels" rv-text="widget:readingReadout"></div>
 
         <div class="options">
               <ul>
@@ -68,7 +68,7 @@
             <label class="narrowLabel">ease</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:easingAmount"><br>
             <label class="narrowLabel">smooth</label> <input class='smoothingAmount moreParam' type="text" pattern="[0-9]*" rv-value="widget:smoothingAmount">
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/grovesensor/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/grovein/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

@@ -6,7 +6,8 @@ function(app){
 	var PatchLoader = function(options) {
 		this.serverAddress = options.serverAddress,
 		this.addFunction = options.addFunction,
-		this.mapFunction = options.mapFunction;
+		this.mapFunction = options.mapFunction,
+		this.updateLargestCID = options.updateLargestCID;
 	};
 
 	PatchLoader.prototype = {
@@ -33,8 +34,19 @@ function(app){
 				window.app.vent.trigger('loadPatchFileToServer', {widgets: widgets, mappings: mappings});
 			}
 
-			//this.largestCID = _.map(widgets, function(widget) { return widget.model.get('wid');}).sort()[0];
-			this.largestCID = widgets.length > 0 ? parseInt(_.map(widgets, function(widget) { return widget.wid;}).sort()[0].slice(1), 10) : 0;
+			// Bump the Patcher's own id counter (not this PatchLoader
+			// instance - it never adds widgets itself, so a counter
+			// scoped to it would be dead code, which is exactly what
+			// used to be here) past every id this file uses, before any
+			// widget is actually added. Without this, a widget added
+			// after loading this patch can mint an id ("n" + counter)
+			// that collides with one already in the file - see
+			// Patcher.js's updateLargestCID for the fuller story.
+			if(this.updateLargestCID) {
+				for(var c=widgets.length-1; c>=0; c--) {
+					this.updateLargestCID(widgets[c].wid);
+				}
+			}
 			// Add all widgets
 			for(var i=widgets.length-1; i>=0; i--) {
 				var newWidget = this.addFunction(widgets[i].typeID, true, widgets[i].wid);

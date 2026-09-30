@@ -36,7 +36,13 @@ const ENTITLEMENTS = path.join(__dirname, 'entitlements.mac.plist');
 // XIAO ESP32-C6 board - see firmware/xiao-esp32c6-circuitpython-firmata/
 // README.md for the full dev-facing version this is adapted from.
 const FIRMWARE_SRC_DIR = path.join(__dirname, '..', 'firmware', 'xiao-esp32c6-circuitpython-firmata');
-const FIRMWARE_FILES = ['code.py', 'firmata_server.py', 'pins.py', 'grove_lcd.py', 'settings.toml.example'];
+// standalone_interpreter.mpy, not the .py source - importing it as raw
+// source on-device fragments the heap enough to degrade WiFi
+// reliability (see circuitpython_firmata_firmware notes / CLAUDE.md's
+// mpy-cross rule). Never bundle both - CircuitPython's import
+// resolution between a same-named .py and .mpy in one directory isn't
+// something to rely on; ship only the one that's actually safe.
+const FIRMWARE_FILES = ['boot.py', 'code.py', 'ntk_firmata_main.py', 'firmata_server.py', 'oled_display.py', 'pins.py', 'standalone_interpreter.mpy', 'settings-example.toml'];
 const CIRCUITPYTHON_README = `# CircuitPython firmware for the Seeed XIAO ESP32-C6
 
 Turns a Seeed XIAO ESP32-C6 into an NTK "Network" device over WiFi - no
@@ -50,10 +56,10 @@ Arduino IDE, no C++, just these files copied onto the board.
    use [Thonny](https://thonny.org/) (Tools > Options > Interpreter >
    CircuitPython, pick the board's serial port) to browse and transfer
    files on the device over its serial/REPL connection instead.
-2. In Thonny's file browser, copy \`code.py\`, \`firmata_server.py\`, and
-   \`pins.py\` from this folder onto the board, overwriting any existing
-   \`code.py\`.
-3. Copy \`settings.toml.example\` to \`settings.toml\` on the board the
+2. In Thonny's file browser, copy \`code.py\`, \`ntk_firmata_main.py\`,
+   \`firmata_server.py\`, and \`pins.py\` from this folder onto the
+   board, overwriting any existing \`code.py\`.
+3. Copy \`settings-example.toml\` to \`settings.toml\` on the board the
    same way, and edit it there to fill in your WiFi network name and
    password.
 4. The board resets and runs automatically. Watch its serial console
@@ -72,6 +78,46 @@ Arduino IDE, no C++, just these files copied onto the board.
    widget already on the canvas keeps whatever Device it already had -
    change it directly in that widget's own "more" panel instead.
 
+   There's also an \`NTK_MDNS_HOSTNAME\` setting to point NTK at a
+   \`<name>.local\` address instead of the IP - see **mDNS hostname**
+   below for why it's not usable yet.
+
+## mDNS hostname (not working yet)
+
+**Hardware-verified 2026-09-23: this doesn't actually work on
+CircuitPython 10.3.1 / this board yet.** \`code.py\` sets up
+\`mdns.Server\` correctly (hostname set, \`advertise_service()\` called,
+no errors, the console prints the expected line) but the board never
+answers mDNS queries from other devices - confirmed with both a direct
+query and a service browse from a Mac, against a network that resolves
+other real mDNS devices (AirPlay/HomeKit/printers) fine. Left in place
+since it's harmless when set and may start working on a future
+CircuitPython release. Use the IP address from the boot console (or
+SoftAP's fixed \`192.168.4.1\`) for now.
+
+The intent, once it works: set \`NTK_MDNS_HOSTNAME = "ntk-device"\` (or
+any name you like) in \`settings.toml\` and the board would advertise
+itself as \`ntk-device.local\` on your network - point NTK's Device
+field at that name and port \`3030\` instead of an IP address, and it
+would keep working even if the router hands out a different IP later.
+Station mode only (SoftAP already has a fixed IP, \`192.168.4.1\`).
+Running more than one board on the same network? Give each a different
+hostname. Needs a resolver that understands mDNS/Bonjour - built into
+macOS, may need Bonjour Print Services installed on Windows.
+
+## Status LED
+
+The board's on-board user LED (\`board.LED\`, the small yellow one by the
+USB connector) reports state without needing the serial console:
+
+- **one fast 4-blink burst** - just powered up, \`code.py\` is running
+- **slow steady blink** - bringing up WiFi (joining, or starting SoftAP)
+- **quick double-pulse every ~2s** - listening, no client connected yet
+- **solid on** - an NTK client is connected
+
+Stuck on the slow steady blink = can't reach WiFi; check
+\`settings.toml\` and the serial console.
+
 ## SoftAP mode (no router needed)
 
 Add \`NTK_WIFI_MODE = "ap"\` to \`settings.toml\` and the board runs its
@@ -89,9 +135,9 @@ Join the \`NTK-Firmata\` network from your computer, then point NTK's
 the board's network your computer has no normal WiFi/internet, it's one
 board at a time, and range is shorter than joining a real router.
 
-If the board seems stuck on boot while starting SoftAP: there's an
-8-second "press Ctrl-C now" countdown printed right before it starts
-(this step has no built-in timeout the way joining a normal WiFi
+If the board seems stuck on boot while starting SoftAP: there's a
+brief "press any key now" window printed right at the very start of
+boot (this step has no built-in timeout the way joining a normal WiFi
 network does), but if it's already past that and hung, only Thonny's
 Stop button can force a harder interrupt.
 
@@ -112,14 +158,6 @@ firmware controls. Reliable recovery: switch Thonny's interpreter away
 from the board's serial port, unplug the board, replug it and wait
 about 10 seconds without touching Thonny, then switch Thonny's
 interpreter back to that port.
-
-## Optional: show the IP on a Grove LCD RGB Backlight
-
-Wire a Grove - LCD RGB Backlight to the board's I2C pins and it'll show
-the station-mode IP address (and turn the backlight green) once
-connected - no serial console needed. Nothing to configure; if it isn't
-attached, wired wrong, or the bus lacks pull-ups (see Troubleshooting
-below), it's skipped silently and the board boots normally either way.
 
 ## Optional: Grove sensors (NTK's GroveIn widget)
 
@@ -182,18 +220,51 @@ support, and can be edited to match your hardware.
   expects PWM writes as 0-255, matching classic Arduino - if something
   upstream assumes ESP32-native ranges (0-4095 ADC, 0-65535 PWM),
   that's the mismatch to look for.
-- **An I2C device (Grove LCD, accelerometer, etc.) prints "No pull up
+- **An I2C device (accelerometer, distance sensor, etc.) prints "No pull up
   found on SDA or SCL; check your wiring"**: a real electrical issue -
   I2C can't work without pull-up resistors somewhere on the bus, and not
   every Grove module or expander I2C port supplies its own. Fix: two
   resistors (4.7k-10k ohm) from SDA to 3V3 and from SCL to 3V3.
+- **An I2C device does nothing, and \`i2c.scan()\` finds no devices at all
+  even after adding pull-ups**: double check it's plugged into the
+  socket actually labeled I2C (often also labeled with an analog pin,
+  e.g. "A5") - the numbered Grove sockets (D5, D7, etc.) look identical
+  but most are plain digital pins with no SDA/SCL wired to them, so the
+  wrong socket looks exactly like a wiring/pull-up problem.
 `;
+
+// A version-named marker file (e.g. "NTK-2026.6.1"), not a file whose
+// CONTENTS say the version - so `ls` alone on a packaged folder or an
+// unzipped release shows which NTK build it is, no `cat`/unzipping
+// app.asar needed. Sits next to Electron's own top-level `version`
+// file (that one's the embedded Electron runtime's version, e.g.
+// "43.4.1" - unrelated to NTK's own, easy to mistake for it at a
+// glance) - added 2026-09-22 after exactly that mix-up came up.
+function writeVersionMarker(destDir) {
+	const markerPath = path.join(destDir, `NTK-${pkg.version}`);
+	// Clear any stale marker from a previous version first - an empty
+	// glob is fine, this is just tidying, not required for correctness.
+	for (const entry of fs.readdirSync(destDir)) {
+		if (/^NTK-\d/.test(entry)) fs.rmSync(path.join(destDir, entry));
+	}
+	fs.writeFileSync(markerPath, '');
+}
 
 function bundleCircuitPythonFirmware(destDir) {
 	fs.mkdirSync(destDir, { recursive: true });
 	for (const file of FIRMWARE_FILES) {
 		fs.copyFileSync(path.join(FIRMWARE_SRC_DIR, file), path.join(destDir, file));
 	}
+	// code.py prints this at boot if present (try/except ImportError,
+	// see its own comment) - a manual/dev deploy via Thonny has no such
+	// file and just skips the print, which is the expected case, not an
+	// error. A single string constant, not compiled to .mpy - matches
+	// every other small firmware file here (only standalone_interpreter
+	// is large enough to need that).
+	fs.writeFileSync(
+		path.join(destDir, 'ntk_version.py'),
+		`NTK_VERSION = ${JSON.stringify(pkg.version)}\n`
+	);
 	// Third-party CircuitPython driver .mpy files (adafruit_dht,
 	// adafruit_lis3dh, and their own dependencies) - a real directory
 	// tree, not flat files, so copied wholesale rather than listed
@@ -372,6 +443,7 @@ async function main() {
 
 	for (const outDir of appPaths) {
 		console.log('Packaged:', outDir);
+		writeVersionMarker(outDir);
 
 		// Leave a copy directly alongside the unpacked app - convenient
 		// for testing straight from outDir without unzipping anything.
@@ -420,6 +492,9 @@ async function main() {
 		// unavailable, e.g. a non-APFS destination).
 		execFileSync('cp', ['-R', '-c', appPath, stageDir]);
 		bundleCircuitPythonFirmware(path.join(stageDir, 'CircuitPython'));
+		// This one - not the outDir one above - is what actually ends up
+		// in the distributed zip (see the comment above stageDir).
+		writeVersionMarker(stageDir);
 
 		// Zip with ditto (not Finder/Archive Utility) so the app's
 		// signature's extended attributes and resource forks survive for

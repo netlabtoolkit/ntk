@@ -5,11 +5,49 @@ module.exports = function(options) {
 		_ = require('underscore'),
 		events = require('events'),
 		nlHardware = require('../nlHardware/Hardware'),
+		StandaloneMonitor = require('../nlHardware/StandaloneMonitor'),
+		checkDeviceStatus = require('../nlHardware/DeviceStatusCheck'),
 		utils = require('../../utils')(),
 		self;
 
+	// Active StandaloneMonitor connections, keyed by socket.id - each
+	// browser client can have at most one at a time (see
+	// client:startMonitor below). Separate from self.hardwareModels
+	// (the normal per-device NetworkModel map) since a monitor
+	// connection is a fundamentally different thing: it doesn't claim
+	// any pins, doesn't go through the Firmata handshake, and belongs
+	// to one specific client's UI session, not the shared patch.
+	var activeMonitors = {};
+
 
 	var QueueHandler = utils.QueueHandler;
+
+	// Output-role widget typeIDs - mirrors each widget's own client-side
+	// `deviceMode` (see AnalogOut.js/DigitalOut.js/Servo.js/OSCOut.js),
+	// which is what picks `active` vs `activeOut` as the flag that
+	// actually gates its own connection. The server only ever sees
+	// serialized widget JSON (typeID, active, activeOut - see
+	// masterPatch.widgets), not the client's view classes, so this list
+	// is the server-side equivalent of that same in/out split - needed by
+	// pruneHardwareModelIfUnused below, since a widget's `active` field
+	// defaults to true forever for every output-role widget (it's simply
+	// never touched by that widget's own code - only `activeOut` is),
+	// so checking `active` on an output widget would always look "still
+	// wanted" even when its connect toggle is off.
+	// CloudOut added 2026-09-24 - it was missing here entirely, which is
+	// the OPPOSITE failure from what this list normally guards against:
+	// CloudOut never sets an `active` field at all (only `activeOut`), so
+	// checking `active` on it read as `undefined === true` -> always
+	// false -> "not wanted", regardless of the real activeOut state.
+	// Where the comment above describes an output widget getting stuck
+	// ON forever, this bug pruned a genuinely-active CloudOut connection
+	// out from under itself.
+	var OUTPUT_TYPE_IDS = {Servo: true, AnalogOut: true, DigitalOut: true, OSCOut: true, CloudOut: true};
+
+	function widgetWantsConnection(widget) {
+		if (!widget) return false;
+		return OUTPUT_TYPE_IDS[widget.typeID] ? widget.activeOut === true : widget.active === true;
+	}
 
 	// An OSC hardware-model instance opens a real UDP socket on whatever port its key
 	// encodes (see nlHardware/OSC.js), so distinct OSCIn widgets configured with distinct
@@ -54,9 +92,30 @@ module.exports = function(options) {
 			if(this.queue.length > 0) {
 
 				setTimeout(function() {
-					this.sendCallback(this.queue);
-
-					//this.queue.length = 0;
+					// Snapshot-and-clear right here, synchronously, before
+					// sendNetworkSet's own per-item staggered sends even
+					// start - NOT inside sendNetworkSet itself (that used
+					// to compare a snapshot index against this SAME array's
+					// live, still-mutating length to decide when to clear,
+					// which almost never matched once anything else pushed
+					// into the queue while those staggered sends were still
+					// pending - e.g. a real device write arriving while a
+					// widget's initial connect happened to enqueue a big
+					// batch of unrelated fields all at once. Once that
+					// match failed, the queue was never cleared, so
+					// addToQueue's "queue.length == 0" check (the only
+					// thing that ever calls next() again) never passed
+					// again either - every write after that point just sat
+					// in the queue being silently replaced forever, with no
+					// error and nothing to show it wasn't reaching the
+					// device. Clearing here instead means whatever's
+					// queued NOW gets a real, timely flush, and the queue
+					// is genuinely empty again immediately for the next
+					// addToQueue call - regardless of how many items were
+					// in this batch or what arrives while it's being sent.
+					var batch = this.queue.slice();
+					this.queue.length = 0;
+					this.sendCallback(batch);
 				}.bind(this), this.interval);
 
 			}
@@ -66,6 +125,80 @@ module.exports = function(options) {
 
 	MultiClientSync.prototype = {
 		clients: [],
+		/**
+		 * pruneHardwareModelIfUnused - closes and drops a hardware-model
+		 * instance (e.g. the NetworkModel/etherport-client behind a
+		 * WiFi Firmata device) once no widget currently mapped to it still
+		 * wants a live connection.
+		 *
+		 * Without this, a hardware-model instance - and the real TCP
+		 * connection/reconnect-forever loop etherport-client runs behind
+		 * it (see NetworkModel.js's own comment on self.close) - only
+		 * ever got torn down when a widget was fully REMOVED
+		 * (client:removeWidget below), never when a widget's connect
+		 * toggle (active/activeOut) simply switched off. That left the
+		 * connection silently reconnecting in the background for the
+		 * rest of the server process's life, invisible from the UI - a
+		 * real bug found 2026-09-19 (NTK connecting to a device on its
+		 * own with no widget's toggle showing anything active).
+		 *
+		 * @param {string} hardwareKey e.g. "network:192.168.0.116:3030"
+		 * @return {void}
+		 */
+		pruneHardwareModelIfUnused: function(hardwareKey) {
+			var model = this.hardwareModels[hardwareKey];
+			if (!model) return;
+
+			var mappedWidgetIds = _.pluck(_.where(this.masterPatch.mappings, {modelWID: hardwareKey}), 'viewWID');
+			var stillWanted = _.some(mappedWidgetIds, function(wid) {
+				var widget = _.findWhere(this.masterPatch.widgets, {wid: wid});
+				return widgetWantsConnection(widget);
+			}, this);
+
+			if (!stillWanted) {
+				if (hardwareKey.indexOf('Cloud:') === 0) {
+					console.log('[Cloud] pruneHardwareModelIfUnused deleting', hardwareKey, '- mappedWidgetIds:', mappedWidgetIds);
+				}
+				if (typeof model.close === 'function') {
+					model.close();
+				}
+				delete this.hardwareModels[hardwareKey];
+			}
+		},
+		/**
+		 * pruneOrphanedHardwareModels - closes and drops every
+		 * hardware-model instance no longer referenced by
+		 * this.masterPatch.mappings (call AFTER masterPatch is updated
+		 * to reflect its new state).
+		 *
+		 * Was previously inlined into client:removeWidget's handler
+		 * only, which meant removing a single widget correctly closed
+		 * its now-orphaned connection but clearing/loading an entire
+		 * new patch (loadPatchFile - used by BOTH Clear Patch and
+		 * Import) did not: it only ever replaced masterPatch via
+		 * setMaster(), with no equivalent cleanup step, so a device
+		 * NTK had been actively driving stayed connected (status LED
+		 * staying solid, no "waiting for connection") until the whole
+		 * app quit and tore the process down - found via hands-on
+		 * testing 2026-09-22.
+		 *
+		 * @return {void}
+		 */
+		pruneOrphanedHardwareModels: function() {
+			var stillReferencedKeys = _.pluck(this.masterPatch.mappings, 'modelWID');
+			for(var key in this.hardwareModels) {
+				if(!_.contains(stillReferencedKeys, key)) {
+					if (key.indexOf('Cloud:') === 0) {
+						console.log('[Cloud] pruneOrphanedHardwareModels deleting', key, '- stillReferencedKeys:', stillReferencedKeys);
+					}
+					var model = this.hardwareModels[key];
+					if(typeof model.close === 'function') {
+						model.close();
+					}
+					delete this.hardwareModels[key];
+				}
+			}
+		},
 		setMaster: function(patch) {
 			this.masterPatch = patch;
 			self.transport.sockets.emit('loadPatchFromServer', JSON.stringify( patch ));
@@ -91,7 +224,27 @@ module.exports = function(options) {
 
 			if(masterModel) {
 				masterModel.map = currentMap.mappings[0].map;
-				socket.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
+				// Real bug, found 2026-09-22: this used to re-broadcast
+				// the ENTIRE masterPatch (widgets included) just to sync
+				// a mappings-only change. The sending client already has
+				// the correct mapping state locally (it computed and
+				// sent it) - a full reload back to it could race any
+				// OTHER in-flight update for the same widget and clobber
+				// it with stale masterPatch.widgets data. This race is a
+				// real, confirmed bug on its own (verified via a captured
+				// stack trace showing exactly this path reconstructing a
+				// widget from stale server data) - but it turned out NOT
+				// to be the full explanation for a separate "editing a
+				// hardware widget's IP then reconnecting reverts to the
+				// old value" symptom seen the same day, which persisted
+				// even with this fix in place. That symptom's real cause
+				// was found the next day: a global parseInt() truncation
+				// bug in the rivets<->Backbone adapter (app/scripts/
+				// main.js) was silently dropping the IP field's edit
+				// before it ever reached the model - see
+				// ntk_hardware_ip_edit_revert_open_bug memory. No other
+				// client needs a widget-including reload just because
+				// one mapping changed, regardless.
 			}
 
 		},
@@ -110,6 +263,38 @@ module.exports = function(options) {
 			// for OSC in particular, that's now the widget's real configured receiving port.
 			model.on('change', function(options) {
 				this.transport.emit('receivedModelUpdate', JSON.stringify({modelType: model.address, field: options.field, value: options.value}));
+			}.bind(this));
+
+			// A bad/unset IP (or an unreachable device generally) used
+			// to fail completely silently - see NetworkModel.js's own
+			// comment on connectionFailed for the full story. Broadcast
+			// to every connected client rather than routing to just
+			// whichever socket happened to trigger the connection - NTK
+			// has no per-socket ownership of a hardware model, and every
+			// connected browser client cares equally that this device
+			// isn't reachable.
+			model.on('connectionFailed', function(info) {
+				this.transport.emit('server:hardwareConnectionFailed', info);
+			}.bind(this));
+
+			// Generic status channel, separate from 'change' (reserved
+			// for actual field/value updates) - added for CloudModel.js's
+			// connected/disconnected/error reporting, but any hardware
+			// model can emit 'status' and get the same relay for free.
+			// model.address is the same key used everywhere else here
+			// (see the 'change' listener above), so the client can match
+			// a status update back to the right widget's own modelType.
+			model.on('status', function(info) {
+				this.transport.emit('server:hardwareStatus', {modelType: model.address, info: info});
+			}.bind(this));
+
+			// What actually got sent, separate from 'change' (incoming
+			// topic values) - currently only CloudModel.js emits this,
+			// so CloudOut can display the real published value instead
+			// of just its own current dial position (matters with
+			// averaging/throttling on, where they can differ).
+			model.on('published', function(info) {
+				this.transport.emit('server:hardwarePublished', {modelType: model.address, field: info.field, value: info.value});
 			}.bind(this));
 		},
 		/**
@@ -157,8 +342,6 @@ module.exports = function(options) {
 			socket.emit('serverActive', self.serverActive);
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			socket.on('sendModelUpdate', function(options) {
-
-
 
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
@@ -239,12 +422,86 @@ module.exports = function(options) {
 
 			});
 
+			// Push/pull the standalone patch (see plans/standalone-
+			// patch-export.md's "Push/Pull standalone patch" section) -
+			// v1 assumes one device per patch, so Patcher.js's caller
+			// already resolved which hardwareKey to target
+			// (getActiveNetworkDeviceKey), which may come from an actual
+			// wired widget OR straight from the Add Widgets panel's own
+			// Device/IP fields with nothing wired up yet (added
+			// 2026-09-23 - Pull especially wants to work before any
+			// widget exists, to check what's already on a device). Same
+			// create-if-missing fallback client:changeIOMode above
+			// already uses, so this works in the latter case too.
+			socket.on('client:pushPatchToDevice', function(data) {
+				var options = JSON.parse(data);
+				if(self.hardwareModels[options.hardwareKey] == undefined) {
+					var typeAddressPort = options.hardwareKey.split(':');
+					self.hardwareModels[options.hardwareKey] = new nlHardware({deviceType: options.hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+					self.bindModelToTransport(self.hardwareModels[options.hardwareKey]);
+				}
+				var hardwareModel = self.hardwareModels[options.hardwareKey];
+				if(typeof hardwareModel.pushPatch !== 'function') {
+					socket.emit('server:pushPatchResult', {ok: false, error: 'This device type doesn\'t support Push/Pull.'});
+					return;
+				}
+				hardwareModel.pushPatch(options.patch, function(ok, errorMessage) {
+					socket.emit('server:pushPatchResult', {ok: ok, error: errorMessage});
+				});
+			});
+
+			// Display widget's three composed OLED lines - not a pin
+			// write, so it doesn't go through the generic
+			// 'sendModelUpdate' handler above (see StandardFirmataModel.js's
+			// sendDisplayText). No reply expected.
+			socket.on('client:sendDisplayText', function(data) {
+				var options = JSON.parse(data);
+				if(self.hardwareModels[options.hardwareKey] == undefined) {
+					var typeAddressPort = options.hardwareKey.split(':');
+					self.hardwareModels[options.hardwareKey] = new nlHardware({deviceType: options.hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+					self.bindModelToTransport(self.hardwareModels[options.hardwareKey]);
+				}
+				var hardwareModel = self.hardwareModels[options.hardwareKey];
+				if(typeof hardwareModel.sendDisplayText === 'function') {
+					hardwareModel.sendDisplayText(options.lines);
+				}
+			});
+
+			socket.on('client:pullPatchFromDevice', function(data) {
+				var options = JSON.parse(data);
+				if(self.hardwareModels[options.hardwareKey] == undefined) {
+					var typeAddressPort = options.hardwareKey.split(':');
+					self.hardwareModels[options.hardwareKey] = new nlHardware({deviceType: options.hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+					self.bindModelToTransport(self.hardwareModels[options.hardwareKey]);
+				}
+				var hardwareModel = self.hardwareModels[options.hardwareKey];
+				if(typeof hardwareModel.pullPatch !== 'function') {
+					socket.emit('server:pullPatchResult', {patch: null, error: 'This device type doesn\'t support Push/Pull.'});
+					return;
+				}
+				hardwareModel.pullPatch(function(patchJson, errorMessage) {
+					socket.emit('server:pullPatchResult', {patch: patchJson, error: errorMessage});
+				});
+			});
+
 			// New responder. Anytime a widget changes, notify all other clients
 			socket.on('client:sendModelUpdate', function(options) {
 				var wid = options.wid,
 					changedAttributes = options.changedAttributes;
 
 				self.updateClients([{wid: wid, changedAttributes: changedAttributes}], this);
+
+				// A widget's connect toggle just switched off - check
+				// whether any hardware connection it was mapped to should
+				// now be closed (see pruneHardwareModelIfUnused above).
+				// Runs after updateClients so masterPatch.widgets already
+				// reflects this change.
+				if (changedAttributes && (changedAttributes.active === false || changedAttributes.activeOut === false)) {
+					var deactivatedHardwareKeys = _.pluck(_.where(self.masterPatch.mappings, {viewWID: wid}), 'modelWID');
+					_.each(deactivatedHardwareKeys, function(hardwareKey) {
+						self.pruneHardwareModelIfUnused(hardwareKey);
+					});
+				}
 			});
 
 			// When we receive an update to the mappings from the client
@@ -260,16 +517,7 @@ module.exports = function(options) {
 				// widget references any more - the client already removed this widget's own
 				// mappings (see Patcher.js's removeWidget) before sending this event, so
 				// masterPatch.mappings reflects what's still in use.
-				var stillReferencedKeys = _.pluck(self.masterPatch.mappings, 'modelWID');
-				for(var key in self.hardwareModels) {
-					if(!_.contains(stillReferencedKeys, key)) {
-						var model = self.hardwareModels[key];
-						if(typeof model.close === 'function') {
-							model.close();
-						}
-						delete self.hardwareModels[key];
-					}
-				}
+				self.pruneOrphanedHardwareModels();
 			});
 
 			socket.on('client:addWidget', function(view) {
@@ -281,7 +529,24 @@ module.exports = function(options) {
 				// We should do the below in the future instead to limit traffic
 				//self.masterPatch.mappings.push(JSON.parse(mappings));
 				self.masterPatch.mappings = JSON.parse(mappings);
-				this.broadcast.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
+				// No broadcast back - see updateMappings's own comment
+				// for the race condition this caused and its real but
+				// limited fix (a separate, now also-resolved "IP edit
+				// reverts" bug - see ntk_hardware_ip_edit_revert_open_bug
+				// memory). The sending client already has the correct
+				// mapping state locally.
+
+				// Separately: this is exactly where changing a widget's
+				// server/IP (not removing the whole widget) leaves its
+				// OLD hardware connection orphaned - masterPatch.mappings
+				// now reflects the new address, so the old hardwareKey
+				// is no longer referenced and this correctly closes it.
+				// Without this, the old connection just kept retrying
+				// forever in the background - harmless on its own,
+				// except its eventual connectionFailed report (see
+				// NetworkModel.js) could still arrive later and show the
+				// wrong (old) address. This part IS confirmed working.
+				self.pruneOrphanedHardwareModels();
 			});
 
 			socket.on('saveCurrentPatch', function(options) {
@@ -295,12 +560,192 @@ module.exports = function(options) {
 				self.emit('toggleServer');
 			});
 
+			// Opt-in "monitor mode" (see plans/standalone-patch-export.md
+			// and the firmware-monitor-mode branch history) - watches a
+			// running standalone patch's live values without taking over
+			// from it. One monitor connection per browser client/socket
+			// at a time - a second client:startMonitor from the same
+			// socket replaces whatever it already had running, same as
+			// the reasoning for keying activeMonitors by socket.id below.
+			socket.on('client:startMonitor', function(options) {
+				var existing = activeMonitors[socket.id];
+				if (existing) {
+					existing.close();
+					delete activeMonitors[socket.id];
+				}
+
+				var host = options.host,
+					port = options.port;
+
+				function connectMonitor() {
+					var monitor = StandaloneMonitor(host, port);
+					activeMonitors[socket.id] = monitor;
+
+					monitor.on('connected', function() {
+						socket.emit('server:monitorStatus', {connected: true, host: host, port: port});
+					});
+					monitor.on('value', function(update) {
+						socket.emit('server:monitorValue', [update]);
+					});
+					monitor.on('error', function(err) {
+						socket.emit('server:monitorStatus', {connected: false, error: String(err)});
+					});
+					monitor.on('close', function() {
+						socket.emit('server:monitorStatus', {connected: false});
+						if (activeMonitors[socket.id] === monitor) {
+							delete activeMonitors[socket.id];
+						}
+					});
+				}
+
+				// A NORMAL (non-monitoring) hardware connection to this
+				// SAME device - e.g. auto-opened because the imported
+				// patch's widgets were saved with active:true - has to be
+				// closed first. The device only ever calls accept() again
+				// once its current connection disconnects (its own
+				// monitor-request peek only runs right after a fresh
+				// accept()), so without this, the monitor connection just
+				// sits unaccepted in the OS-level listen() backlog
+				// forever: our own socket still sees 'connected' fire (a
+				// raw TCP handshake alone succeeds against that backlog
+				// slot) and the banner shows, but the device's console
+				// never logs a monitor connection and no values ever
+				// arrive - found via hands-on testing 2026-09-22.
+				//
+				// Matching by host:port suffix, not the literal
+				// 'network:host:port' key this block used to check for
+				// exactly - a real widget's own hardwareKey is prefixed
+				// with whatever deviceType IT was configured with
+				// (usually "ArduinoUno", see Display.js's
+				// getDeviceModelType()), not necessarily literally
+				// "network", so an exact-key check here could silently
+				// miss a real conflicting connection - the same class of
+				// hardwareKey-mismatch bug chased at length elsewhere
+				// this session (see client:checkDeviceStatus above,
+				// fixed the same way).
+				var suffix = ':' + host + ':' + port;
+				var existingKey = _.find(_.keys(self.hardwareModels), function(key) {
+					return key.slice(-suffix.length) === suffix;
+				});
+				var existingHardwareModel = existingKey && self.hardwareModels[existingKey];
+				if (existingHardwareModel) {
+					if (typeof existingHardwareModel.close === 'function') {
+						existingHardwareModel.close();
+					}
+					delete self.hardwareModels[existingKey];
+					// The disconnect has to actually reach the device (a
+					// real WiFi round trip) and its own accept loop has to
+					// notice before it's ready for a new connection -
+					// racing that with an immediate reconnect risked the
+					// exact same silently-queued-and-ignored outcome this
+					// is fixing. 500ms is comfortably more than the
+					// device's own sub-100ms per-connection poll interval.
+					setTimeout(connectMonitor, 500);
+				} else {
+					connectMonitor();
+				}
+			});
+
+			socket.on('client:stopMonitor', function() {
+				var existing = activeMonitors[socket.id];
+				if (existing) {
+					existing.close();
+					delete activeMonitors[socket.id];
+				}
+			});
+
+			// Background poll (app/scripts/views/ToolBar.js's
+			// pollDeviceStatus) asking "what's this device doing right
+			// now" - see DeviceStatusCheck.js for the raw-probe half of
+			// this story. 'controlled'/'monitored' are determined
+			// entirely server-side, from connections THIS server
+			// already established (self.hardwareModels / activeMonitors)
+			// - no need to ask the device at all for those, and no risk
+			// of disrupting either one the way client:startMonitor above
+			// deliberately does when taking over. Only falls through to
+			// the actual device probe (which can't tell 'controlled'
+			// from 'monitored' apart - see DeviceStatusCheck.js's own
+			// comment - but doesn't need to, since we already ruled both
+			// out here) when neither is currently active. Matching by
+			// host:port suffix, not exact hardwareKey, since a real
+			// widget's own hardwareKey is prefixed with whatever
+			// deviceType it's configured with (usually "ArduinoUno", see
+			// Display.js's getDeviceModelType()), not literally
+			// "network" - an exact-key check here would almost never
+			// match a real connection to the same device.
+			socket.on('client:checkDeviceStatus', function(data) {
+				var options = JSON.parse(data);
+				var host = options.host, port = options.port;
+				var suffix = ':' + host + ':' + port;
+
+				var monitored = _.some(_.values(activeMonitors), function(monitor) {
+					return monitor.host === host && String(monitor.port) === String(port);
+				});
+				if (monitored) {
+					socket.emit('server:deviceStatusResult', {host: host, port: port, status: 'monitored'});
+					return;
+				}
+
+				var controlled = _.some(_.pairs(self.hardwareModels), function(pair) {
+					var key = pair[0], model = pair[1];
+					return key.slice(-suffix.length) === suffix && model.connected;
+				});
+				if (controlled) {
+					socket.emit('server:deviceStatusResult', {host: host, port: port, status: 'controlled'});
+					return;
+				}
+
+				checkDeviceStatus(host, port, function(status, error) {
+					socket.emit('server:deviceStatusResult', {host: host, port: port, status: status, error: error});
+				});
+			});
+
+			// Patcher.js's pushPatchToDevice - only for the erase case
+			// (an empty-canvas push, see its own comment). client:
+			// pushPatchToDevice above creates its own hardwareModel on
+			// demand if nothing was already connected, so a push over
+			// an otherwise-idle device leaves that freshly-made
+			// connection sitting open afterward with no widget left to
+			// use it - hardware-verified 2026-09-30: the device status
+			// bar correctly (if confusingly) kept reporting "Controlled"
+			// after an erase, because that orphaned connection genuinely
+			// was still live. A real push doesn't need this - Patcher.js
+			// already switches to Monitor mode after one, which closes
+			// any conflicting connection as a side effect of connecting
+			// (see client:startMonitor above) - but an erase has nothing
+			// to monitor, so nothing else was ever closing it. Matching
+			// by host:port suffix, same reasoning as the other handlers
+			// here.
+			socket.on('client:closeHardwareConnection', function(data) {
+				var options = JSON.parse(data);
+				var suffix = ':' + options.host + ':' + options.port;
+				var existingKey = _.find(_.keys(self.hardwareModels), function(key) {
+					return key.slice(-suffix.length) === suffix;
+				});
+				if (existingKey) {
+					var model = self.hardwareModels[existingKey];
+					if (typeof model.close === 'function') {
+						model.close();
+					}
+					delete self.hardwareModels[existingKey];
+				}
+			});
+
 			socket.on('disconnect', function() {
+				var existing = activeMonitors[socket.id];
+				if (existing) {
+					existing.close();
+					delete activeMonitors[socket.id];
+				}
 				self.emit('clientDisconnected');
 			});
 
 		},
 		sendNetworkSet: function(fieldValues) {
+			// fieldValues is now a private snapshot (see next()'s
+			// snapshot-and-clear) - no need to touch the live queue here
+			// at all, so each item's staggered send is independent of
+			// whatever's been queued since this batch was taken.
 			for(var i=fieldValues.length-1; i >= 0; i--) {
 
 				var closedFunction = function(i) {
@@ -311,11 +756,6 @@ module.exports = function(options) {
 							model = fieldValues[i].model;
 
 						model.set(field, value, modeRequested);
-
-						if(i == self.queueHandler.queue.length-1) {
-							self.queueHandler.queue.length = 0;
-						}
-
 					}
 				};
 
@@ -346,6 +786,11 @@ module.exports = function(options) {
 			var patch = JSON.parse(options).patch;
 
 			self.setMaster(patch);
+			// Used by both Clear Patch and Import - either can drop or
+			// replace widgets that were the only thing still referencing
+			// a live hardware connection (see pruneOrphanedHardwareModels's
+			// own docstring for how this was found).
+			self.pruneOrphanedHardwareModels();
 		},
 		/**
 		 * Update all registered clients with a set of changes

@@ -28,8 +28,16 @@ function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule, buil
 	// Patcher.js's applyDefaultDeviceToModel/getDefaultDeviceMapping for
 	// where it's consumed.
 	App.defaultDevice = {
-		deviceType: buildConfig.serial ? 'ArduinoUno' : 'network',
-		server: 'auto',
+		// Network is the default regardless of buildConfig.serial (Serial
+		// is still selectable in the dropdown on builds that have it) -
+		// "ntk-device.local" matches settings-example.toml's own default
+		// NTK_MDNS_HOSTNAME, so a freshly-set-up board and a fresh NTK
+		// install just find each other with no IP-typing required. A
+		// board configured with a different NTK_MDNS_HOSTNAME (e.g.
+		// running more than one on the same network) overrides this -
+		// just type that board's own hostname here instead.
+		deviceType: 'network',
+		server: 'ntk-device.local',
 		port: 3030,
 	};
 

@@ -33,7 +33,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			this.model.set({
 				title: 'DigitalOut',
 				outputMapping: options.outputMapping,
-                activeOut: true,
+                activeOut: false,
 				port: this.model.get('port') || 3030,
 				threshold: this.model.get('threshold') || 512,
 			});
@@ -115,10 +115,14 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 				var inactiveModels = this.inactiveModelsExist();
 
-				// If we haven't made the hardware model yet, then we should bind everything together
-				if( inactiveModels && this.model.get("activeOut") == true ) {
-					var sourceField = this.sources[0] !== undefined ? this.sources[0].map.sourceField : this.model.get('inputMapping'),
-						modelType = this.getDeviceModelType();
+				// inactiveModelsExist() checks this.sources, which is
+				// NEVER populated for a hardware OUTPUT mapping (see
+				// AnalogOut.js's onModelChange for the full explanation -
+				// same structural bug, fixed there first and mirrored
+				// here). changed.activeOut === true directly captures
+				// "the user just turned this on" instead.
+				if( (inactiveModels || changed.activeOut === true) && this.model.get("activeOut") == true ) {
+					var modelType = this.getDeviceModelType();
 
 					this.unMapHardwareInlet();
 
@@ -164,14 +168,19 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			return inactiveModels;
 		},
 		unMapHardwareInlet: function unMapHardwareInlet() {
-
-			this.sourceToRemove = this.sources[0];
-			this.sources.length = 0;
-			this.sources = [];
-
-			if(this.sourceToRemove) {
-				window.app.vent.trigger('Widget:removeMapping', this.sourceToRemove, this.model.get('wid') );
+			// Only removes the HARDWARE mapping - see AnalogOut.js's
+			// identical method for the full explanation. Same copy-
+			// pasted bug, fixed identically. Root-caused 2026-09-25.
+			var kept = [];
+			for(var i=0; i<this.sources.length; i++) {
+				if(this.sources[i].map.destinationField === 'in') {
+					kept.push(this.sources[i]);
+				}
+				else {
+					window.app.vent.trigger('Widget:removeMapping', this.sources[i], this.model.get('wid'));
+				}
 			}
+			this.sources = kept;
 		},
 		enableDevice: function enableHardware() {
 			var modelType = this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort();

@@ -6,7 +6,9 @@
     </div>
 
     <div class="widgetLeft">
-        <div class=leftTab><input class="getFromCloud" type="checkbox" rv-checked="widget:getFromCloud" /></div>
+        <div class=leftTab>
+			<input type="checkbox" rv-checked="widget:active" />
+		</div>
     </div>
 
     <div class="widgetBody">
@@ -17,12 +19,11 @@
         </div>
         <table class="rangeTable" border="0" cellspacing="3" cellpadding="0">
           <tr>
-
             <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:outputFloor"></td>
             <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:outputCeiling"></td>
           </tr>
         </table>
-        <div class='timeLeft'>Get in: 10s</div>
+        <div class='timeLeft' rv-class-cloudconnected="widget:cloudConnected" rv-text="widget:cloudConnected | cloudStatusText"></div>
 
     </div>
 
@@ -36,13 +37,13 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
-            
-            <label>get every</label> <input type="text" rv-value="widget:getPeriod">
+            <label>host</label> <input name="host" type="text" placeholder="broker host" rv-value="widget:host"><br>
+            <label>port</label> <input class="port" type="text" pattern="[0-9]*" rv-value="widget:port"><br>
+            <label>topic</label> <input name="topic" type="text" rv-value="widget:topic"><br>
+            <label>TLS</label> <input name="tls" type="checkbox" rv-checked="widget:tls">
             <hr>
-            io.adafruit.com<br>
-            <label for="aioUsername">username</label> <input name="aioUsername" class="keys" type="text" rv-value="widget:aioUsername"><br>
-            <label for="aioKey">AIO key</label> <input name="aioKey" class="keys" type="text" placeholder="AIO Key" rv-value="widget:aioKey"><br>
-            <label for="aioFeedKey">feed name</label> <input name="aioFeedKey" class="keys" type="text" placeholder="Feed Name" rv-value="widget:aioFeedKey"><br>
+            <label>user</label> <input name="username" type="text" rv-value="widget:username"><br>
+            <label>pass</label> <input name="password" type="password" rv-value="widget:password">
             <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/cloudin/" target="_blank">Widget help</a>
         </div>

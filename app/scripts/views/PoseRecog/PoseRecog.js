@@ -97,9 +97,9 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 	// rather than kept as two copies of identical color math.
 
 	return WidgetView.extend({
-		typeID: 'PoseTrack',
+		typeID: 'PoseRecog',
 		categories: ['AI'],
-		className: 'posetrack',
+		className: 'poserecog',
 		template: _.template(Template),
 		trackModeCatalog: trackModeCatalog,
 
@@ -137,7 +137,7 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 			this.lastDetectMs = 0;
 
 			var defaults = {
-				title: 'PoseTrack',
+				title: 'PoseRecog',
 				// Camera starts as soon as the widget is added (see
 				// onRender) - unlike FaceTrack, there's no separate
 				// external signal to gate it on, the whole point of this
@@ -426,7 +426,7 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 		// anything". Push it through immediately if the slot is
 		// currently sitting in the state that field applies to. Verbatim
 		// reuse of Gesture.js's identical onModelChange logic, plus
-		// active/trackMode handling PoseTrack needs that Gesture doesn't.
+		// active/trackMode handling PoseRecog needs that Gesture doesn't.
 		onModelChange: function(model) {
 			var changed = model.changedAttributes();
 

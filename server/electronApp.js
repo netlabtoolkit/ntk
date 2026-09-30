@@ -9,7 +9,13 @@ const shell = electron.shell;
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
+// LLM widget's "attach document" feature - pure JS (no native compile,
+// unlike @serialport/bindings), so it packages the same as everything else.
+const pdfParse = require('pdf-parse');
 const ntk = require('./netlabServer.js')();
+
+// LLM widget proxy (Anthropic / Ollama). Registers ipcMain.handle('llm-*').
+require('./llmProxy.js')();
 
 // ---- Apple speech helpers (macOS only) ----
 // SpeechIn -> speechhelper.swift (SFSpeechRecognizer); SpeechOut ->
@@ -185,6 +191,126 @@ ipcMain.handle('pick-image-file', function() {
 	return pickFile('Images', ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp']);
 });
 
+// Text widget: import a plain-text file, export text to one.
+ipcMain.handle('read-text-file', async function() {
+	var result = await dialog.showOpenDialog(mainWindow, {
+		properties: ['openFile'],
+		filters: [
+			{ name: 'Text', extensions: ['md', 'txt', 'markdown', 'text', 'json', 'csv', 'html', 'xml', 'rtf'] },
+			{ name: 'All files', extensions: ['*'] },
+		],
+	});
+	if (result.canceled || !result.filePaths.length) { return null; }
+	try {
+		return { name: path.basename(result.filePaths[0]), text: fs.readFileSync(result.filePaths[0], 'utf8') };
+	} catch (e) {
+		return { error: e.message };
+	}
+});
+
+ipcMain.handle('write-text-file', async function(event, opts) {
+	opts = opts || {};
+	var result = await dialog.showSaveDialog(mainWindow, {
+		defaultPath: opts.defaultName || 'text.md',
+		filters: [
+			{ name: 'Markdown', extensions: ['md'] },
+			{ name: 'Text', extensions: ['txt'] },
+			{ name: 'All files', extensions: ['*'] },
+		],
+	});
+	if (result.canceled || !result.filePath) { return { canceled: true }; }
+	try {
+		fs.writeFileSync(result.filePath, String(opts.text != null ? opts.text : ''), 'utf8');
+		return { path: result.filePath };
+	} catch (e) {
+		return { error: e.message };
+	}
+});
+
+// LLM widget: attach a PDF or plain-text file. Extracted ONCE here (not
+// re-read on every send - see plans/llm-widget.md's "Document attach"
+// section) and the resulting plain text is handed back directly, the
+// same shape read-text-file already returns, so it can be stored right
+// on the widget model like any other text field.
+var LLM_DOCUMENT_MAX_FILE_BYTES = 25 * 1024 * 1024; // reject before attempting to parse
+var LLM_DOCUMENT_MAX_WORDS = 20000; // ~ comfortably inside any current model's context
+
+function llmNormalizeExtractedText(text) {
+	return String(text || '')
+		.replace(/[ \t]+\n/g, '\n')  // trailing spaces left by some PDF layouts
+		.replace(/\n{3,}/g, '\n\n')  // collapse runs of blank lines
+		.trim();
+}
+
+function llmTruncateWords(text, maxWords) {
+	var words = text.split(/\s+/).filter(Boolean);
+	if (words.length <= maxWords) {
+		return { text: text, wordCount: words.length, truncated: false };
+	}
+	return { text: words.slice(0, maxWords).join(' '), wordCount: maxWords, truncated: true };
+}
+
+async function llmExtractDocumentText(filePath) {
+	if (/\.pdf$/i.test(filePath)) {
+		var result = await pdfParse(fs.readFileSync(filePath));
+		return result.text || '';
+	}
+	return fs.readFileSync(filePath, 'utf8'); // txt / md / markdown / text
+}
+
+ipcMain.handle('llm-pick-document', async function() {
+	var result = await dialog.showOpenDialog(mainWindow, {
+		properties: ['openFile'],
+		filters: [
+			{ name: 'Document', extensions: ['pdf', 'txt', 'md', 'markdown', 'text'] },
+			{ name: 'All files', extensions: ['*'] },
+		],
+	});
+	if (result.canceled || !result.filePaths.length) { return null; }
+
+	var filePath = result.filePaths[0];
+	var name = path.basename(filePath);
+
+	try {
+		var stat = fs.statSync(filePath);
+		if (stat.size > LLM_DOCUMENT_MAX_FILE_BYTES) {
+			return { name: name, error: 'File is too large (' + Math.round(stat.size / 1e6) + ' MB) - try a smaller document.' };
+		}
+	} catch (e) { /* fall through - the read below reports a clearer error */ }
+
+	var raw;
+	try {
+		raw = await llmExtractDocumentText(filePath);
+	} catch (e) {
+		return { name: name, error: 'Could not read this file: ' + e.message };
+	}
+
+	var normalized = llmNormalizeExtractedText(raw);
+	if (!normalized) {
+		var reason = /\.pdf$/i.test(filePath)
+			? 'this PDF is likely scanned/image-only'
+			: 'the file appears to be empty';
+		return { name: name, error: 'No extractable text found - ' + reason + '.' };
+	}
+
+	var capped = llmTruncateWords(normalized, LLM_DOCUMENT_MAX_WORDS);
+	return { name: name, path: filePath, text: capped.text, wordCount: capped.wordCount, truncated: capped.truncated };
+});
+
+// "Show in Finder" for the currently-attached document. documentPath is
+// kept only for this convenience button - the extracted documentText
+// (see above) is what actually rides in the saved patch and the
+// assembled prompt, so a moved/deleted source file breaks nothing but
+// this one button.
+ipcMain.handle('llm-show-document-in-folder', function(event, opts) {
+	opts = opts || {};
+	if (!opts.path || !fs.existsSync(opts.path)) {
+		return { error: 'File no longer exists at that location.' };
+	}
+	shell.showItemInFolder(opts.path);
+	return { ok: true };
+});
+
 var mainWindow = null;
 
 // Quit when all windows are closed.
@@ -212,7 +338,7 @@ app.on('ready', function() {
   // Electron's own default behavior for unhandled permission requests -
   // this window only ever loads our own bundled local server
   // (localhost:9001, never third-party/remote content), so unconditionally
-  // granting 'media' here is safe. Added after a real bug: PoseTrack's
+  // granting 'media' here is safe. Added after a real bug: PoseRecog's
   // camera worked on first use, but unchecking its "active" box (stopping
   // all tracks) and re-checking it (a fresh getUserMedia() call) failed
   // outright with "Permission denied" and no OS dialog at all the second
@@ -221,11 +347,16 @@ app.on('ready', function() {
   // CURRENTLY permitted" path Chromium also consults internally) need to
   // agree, or a stale/inconsistent default on one of the two paths can
   // silently deny a later request without ever prompting.
+  //
+  // 'fullscreen' is on the same list: the ToolBar's Full Screen button
+  // calls element.requestFullscreen(), which Chromium gates behind this
+  // same permission - unhandled, it was being denied here too.
+  var allowedPermissions = { media: true, fullscreen: true };
   mainWindow.webContents.session.setPermissionRequestHandler(function(webContents, permission, callback) {
-	  callback(permission === 'media');
+	  callback(allowedPermissions[permission] === true);
   });
   mainWindow.webContents.session.setPermissionCheckHandler(function(webContents, permission) {
-	  return permission === 'media';
+	  return allowedPermissions[permission] === true;
   });
 
   mainWindow.loadURL('http://localhost:9001');
