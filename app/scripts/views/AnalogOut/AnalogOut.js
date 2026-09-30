@@ -272,18 +272,56 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
         },
 
         // Runs after limitRange, so input is already a clamped 0-255
+        // number here. On by default (gammaCorrect: true in
+        // initialize(), per Phil's own call - most AnalogOut use is
+        // driving an LED) - uncheck it in the more panel for something
+        // that isn't an LED (a motor speed controller, for instance),
+        // where linear PWM is correct instead. See _applyGamma below
+        // for the actual curve.
+        gammaCorrect: function(input, attrs) {
+            var output = attrs.gammaCorrect ? this._applyGamma(input, attrs) : input;
+            // Simulated LED brightness (template's .simLED, bound to
+            // widget:ledOpacity via rv-style-opacity) - set here, not
+            // read back from widget:out in onModelChange, to avoid a
+            // signal-chain listener-ordering issue (see git history for
+            // that dead end). rv-style-* is a CUSTOM binder (see
+            // WidgetMulti.js's setWidgetBinders) that divides by 100
+            // itself (el.style.setProperty(prop, value/100)) - every
+            // rv-style-* value in this app is expected on a 0-100
+            // scale, not CSS's native 0-1 (matches style-activecontrol's
+            // own identical /100 for its 'opacity' case, and Knob.js's
+            // widget:opacity field) - hence the *100 below.
+            //
+            // Deliberately from `input` (pre-gamma), not `output` -
+            // Phil's own hands-on comparison 2026-09-30: with gamma
+            // correction on, the simulated LED (driven from `output`,
+            // like a first attempt at this did) looked LESS like a real
+            // LED than a plain linear mapping does, not more. Makes
+            // sense once you consider CSS opacity isn't physical light
+            // intensity - a browser's own alpha-blending against the
+            // background, plus how the eye reads partial transparency,
+            // already has its own non-linear-feeling response; stacking
+            // the PWM-tuned gamma curve (tuned for how a REAL LED's
+            // light intensity vs. duty cycle looks) on top of that
+            // double-compresses it. The gammaCorrect checkbox still
+            // fully controls the real `out` value sent to actual
+            // hardware, unchanged - this only decouples the on-screen
+            // simulation's own curve from it.
+            var ledOpacity = Math.max(0, Math.min(100, (input / 255) * 100));
+            if (this.model.get('ledOpacity') !== ledOpacity) {
+                this.model.set('ledOpacity', ledOpacity);
+            }
+            return output;
+        },
+
+        // Runs after limitRange, so input is already a clamped 0-255
         // number here. Standard LED brightness gamma curve - PWM duty
         // cycle vs. perceived brightness isn't linear (the eye is far
         // more sensitive to changes at low duty cycles), so a linear
         // "in" value looks like it jumps straight to bright and then
         // barely changes for the rest of the dial's range unless
-        // compressed like this. On by default (gammaCorrect: true in
-        // initialize(), per Phil's own call - most AnalogOut use is
-        // driving an LED) - uncheck it in the more panel for something
-        // that isn't an LED (a motor speed controller, for instance),
-        // where linear PWM is correct instead.
-        gammaCorrect: function(input, attrs) {
-            if (!attrs.gammaCorrect) return input;
+        // compressed like this.
+        _applyGamma: function(input, attrs) {
             // rv-value binds a text input as a string (see CLAUDE.md's
             // Rivets gotcha) - parseFloat before using it arithmetically.
             var gamma = parseFloat(attrs.gammaValue);

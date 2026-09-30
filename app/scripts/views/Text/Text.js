@@ -225,6 +225,22 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
                 if (changed.displayVisible !== undefined && this.domReady) {
                     this.applyDisplayVisibility();
                 }
+                // updateDisplay/applyFontStyles are otherwise only wired to
+                // the "more" panel inputs' own DOM 'change' events (see
+                // widgetEvents above) - a model update that didn't come from
+                // typing in that input (setFromModel on patch load, in
+                // particular) never fires those, so the on-canvas box was
+                // left showing stale size/font even though the model itself
+                // held the right values. Root-caused 2026-09-30: setFromModel
+                // runs AFTER this widget's initial render, so a loaded
+                // patch's displayWidth/displayHeight never reached the box -
+                // looked exactly like "the size doesn't save."
+                if ((changed.displayWidth !== undefined || changed.displayHeight !== undefined ||
+                     changed.displayFont !== undefined || changed.displayFontSize !== undefined ||
+                     changed.displayFontColor !== undefined || changed.displayFontItalic !== undefined ||
+                     changed.displayFontBold !== undefined) && this.domReady) {
+                    this.updateDisplay();
+                }
             }
         },
 

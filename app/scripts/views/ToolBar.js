@@ -292,7 +292,18 @@ function( app, Backbone, Template, Widgets ) {
 			if(result.host !== defaultDevice.server || result.port !== (defaultDevice.port || 3030)) {
 				return;
 			}
-			this.renderDeviceStatus(result.status);
+			// null here means the probe itself failed/timed out (device
+			// genuinely unreachable - powered off, wrong IP, etc.) -
+			// distinct from pollDeviceStatus's own null (no network
+			// device configured at all, nothing to check). Reported
+			// 2026-09-30: with the device actually off, every poll cycle
+			// showed "Checking..." then fell back to the SAME hidden
+			// state this "not configured" case uses, flickering white/
+			// nothing every ~10s as each timeout landed - not wrong,
+			// but indistinguishable from "nothing to see here" and
+			// needlessly noisy. Mapping to its own calm, persistent
+			// state instead.
+			this.renderDeviceStatus(result.status || 'unreachable');
 		},
 		// label/explanation per status - see nlMultiClientSync.js's
 		// client:checkDeviceStatus for how 'controlled'/'monitored' are
@@ -326,6 +337,20 @@ function( app, Backbone, Template, Widgets ) {
 			'in-use': {
 				label: 'In use',
 				explanation: 'Something else is already connected to this device.',
+			},
+			'unreachable': {
+				// No explanation text - unlike the other states, this is
+				// expected to show up routinely (authoring without
+				// hardware connected is core to how NTK works, not an
+				// edge case - see CLAUDE.md's widget design principles).
+				// The longer wrapped text this used to have made the bar
+				// taller than 'pending', bumping the rest of the panel
+				// (including the menu below it) down every time it
+				// appeared - reported 2026-09-30 as actively distracting
+				// mid-click. Label alone stays the same height as
+				// 'pending'.
+				label: 'Unreachable',
+				explanation: '',
 			},
 		},
 		renderDeviceStatus: function(status) {

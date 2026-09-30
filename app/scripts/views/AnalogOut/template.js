@@ -16,6 +16,7 @@
             <div class="display invalue" rv-text="widget:in | rounded">100</div>
             <div class="display outvalue" rv-text="widget:out | rounded">1023</div>
             <div style="position:relative;"><input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/></div>
+            <div class="simLED" rv-style-opacity="widget:ledOpacity" title="Simulated LED brightness"></div>
         </div>
     </div>
 
