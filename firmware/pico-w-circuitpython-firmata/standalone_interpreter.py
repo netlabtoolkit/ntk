@@ -1,0 +1,2100 @@
+"""
+standalone_interpreter.py - v1 on-device patch interpreter.
+
+See plans/standalone-patch-export.md ("Recommended architecture: on-device
+generic interpreter"). Reads a JSON-serialized NTK patch (the exact same
+{widgets: [...], mappings: [...]} shape the desktop app's "Export
+Standalone" button downloads as standalone_patch.json) and evaluates its
+portable widgets every loop tick, driving real GPIO through the SAME pin
+abstraction firmata_server.py uses - FirmataServer's own _Pin/
+_apply_pin_mode/_handle_analog_write/_handle_report_analog methods,
+reused directly rather than reimplemented, since that layer is already
+hardware-verified (see recent commits fixing Servo order-dependence and
+firmware backpressure). No Firmata wire protocol is involved - the
+interpreter runs on the SAME board that would otherwise be "the
+hardware", so it skips the wire entirely for local pins.
+
+Portable widget set - MUST be kept in sync by hand with
+app/scripts/utils/StandaloneCompatibility.js's PORTABLE_TYPE_IDS; there's
+no shared source between JS and Python:
+    AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, GroveSensor,
+    IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse,
+    Sequence, Tween, Data, OSCIn, OSCOut, CloudIn, CloudOut
+load() rejects anything outside this list the same way the JS checker
+does - clearly, not silently.
+
+OSCIn/OSCOut (added 2026-09-23) use MicroOSC (lib/microosc.mpy, Tod
+Kurt/Adafruit, Unlicense - vendored, not written here) for the actual
+OSC wire format and UDP sockets, same reuse-not-reimplement approach as
+GroveSensor's catalog drivers. Unlike OSCOut.js's default target of
+127.0.0.1 (meaningful on a live connection, where that's the SAME
+computer running NTK), on a standalone board with no host computer that
+default just means "myself" - OSCOut needs to be pointed at a real
+address reachable on the board's own WiFi network to be useful here
+(another device/software actually running OSC, e.g. a Pi or a second
+computer - not the same "talk to software on this computer" pattern
+OSCOut normally assumes). OSCIn's `server` field is not used for
+binding - the interpreter always listens on the board's own IP; OSCIn
+widgets are grouped by *port* only (see _claim_osc), since only one
+real bind address exists. Multiple OSCIn widgets sharing one receiving
+port share ONE microosc.OSCServer (one dispatch_map keyed by OSC
+address), mirroring how the live-connection host-side OSC.js hardware
+model already shares one receiving socket across every /ntk/in/N
+widget - opening a separate UDP listener per widget isn't necessary or
+desirable on a memory-constrained board.
+
+CloudIn/CloudOut (added 2026-09-24) use adafruit_minimqtt
+(lib/adafruit_minimqtt/, MIT - vendored, not written here; depends on
+lib/adafruit_ticks.mpy) for the actual MQTT wire protocol - same
+reuse-not-reimplement approach as MicroOSC above. Mirrors the live-
+connection host-side design in server/modules/nlHardware/CloudModel.js:
+one MQTT connection is shared by every CloudIn/CloudOut widget pointed
+at the same (host, port, username) - see _claim_cloud. The first
+widget in a group supplies the password/TLS setting for that whole
+connection, same "first widget wins" rule CloudModel.js uses live.
+TLS is opt-in per widget (`tls` field) and the `ssl` module is only
+ever imported if some group actually needs it - a patch using only
+plaintext brokers pays nothing for TLS support existing in the
+firmware. `connect_retries=1` on every MQTT client (this library's own
+default is 5, with exponential backoff up to 32s BETWEEN attempts,
+which would stall the whole interpreter tick loop for a long time if a
+broker is unreachable) - a failed connect just leaves that group
+unconnected until the next claim_hardware() call (e.g. a full patch
+reload, or regaining control after a client disconnects) retries it;
+there is no continuous automatic reconnect-while-ticking in this v1,
+unlike the live-connection widget's mqtt.js client. Self-echo
+suppression (a connection receiving its own just-published message
+back, since MQTT has no protocol-level way to prevent this) mirrors
+CloudModel.js's fix for the exact same problem - see _claim_cloud's
+`_cloud_last_published` tracking. CloudOut's sendInterval/averageInputs
+throttle and settle-publish are NOT ported here - v1 sends on every
+actual change only, same simplification OSCOut already makes for its
+own roundToInt-only chain handling; the full throttle/average/settle
+machinery is a possible future addition, not attempted in this pass.
+
+GroveSensor reuses the SAME `GROVE_SENSOR_CATALOG` (from pins.py)
+firmata_server.py's sysex handler reads from - subscribing calls a
+catalog entry's own `read`/`make_read` function directly, same
+skip-the-wire-protocol reasoning as every other hardware widget here.
+Each reading's raw value flows through the exact (scale, invert, easing,
+smoother) chain AnalogIn/DigitalIn use, but with per-reading state (each
+axis of e.g. the accelerometer needs its own smoother/easing history,
+not one shared between x/y/z - see GroveSensor.js's own `axisStates`) -
+the only widget type that needs that, so it isn't a generic CHAIN_TYPES
+entry.
+
+Known, deliberate simplifications vs. the real widget JS (each widget's
+own section below has the detail):
+- IfThen's wait-time hysteresis is JS setTimeout-driven (fires
+  independently of any polling loop); ported here as tick-polled elapsed-
+  time checks instead. At this interpreter's tick rate (hundreds of Hz,
+  see the 2026-09-17 performance spike in the plan doc) this settles
+  within roughly a tick of the same wall-clock deadline - not exact
+  setTimeout-firing semantics, but behaviorally equivalent for real
+  hardware timing.
+- Tween's easing curves are ported from
+  ~/Documents/GitHub/VarSpeedPython/varspeed/easing_functions.py (the
+  same Penner-equation source Tween.js's own code comment cites for the
+  curves Velocity.js can't bezier-approximate) - a faithful port, not a
+  guess, but Velocity's Quad/Cubic/etc. are themselves bezier
+  *approximations* of these closed-form equations, so there's a small
+  inherent difference from Velocity's exact curve.
+- Sequence's per-segment tweening uses linear interpolation instead of
+  replicating Velocity's default "swing" easing - Sequence never exposed
+  an easing choice to the user (unlike Tween, where it's a first-class
+  field), so exact curve fidelity matters far less here.
+"""
+
+import json
+import time
+
+import firmata_server
+import oled_display
+
+
+PORTABLE_TYPE_IDS = frozenset([
+    'AnalogIn', 'AnalogOut', 'DigitalIn', 'DigitalOut', 'Servo', 'GroveSensor',
+    'IfThen', 'Boolean', 'Gate', 'Mix', 'Splitter', 'Process', 'Count',
+    'Concat', 'Pulse', 'Sequence', 'Tween', 'Data', 'OSCIn', 'OSCOut',
+    'CloudIn', 'CloudOut', 'Display',
+])
+
+HARDWARE_INPUT_TYPES = frozenset(['AnalogIn', 'DigitalIn'])
+HARDWARE_OUTPUT_TYPES = frozenset(['AnalogOut', 'DigitalOut', 'Servo'])
+# Display is deliberately NOT in HARDWARE_OUTPUT_TYPES above - it has no
+# pin (its mapping's destinationField is meaningless, see DISPLAY_TEXT_
+# REQUEST in firmata_server.py), so it needs its own 'display_out' step
+# kind instead of 'hw_out' (which always resolves destinationField as a
+# pin name). See _build_steps()/tick()'s own comments for where.
+
+# Chain-driven types: their real output comes from piping outs[].from
+# through a per-type list of signal-chain functions into outs[].to -
+# exactly WidgetMulti.js's processSignalChain()/signalChainFunctions
+# mechanism, ported generically instead of one-off per type. OSCOut/
+# CloudOut are deliberately NOT here - their only chain function
+# (roundToInt) is handled inline at send time in tick()'s osc_out/
+# cloud_out steps instead (see there), since it only matters for what
+# actually goes out over the network, not the widget's own 'out' field
+# value.
+CHAIN_TYPES = frozenset(['AnalogIn', 'DigitalIn', 'AnalogOut', 'DigitalOut', 'Servo', 'Process', 'IfThen', 'OSCIn', 'CloudIn'])
+
+
+def _num(v, default=None):
+    """parseFloat-alike: NaN (not an exception) for anything non-numeric
+    when no default is given, matching JS's parseFloat('-') /
+    parseFloat(undefined) behavior that several widgets' own isNaN()
+    guards rely on (Boolean/Mix/Count's unconnected '-' inlets in
+    particular). Pass an explicit default only for config fields that
+    have a real fallback value (thresholds, ranges, etc.) - never for a
+    raw inlet value a widget is supposed to treat as "not connected"."""
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return float('nan') if default is None else default
+
+
+def _nan():
+    return float('nan')
+
+
+def _is_nan(v):
+    return v != v  # IEEE-754 trick: NaN is the only value not equal to itself
+
+
+def _osc_host(values):
+    """OSCOut's target address, with the same default as
+    OSCOut.js's getDeviceServerName() (unset, or the boolean sentinel
+    `true` some code paths store for "not yet configured", both mean
+    "127.0.0.1"). See the module docstring for why that default is
+    meaningless on a standalone board with no host computer at all -
+    OSCOut needs a real LAN address to actually do anything useful."""
+    server = values.get('server')
+    if not server or server is True:
+        return '127.0.0.1'
+    return str(server)
+
+
+def _cloud_group_key(values):
+    """(host, port, username) - matches server/modules/nlHardware/
+    CloudModel.js's own sharing rule: everything with the same key
+    shares one MQTT connection. Deliberately excludes password/tls -
+    the first widget to connect for a given key supplies those, same
+    "first widget wins" behavior CloudModel.js already has (see the
+    module docstring)."""
+    host = values.get('host') or ''
+    port = int(_num(values.get('port'), 1883))
+    username = values.get('username') or ''
+    return (str(host), port, str(username))
+
+
+# ==================== easing (Tween) ====================
+# Ported from ~/Documents/GitHub/VarSpeedPython/varspeed/easing_functions.py
+# - the same source Tween.js's own comment cites for the curves Velocity
+# can't bezier-approximate (Elastic/Back/Bounce). Function-style here
+# instead of that file's EasingBase subclasses - this interpreter has no
+# use for its start/end/duration wrapper, just the 0..1 -> 0..1 shape.
+import math as _math
+
+
+def _ease_quad_in(t): return t * t
+def _ease_quad_out(t): return -(t * (t - 2))
+def _ease_quad_in_out(t): return 2 * t * t if t < 0.5 else (-2 * t * t) + (4 * t) - 1
+
+def _ease_cubic_in(t): return t * t * t
+def _ease_cubic_out(t): return (t - 1) ** 3 + 1
+def _ease_cubic_in_out(t):
+    if t < 0.5:
+        return 4 * t * t * t
+    p = 2 * t - 2
+    return 0.5 * p * p * p + 1
+
+def _ease_quart_in(t): return t ** 4
+def _ease_quart_out(t): return (t - 1) ** 3 * (1 - t) + 1
+def _ease_quart_in_out(t):
+    if t < 0.5:
+        return 8 * t ** 4
+    p = t - 1
+    return -8 * p ** 4 + 1
+
+def _ease_quint_in(t): return t ** 5
+def _ease_quint_out(t): return (t - 1) ** 5 + 1
+def _ease_quint_in_out(t):
+    if t < 0.5:
+        return 16 * t ** 5
+    p = (2 * t) - 2
+    return 0.5 * p ** 5 + 1
+
+def _ease_sine_in(t): return _math.sin((t - 1) * _math.pi / 2) + 1
+def _ease_sine_out(t): return _math.sin(t * _math.pi / 2)
+def _ease_sine_in_out(t): return 0.5 * (1 - _math.cos(t * _math.pi))
+
+def _ease_circ_in(t): return 1 - _math.sqrt(1 - (t * t))
+def _ease_circ_out(t): return _math.sqrt((2 - t) * t)
+def _ease_circ_in_out(t):
+    if t < 0.5:
+        return 0.5 * (1 - _math.sqrt(1 - 4 * (t * t)))
+    return 0.5 * (_math.sqrt(-((2 * t) - 3) * ((2 * t) - 1)) + 1)
+
+def _ease_expo_in(t): return 0 if t == 0 else _math.pow(2, 10 * (t - 1))
+def _ease_expo_out(t): return 1 if t == 1 else 1 - _math.pow(2, -10 * t)
+def _ease_expo_in_out(t):
+    if t == 0 or t == 1:
+        return t
+    if t < 0.5:
+        return 0.5 * _math.pow(2, (20 * t) - 10)
+    return -0.5 * _math.pow(2, (-20 * t) + 10) + 1
+
+def _ease_elastic_in(t): return _math.sin(13 * _math.pi / 2 * t) * _math.pow(2, 10 * (t - 1))
+def _ease_elastic_out(t): return _math.sin(-13 * _math.pi / 2 * (t + 1)) * _math.pow(2, -10 * t) + 1
+def _ease_elastic_in_out(t):
+    if t < 0.5:
+        return 0.5 * _math.sin(13 * _math.pi / 2 * (2 * t)) * _math.pow(2, 10 * ((2 * t) - 1))
+    return 0.5 * (_math.sin(-13 * _math.pi / 2 * ((2 * t - 1) + 1)) * _math.pow(2, -10 * (2 * t - 1)) + 2)
+
+def _ease_back_in(t): return t * t * t - t * _math.sin(t * _math.pi)
+def _ease_back_out(t):
+    p = 1 - t
+    return 1 - (p * p * p - p * _math.sin(p * _math.pi))
+def _ease_back_in_out(t):
+    if t < 0.5:
+        p = 2 * t
+        return 0.5 * (p * p * p - p * _math.sin(p * _math.pi))
+    p = 1 - (2 * t - 1)
+    return 0.5 * (1 - (p * p * p - p * _math.sin(p * _math.pi))) + 0.5
+
+def _ease_bounce_out(t):
+    if t < 4 / 11:
+        return 121 * t * t / 16
+    elif t < 8 / 11:
+        return (363 / 40.0 * t * t) - (99 / 10.0 * t) + 17 / 5.0
+    elif t < 9 / 10:
+        return (4356 / 361.0 * t * t) - (35442 / 1805.0 * t) + 16061 / 1805.0
+    return (54 / 5.0 * t * t) - (513 / 25.0 * t) + 268 / 25.0
+def _ease_bounce_in(t): return 1 - _ease_bounce_out(1 - t)
+def _ease_bounce_in_out(t):
+    if t < 0.5:
+        return 0.5 * _ease_bounce_in(t * 2)
+    return 0.5 * _ease_bounce_out(t * 2 - 1) + 0.5
+
+def _ease_gamma_in(t, gamma): return _math.pow(t, gamma)
+def _ease_gamma_out(t, gamma): return 1 - _math.pow(1 - t, gamma)
+def _ease_gamma_in_out(t, gamma):
+    if t < 0.5:
+        return 0.5 * _math.pow(2 * t, gamma)
+    return 0.5 * (2 - _math.pow(2 * (1 - t), gamma))
+
+_EASINGS = {
+    'linear': lambda t: t,
+    'easeInQuad': _ease_quad_in, 'easeOutQuad': _ease_quad_out, 'easeInOutQuad': _ease_quad_in_out,
+    'easeInCubic': _ease_cubic_in, 'easeOutCubic': _ease_cubic_out, 'easeInOutCubic': _ease_cubic_in_out,
+    'easeInQuart': _ease_quart_in, 'easeOutQuart': _ease_quart_out, 'easeInOutQuart': _ease_quart_in_out,
+    'easeInQuint': _ease_quint_in, 'easeOutQuint': _ease_quint_out, 'easeInOutQuint': _ease_quint_in_out,
+    'easeInSine': _ease_sine_in, 'easeOutSine': _ease_sine_out, 'easeInOutSine': _ease_sine_in_out,
+    'easeInCirc': _ease_circ_in, 'easeOutCirc': _ease_circ_out, 'easeInOutCirc': _ease_circ_in_out,
+    'easeInExpo': _ease_expo_in, 'easeOutExpo': _ease_expo_out, 'easeInOutExpo': _ease_expo_in_out,
+    'easeInElastic': _ease_elastic_in, 'easeOutElastic': _ease_elastic_out, 'easeInOutElastic': _ease_elastic_in_out,
+    'easeInBack': _ease_back_in, 'easeOutBack': _ease_back_out, 'easeInOutBack': _ease_back_in_out,
+    'easeInBounce': _ease_bounce_in, 'easeOutBounce': _ease_bounce_out, 'easeInOutBounce': _ease_bounce_in_out,
+}
+_GAMMA_EASINGS = {
+    'easeInGamma': _ease_gamma_in, 'easeOutGamma': _ease_gamma_out, 'easeInOutGamma': _ease_gamma_in_out,
+}
+
+
+def _ease(name, gamma, t):
+    if name in _GAMMA_EASINGS:
+        return _GAMMA_EASINGS[name](t, gamma)
+    fn = _EASINGS.get(name)
+    if fn is None:
+        return t  # unknown easing name - fall back to linear, matches Tween.js's own resolveEasing() fallback
+    return fn(t)
+
+
+# ==================== Smoother (AnalogIn/DigitalIn/Process) ====================
+# Ported from app/scripts/utils/Smoother.js - a plain moving-average
+# buffer, active only when the widget's 'smoothing' field is true.
+class _Smoother:
+    def __init__(self, buffer_len):
+        self.buffer_len = max(1, int(buffer_len))
+        self.values = []
+
+    def set_buffer_length(self, size):
+        self.buffer_len = max(1, int(size))
+        self.values = [0.0] * self.buffer_len
+
+    def smooth(self, value):
+        if len(self.values) == 0:
+            self.values = [value] * self.buffer_len
+        else:
+            self.values.pop(0)
+            self.values.append(value)
+        return sum(self.values) / len(self.values)
+
+
+# ==================== generic signal-chain functions ====================
+# Ported from app/scripts/utils/SignalChainFunctions.js.
+
+def _sc_math(value, values):
+    operand = _num(values.get('mathOperand'), 0.0)
+    op = values.get('mathOperator')
+    if op == '+':
+        return value + operand
+    if op == '-':
+        return value - operand
+    if op == '*':
+        return value * operand
+    if op == '/':
+        return value if operand == 0 else value / operand
+    return value
+
+
+def _sc_scale(value, values):
+    input_floor = _num(values.get('inputFloor'), 0.0)
+    input_ceiling = _num(values.get('inputCeiling'), 1023.0)
+    output_floor = _num(values.get('outputFloor'), 0.0)
+    output_ceiling = _num(values.get('outputCeiling'), 1023.0)
+    input_range = input_ceiling - input_floor
+    if input_range == 0:
+        return output_floor
+    output_range = output_ceiling - output_floor
+    scaling_factor = output_range / input_range
+    return ((value - input_floor) * scaling_factor) + output_floor
+
+
+def _sc_invert(value, values):
+    if values.get('invert'):
+        return (value - (value * 2)) + _num(values.get('outputCeiling'), 1023.0)
+    return value
+
+
+def _sc_limit_255(value, values):
+    return max(0.0, min(255.0, value))
+
+
+def _sc_gamma_correct(value, values):
+    # Ported from AnalogOut.js's gammaCorrect() signal-chain function -
+    # runs after limit255 here too (see CHAIN_FUNCTIONS_BY_TYPE), so
+    # value is already clamped to 0-255. Defaults to True when the key
+    # is absent entirely (an older patch saved before this feature
+    # existed, never re-saved since) - matches AnalogOut.js's own
+    # on-by-default initialize() logic; an explicit False in the saved
+    # patch (the widget's own checkbox unchecked) is still honored.
+    if not values.get('gammaCorrect', True):
+        return value
+    gamma = _num(values.get('gammaValue'), 2.8)
+    if _is_nan(gamma) or gamma <= 0:
+        gamma = 2.8
+    return round(255.0 * ((value / 255.0) ** gamma))
+
+
+def _sc_limit_180(value, values):
+    return max(0.0, min(180.0, value))
+
+
+def _sc_apply_threshold(value, values):
+    threshold = _num(values.get('threshold'), 512.0)
+    return 1023.0 if value >= threshold else 0.0
+
+
+def _sc_if_test(value, values, state):
+    """Ported from IfThen.js's ifTest(). The real widget's hysteresis
+    (waitTimeTrue/waitTimeFalse) fires via JS setTimeout, independent of
+    any polling loop - here it's tick-polled elapsed-time instead (see
+    module docstring)."""
+    compare_value = _num(values.get('compareValue'), 512.0)
+    compare_range = _num(values.get('compareRange'), 150.0) / 2.0
+    wait_time_true = _num(values.get('waitTimeTrue'), 0.0)
+    wait_time_false = _num(values.get('waitTimeFalse'), 0.0)
+    operator = values.get('operator', '>')
+    text_compare = str(values.get('text_comparison', '')).lower().strip()
+    data_type = values.get('dataType', 'number')
+
+    input_value = value
+    if data_type == 'text':
+        operator = values.get('operatorStr', 'contains')
+        input_value = str(value).lower().strip()
+
+    comparison = False
+    if operator == '~=':
+        comparison = (input_value >= (compare_value - compare_range)) and (value <= (compare_value + compare_range))
+    elif operator == '>':
+        comparison = input_value > compare_value
+    elif operator == '<':
+        comparison = input_value < compare_value
+    elif operator == 'equals':
+        comparison = input_value == text_compare
+    elif operator == 'contains':
+        delimiter = values.get('textDelimiter', ',')
+        for part in text_compare.split(delimiter):
+            if part.strip() in input_value:
+                comparison = True
+                break
+    elif operator == 'part':
+        comparison = input_value in text_compare
+
+    now = state['now']
+    if comparison:
+        state['wait_last_false'] = False
+        if wait_time_true == 0 or state.get('if_state') == 'falseWaiting':
+            state['if_state'] = 'trueOn'
+            state['wait_last_true'] = True
+            return _num(values.get('ifTrue'), 1023.0)
+        if not state.get('wait_last_true'):
+            state['wait_true_start'] = now
+            state['wait_last_true'] = True
+            state['if_state'] = 'trueWaitStart'
+            return _num(values.get('ifFalse'), 0.0)
+        if (now - state['wait_true_start']) * 1000.0 >= wait_time_true:
+            state['if_state'] = 'trueOn'
+            return _num(values.get('ifTrue'), 1023.0)
+        state['if_state'] = 'trueWaiting'
+        return _num(values.get('ifFalse'), 0.0)
+    else:
+        state['wait_last_true'] = False
+        if wait_time_false == 0 or state.get('if_state') == 'trueWaiting':
+            state['if_state'] = 'falseOn'
+            state['wait_last_false'] = True
+            return _num(values.get('ifFalse'), 0.0)
+        if not state.get('wait_last_false'):
+            state['wait_false_start'] = now
+            state['wait_last_false'] = True
+            state['if_state'] = 'falseWaitStart'
+            return _num(values.get('ifTrue'), 1023.0)
+        if (now - state['wait_false_start']) * 1000.0 >= wait_time_false:
+            state['if_state'] = 'falseOn'
+            return _num(values.get('ifFalse'), 0.0)
+        state['if_state'] = 'falseWaiting'
+        return _num(values.get('ifTrue'), 1023.0)
+
+
+# Per-type chain function lists. AnalogIn/DigitalIn/Process share the
+# same (scale, invert, easing, smoother) chain - Process adds `math`
+# first (ins/outs comparison in Process.js/AnalogIn.js/DigitalIn.js).
+def _chain_easing(value, values, state):
+    # Ported from Process.js's easing()/timeKeeper()/easeOutExpo() - a
+    # 60fps-driven asymmetric ease toward the latest input, gated here to
+    # ~60Hz (time-based, not tick-count-based) since this interpreter's
+    # tick rate is much faster than 60fps and calling this every tick
+    # would converge far faster than the original ever did.
+    state['easing_new'] = value
+    if not values.get('easing'):
+        state['easing_last'] = value
+        return value
+    now = state['now']
+    if now - state.get('easing_last_update', 0.0) >= (1.0 / 60.0):
+        state['easing_last_update'] = now
+        b = state.get('easing_last', value)
+        c = state['easing_new'] - b
+        d = _num(values.get('easingAmount'), 30.0)
+        t = 0.17
+        eased = c * (-(2.0 ** (-10.0 * t / d)) + 1.0) + b if d != 0 else state['easing_new']
+        if abs(eased - state['easing_new']) < 0.4:
+            eased = state['easing_new']
+        state['easing_last'] = eased
+    return state.get('easing_last', value)
+
+
+def _chain_smoother(value, values, state):
+    smoother = state.get('smoother')
+    if smoother is None:
+        smoother = _Smoother(_num(values.get('smoothingAmount'), 60.0))
+        state['smoother'] = smoother
+    if values.get('smoothing'):
+        return int(smoother.smooth(value))
+    return value
+
+
+def _run_chain(fn_names, value, values, state):
+    for name in fn_names:
+        if name == 'math':
+            value = _sc_math(value, values)
+        elif name == 'scale':
+            value = _sc_scale(value, values)
+        elif name == 'invert':
+            value = _sc_invert(value, values)
+        elif name == 'easing':
+            value = _chain_easing(value, values, state)
+        elif name == 'smoother':
+            value = _chain_smoother(value, values, state)
+        elif name == 'limit255':
+            value = _sc_limit_255(value, values)
+        elif name == 'gammaCorrect':
+            value = _sc_gamma_correct(value, values)
+        elif name == 'limit180':
+            value = _sc_limit_180(value, values)
+        elif name == 'threshold':
+            value = _sc_apply_threshold(value, values)
+        elif name == 'ifTest':
+            value = _sc_if_test(value, values, state)
+    return value
+
+
+CHAIN_FUNCTIONS_BY_TYPE = {
+    'AnalogIn': ['scale', 'invert', 'easing', 'smoother'],
+    'DigitalIn': ['scale', 'invert', 'easing', 'smoother'],
+    'Process': ['math', 'scale', 'invert', 'easing', 'smoother'],
+    'IfThen': ['ifTest'],
+    'AnalogOut': ['limit255', 'gammaCorrect'],
+    'Servo': ['limit180'],
+    'DigitalOut': ['threshold'],
+    'OSCIn': ['scale'],
+    'CloudIn': ['scale'],
+}
+
+
+# ==================== bespoke per-type widgets ====================
+# Ported from each widget's own onModelChange()/compute logic - see the
+# module docstring and plans/standalone-patch-export.md for how each was
+# grounded against the real JS.
+
+def _eval_boolean(values, state, now):
+    threshold = _num(values.get('threshold'), 512.0)
+    ins = [_num(values.get('in1')), _num(values.get('in2')), _num(values.get('in3')), _num(values.get('in4'))]
+    mode = values.get('boolean', 'all')
+    if mode == 'all':
+        result = True
+        for v in ins:
+            if not _is_nan(v) and v < threshold:
+                result = False
+    elif mode == 'any':
+        result = False
+        for v in ins:
+            if not _is_nan(v) and v >= threshold:
+                result = True
+    else:
+        result = False
+    values['output'] = _num(values.get('ifTrue'), 1023.0) if result else _num(values.get('ifFalse'), 0.0)
+
+
+def _eval_gate(values, state, now):
+    in_false = _num(values.get('inFalse'))
+    in_true = _num(values.get('inTrue'))
+    if not _is_nan(in_true):
+        values['ifTrue'] = in_true
+    if not _is_nan(in_false):
+        values['ifFalse'] = in_false
+    threshold = _num(values.get('threshold'), 512.0)
+    in_gate = _num(values.get('inGate'), 0.0)
+    values['output'] = _num(values.get('ifTrue'), 1023.0) if in_gate >= threshold else _num(values.get('ifFalse'), 0.0)
+
+
+def _eval_mix(values, state, now):
+    raw = [values.get('in1'), values.get('in2'), values.get('in3'), values.get('in4')]
+    ins = [_num(v) for v in raw]
+    finite_ins = [v for v in ins if not _is_nan(v)]
+    mix_type = values.get('mixType', 'latest')
+    prev = state.get('last_raw')
+    if prev is None:
+        # First tick for this widget - nothing has actually "changed"
+        # yet (matches JS: onModelChange only fires on a real model.set()
+        # diff, so a freshly-loaded widget's output stays at its declared
+        # default until a real inlet write happens). Without this, every
+        # field would look "changed" against an uninitialized sentinel
+        # and 'latest' mode would pick whichever inlet is checked last,
+        # not the one that actually changed.
+        state['last_raw'] = list(raw)
+        return
+    result = 0.0
+    if mix_type == 'latest':
+        for i in range(4):
+            if raw[i] != prev[i]:
+                result = ins[i]
+        state['last_raw'] = list(raw)
+        values['output'] = result
+        return
+    state['last_raw'] = list(raw)
+    if mix_type == 'avg':
+        result = (sum(finite_ins) / len(finite_ins)) if finite_ins else 0.0
+    elif mix_type == 'sum':
+        result = sum(finite_ins)
+    elif mix_type == 'mult':
+        result = 1.0
+        for v in finite_ins:
+            result *= v
+        if not finite_ins:
+            result = 0.0
+    elif mix_type == 'min':
+        result = min(finite_ins) if finite_ins else 0.0
+    elif mix_type == 'max':
+        result = max(finite_ins) if finite_ins else 0.0
+    if finite_ins:
+        values['output'] = result
+    # else: JS deliberately sends no output when every input is non-numeric - leave 'output' unchanged.
+
+
+def _envelope(value, center, width, lo, hi):
+    start = center - (width / 2.0)
+    end = center + (width / 2.0)
+    sustain_start = start + (width / 3.0)
+    sustain_end = sustain_start + (width / 3.0)
+    level_scale = hi - lo
+    attack_range = level_scale / (sustain_start - start) if (sustain_start - start) else 0
+    release_range = level_scale / (end - sustain_end) if (end - sustain_end) else 0
+    if start <= value <= end:
+        if sustain_start <= value <= sustain_end:
+            return int(hi)
+        elif value < sustain_start:
+            return int(((value - start) * attack_range) + lo)
+        else:
+            return int(hi - ((value - sustain_end) * release_range))
+    return int(lo)
+
+
+def _eval_splitter(values, state, now):
+    value = _num(values.get('in'), 0.0)
+    width = int(_num(values.get('outWidth'), 150.0))
+    lo = int(_num(values.get('outMin'), 0.0))
+    hi = int(_num(values.get('outMax'), 1023.0))
+    values['outA'] = _envelope(value, _num(values.get('outACenter'), 200.0), width, lo, hi)
+    values['outB'] = _envelope(value, _num(values.get('outBCenter'), 400.0), width, lo, hi)
+    values['outC'] = _envelope(value, _num(values.get('outCCenter'), 600.0), width, lo, hi)
+    values['outD'] = _envelope(value, _num(values.get('outDCenter'), 800.0), width, lo, hi)
+
+
+def _eval_count(values, state, now):
+    threshold = _num(values.get('threshold'), 512.0)
+    last_ins = state.setdefault('last_ins', [-1.0, -1.0, -1.0, -1.0])
+    increase_by = 0
+    for i in range(4):
+        v = _num(values.get('in' + str(i + 1)))
+        if v != last_ins[i]:
+            if last_ins[i] < threshold <= v:
+                increase_by += 1
+            last_ins[i] = v
+    if increase_by:
+        increment = _num(values.get('increment'), 1.0)
+        result = _num(values.get('output'), 0.0) + (increase_by * increment)
+        ceiling = _num(values.get('outputCeiling'), 10.0)
+        floor = _num(values.get('outputFloor'), 0.0)
+        if result > ceiling:
+            result = floor
+        elif result < floor:
+            result = ceiling
+        values['output'] = result
+
+
+def _eval_concat(values, state, now):
+    sep = values.get('separator', ', ')
+    parts = []
+    for key in ('in1', 'in2', 'in3', 'in4'):
+        v = values.get(key, '')
+        if v != '':
+            parts.append(str(v))
+    values['out1'] = sep.join(parts)
+
+
+def _eval_display(values, state, now):
+    # Ported from Display.js's own per-line compose (prepend + value +
+    # append) - see that file for the live-connection equivalent. Three
+    # lines only (in1-in3), matching the widget's three inlets and the
+    # OLED's own line 3-5 budget (see oled_display.py's module
+    # docstring) - lines 1-2 are reserved for system status.
+    for i in (1, 2, 3):
+        prepend = values.get('line%dPrepend' % i) or ''
+        append = values.get('line%dAppend' % i) or ''
+        v = values.get('in%d' % i)
+        if v is None or v == '':
+            v_text = ''
+        elif isinstance(v, (int, float)) and not isinstance(v, bool):
+            # Always exactly 2 decimal places (5 -> "5.00"), matching
+            # Display.js's formatValue()/toFixed(2) on the live-
+            # connection side - see that comment for why.
+            v_text = '%.2f' % v
+        else:
+            v_text = str(v)
+        values['line%dText' % i] = '%s%s%s' % (prepend, v_text, append)
+
+
+def _eval_pulse(values, state, now):
+    threshold = _num(values.get('threshold'), 512.0)
+    in_value = _num(values.get('in'))
+    if 'firing' not in state:
+        # First-ever tick for this widget. Default True, matching
+        # Pulse.js's own initialize() (timerFiring: true, unconditionally,
+        # plus timerStart: Date.now()) - the real widget free-runs from
+        # construction and only stops once something explicitly drives
+        # 'in' below threshold, not the other way around. Defaulting
+        # False (the original port) meant a Pulse with nothing wired
+        # into its 'in' inlet (a bare Pulse -> AnalogOut chain, not a
+        # gated one) never started at all. Must also call
+        # _pulse_init_timer here, matching timerStart's unconditional
+        # initialization - without it 'timer_start' is never set at
+        # all (only the *transition* into firing below does that), so
+        # elapsed_ms's own state.get('timer_start', now) fallback stays
+        # stuck comparing now against itself forever and the pulseHigh/
+        # pulseLow alternation below never fires. Both fixes hardware-
+        # verified together 2026-09-22: a bare Pulse -> AnalogOut chain
+        # (nothing wired into Pulse's 'in') now oscillates correctly
+        # (out1 alternating 0/255 on a ~1s period, matching timerLength)
+        # instead of AnalogOut's pin never changing at all.
+        state['firing'] = True
+        _pulse_init_timer(values, state, now)
+    firing = state['firing']
+
+    if not _is_nan(in_value):
+        if in_value >= threshold and not firing:
+            state['firing'] = True
+            firing = True
+            _pulse_init_timer(values, state, now)
+        elif in_value < threshold and firing:
+            state['firing'] = False
+            firing = False
+            if (not values.get('randOut')) or values.get('randOutPulse'):
+                values['output'] = _num(values.get('pulseLow'), 0.0)
+
+    if firing:
+        timer_length = _num(values.get('timerLength'), 1000.0)
+        high_pct = _num(values.get('timerHighPercentage'), 50.0)
+        elapsed_ms = (now - state.get('timer_start', now)) * 1000.0
+        if (not values.get('randOut')) or values.get('randOutPulse'):
+            if elapsed_ms > timer_length * (high_pct / 100.0):
+                values['output'] = _num(values.get('pulseLow'), 0.0)
+        if elapsed_ms > timer_length:
+            values['output'] = _num(values.get('pulseHigh'), 1023.0)
+            _pulse_init_timer(values, state, now)
+
+
+def _pulse_init_timer(values, state, now):
+    import random
+    state['timer_start'] = now
+    if values.get('randTime'):
+        lo = _num(values.get('randTimeLow'), 750.0)
+        hi = _num(values.get('randTimeHigh'), 2000.0)
+        values['timerLength'] = lo + random.random() * (hi - lo)
+    if values.get('randOut'):
+        lo = _num(values.get('randLow'), 0.0)
+        hi = _num(values.get('randHigh'), 1023.0)
+        values['pulseHigh'] = lo + random.random() * (hi - lo + 1)
+
+
+def _eval_tween(values, state, now):
+    threshold = _num(values.get('threshold'), 512.0)
+    in_value = _num(values.get('in'))
+    last_input = state.get('last_input', -1.0)
+
+    if not _is_nan(in_value):
+        if in_value >= threshold and last_input < threshold:
+            _tween_start(values, state, now, _num(values.get('start'), 0.0), _num(values.get('end'), 1023.0))
+        elif in_value < threshold and last_input >= threshold:
+            if values.get('returnToStart'):
+                _tween_start(values, state, now, _num(values.get('output'), 0.0), _num(values.get('start'), 0.0))
+            else:
+                state['running'] = False
+        state['last_input'] = in_value
+
+    if state.get('running'):
+        duration = max(1.0, _num(values.get('duration'), 2000.0))
+        elapsed_ms = (now - state['tween_start_time']) * 1000.0
+        t = min(1.0, elapsed_ms / duration)
+        eased_t = _ease(values.get('tweenEasing', 'easeInQuad'), _num(values.get('gamma'), 2.8), t)
+        start = state['tween_from']
+        end = state['tween_to']
+        values['output'] = start + (end - start) * eased_t
+        if t >= 1.0:
+            state['running'] = False
+
+
+def _tween_start(values, state, now, from_value, to_value):
+    state['running'] = True
+    state['tween_start_time'] = now
+    state['tween_from'] = from_value
+    state['tween_to'] = to_value
+
+
+def _eval_sequence(values, state, now):
+    """Simplified vs. Sequence.js: linear per-segment interpolation
+    instead of replicating Velocity's default easing (never
+    user-configurable for this widget - see module docstring)."""
+    threshold = _num(values.get('threshold'), 512.0)
+    last_ins = state.setdefault('last_ins', [-1.0, -1.0, -1.0, -1.0])
+    active_seq = state.get('active_seq')
+
+    for i in range(4):
+        v = _num(values.get('in' + str(i)))
+        if v == last_ins[i]:
+            continue
+        if v >= threshold and last_ins[i] < threshold:
+            _sequence_start_segment(values, state, now, i, 0)
+            active_seq = i
+        elif v < threshold and last_ins[i] >= threshold and i == active_seq:
+            if values.get('returnToStart' + str(i), True):
+                _sequence_return(values, state, now, i)
+            else:
+                state['running'] = False
+        last_ins[i] = v
+
+    if state.get('running'):
+        _sequence_tick(values, state, now)
+
+
+def _parse_sequence_steps(text):
+    steps = []
+    for line in str(text).replace('\r\n', '\n').replace('\r', '\n').split('\n'):
+        parts = line.split(',')
+        if len(parts) >= 3:
+            try:
+                steps.append((_num(parts[0]), _num(parts[1]), max(1.0, _num(parts[2]))))
+            except (TypeError, ValueError):
+                pass
+    return steps
+
+
+def _sequence_start_segment(values, state, now, seq_index, step_index):
+    steps = _parse_sequence_steps(values.get('sequence' + str(seq_index), ''))
+    if not steps:
+        return
+    state['seq_steps'] = steps
+    state['seq_index'] = seq_index
+    state['seq_step'] = step_index
+    state['seq_step_start'] = now
+    state['running'] = True
+    state['send_to'] = values.get('sendTo' + str(seq_index), 'output0')
+
+
+def _sequence_tick(values, state, now):
+    steps = state.get('seq_steps') or []
+    step_i = state.get('seq_step', 0)
+    if step_i >= len(steps):
+        state['running'] = False
+        return
+    start, end, duration = steps[step_i]
+    elapsed_ms = (now - state['seq_step_start']) * 1000.0
+    t = min(1.0, elapsed_ms / duration)
+    values[state.get('send_to', 'output0')] = start + (end - start) * t
+    if t >= 1.0:
+        next_step = step_i + 1
+        if next_step >= len(steps):
+            seq_index = state.get('seq_index', 0)
+            if values.get('loop' + str(seq_index), True):
+                state['seq_step'] = 0
+                state['seq_step_start'] = now
+            else:
+                state['running'] = False
+        else:
+            state['seq_step'] = next_step
+            state['seq_step_start'] = now
+
+
+def _sequence_return(values, state, now, seq_index):
+    duration = max(1.0, _num(values.get('duration' + str(seq_index)), 1000.0))
+    end = _num(values.get('start' + str(seq_index)), 0.0)
+    start = _num(values.get('output0'), 0.0)
+    state['seq_steps'] = [(start, end, duration)]
+    state['seq_index'] = seq_index
+    state['seq_step'] = 0
+    state['seq_step_start'] = now
+    state['running'] = True
+    state['send_to'] = 'output0'
+
+
+def _eval_data(values, state, now):
+    if not state.get('built'):
+        _data_build_database(values, state)
+        _data_set_order(values, state)
+        state['built'] = True
+
+    in_trigger = values.get('inTrigger')
+    if in_trigger != state.get('last_trigger'):
+        state['last_trigger'] = in_trigger
+        input_value = _num(in_trigger, 0.0)
+        lo = _num(values.get('rangeMin'), 512.0)
+        hi = _num(values.get('rangeMax'), 1023.0) + 1
+        segments = max(1, int(_num(values.get('segments'), 1.0)))
+        segment_size = (hi - lo) / segments if segments else 1
+        segment = int((input_value - lo) / segment_size) if segment_size else 0
+        if 0 <= segment < segments and segment != state.get('last_segment'):
+            _data_next_element(values, state)
+        state['last_segment'] = segment
+
+    in_index = values.get('inIndex')
+    if in_index != state.get('last_index') and in_index is not None:
+        state['last_index'] = in_index
+        _data_index_element(values, state, int(_num(in_index, 0.0)))
+
+
+def _data_build_database(values, state):
+    if values.get('dataType', 'text') == 'text':
+        delimiter = values.get('delimiter', ',')
+        if delimiter == '\\n':
+            delimiter = '\n'
+        text = str(values.get('database', '')).replace('\r\n', '\n').replace('\r', '\n')
+        state['elements'] = text.split(delimiter)
+    else:
+        lo = int(_num(values.get('numericMin'), 0.0))
+        hi = int(_num(values.get('numericMax'), 1023.0))
+        state['elements'] = list(range(lo, hi + 1))
+
+
+def _data_set_order(values, state):
+    import random
+    elements = state.get('elements', [])
+    order = list(range(len(elements)))
+    mode = values.get('orderType', 'ordered')
+    if mode == 'reverse':
+        order.reverse()
+    elif mode == 'randomFull':
+        random.shuffle(order)
+    elif mode in ('randomNoRepeat', 'randomAny'):
+        # matches Data.js's randomize(): pick a fresh random draw per slot
+        # from the ORIGINAL order, re-drawing on a repeat only in the
+        # no-repeat case.
+        src = list(order)
+        new_order = [random.choice(src)]
+        for _ in range(1, len(src)):
+            pick = random.choice(src)
+            if mode == 'randomNoRepeat':
+                while src and pick == new_order[-1]:
+                    pick = random.choice(src)
+            new_order.append(pick)
+        order = new_order
+    state['element_order'] = order
+    state['current_element'] = 0
+
+
+def _data_next_element(values, state):
+    elements = state.get('elements', [])
+    order = state.get('element_order', [])
+    current = state.get('current_element', 0)
+    if not order or not elements:
+        return
+    element_index = order[current] if current < len(order) else 0
+    values['dataOut'] = elements[element_index] if element_index < len(elements) else ''
+    current += 1
+    if current >= len(elements):
+        _data_set_order(values, state)
+    else:
+        state['current_element'] = current
+
+
+def _data_index_element(values, state, index):
+    order = state.get('element_order', [])
+    elements = state.get('elements', [])
+    if 0 <= index < len(order):
+        element_index = order[index]
+        if element_index < len(elements):
+            values['dataOut'] = elements[element_index]
+
+
+BESPOKE_EVAL = {
+    'Boolean': _eval_boolean,
+    'Gate': _eval_gate,
+    'Mix': _eval_mix,
+    'Splitter': _eval_splitter,
+    'Count': _eval_count,
+    'Concat': _eval_concat,
+    'Pulse': _eval_pulse,
+    'Tween': _eval_tween,
+    'Sequence': _eval_sequence,
+    'Data': _eval_data,
+    'Display': _eval_display,
+}
+
+# outs[].{from,to} per type - what field each type's real computed value
+# lives under (matches each widget's own `outs:` array in its .js file).
+OUTS_BY_TYPE = {
+    'AnalogIn': [('in', 'out')],
+    'DigitalIn': [('in', 'out')],
+    'AnalogOut': [('in', 'out')],
+    'DigitalOut': [('in', 'out')],
+    'Servo': [('in', 'out')],
+    'Process': [('in', 'out')],
+    'IfThen': [('in', 'out')],
+    'Boolean': [('output', 'out1')],
+    'Gate': [('output', 'out1')],
+    'Mix': [('output', 'out1')],
+    'Count': [('output', 'out1')],
+    'Concat': [('out1', 'out1')],  # Concat writes out1 directly, no separate internal field
+    'Pulse': [('output', 'out1')],
+    'Tween': [('output', 'out1')],
+    'Splitter': [('outA', 'out1'), ('outB', 'out2'), ('outC', 'out3'), ('outD', 'out4')],
+    'Sequence': [('output0', 'out0')],
+    'Data': [('dataOut', 'out')],
+    'OSCIn': [('in', 'out')],
+    'OSCOut': [('in', 'out')],
+    'CloudIn': [('in', 'out')],
+    'CloudOut': [('in', 'out')],
+}
+
+
+def _pin_index_for_dpin(pins, dpin_str):
+    """"D<N>" -> self.pins[N] directly - matches StandardFirmataModel.js's
+    parseInt(pin.substr(1),10) used for every OUTPUT-capable pin
+    (DigitalIn/DigitalOut/Servo/AnalogOut's PWM path) and NTK's own
+    "D"+index addressing convention (see addDefaultPins())."""
+    try:
+        return int(dpin_str[1:])
+    except (TypeError, ValueError, IndexError):
+        return None
+
+
+def _pin_index_for_apin(pins, apin_str):
+    """"A<N>" -> the pin whose analog_channel == N - NOT index N directly.
+    Confirmed against server/modules/nlHardware/StandardFirmataModel.js's
+    addDefaultPins(): `new five.Sensor({pin: "A"+reportedPin.analogChannel})`
+    - the "A"-prefixed name is built from the device's own reported
+    analog CHANNEL, not its pin index. These coincide for A0-A2 (this
+    board's D0-D2 dual-purpose pins) but NOT for A3-A5 (the virtual
+    accelerometer axes in pins.py, appended after the real D0-D10
+    entries at indices 11-13 while keeping channels 3-5) - a direct
+    int(s[1:]) index parse would silently read the wrong thing there."""
+    try:
+        channel = int(apin_str[1:])
+    except (TypeError, ValueError, IndexError):
+        return None
+    for i, pin in enumerate(pins):
+        if pin.analog_channel == channel:
+            return i
+    return None
+
+
+class StandaloneInterpreter:
+    def __init__(self, pin_table, grove_sensor_catalog=None):
+        # A dedicated FirmataServer instance, separate from the one
+        # run_server() constructs per TCP connection - reuses its pin
+        # management (_apply_pin_mode/_handle_analog_write/
+        # _handle_report_analog/release_all_pins) directly rather than
+        # reimplementing pin claiming, servo pulse-width math, and PWM
+        # duty-cycle math a second time. release_hardware() below must be
+        # called before a real client connects, so its pin claims don't
+        # collide with the per-connection FirmataServer's own.
+        self._fs = firmata_server.FirmataServer(pin_table)
+        self._grove_catalog = grove_sensor_catalog or {}
+        self._grove_subscriptions = {}  # wid -> {read, cleanup, min_interval_ms, last_ms}
+        self.widgets = {}      # wid -> {typeID, values, state}
+        self.steps = []        # ordered (kind, ...) tuples - see _build_steps()
+        self.loaded = False
+        self.error = None
+        # OSCIn/OSCOut support (see module docstring) - lazily imported
+        # (microosc, wifi, socketpool) and only ever touched at all if a
+        # loaded patch actually has an osc_in/osc_out step, so a patch
+        # with no OSC widgets pays zero cost for any of this.
+        self._microosc = None
+        self._osc_wifi = None
+        self._osc_pool = None
+        self._osc_servers = {}  # port -> microosc.OSCServer
+        self._osc_clients = {}  # (host, port) -> microosc.OSCClient
+        # CloudIn/CloudOut support (see module docstring) - lazily
+        # imported (adafruit_minimqtt, wifi, socketpool, ssl) and only
+        # ever touched at all if a loaded patch actually has a cloud_in/
+        # cloud_out step, so a patch with no Cloud widgets pays zero
+        # cost for any of this.
+        self._minimqtt = None
+        self._cloud_wifi = None
+        self._cloud_pool = None
+        self._cloud_ssl_context = None  # only created if some group needs TLS
+        self._cloud_clients = {}         # group key -> MQTT.MQTT
+        self._cloud_topic_widgets = {}   # group key -> {topic: [wid, ...]} (cloud_in routing)
+        self._cloud_last_published = {}  # (group key, topic) -> (value_str, monotonic_time) - self-echo guard
+        self._cloud_last_poll = 0.0      # shared gate so MQTT polling doesn't run every single tick
+
+    def load(self, patch):
+        widgets = (patch or {}).get('widgets', [])
+        mappings = (patch or {}).get('mappings', [])
+
+        unsupported = [w for w in widgets if w.get('typeID') not in PORTABLE_TYPE_IDS]
+        if unsupported:
+            self.error = "Unsupported widgets: " + ", ".join(
+                "%s (%s)" % (w.get('title', w.get('typeID')), w.get('typeID')) for w in unsupported
+            )
+            self.loaded = False
+            return False
+
+        self.widgets = {}
+        for w in widgets:
+            self.widgets[w['wid']] = {
+                'typeID': w['typeID'],
+                'values': dict(w),  # copy every saved field - config AND transient - as starting values
+                'state': {},
+            }
+
+        self._build_steps(widgets, mappings)
+        self.loaded = True
+        self.error = None
+        self.print_topology()
+        return True
+
+    def _trace_paths(self):
+        """Shared path-tracing core for both print_topology() and
+        _log_values() - added 2026-09-19 so the two stay in lockstep
+        (same paths, same collapsing/loop/unreached rules) instead of
+        two independently-maintained implementations drifting apart.
+        Built from the same edges _build_steps() already computed
+        (self.steps), not a second parse of the raw patch.
+
+        Returns (paths, unreached): paths is a list of lists of
+        ('hw', pin_string) / ('w', wid, out_field) tuples - out_field is
+        the field whose value flows OUT of that widget into the NEXT
+        entry in the path (None for the last widget in a path with no
+        further edge - i.e. a dead end with no hw_out). unreached is a
+        list of wids no hw_in path reaches at all."""
+        hw_in_pin = {}   # wid -> pin string (e.g. "A0")
+        hw_out_pin = {}  # wid -> pin string (e.g. "D5")
+        outgoing = {}    # wid -> [(dst_wid, src_field), ...]
+        for step in self.steps:
+            kind = step[0]
+            if kind == 'hw_in':
+                hw_in_pin[step[1]] = step[2]
+            elif kind == 'hw_out':
+                hw_out_pin[step[1]] = step[2]
+            elif kind == 'grove_in':
+                hw_in_pin[step[1]] = "Grove"
+            elif kind == 'osc_in':
+                hw_in_pin[step[1]] = "OSC"
+            elif kind == 'osc_out':
+                hw_out_pin[step[1]] = "OSC"
+            elif kind == 'cloud_in':
+                hw_in_pin[step[1]] = "Cloud"
+            elif kind == 'cloud_out':
+                hw_out_pin[step[1]] = "Cloud"
+            elif kind == 'map':
+                _, src_wid, src_field, dst_wid, _dst_field = step
+                outgoing.setdefault(src_wid, []).append((dst_wid, src_field))
+
+        def walk(wid, visited):
+            # DFS to every leaf - a widget with no further outgoing
+            # edges, hardware output or not. Cycle-safe (a patch with a
+            # feedback loop just stops re-entering a wid already on this
+            # path rather than recursing forever).
+            if wid in hw_out_pin:
+                yield [('w', wid, None), ('hw', hw_out_pin[wid])]
+                return
+            nexts = outgoing.get(wid, [])
+            if not nexts:
+                yield [('w', wid, None)]
+                return
+            for dst_wid, src_field in nexts:
+                if dst_wid in visited:
+                    yield [('w', wid, src_field), ('loop', dst_wid)]
+                    continue
+                for rest in walk(dst_wid, visited | {dst_wid}):
+                    yield [('w', wid, src_field)] + rest
+
+        paths = []
+        seen = set()
+        for wid, pin in hw_in_pin.items():
+            for path in walk(wid, {wid}):
+                full = [('hw', pin)] + path
+                # A widget can have several separate output wires to the
+                # same destination (e.g. Splitter's 4 outs all feeding
+                # Mix's 4 ins) - each is a real, distinct edge in
+                # self.steps. Collapse only exact duplicates (same wids
+                # AND same fields throughout), which topology-only
+                # rendering can still produce when two DIFFERENT fields
+                # happen to look identical once only widget names are
+                # shown, but value rendering (which cares about the
+                # field) tells them apart correctly on its own.
+                key = tuple(full)
+                if key not in seen:
+                    seen.add(key)
+                    paths.append(full)
+
+        # Widgets untouched by any hw_in path (e.g. isolated logic with
+        # no live input yet, or a patch with no hardware input at all)
+        # still deserve a mention rather than silently vanishing.
+        # Full transitive closure, not just one hop.
+        reached = set()
+        frontier = list(hw_in_pin.keys())
+        while frontier:
+            wid = frontier.pop()
+            if wid in reached:
+                continue
+            reached.add(wid)
+            frontier.extend(dst_wid for dst_wid, _ in outgoing.get(wid, []))
+        unreached = [wid for wid in self.widgets if wid not in reached]
+
+        return paths, unreached
+
+    def print_topology(self):
+        """Human-readable one-line-per-path summary of the loaded patch,
+        e.g. 'A0 -> AnalogIn -> Splitter -> Mix -> Servo -> D5' - added
+        2026-09-19 so a patch's actual wiring can be checked from the
+        serial console alone, without needing to read the raw JSON or a
+        working NTK connection."""
+        paths, unreached = self._trace_paths()
+
+        def render_node(node):
+            if node[0] == 'hw':
+                return node[1]
+            if node[0] == 'loop':
+                return "(loop back to %s)" % self.widgets[node[1]]['typeID']
+            return self.widgets[node[1]]['typeID']
+
+        lines = []
+        seen = set()
+        for path in paths:
+            rendered = " -> ".join(render_node(n) for n in path)
+            if rendered not in seen:
+                seen.add(rendered)
+                lines.append(rendered)
+        for wid in unreached:
+            lines.append("(unreached) %s" % self.widgets[wid]['typeID'])
+
+        print("standalone patch topology:")
+        for line in lines:
+            print(" ", line)
+
+    def _build_steps(self, widgets, mappings):
+        widget_ids = set(self.widgets.keys())
+
+        # widget-to-widget mapping edges only - hardware mappings
+        # (modelWID = "type:server:port") don't participate in ordering,
+        # they're applied as a direct pin read/write around that one
+        # widget's own evaluation step instead.
+        edges = {}   # wid -> set(dependency wids)
+        w2w_mappings = []
+        hw_in_mappings = {}   # wid -> mapping (AnalogIn/DigitalIn)
+        hw_out_mappings = {}  # wid -> mapping (AnalogOut/DigitalOut/Servo)
+        display_mappings = {}  # wid -> mapping (Display) - no pin, see below
+        grove_mappings = {}   # wid -> [mapping, ...] - GroveSensor has one per reading
+        osc_in_mappings = {}   # wid -> mapping (OSCIn) - just marks "actively mapped", see _claim_osc
+        osc_out_mappings = {}  # wid -> mapping (OSCOut)
+        cloud_in_mappings = {}   # wid -> mapping (CloudIn) - just marks "actively mapped", see _claim_cloud
+        cloud_out_mappings = {}  # wid -> mapping (CloudOut)
+
+        for m in mappings:
+            model_wid, view_wid = m.get('modelWID'), m.get('viewWID')
+            if model_wid in widget_ids:
+                w2w_mappings.append(m)
+                edges.setdefault(view_wid, set()).add(model_wid)
+            elif view_wid in widget_ids:
+                type_id = self.widgets[view_wid]['typeID']
+                if type_id in HARDWARE_INPUT_TYPES:
+                    hw_in_mappings[view_wid] = m
+                elif type_id in HARDWARE_OUTPUT_TYPES:
+                    hw_out_mappings[view_wid] = m
+                elif type_id == 'Display':
+                    # Marks "actively mapped to a device" same as
+                    # osc_in/cloud_in below - the mapping's
+                    # destinationField is meaningless here (Display has
+                    # no pin), so it's never read, just used as the
+                    # presence check.
+                    display_mappings[view_wid] = m
+                elif type_id == 'GroveSensor':
+                    grove_mappings.setdefault(view_wid, []).append(m)
+                elif type_id == 'OSCIn':
+                    osc_in_mappings[view_wid] = m
+                elif type_id == 'OSCOut':
+                    osc_out_mappings[view_wid] = m
+                elif type_id == 'CloudIn':
+                    cloud_in_mappings[view_wid] = m
+                elif type_id == 'CloudOut':
+                    cloud_out_mappings[view_wid] = m
+
+        # Kahn's algorithm - widgets with no unresolved dependency go
+        # first. A cycle (shouldn't happen in a normal patch) just gets
+        # its remaining members appended in arbitrary order rather than
+        # crashing the whole interpreter over one bad patch.
+        remaining = dict((wid, set(deps)) for wid, deps in edges.items())
+        for wid in widget_ids:
+            remaining.setdefault(wid, set())
+        ordered = []
+        while remaining:
+            ready = [wid for wid, deps in remaining.items() if not deps]
+            if not ready:
+                ordered.extend(remaining.keys())
+                print("standalone_interpreter: mapping cycle detected, evaluation order may be wrong for", list(remaining.keys()))
+                break
+            for wid in ready:
+                ordered.append(wid)
+                del remaining[wid]
+            for deps in remaining.values():
+                deps.difference_update(ready)
+
+        steps = []
+        for wid in ordered:
+            for m in w2w_mappings:
+                if m.get('viewWID') == wid:
+                    steps.append(('map', m.get('modelWID'), m['map']['sourceField'], wid, m['map']['destinationField']))
+            if wid in hw_in_mappings:
+                steps.append(('hw_in', wid, hw_in_mappings[wid]['map']['sourceField']))
+            if wid in osc_in_mappings:
+                # No further config carried on the step itself - _claim_osc
+                # reads server/port/messageName straight from the widget's
+                # own values (same as GroveSensor's grove_in reading
+                # values.get('sensor')/values.get('pin') below, rather
+                # than from the mapping).
+                steps.append(('osc_in', wid))
+            if wid in osc_out_mappings:
+                steps.append(('osc_out', wid))
+            if wid in cloud_in_mappings:
+                # No further config carried on the step itself -
+                # _claim_cloud reads host/port/username/topic straight
+                # from the widget's own values, same as osc_in above.
+                steps.append(('cloud_in', wid))
+            if wid in cloud_out_mappings:
+                steps.append(('cloud_out', wid))
+            if wid in grove_mappings:
+                # sourceField is "grove-<sensorId>-<readingIndex>" (see
+                # GroveSensor.js's remapSensor()) - the index is what
+                # aligns each mapping with the catalog read function's
+                # returned list, not mapping order in the saved JSON.
+                reading_map = {}
+                for m in grove_mappings[wid]:
+                    try:
+                        index = int(m['map']['sourceField'].rsplit('-', 1)[1])
+                    except (ValueError, IndexError):
+                        continue
+                    reading_map[index] = m['map']['destinationField']
+                steps.append(('grove_in', wid, reading_map))
+            steps.append(('eval', wid))
+            if wid in hw_out_mappings:
+                steps.append(('hw_out', wid, hw_out_mappings[wid]['map']['destinationField']))
+            if wid in display_mappings:
+                steps.append(('display_out', wid))
+
+        self.steps = steps
+
+    def claim_hardware(self):
+        """Call once before ticking (or again after regaining control
+        from a disconnected host client) - claims every pin this loaded
+        patch's hardware widgets need, via FirmataServer's own pin-mode
+        setup so servo pulse math / PWM duty math / analog scaling all
+        come from the same already-verified code path a live Firmata
+        connection uses."""
+        fs = self._fs
+        for step in self.steps:
+            if step[0] == 'hw_in':
+                _, wid, pin_str = step
+                type_id = self.widgets[wid]['typeID']
+                if type_id == 'AnalogIn':
+                    try:
+                        channel = int(pin_str[1:])
+                    except (TypeError, ValueError, IndexError):
+                        continue
+                    fs._handle_report_analog(channel, True)
+                elif type_id == 'DigitalIn':
+                    idx = _pin_index_for_dpin(fs.pins, pin_str)
+                    if idx is not None:
+                        fs._apply_pin_mode(idx, firmata_server.INPUT)
+                        fs.pins[idx].report = True
+            elif step[0] == 'hw_out':
+                _, wid, pin_str = step
+                type_id = self.widgets[wid]['typeID']
+                idx = _pin_index_for_dpin(fs.pins, pin_str)
+                if idx is None:
+                    continue
+                if type_id == 'Servo':
+                    fs._handle_servo_config(idx, firmata_server.SERVO_MIN_PULSE_US_DEFAULT, firmata_server.SERVO_MAX_PULSE_US_DEFAULT)
+                elif type_id == 'AnalogOut':
+                    fs._apply_pin_mode(idx, firmata_server.PWM)
+                elif type_id == 'DigitalOut':
+                    fs._apply_pin_mode(idx, firmata_server.OUTPUT)
+            elif step[0] == 'grove_in':
+                self._subscribe_grove_sensor(step[1])
+        self._claim_osc()
+        self._claim_cloud()
+
+    def _claim_osc(self):
+        """Set up MicroOSC receiving/sending for every osc_in/osc_out
+        step (see module docstring). Called from claim_hardware() -
+        same "call again after regaining control" contract, and same
+        reasoning for why: a client that was driving this device may
+        have been the one actually reachable at these OSC targets, so
+        re-establishing here (not just once at load()) matters the same
+        way pin claims do.
+
+        Multiple OSCIn widgets can share one receiving port - grouped
+        here by port only (not host:port), since only one real bind
+        address exists (the board's own IP) - see module docstring for
+        why OSCIn's own `server` field isn't used for binding."""
+        osc_in_by_port = {}    # port -> {address: wid}
+        osc_out_targets = set()  # (host, port)
+        for step in self.steps:
+            if step[0] == 'osc_in':
+                wid = step[1]
+                values = self.widgets[wid]['values']
+                port = int(_num(values.get('port'), 57190))
+                address = values.get('messageName') or '/ntk/in/1'
+                osc_in_by_port.setdefault(port, {})[address] = wid
+            elif step[0] == 'osc_out':
+                wid = step[1]
+                values = self.widgets[wid]['values']
+                osc_out_targets.add((_osc_host(values), int(_num(values.get('port'), 57120))))
+
+        if not osc_in_by_port and not osc_out_targets:
+            return
+
+        if self._microosc is None:
+            try:
+                import wifi
+                import socketpool
+                import microosc
+                self._microosc = microosc
+                self._osc_pool = socketpool.SocketPool(wifi.radio)
+                self._osc_wifi = wifi
+            except Exception as e:
+                print("standalone_interpreter: OSC setup failed (microosc/wifi/socketpool):", e)
+                self._microosc = False  # sentinel: don't retry every claim_hardware() call
+                return
+        elif self._microosc is False:
+            return
+
+        my_ip = str(self._osc_wifi.radio.ipv4_address)
+        for port, addr_map in osc_in_by_port.items():
+            dispatch_map = {}
+            for address, wid in addr_map.items():
+                dispatch_map[address] = self._make_osc_in_handler(wid)
+            try:
+                self._osc_servers[port] = self._microosc.OSCServer(self._osc_pool, my_ip, port, dispatch_map)
+            except Exception as e:
+                print("standalone_interpreter: OSC receive on port", port, "failed:", e)
+
+        for host, port in osc_out_targets:
+            try:
+                self._osc_clients[(host, port)] = self._microosc.OSCClient(self._osc_pool, host, port)
+            except Exception as e:
+                print("standalone_interpreter: OSC send target", host, port, "failed:", e)
+
+    def _make_osc_in_handler(self, wid):
+        """One closure per OSCIn widget, used as its dispatch_map entry -
+        MicroOSC calls this with the decoded OscMsg when a message for
+        this widget's own address arrives. Only the first argument is
+        used - matches NTK's convention elsewhere of one value per OSC
+        address (see OSCOut.js/OSC.js), not OSC's general multi-arg
+        capability."""
+        def handler(msg):
+            if msg.args:
+                self.widgets[wid]['values']['in'] = msg.args[0]
+        return handler
+
+    def _subscribe_grove_sensor(self, wid):
+        """Subscribe a GroveSensor widget's sensor, calling its catalog
+        entry's read()/make_read() directly - same reuse-not-reimplement
+        approach as the pin methods above, just for
+        firmata_server.py's OTHER hardware abstraction (GROVE_SENSOR_CATALOG,
+        from pins.py) instead of _Pin. No sysex involved: this interpreter
+        is the one thing on this board that can just call these functions
+        itself instead of exchanging wire messages about them."""
+        values = self.widgets[wid]['values']
+        try:
+            sensor_id = int(_num(values.get('sensor'), -1))
+        except (TypeError, ValueError):
+            sensor_id = -1
+        entry = self._grove_catalog.get(sensor_id)
+        if entry is None:
+            print("standalone_interpreter: GroveSensor", wid, "- sensor", sensor_id, "not available on this board")
+            return
+        try:
+            if entry.get('needs_pin'):
+                pin_str = values.get('pin', '')
+                idx = _pin_index_for_dpin(self._fs.pins, pin_str)
+                if idx is None or self._fs.pins[idx].board_pin is None:
+                    print("standalone_interpreter: GroveSensor", wid, "- no usable pin", pin_str)
+                    return
+                # Same reasoning as firmata_server.py's own
+                # _handle_grove_sensor_request: make_read() constructs the
+                # sensor's own driver directly on this pin, bypassing
+                # _apply_pin_mode()/pin.io - release this pin's existing io
+                # object first (every pin normally has one after __init__'s
+                # _drive_unclaimed_pins_low()) or the driver's own claim
+                # collides with it ("pin in use"). Found 2026-09-25.
+                self._fs._release_pin_io(self._fs.pins[idx])
+                read_fn, cleanup_fn = entry['make_read'](self._fs.pins[idx].board_pin)
+            elif entry.get('needs_mode'):
+                mode = int(_num(values.get('mode'), 0.0))
+                read_fn, cleanup_fn = entry['make_read'](mode)
+            else:
+                read_fn, cleanup_fn = entry['read'], None
+        except Exception as e:
+            print("standalone_interpreter: GroveSensor", wid, "failed to start:", e)
+            return
+        self._grove_subscriptions[wid] = {
+            'read': read_fn,
+            'cleanup': cleanup_fn,
+            'min_interval_ms': entry['min_interval_ms'],
+            'last_ms': 0,
+        }
+
+    def release_hardware(self):
+        """Call right before a real Firmata client connects, so its own
+        fresh FirmataServer instance can claim the same physical pins
+        without hitting "pin in use" errors."""
+        self._fs.release_all_pins()
+        for sub in self._grove_subscriptions.values():
+            cleanup_fn = sub.get('cleanup')
+            if cleanup_fn is not None:
+                try:
+                    cleanup_fn()
+                except Exception:
+                    pass
+        self._grove_subscriptions = {}
+        self._release_osc()
+        self._release_cloud()
+
+    def _release_osc(self):
+        """Closes the raw UDP sockets MicroOSC opened - it exposes no
+        public close()/deinit() (confirmed via dir() on a real instance,
+        hardware-checked 2026-09-23), only a `_sock` attribute, so this
+        reaches into that directly rather than leaking a socket (and the
+        board's limited count of them) every time control changes hands
+        between the interpreter and a real client."""
+        for srv in self._osc_servers.values():
+            try:
+                srv._sock.close()
+            except Exception:
+                pass
+        self._osc_servers = {}
+        for cli in self._osc_clients.values():
+            try:
+                cli._sock.close()
+            except Exception:
+                pass
+        self._osc_clients = {}
+
+    def _claim_cloud(self):
+        """Set up MQTT connections for every cloud_in/cloud_out step (see
+        module docstring). Called from claim_hardware() - same "call
+        again after regaining control" contract _claim_osc() has, and
+        the same reasoning: a client that was driving this device may
+        have been the one actually reachable at these MQTT brokers.
+
+        Widgets are grouped by (host, port, username) - see
+        _cloud_group_key - since a real MQTT connection needs one
+        identity; multiple CloudIn/CloudOut widgets sharing a group
+        share ONE MQTT.MQTT client and its one TCP connection,
+        mirroring CloudModel.js's live-connection sharing. Already-
+        connected groups (self._cloud_clients already has the key) are
+        left alone - this only attempts NEW connections, so a group
+        that failed last time gets retried, but a group that's already
+        up doesn't get needlessly torn down and rebuilt."""
+        cloud_in_by_group = {}    # group key -> {topic: [wid, ...]}
+        cloud_out_groups = set()  # group key (out widgets just need the connection to exist)
+        group_options = {}        # group key -> (password, tls) from the FIRST widget seen in that group
+        for step in self.steps:
+            if step[0] not in ('cloud_in', 'cloud_out'):
+                continue
+            wid = step[1]
+            values = self.widgets[wid]['values']
+            key = _cloud_group_key(values)
+            if key not in group_options:
+                group_options[key] = (values.get('password') or '', bool(values.get('tls')))
+            if step[0] == 'cloud_in':
+                topic = values.get('topic') or ''
+                if topic:
+                    cloud_in_by_group.setdefault(key, {}).setdefault(topic, []).append(wid)
+            else:
+                cloud_out_groups.add(key)
+
+        all_groups = set(cloud_in_by_group.keys()) | cloud_out_groups
+        if not all_groups:
+            return
+
+        if self._minimqtt is None:
+            try:
+                import wifi
+                import socketpool
+                import adafruit_minimqtt.adafruit_minimqtt as minimqtt
+                self._minimqtt = minimqtt
+                self._cloud_pool = socketpool.SocketPool(wifi.radio)
+                self._cloud_wifi = wifi
+            except Exception as e:
+                print("standalone_interpreter: Cloud setup failed (adafruit_minimqtt/wifi/socketpool):", e)
+                self._minimqtt = False  # sentinel: don't retry every claim_hardware() call
+                return
+        elif self._minimqtt is False:
+            return
+
+        for key in all_groups:
+            if key in self._cloud_clients:
+                continue
+            host, port, username = key
+            if not host:
+                continue
+            password, tls = group_options.get(key, ('', False))
+
+            ssl_context = None
+            if tls:
+                # Lazily imported and built once, shared by every TLS
+                # group - a patch using only plaintext brokers never
+                # imports ssl at all (see module docstring on why this
+                # matters on a memory-constrained board).
+                if self._cloud_ssl_context is None:
+                    try:
+                        import ssl
+                        self._cloud_ssl_context = ssl.create_default_context()
+                    except Exception as e:
+                        print("standalone_interpreter: Cloud TLS setup failed for", host, ":", e)
+                        continue
+                ssl_context = self._cloud_ssl_context
+
+            try:
+                client = self._minimqtt.MQTT(
+                    broker=host,
+                    port=port,
+                    username=username or None,
+                    password=password or None,
+                    is_ssl=tls,
+                    socket_pool=self._cloud_pool,
+                    ssl_context=ssl_context,
+                    # socket_timeout governs BOTH the connect handshake's
+                    # internal socket read/write waits AND every later
+                    # loop() call's polling budget (confirmed by reading
+                    # adafruit_minimqtt's own source) - it is NOT just a
+                    # "how often does tick() poll" knob. A short value
+                    # here (an earlier version of this code tried 0.05s)
+                    # makes connect() fail almost immediately against a
+                    # real broker over real WiFi+internet latency, since
+                    # there isn't enough time for the TCP handshake and
+                    # CONNACK round trip. The library's own default (1s)
+                    # is used instead - see tick()'s poll gate for how
+                    # the resulting per-call blocking cost is amortized.
+                    # connect_retries=1: this library's own default (5,
+                    # with exponential backoff up to 32s BETWEEN
+                    # attempts) would block claim_hardware() itself for
+                    # a long time against an unreachable broker - a
+                    # failed connect here just leaves the group
+                    # unconnected until the next claim_hardware() call
+                    # retries it, no blocking retry loop.
+                    socket_timeout=1.0,
+                    connect_retries=1,
+                )
+                client.on_message = self._make_cloud_message_handler(key)
+                client.connect()
+            except Exception as e:
+                print("standalone_interpreter: Cloud connect failed for", host, ":", port, "-", e)
+                continue
+
+            self._cloud_clients[key] = client
+            self._cloud_topic_widgets[key] = cloud_in_by_group.get(key, {})
+            for topic in cloud_in_by_group.get(key, {}):
+                try:
+                    client.subscribe(topic)
+                except Exception as e:
+                    print("standalone_interpreter: Cloud subscribe failed for", topic, "-", e)
+
+    def _make_cloud_message_handler(self, key):
+        """One closure per broker connection, used as its on_message
+        callback - adafruit_minimqtt calls this with (client, topic,
+        message) for ANY subscribed topic on this connection (unlike
+        MicroOSC's per-address dispatch_map), so this looks up which
+        widget(s) actually want this specific topic itself. message
+        arrives already decoded to a str; stored as-is in values['in'] -
+        the chain-function caller already wraps every from-field read in
+        _num() (see _eval_widget), so a numeric string converts
+        correctly there, matching how any other text-valued inlet
+        already works."""
+        def handler(client, topic, message):
+            # Self-echo suppression - see module docstring. A connection
+            # that both publishes and subscribes to one topic sees its
+            # own just-published message come back as an ordinary
+            # incoming one; MQTT has no protocol-level way to prevent
+            # this. Mirrors CloudModel.js's identical fix.
+            last = self._cloud_last_published.get((key, topic))
+            if last is not None and last[0] == message and (time.monotonic() - last[1]) < 5.0:
+                return
+            for wid in self._cloud_topic_widgets.get(key, {}).get(topic, []):
+                self.widgets[wid]['values']['in'] = message
+        return handler
+
+    def _release_cloud(self):
+        """Disconnects every MQTT connection this interpreter opened -
+        same "give it back before a real client connects" contract
+        _release_osc() has."""
+        for client in self._cloud_clients.values():
+            try:
+                if client.is_connected():
+                    client.disconnect()
+            except Exception:
+                pass
+        self._cloud_clients = {}
+        self._cloud_topic_widgets = {}
+
+    def _drop_cloud_client(self, key):
+        """Removes a broken connection from self._cloud_clients so tick()
+        stops hammering a dead socket every poll/publish - confirmed
+        needed 2026-09-24: an Adafruit IO rate-limit block closed the
+        connection server-side, and without this every subsequent tick
+        kept trying to publish/poll on it, failing with EPIPE (errno 32)
+        forever, once per tick, spamming the console. Deliberately does
+        NOT attempt a reconnect itself - the group key simply becomes
+        eligible again the next time _claim_cloud() runs (i.e. the next
+        release_hardware()/claim_hardware() cycle, same as any other
+        never-attempted group), rather than retrying in a tight loop
+        against a broker that may still be actively rate-limiting."""
+        client = self._cloud_clients.pop(key, None)
+        self._cloud_topic_widgets.pop(key, None)
+        if client is not None:
+            try:
+                client.disconnect()
+            except Exception:
+                pass
+
+    def tick(self):
+        if not self.loaded:
+            return
+        now = time.monotonic()
+        fs = self._fs
+        # Polled once per port here, not inside the per-step loop below -
+        # several osc_in widgets can share one OSCServer (see _claim_osc),
+        # and its dispatch_map callback (_make_osc_in_handler) already
+        # writes straight into the relevant widget's values['in'], so the
+        # osc_in step itself has nothing further to do at tick time.
+        for srv in self._osc_servers.values():
+            try:
+                srv.poll()
+            except Exception as e:
+                print("standalone_interpreter: OSC poll failed:", e)
+        # Gated, not polled every tick like OSC's plain UDP recv above -
+        # MQTT.loop() unconditionally blocks for its full timeout= on
+        # every call (confirmed by reading adafruit_minimqtt's own
+        # source: it spins until that much wall-clock time has elapsed,
+        # not "until either a message arrives or timeout passes" - see
+        # _claim_cloud's socket_timeout comment for why that timeout
+        # can't be made small). At 1.0s that's a real, unavoidable
+        # per-call stall for the rest of the interpreter (all other
+        # widgets' pin reads/chain evaluation/hw_out writes happen
+        # synchronously in this same tick() loop), so this only pays
+        # that cost roughly once every 2s rather than every tick -
+        # trading CloudIn message latency (up to ~3s worst case) for
+        # keeping the rest of a patch responsive the other ~2 out of
+        # every ~3 seconds. Matches the live CloudOut widget's own
+        # sendInterval default (2000ms) closely enough that this isn't
+        # a surprising step down in responsiveness for anyone already
+        # using Cloud widgets.
+        if self._cloud_clients and (now - self._cloud_last_poll) >= 2.0:
+            self._cloud_last_poll = now
+            broken_keys = []
+            for key, client in self._cloud_clients.items():
+                try:
+                    if client.is_connected():
+                        client.loop(timeout=1.0)
+                except Exception as e:
+                    print("standalone_interpreter: Cloud poll failed:", e)
+                    broken_keys.append(key)
+            for key in broken_keys:
+                self._drop_cloud_client(key)
+        for step in self.steps:
+            kind = step[0]
+            if kind == 'map':
+                _, src_wid, src_field, dst_wid, dst_field = step
+                src = self.widgets.get(src_wid)
+                if src is not None:
+                    self.widgets[dst_wid]['values'][dst_field] = src['values'].get(src_field)
+            elif kind == 'hw_in':
+                _, wid, pin_str = step
+                w = self.widgets[wid]
+                type_id = w['typeID']
+                if type_id == 'AnalogIn':
+                    idx = _pin_index_for_apin(fs.pins, pin_str)
+                    if idx is not None and fs.pins[idx].io is not None:
+                        raw16 = fs.pins[idx].io.value
+                        w['values']['in'] = raw16 >> 6  # 16-bit -> 10-bit, matches firmata_server.update()
+                elif type_id == 'DigitalIn':
+                    idx = _pin_index_for_dpin(fs.pins, pin_str)
+                    if idx is not None and fs.pins[idx].io is not None:
+                        w['values']['in'] = 1 if fs.pins[idx].io.value else 0
+            elif kind == 'grove_in':
+                _, wid, reading_map = step
+                sub = self._grove_subscriptions.get(wid)
+                if sub is not None:
+                    now_ms = now * 1000.0
+                    if now_ms - sub['last_ms'] >= sub['min_interval_ms']:
+                        sub['last_ms'] = now_ms
+                        try:
+                            readings = sub['read']()
+                        except Exception as e:
+                            # A sensor read can legitimately fail transiently
+                            # (I2C hiccup, a DHT11 checksum/timing miss) -
+                            # matches firmata_server.py's update()'s own
+                            # "report it, don't drop anything" handling for
+                            # the exact same catalog read functions.
+                            print("standalone_interpreter: GroveSensor", wid, "read failed:", e)
+                            readings = None
+                        if readings is not None:
+                            values = self.widgets[wid]['values']
+                            for index, dst_field in reading_map.items():
+                                if index < len(readings):
+                                    values[dst_field] = readings[index]
+            elif kind == 'eval':
+                wid = step[1]
+                w = self.widgets[wid]
+                self._eval_widget(w, now)
+            elif kind == 'hw_out':
+                _, wid, pin_str = step
+                w = self.widgets[wid]
+                idx = _pin_index_for_dpin(fs.pins, pin_str)
+                if idx is not None:
+                    out_value = w['values'].get('out')
+                    if w['typeID'] == 'DigitalOut':
+                        if fs.pins[idx].io is not None:
+                            fs.pins[idx].io.value = bool(out_value)
+                    elif w['typeID'] == 'Servo':
+                        # The widget's own 'out' is 0-180 DEGREES (limit180
+                        # chain), but _handle_analog_write's SERVO branch
+                        # expects a microsecond pulse width directly (see
+                        # its own comment in firmata_server.py) - on a live
+                        # connection, johnny-five's five.Servo does this
+                        # degrees->microseconds conversion host-side before
+                        # ever reaching the wire (range:[0,180], default
+                        # pwmRange:[600,2400] - confirmed against
+                        # node_modules/johnny-five/lib/servo.js and
+                        # StandardFirmataModel.js's `new five.Servo(...)`
+                        # call, which passes no custom pwmRange). Since the
+                        # interpreter skips johnny-five entirely, it has to
+                        # do that same conversion itself, or every write
+                        # just clamps to the 544us floor and the servo
+                        # never moves - which is exactly the historical bug
+                        # that comment describes.
+                        degrees = max(0.0, min(180.0, _num(out_value, 0.0)))
+                        pulse_us = int(degrees * (2400.0 - 600.0) / 180.0 + 600.0)
+                        fs._handle_analog_write(idx, pulse_us)
+                    else:
+                        fs._handle_analog_write(idx, out_value)
+            elif kind == 'display_out':
+                # No pin (see _build_steps()'s own comment) - straight to
+                # the OLED. Change-detection + a 1s minimum interval,
+                # same reasoning as oled_display.py's own set_lines()
+                # docstring: each refresh is a real blocking I2C write,
+                # and an inlet could in principle be changing every
+                # tick, so this avoids flooding the display with
+                # redundant/too-frequent writes the way the live-
+                # connection path's own debounced send (Display.js/
+                # NetworkModel.js) does on that side.
+                _, wid = step
+                w = self.widgets[wid]
+                values = w['values']
+                lines = [values.get('line1Text', ''), values.get('line2Text', ''), values.get('line3Text', '')]
+                state = w['state']
+                if lines != state.get('display_last_lines') and (now - state.get('display_last_sent', 0.0)) >= 1.0:
+                    state['display_last_lines'] = list(lines)
+                    state['display_last_sent'] = now
+                    oled_display.set_lines(lines)
+            elif kind == 'osc_out':
+                wid = step[1]
+                w = self.widgets[wid]
+                values = w['values']
+                out_value = _num(values.get('out'), 0.0)
+                # Only send on an actual change, matching the live-
+                # connection host-side OSC.js's own sendOSCMessage() -
+                # avoids flooding the network with an identical value
+                # every tick just because this step runs every tick.
+                if w['state'].get('_osc_last_sent') == out_value:
+                    continue
+                w['state']['_osc_last_sent'] = out_value
+                client = self._osc_clients.get((_osc_host(values), int(_num(values.get('port'), 57120))))
+                if client is None:
+                    continue
+                address = values.get('messageName') or '/ntk/out/1'
+                # roundToInt from SignalChainFunctions.js, applied here
+                # (not via CHAIN_TYPES) since it only matters for what
+                # actually goes out over the network - see CHAIN_TYPES'
+                # own comment on why OSCOut isn't in that set.
+                if values.get('valueType') == 'int':
+                    args, types = [int(out_value)], ('i',)
+                else:
+                    args, types = [out_value], ('f',)
+                try:
+                    client.send(self._microosc.OscMsg(address, args, types))
+                except Exception as e:
+                    print("standalone_interpreter: OSC send failed:", e)
+            elif kind == 'cloud_out':
+                wid = step[1]
+                w = self.widgets[wid]
+                values = w['values']
+                out_value = _num(values.get('out'), 0.0)
+                if w['state'].get('_cloud_last_sent') == out_value:
+                    continue
+                # sendInterval throttle (field matches CloudOut.js's own,
+                # default 2000ms) - NOT the live widget's full averaging/
+                # settle-publish behavior (deliberately not ported, see
+                # module docstring), just a floor on send rate. Without
+                # this, a real ADC's per-tick read noise on AnalogIn (or
+                # any other fast-changing source) would publish on
+                # nearly every tick - hundreds of times a second - which
+                # is exactly what got this device's Adafruit IO account
+                # rate-limited during testing (2026-09-24). A tick where
+                # the interval hasn't elapsed yet is skipped WITHOUT
+                # updating _cloud_last_sent, so the very next tick where
+                # enough time has passed re-checks against the CURRENT
+                # out_value and sends that - no averaging, just "send
+                # the latest value no more often than sendInterval".
+                min_interval_s = _num(values.get('sendInterval'), 2000.0) / 1000.0
+                last_sent_at = w['state'].get('_cloud_last_sent_at')
+                if last_sent_at is not None and (now - last_sent_at) < min_interval_s:
+                    continue
+                w['state']['_cloud_last_sent'] = out_value
+                w['state']['_cloud_last_sent_at'] = now
+                topic = values.get('topic') or ''
+                if not topic:
+                    continue
+                key = _cloud_group_key(values)
+                client = self._cloud_clients.get(key)
+                if client is None or not client.is_connected():
+                    continue
+                # CloudOut.js's signal chain always applies roundToInt
+                # (no float/int toggle unlike OSCOut) - matches that
+                # here rather than sending a raw float string.
+                payload = str(int(round(out_value)))
+                try:
+                    client.publish(topic, payload)
+                    # Recorded BEFORE any echo could come back, so the
+                    # message handler's suppression check (see
+                    # _make_cloud_message_handler) is guaranteed to see
+                    # this value already in place.
+                    self._cloud_last_published[(key, topic)] = (payload, time.monotonic())
+                except Exception as e:
+                    print("standalone_interpreter: Cloud publish failed:", e)
+                    self._drop_cloud_client(key)
+
+    def monitor_fields(self, wid):
+        """(field_name, numeric_value) pairs worth reporting to a
+        monitoring client for one widget - same "walk the declared
+        ins/outs port lists" convention print_values() uses for its
+        unreached-widget dump, so this only ever reports real I/O
+        fields (out1, in2, ...), never noise like title/offsetLeft/
+        deviceType that dict(w) (see load()) also copied in wholesale.
+        Non-numeric values (a bool, a string - e.g. IfThen's text-
+        comparison mode) are skipped; a monitoring client has no
+        concept of anything but numeric widget fields yet.
+
+        Also includes this widget type's own OUTS_BY_TYPE (from, to)
+        field names (e.g. AnalogIn's 'in') even with no matching graph
+        port - those don't come from another widget's wire, they're
+        fed directly by hardware reads/the client's own UI (a source
+        widget's raw pin value, a knob drag), so they never appear in
+        'ins'/'outs' port lists at all. Skipping them left a source
+        widget's in-canvas knob frozen during monitor mode: its numeric
+        readout (bound to 'out') updated fine, but nothing ever pushed
+        'in', which is what the knob's own visual position is bound to
+        - found via hands-on testing 2026-09-21."""
+        w = self.widgets[wid]
+        values = w['values']
+        fields = []
+        seen = set()
+        for port_list in (values.get('ins'), values.get('outs')):
+            for port in port_list or []:
+                field = port.get('to')
+                if not field or field in seen:
+                    continue
+                seen.add(field)
+                value = values.get(field)
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    fields.append((field, value))
+        for from_field, to_field in OUTS_BY_TYPE.get(w['typeID'], ()):
+            for field in (from_field, to_field):
+                if not field or field in seen:
+                    continue
+                seen.add(field)
+                value = values.get(field)
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    fields.append((field, value))
+        return fields
+
+    def print_values(self):
+        """Periodic serial dump of the patch's live values, in the same
+        chain layout as print_topology() (e.g.
+        'A0 -> AnalogIn(out=499) -> Splitter(out3=0) -> Mix(out1=61) ->
+        Servo(out=61) -> D5') - added 2026-09-19, reworked the same day
+        to share _trace_paths() with the topology printer rather than a
+        separately-maintained flat per-widget dump, so a value can be
+        read in the context of which specific wire it's flowing over
+        (a widget with several ports, e.g. Splitter/Mix, only shows the
+        one field actually relevant to that particular path)."""
+        paths, unreached = self._trace_paths()
+
+        def field_and_value(wid, out_field):
+            """(field_name, value) for this widget node, resolving a
+            terminal node's field via OUTS_BY_TYPE when the path itself
+            carried none - a hw_out widget (Servo/AnalogOut/DigitalOut)
+            with no further widget-to-widget edge has no 'map' step to
+            have supplied a field name, but its own declared output
+            field is exactly what FirmataServer actually writes to the
+            pin, so use that instead of showing nothing."""
+            field = out_field
+            if field is None:
+                outs = OUTS_BY_TYPE.get(self.widgets[wid]['typeID'])
+                field = outs[0][1] if outs else None
+            if field is None:
+                return None, None
+            return field, self.widgets[wid]['values'].get(field)
+
+        def render(path):
+            rendered = []
+            carry_value = None  # value flowing INTO the current node
+            for node in path:
+                if node[0] == 'hw':
+                    pin = node[1]
+                    rendered.append("%s(%s)" % (pin, carry_value) if carry_value is not None else pin)
+                elif node[0] == 'loop':
+                    rendered.append("(loop back to %s)" % self.widgets[node[1]]['typeID'])
+                else:  # 'w'
+                    _, wid, out_field = node
+                    type_id = self.widgets[wid]['typeID']
+                    field, value = field_and_value(wid, out_field)
+                    if field is not None:
+                        rendered.append("%s(%s=%s)" % (type_id, field, value))
+                    else:
+                        rendered.append(type_id)
+                    carry_value = value
+            return " -> ".join(rendered)
+
+        lines = []
+        seen = set()
+        for path in paths:
+            rendered = render(path)
+            if rendered not in seen:
+                seen.add(rendered)
+                lines.append(rendered)
+
+        for wid in unreached:
+            w = self.widgets[wid]
+            values = w['values']
+            type_id = w['typeID']
+            bits = []
+            seen_fields = set()
+            for port_list in (values.get('ins'), values.get('outs')):
+                for port in port_list or []:
+                    field = port.get('to')
+                    if field and field not in seen_fields:
+                        seen_fields.add(field)
+                        bits.append("%s=%s" % (field, values.get(field)))
+            lines.append("(unreached) %s[%s]" % (type_id, ",".join(bits)))
+
+        print("standalone values:")
+        for line in lines:
+            print(" ", line)
+
+    def _eval_widget(self, w, now):
+        type_id = w['typeID']
+        values = w['values']
+        state = w['state']
+        state['now'] = now
+
+        if type_id in BESPOKE_EVAL:
+            BESPOKE_EVAL[type_id](values, state, now)
+
+        if type_id == 'GroveSensor':
+            # Multiple independent readings (e.g. accelerometer x/y/z)
+            # share one scale/invert config but need SEPARATE smoother/
+            # easing state each - matches GroveSensor.js's own
+            # per-axis axisStates. outs[] comes from the saved widget
+            # itself (set by GroveSensor.js's remapSensor(), a real
+            # model attribute), not a hardcoded table - it already
+            # describes exactly the {from,to} pairs for whichever sensor
+            # is selected.
+            axis_states = state.setdefault('axis_state', {})
+            chain = CHAIN_FUNCTIONS_BY_TYPE['AnalogIn']
+            for pair in values.get('outs') or []:
+                from_field, to_field = pair.get('from'), pair.get('to')
+                if not from_field or not to_field:
+                    continue
+                axis_state = axis_states.setdefault(to_field, {})
+                axis_state['now'] = now
+                values[to_field] = _run_chain(chain, _num(values.get(from_field), 0.0), values, axis_state)
+        elif type_id in CHAIN_TYPES:
+            chain = CHAIN_FUNCTIONS_BY_TYPE[type_id]
+            for from_field, to_field in OUTS_BY_TYPE[type_id]:
+                values[to_field] = _run_chain(chain, _num(values.get(from_field), 0.0), values, state)
+        elif type_id in OUTS_BY_TYPE:
+            for from_field, to_field in OUTS_BY_TYPE[type_id]:
+                if from_field != to_field:
+                    values[to_field] = values.get(from_field)
+
+
+def load_patch_file(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError) as e:
+        print("standalone_interpreter: couldn't load", path, ":", e)
+        return None
