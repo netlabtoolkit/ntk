@@ -42,6 +42,12 @@ module.exports = function(five) {
 	// to firmata_server.py's constant of the same name. Host -> device
 	// only, no reply (see that file's own comment for why).
 	var DISPLAY_TEXT_REQUEST = 0x0B;
+	// NeoPixel widget's config message (pin/pixel count/format/mode/
+	// speed/color/brightness/vu-level) - byte-for-byte match to
+	// firmata_server.py's constant of the same name. Host -> device
+	// only, no reply (same low-stakes rationale DISPLAY_TEXT_REQUEST's
+	// own comment already gives).
+	var NEOPIXEL_REQUEST = 0x0E;
 	// Generous enough to cover a hardwareModel created on demand for
 	// this exact call (see nlMultiClientSync.js's create-if-missing
 	// fallback, added 2026-09-23 for Push/Pull without a widget already
@@ -301,12 +307,52 @@ module.exports = function(five) {
 		// it doesn't go through the generic sendDeviceModelUpdate/.set()
 		// pin-write pipeline nlMultiClientSync.js otherwise uses; called
 		// directly from there instead (see its client:sendDisplayText
-		// handler). A no-op if not currently connected - the widget will
-		// send again on its next model change once a connection exists,
-		// same "nothing to retry here" reasoning as requestStandaloneReload.
+		// handler). Retries every 500ms until connected, same shape as
+		// set()'s own retry a few lines down and sendNeoPixelConfig's
+		// identical fix just above - NOT the "no-op, the widget will
+		// send again on its next model change" this used to claim: that
+		// only holds if something keeps touching the model after the
+		// connection completes, which isn't true for a Display widget
+		// whose lines settled before the connection finished (e.g.
+		// static text, checkbox flipped once).
 		sendDisplayText: function sendDisplayText(lines) {
-			if(!this.connected || !this.board) return;
+			var self = this;
+			if(!this.board || !this.connected) {
+				setTimeout(function() { self.sendDisplayText(lines); }, 500);
+				return;
+			}
 			this.board.io.sysexCommand([DISPLAY_TEXT_REQUEST].concat(encodeSysexString(JSON.stringify(lines))));
+		},
+		// NeoPixel widget's send path - same non-pin-write shape as
+		// sendDisplayText above (called directly from
+		// nlMultiClientSync.js's client:sendNeoPixelConfig handler, not
+		// through the generic sendDeviceModelUpdate/.set() pipeline).
+		// config.pin arrives as NTK's usual "D7"-style name - stripped
+		// to the raw Firmata pin index the firmware's pins.py/PIN_TABLE
+		// uses, same convention/regex as the GroveSensor "needs_pin"
+		// case above (setIOMode's extraOptions.pin handling).
+		//
+		// UNLIKE sendDisplayText, this retries every 500ms until
+		// connected, same shape as set()'s own retry a few lines down -
+		// found hands-on 2026-10-01: enableDevice() fires the instant
+		// the active checkbox is turned on, which is well before the
+		// TCP+Firmata handshake to a freshly-mapped device actually
+		// completes. sendDisplayText's "no-op, the widget will send
+		// again on its next model change" reasoning doesn't hold for a
+		// config that isn't still changing (default pin/color/mode,
+		// checkbox flipped once) - there's no later trigger to resend
+		// it, so the very first config silently never arrived. Real bug,
+		// not a device-side problem - caught via "connects fine, strip
+		// never lights up."
+		sendNeoPixelConfig: function sendNeoPixelConfig(config) {
+			var self = this;
+			if(!this.board || !this.connected) {
+				setTimeout(function() { self.sendNeoPixelConfig(config); }, 500);
+				return;
+			}
+			var wirePin = parseInt(String(config.pin).replace(/^D/i, ''), 10);
+			var wireConfig = Object.assign({}, config, {pin: isNaN(wirePin) ? -1 : wirePin});
+			this.board.io.sysexCommand([NEOPIXEL_REQUEST].concat(encodeSysexString(JSON.stringify(wireConfig))));
 		},
 		pushPatch: function pushPatch(patchJson, callback) {
 			// Network path is tried FIRST, matching boot.py's own default

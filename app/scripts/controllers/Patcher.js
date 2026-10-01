@@ -455,6 +455,21 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 
 				this.addWidgetToStage(newWidget, addedFromLoader);
 
+				// Every hardcoded branch above does this (see
+				// applyDefaultDeviceToModel's own comment) - this
+				// generic branch is how any widget with no dedicated
+				// branch gets created (Text, Concat, NeoPixel, etc),
+				// and a hardware-output one among those (e.g. NeoPixel)
+				// deserves the same Settings > Device default stamping
+				// the hardcoded ones get, not silently defaulting to
+				// Serial while mapping to Network. A no-op for a
+				// non-hardware widget - it just gains three unused
+				// model attributes, same as this method already does
+				// nothing when the default itself is still Serial.
+				if(!addedFromLoader) {
+					this.applyDefaultDeviceToModel(newModel);
+				}
+
 				return newWidget;
 			}
 

@@ -132,6 +132,48 @@ import oled_display
 oled_display.init()
 oled_display.set_mode("connecting")
 
+# Every NTK board advertises under this same service type (see
+# advertise_service() below) - used both to actually announce this
+# board AND, in _resolve_mdns_hostname() below, to look for OTHER
+# boards already using a candidate hostname. One pair of constants so
+# the two call sites can't drift apart.
+_NTK_MDNS_SERVICE_TYPE = "_ntk"
+_NTK_MDNS_PROTOCOL = "_tcp"
+
+
+def _resolve_mdns_hostname(mdns_server, candidate):
+    """Was meant to be a best-effort collision check against other NTK
+    boards already on this network (query mdns_server.find() for the
+    shared "_ntk"/"_tcp" service type above, rename to candidate-2/-3/
+    etc if another board's already using it) - DISABLED, not just
+    unverified, as of 2026-10-01.
+
+    First attempt called mdns_server.find(service_type, protocol,
+    timeout=...) - that raised a catchable "extra positional arguments
+    given" TypeError on real hardware (XIAO ESP32-S3 Sense), meaning
+    the real signature is something else entirely. Tried to pin down
+    the actual signature via the REPL next (mdns.Server.find.__doc__)
+    - that one didn't raise a catchable exception, it HARD-FAULTED the
+    board (same class of native-level crash this project's code.py
+    docstring and pins.py already document for wifi.radio.start_ap()/
+    ap_info on certain boards - unrecoverable except by a physical
+    reset, invisible to any try/except).
+
+    That means this mdns.Server object is fragile enough, on this
+    CircuitPython build, that touching it beyond the two calls already
+    proven safe elsewhere in this file (.hostname = ...,
+    advertise_service()) is a real risk - and this function's own
+    find() call runs on EVERY boot, automatically, with no user action
+    needed to trigger it. Shipping another blind guess at the right
+    call shape risks turning "the nice-to-have collision check doesn't
+    work" into "the board hard-faults every time it joins WiFi" if the
+    guess is wrong again - not an acceptable trade. Left as a straight
+    passthrough until find()'s real signature can be confirmed through
+    CircuitPython's own source/release notes rather than hardware
+    trial-and-error. NTK_MDNS_HOSTNAME is still the way to avoid a
+    real collision by hand in the meantime."""
+    return candidate
+
 
 def _connect_station():
     """Plain station-mode join - see the module docstring for why this
@@ -232,6 +274,19 @@ def _connect_station():
         try:
             import mdns
             _mdns_server = mdns.Server(wifi.radio)
+            # Best-effort auto-rename if another NTK board already
+            # claims this hostname - see _resolve_mdns_hostname()'s own
+            # docstring for exactly how (and its real limits/NOT YET
+            # hardware-verified caveat). A no-op, returning mdns_hostname
+            # unchanged, if nothing else is found or the check itself
+            # fails for any reason.
+            resolved_hostname = _resolve_mdns_hostname(_mdns_server, mdns_hostname)
+            if resolved_hostname != mdns_hostname:
+                print(
+                    "mDNS name '%s.local' already in use on this network - "
+                    "using '%s.local' instead" % (mdns_hostname, resolved_hostname)
+                )
+                mdns_hostname = resolved_hostname
             _mdns_server.hostname = mdns_hostname
             # Setting .hostname alone does NOT make the responder answer
             # queries - confirmed live on real hardware 2026-09-23 (a
@@ -241,7 +296,7 @@ def _connect_station():
             # need to mean anything to NTK, since only the hostname's
             # own A-record lookup matters here, not service discovery.
             _mdns_server.advertise_service(
-                service_type="_ntk", protocol="_tcp", port=FIRMATA_PORT
+                service_type=_NTK_MDNS_SERVICE_TYPE, protocol=_NTK_MDNS_PROTOCOL, port=FIRMATA_PORT
             )
             mdns_suffix = " (also reachable at %s.local port %d)" % (mdns_hostname, FIRMATA_PORT)
         except Exception as e:

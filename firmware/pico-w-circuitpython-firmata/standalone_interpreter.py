@@ -110,13 +110,14 @@ import time
 
 import firmata_server
 import oled_display
+import neopixel_output
 
 
 PORTABLE_TYPE_IDS = frozenset([
     'AnalogIn', 'AnalogOut', 'DigitalIn', 'DigitalOut', 'Servo', 'GroveSensor',
     'IfThen', 'Boolean', 'Gate', 'Mix', 'Splitter', 'Process', 'Count',
     'Concat', 'Pulse', 'Sequence', 'Tween', 'Data', 'OSCIn', 'OSCOut',
-    'CloudIn', 'CloudOut', 'Display',
+    'CloudIn', 'CloudOut', 'Display', 'NeoPixel',
 ])
 
 HARDWARE_INPUT_TYPES = frozenset(['AnalogIn', 'DigitalIn'])
@@ -159,6 +160,21 @@ def _nan():
 
 def _is_nan(v):
     return v != v  # IEEE-754 trick: NaN is the only value not equal to itself
+
+
+def _hex_to_rgb(hex_str):
+    """"#rrggbb" -> (r, g, b) ints - matches NeoPixel.js's own
+    hexToRgb() exactly (same fallback to red on anything unparseable),
+    needed here because this is the one color representation nothing
+    else in this file already converts (neopixel_output.py's own wire
+    protocol only ever deals in already-converted int arrays)."""
+    if not hex_str:
+        return (255, 0, 0)
+    s = hex_str[1:] if hex_str[:1] == '#' else hex_str
+    try:
+        return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
+    except (ValueError, IndexError):
+        return (255, 0, 0)
 
 
 def _osc_host(values):
@@ -1245,6 +1261,11 @@ class StandaloneInterpreter:
         hw_in_mappings = {}   # wid -> mapping (AnalogIn/DigitalIn)
         hw_out_mappings = {}  # wid -> mapping (AnalogOut/DigitalOut/Servo)
         display_mappings = {}  # wid -> mapping (Display) - no pin, see below
+        neopixel_mappings = {}  # wid -> mapping (NeoPixel) - same presence-
+                                 # check shape as display_mappings, but
+                                 # DOES have a real pin (its own 'pin'
+                                 # value field, not destinationField -
+                                 # see _build_neopixel_config())
         grove_mappings = {}   # wid -> [mapping, ...] - GroveSensor has one per reading
         osc_in_mappings = {}   # wid -> mapping (OSCIn) - just marks "actively mapped", see _claim_osc
         osc_out_mappings = {}  # wid -> mapping (OSCOut)
@@ -1269,6 +1290,15 @@ class StandaloneInterpreter:
                     # no pin), so it's never read, just used as the
                     # presence check.
                     display_mappings[view_wid] = m
+                elif type_id == 'NeoPixel':
+                    # Same presence-check role as display_mappings
+                    # above - the mapping's destinationField is this
+                    # widget's pin NAME for cable-rendering/reconnect-
+                    # detection bookkeeping only (see NeoPixel.js's own
+                    # onModelChange comment), not read here; the real
+                    # pin comes from the widget's own 'pin' value
+                    # field, resolved in _build_neopixel_config().
+                    neopixel_mappings[view_wid] = m
                 elif type_id == 'GroveSensor':
                     grove_mappings.setdefault(view_wid, []).append(m)
                 elif type_id == 'OSCIn':
@@ -1341,8 +1371,59 @@ class StandaloneInterpreter:
                 steps.append(('hw_out', wid, hw_out_mappings[wid]['map']['destinationField']))
             if wid in display_mappings:
                 steps.append(('display_out', wid))
+            if wid in neopixel_mappings:
+                steps.append(('neopixel_out', wid))
 
         self.steps = steps
+
+    def _is_wired(self, wid, field):
+        """Is there a widget-to-widget wire actually feeding this
+        field right now, as opposed to it just sitting at whatever
+        static value the saved patch gave it? Mirrors NeoPixel.js's
+        own isWired() (same question, same reason: deciding whether a
+        wire should override an equivalent static config field).
+        Scans self.steps rather than the raw mappings list since
+        that's already exactly the 'map' steps that will actually run
+        each tick - cheap enough for a patch's handful of widgets, not
+        worth a precomputed index."""
+        for step in self.steps:
+            if step[0] == 'map' and step[3] == wid and step[4] == field:
+                return True
+        return False
+
+    def _build_neopixel_config(self, wid, pins):
+        """Ports NeoPixel.js's buildConfig()/getEffectiveColorRgb()/
+        getEffectiveBrightness() to Python - see NEOPIXEL_REQUEST's
+        own comment in firmata_server.py for the config shape this
+        has to match. Called every tick (not just once at claim time)
+        from tick()'s 'neopixel_out' step, same as hw_out re-reads
+        values['out'] every tick - this is where a wired speed/color/
+        brightness actually takes effect standalone."""
+        values = self.widgets[wid]['values']
+        mode = values.get('mode') or 'full'
+
+        if self._is_wired(wid, 'colorHue'):
+            hue = (_num(values.get('colorHue'), 0.0) / 1023.0) * 255.0
+            rgb = neopixel_output._colorwheel(int(hue))
+        else:
+            rgb = _hex_to_rgb(values.get('color'))
+
+        if mode != 'vu' and self._is_wired(wid, 'in'):
+            in_raw = max(0, min(1023, int(_num(values.get('in'), 0))))
+            brightness = in_raw / 1023.0
+        else:
+            brightness = max(0.0, min(1.0, _num(values.get('brightness'), 100) / 100.0))
+
+        return {
+            'pin': _pin_index_for_dpin(pins, values.get('pin')),
+            'numPixels': max(1, int(_num(values.get('numPixels'), 1))),
+            'bpp': 4 if values.get('pixelFormat') == 'RGBW' else 3,
+            'mode': mode,
+            'speed': int(_num(values.get('speed'), 0)),
+            'color': [rgb[0], rgb[1], rgb[2], 0],
+            'brightness': brightness,
+            'level': max(0, min(1023, int(_num(values.get('in'), 0)))),
+        }
 
     def claim_hardware(self):
         """Call once before ticking (or again after regaining control
@@ -1510,6 +1591,7 @@ class StandaloneInterpreter:
         fresh FirmataServer instance can claim the same physical pins
         without hitting "pin in use" errors."""
         self._fs.release_all_pins()
+        neopixel_output.release()
         for sub in self._grove_subscriptions.values():
             cleanup_fn = sub.get('cleanup')
             if cleanup_fn is not None:
@@ -1859,6 +1941,17 @@ class StandaloneInterpreter:
                     state['display_last_lines'] = list(lines)
                     state['display_last_sent'] = now
                     oled_display.set_lines(lines)
+            elif kind == 'neopixel_out':
+                # Unlike display_out above, no change-detection/
+                # throttle here - neopixel_output.set_config() is
+                # already cheap unless pin/numPixels/bpp actually
+                # changed (see its own docstring), and the actual
+                # pixel push is independently throttled inside
+                # neopixel_output.tick() itself (_MIN_TICK_INTERVAL_S).
+                wid = step[1]
+                config = self._build_neopixel_config(wid, fs.pins)
+                neopixel_output.set_config(fs, config)
+                neopixel_output.tick(fs)
             elif kind == 'osc_out':
                 wid = step[1]
                 w = self.widgets[wid]

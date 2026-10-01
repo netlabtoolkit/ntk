@@ -249,6 +249,14 @@ function( Backbone ) {
 					socket.emit('client:sendDisplayText', JSON.stringify( options ));
 				}
 			});
+			// NeoPixel widget's config message - same non-pin-write shape
+			// as Widget:sendDisplayText above (see StandardFirmataModel
+			// .js's sendNeoPixelConfig).
+			window.app.vent.on('Widget:sendNeoPixelConfig', function(options) {
+				if(window.app.server || !window.app.serverMode) {
+					socket.emit('client:sendNeoPixelConfig', JSON.stringify( options ));
+				}
+			});
 			window.app.vent.on('Widget:pullPatchFromDevice', function(options) {
 				if(window.app.server || !window.app.serverMode) {
 					socket.emit('client:pullPatchFromDevice', JSON.stringify( options ));
