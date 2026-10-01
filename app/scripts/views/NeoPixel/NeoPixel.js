@@ -34,6 +34,11 @@ function(Backbone, rivets, WidgetView, Template){
 		return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
 	}
 
+	function rgbToHex(rgb) {
+		function byteHex(v) { return ('0' + Math.max(0, Math.min(255, Math.round(v))).toString(16)).slice(-2); }
+		return '#' + byteHex(rgb[0]) + byteHex(rgb[1]) + byteHex(rgb[2]);
+	}
+
 	return WidgetView.extend({
 		typeID: 'NeoPixel',
 		deviceMode: 'OUTPUT',
@@ -209,6 +214,22 @@ function(Backbone, rivets, WidgetView, Template){
 				}
 			}
 
+			// Same reasoning/pattern as the brightness sync above -
+			// keeping `color` itself in sync with the colorHue wire
+			// (converted to a hex string) when it's actually wired
+			// means the color-picker swatch visibly reflects it,
+			// instead of silently diverging while buildConfig/
+			// renderPreview use the wire value underneath. Found
+			// 2026-10-01: "the color picker does not change on input
+			// from the 3rd inlet."
+			if(changed.colorHue !== undefined && this.isWired('colorHue')) {
+				var hue = (parseFloat(this.model.get('colorHue')) || 0) / 1023 * 255;
+				var hex = rgbToHex(colorwheel(hue));
+				if(this.model.get('color') !== hex) {
+					this.model.set('color', hex);
+				}
+			}
+
 			var inactiveModels = this.inactiveModelsExist();
 
 			// Same "changed.activeOut === true directly captures the
@@ -308,22 +329,11 @@ function(Backbone, rivets, WidgetView, Template){
 			return false;
 		},
 		// Resolves the actual color to use as an [r,g,b] array (0-255
-		// each) - the colorHue wire if one's connected (0-1023 read as
-		// a hue position on the same color wheel rainbow mode uses),
-		// otherwise the color picker's own hex field. Shared by
-		// buildConfig() and renderPreview() so both agree, and
-		// deliberately NOT implemented as colorHue side-effecting the
-		// `color` model field from inside onModelChange (the original,
-		// now-removed design) - that meant calling model.set() again
-		// from inside an in-flight 'change' handler for the SAME
-		// model, a reentrancy pattern that turned out not to reliably
-		// trigger the resend this widget depends on. Found 2026-10-01:
-		// "the color inlet doesn't seem to work."
+		// each) from the plain color-picker hex field - onModelChange
+		// keeps `color` itself synced to the colorHue wire whenever
+		// it's actually connected, so there's nothing extra to resolve
+		// here (same shape as getEffectiveBrightness() below).
 		getEffectiveColorRgb: function() {
-			if(this.isWired('colorHue')) {
-				var hue = (parseFloat(this.model.get('colorHue')) || 0) / 1023 * 255;
-				return colorwheel(hue);
-			}
 			return hexToRgb(this.model.get('color'));
 		},
 		// Resolves brightness (0-1) from the plain more-panel field -
