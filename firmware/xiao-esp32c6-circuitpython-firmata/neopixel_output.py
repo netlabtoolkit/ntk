@@ -124,7 +124,26 @@ def release():
     """Call when a connection ends (alongside firmata.release_all_pins())
     so a dropped connection doesn't leave the strip frozen on its last
     frame - mirrors release_all_pins()'s own "fresh FirmataServer per
-    connection" reasoning."""
+    connection" reasoning.
+
+    Writes one all-off frame before tearing down, deliberately NOT
+    folded into _teardown() itself (set_config() also calls that, on
+    every pin/numPixels/bpp change, which must stay a silent rebuild -
+    flashing the strip off on every routine reconfigure would be its
+    own new bug). Hardware-verified gap, 2026-10-01: without this, a
+    standalone pattern cut off mid-animation by run_server()'s handoff
+    (release_hardware(), called right after accept()s a new client -
+    see its own comment) left the strip holding whatever raw color
+    data was last shifted into it, for however long the new live
+    connection then took to send its own first real config - read on
+    the strip as "flashes randomly, then settles" rather than a clean
+    off-then-on."""
+    if _strip is not None:
+        try:
+            _strip.fill((0, 0, 0, 0) if _strip.bpp == 4 else (0, 0, 0))
+            _strip.show()
+        except Exception:
+            pass
     _teardown()
     global _config
     _config = {}
