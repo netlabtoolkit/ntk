@@ -184,6 +184,10 @@ def _get_color():
     return (c[0], c[1], c[2])
 
 
+_PERIOD_MAX_S = 6.0  # speed=1, slowest
+_PERIOD_MIN_S = 0.3  # speed=100, fastest
+
+
 def _speed_to_period_s(speed):
     """speed: 0-100 widget scale -> seconds per full cycle (one chase
     lap, one rainbow revolution). Deliberately inverted (higher speed =
@@ -191,9 +195,21 @@ def _speed_to_period_s(speed):
     otherwise mean "never move" via a divide-by-zero, not "stopped but
     still a valid period." Range (0.3s very fast .. 6s very slow) isn't
     from any spec - just what looked right against the hands-on D7
-    spike's strip."""
+    spike's strip.
+
+    Geometric (log-spaced), not linear, between the two endpoints -
+    found 2026-10-01: perceived speed tracks roughly 1/period (how
+    many laps per second), not period itself, so interpolating period
+    LINEARLY makes 1/period change slowly across most of the slider
+    and then shoot up right at the end - nearly all the perceptible
+    variation was concentrated in one part of the 0-100 range instead
+    of spread across it. A geometric interpolation keeps the RATIO
+    between consecutive speed steps constant instead, which is the
+    same reason audio pitch/playback-speed controls are log-scaled
+    rather than linear."""
     speed = max(1, min(100, int(speed or 1)))
-    return 6.0 - (speed - 1) * (5.7 / 99)
+    t = (speed - 1) / 99.0  # 0.0 .. 1.0
+    return _PERIOD_MAX_S * ((_PERIOD_MIN_S / _PERIOD_MAX_S) ** t)
 
 
 _phase = 0.0  # 0.0-1.0, shared by chase/rainbow (mutually exclusive

@@ -11,10 +11,16 @@ function(Backbone, rivets, WidgetView, Template){
 	// mapping as neopixel_output.py's own _speed_to_period_s (kept in
 	// sync by eye, not by sharing code across JS/Python - the firmware
 	// is what actually drives the strip, this is only the simulated
-	// preview's version of the same motion).
+	// preview's version of the same motion). Geometric, not linear -
+	// see that function's own comment for why (perceived speed tracks
+	// 1/period, so a linear period mapping concentrates nearly all the
+	// perceptible change into one end of the 0-100 range).
+	var PERIOD_MAX_S = 6.0;
+	var PERIOD_MIN_S = 0.3;
 	function speedToPeriodS(speed) {
 		speed = Math.max(1, Math.min(100, parseInt(speed, 10) || 1));
-		return 6.0 - (speed - 1) * (5.7 / 99);
+		var t = (speed - 1) / 99;
+		return PERIOD_MAX_S * Math.pow(PERIOD_MIN_S / PERIOD_MAX_S, t);
 	}
 
 	// Same pure-Python colorwheel() neopixel_output.py falls back to

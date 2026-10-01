@@ -1072,6 +1072,40 @@ def run_server():
             led_tick()
             if _standalone is not None:
                 _standalone.tick()
+                # This loop only reaches tick() once per accept() poll
+                # (10Hz - see settimeout()'s own hard-won history just
+                # below, NOT to be shortened again) - too slow for a
+                # fast NeoPixel chase/rainbow to look smooth (found
+                # 2026-10-01: visibly skips LEDs above speed 60, smooth
+                # in live/controlled mode where the serving loop has no
+                # equivalent ceiling). Squeezing in a few extra ticks
+                # here, WITHOUT touching accept()'s own timeout/syscall
+                # rate, isolates the one variable (tick() rate) from
+                # the one already confirmed to compete with the WiFi
+                # stack (accept() syscalls) - not yet independently
+                # hardware-verified that this isolation actually holds,
+                # only that it doesn't touch the same mechanism.
+                # Gated on the patch actually having a NeoPixel step so
+                # every other standalone patch keeps its existing 10Hz
+                # responsiveness untouched - this trades some of that
+                # polling rate away (adds ~100ms per iteration) only
+                # when something's actually using it.
+                #
+                # 0.034s between ticks, not 0.025s (the first attempt,
+                # hardware-verified 2026-10-01 to make NO difference) -
+                # neopixel_output.tick()'s own internal throttle
+                # (_MIN_TICK_INTERVAL_S, 1/30s ~= 0.0333s) silently
+                # no-ops any call sooner than that since the last REAL
+                # update, so 0.025s-spaced calls were mostly being
+                # swallowed rather than producing extra frames at all -
+                # this wasn't a "not enough improvement" gap, it was
+                # close to zero improvement. Spacing just past the
+                # throttle's own floor means every one of these calls
+                # should count.
+                if any(step[0] == 'neopixel_out' for step in _standalone.steps):
+                    for _ in range(3):
+                        time.sleep(0.034)
+                        _standalone.tick()
             _check_keypress()
             if not reset_count_cleared and time.monotonic() - server_started_at > 30:
                 clear_reset_loop_count()

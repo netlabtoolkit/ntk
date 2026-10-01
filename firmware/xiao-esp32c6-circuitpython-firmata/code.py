@@ -1,3 +1,8 @@
+# Firmware build: 2026-10-01 16:06 CEST - update this (and the matching
+# print() further down) on every deploy to CIRCUITPY, so it's visible
+# both in Thonny's editor view (before even running anything - Thonny
+# doesn't always reload a changed file automatically) and in the
+# console at boot.
 """
 NTK Firmata bridge for Seeed XIAO ESP32 boards (C6 and S3 Sense both
 run from this same directory - only pins.py differs between them;
@@ -73,6 +78,20 @@ try:
     print("NTK version:", _ntk_version.NTK_VERSION)
 except ImportError:
     pass
+
+# Separate from ntk_version.py above (that one tracks the NTK *app*'s
+# own release version, only updated by a packaged build) - this one is
+# a plain hand-maintained stamp of when these firmware FILES were last
+# actually edited, updated by whoever's deploying a change directly to
+# CIRCUITPY during active development. Added 2026-10-01 after several
+# rounds of "did my last file copy actually take effect, or is the
+# board still running what was there before" during hands-on firmware
+# iteration - CircuitPython's auto-reload-on-file-write doesn't always
+# visibly trigger (seen hands-on: a board kept running old code until
+# manually reset, with no indication anything was wrong), so this is
+# the one unambiguous way to confirm what's actually running without
+# re-reading every file's own content over serial.
+print("Firmware build:", "2026-10-01 16:06 CEST")
 
 # A byte on the serial console in the next few seconds drops straight
 # to the REPL, before anything below can hang or crash. Kept here,
