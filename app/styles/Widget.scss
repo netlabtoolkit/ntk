@@ -561,6 +561,20 @@ body.ntk-monitoring .monitorBlockOverlay {
                 width: 40px;
             }
 
+            // Every widget's port field copy-pastes the same
+            // <input class="port"> with no .moreParam class, so it
+            // falls through to the generic input[type=text] rule
+            // below (max-width:100%, i.e. this panel's full fixed
+            // width) - a port number is at most 5 digits, so that
+            // reads as oversized. .address (the IP field) is
+            // deliberately left alone - it actually needs the extra
+            // width. Bare .port, not .devicePort .port - OSCIn's own
+            // port field isn't wrapped in a .devicePort div at all,
+            // unlike every other widget's copy of this snippet.
+            .port {
+                width: 50px;
+            }
+
             // Anything else text-like (address/port fields, the serial
             // port select) fills the fixed content width above instead of
             // sizing to its own content/native default. textarea needs
@@ -2326,5 +2340,58 @@ body.ntk-monitoring .monitorBlockOverlay {
         background-color: #ff0000;
         box-shadow: 0 0 6px 2px #ff0000;
         pointer-events: none;
+    }
+}
+
+// NeoPixel's "more" panel has longer labels ("brightness", "format",
+// "preview") and a mode select whose longest option ("VU meter") is
+// wider than the shared 40px .moreParam - the shared .content rules
+// assume short labels + narrow fields (same documented tradeoff
+// .llmMore/.speechOutMore already override for their own reasons), so
+// this gets the same per-widget override treatment: a wider panel,
+// a wider label column (pushing the field column right, per request),
+// and wider fields.
+.widgetBottom .content.neoPixelMore {
+    width: 260px;
+
+    .narrowLabel {
+        width: 70px;
+    }
+
+    .moreParam {
+        width: 100px;
+    }
+}
+
+// NeoPixel's simulated preview - see NeoPixel.js's renderPreview()/
+// layoutPreview() for how the pixel colors/positions are actually
+// computed; this is just the static shell. "Strip" is a plain flex
+// row (no inline positioning needed - layoutPreview() clears any left
+// over from a previous "Ring" selection); "Ring" switches each .pixel
+// to absolute positioning, with layoutPreview() placing them via cos/
+// sin around the container's own center.
+.neoPixel {
+    .widgetBody .neoPixelPreview {
+        position: relative;
+        margin: 4px;
+        height: 80px;
+        box-sizing: border-box;
+        display: flex;
+        flex-wrap: wrap;
+        align-content: flex-start;
+        gap: 2px;
+
+        &.ring {
+            display: block;
+        }
+
+        .pixel {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #000;
+            border: 1px solid #333;
+            flex: 0 0 auto;
+        }
     }
 }

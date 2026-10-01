@@ -149,6 +149,16 @@ DEVICE_STATUS_REPLY = 0x0D  # device -> host, one byte: DEVICE_STATUS_WAITING or
 DEVICE_STATUS_WAITING = 1  # no standalone patch loaded
 DEVICE_STATUS_STANDALONE = 2  # a standalone patch is loaded (running or paused)
 
+# Custom sysex extension for the NeoPixel widget - lets NTK configure
+# an addressable LED strip's pin/pixel-count/format/mode/speed/color/
+# brightness (and, in "vu" mode, a live meter level) in one message.
+# Host -> device only, no reply - same low-stakes "a failed/absent
+# strip just doesn't light up" rationale DISPLAY_TEXT_REQUEST already
+# uses. Payload is a JSON object, same byte-pair string encoding
+# DISPLAY_TEXT_REQUEST/patch JSON already use. Last free ID in the
+# 0x01-0x0F custom range.
+NEOPIXEL_REQUEST = 0x0E  # host -> device, JSON object
+
 # Pin modes - matches board.MODES in firmata-io exactly (these values are
 # part of the wire protocol, not an internal implementation detail).
 INPUT = 0x00
@@ -348,6 +358,12 @@ class FirmataServer:
         # outside what this class otherwise does, same reasoning as
         # pending_push_patch's own comment above).
         self.pending_display_text = None
+        # Set by NEOPIXEL_REQUEST (see _dispatch_sysex below) - same
+        # shape/reasoning as pending_display_text above (holds the
+        # decoded raw JSON string, None until one arrives; JSON parsing
+        # and the actual neopixel_output.set_config() call happen in
+        # ntk_firmata_main.py's run_server() loop).
+        self.pending_neopixel_config = None
 
         self._drive_unclaimed_pins_low()
 
@@ -505,6 +521,11 @@ class FirmataServer:
                 self.pending_display_text = _decode_sysex_string(payload[1:])
             except Exception as e:
                 print("DISPLAY_TEXT_REQUEST decode failed:", e)
+        elif cmd == NEOPIXEL_REQUEST:
+            try:
+                self.pending_neopixel_config = _decode_sysex_string(payload[1:])
+            except Exception as e:
+                print("NEOPIXEL_REQUEST decode failed:", e)
         # Anything else (generic I2C/string/one-wire/stepper) - out of scope, ignore.
 
     # ---------------- outgoing responses ----------------

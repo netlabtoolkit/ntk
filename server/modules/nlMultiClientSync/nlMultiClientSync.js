@@ -467,6 +467,23 @@ module.exports = function(options) {
 				}
 			});
 
+			// Same shape as client:sendDisplayText above - see
+			// StandardFirmataModel.js's sendNeoPixelConfig for why this
+			// bypasses the generic sendDeviceModelUpdate/.set() pin-write
+			// pipeline.
+			socket.on('client:sendNeoPixelConfig', function(data) {
+				var options = JSON.parse(data);
+				if(self.hardwareModels[options.hardwareKey] == undefined) {
+					var typeAddressPort = options.hardwareKey.split(':');
+					self.hardwareModels[options.hardwareKey] = new nlHardware({deviceType: options.hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
+					self.bindModelToTransport(self.hardwareModels[options.hardwareKey]);
+				}
+				var hardwareModel = self.hardwareModels[options.hardwareKey];
+				if(typeof hardwareModel.sendNeoPixelConfig === 'function') {
+					hardwareModel.sendNeoPixelConfig(options.config);
+				}
+			});
+
 			socket.on('client:pullPatchFromDevice', function(data) {
 				var options = JSON.parse(data);
 				if(self.hardwareModels[options.hardwareKey] == undefined) {

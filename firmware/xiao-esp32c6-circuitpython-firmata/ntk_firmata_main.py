@@ -1,5 +1,7 @@
 """
-NTK Firmata bridge for the Seeed XIAO ESP32-C6, running CircuitPython.
+NTK Firmata bridge for Seeed XIAO ESP32 boards (C6 and S3 Sense both
+run from this same directory - only pins.py differs between them).
+The directory name is historical (this started as C6-only).
 
 Speaks the same byte-level Firmata protocol as Arduino's official
 "StandardFirmataWiFi" sketch, over a plain TCP socket on port 3030 - so
@@ -40,6 +42,7 @@ import wifi
 import socketpool
 import microcontroller
 import oled_display
+import neopixel_output
 
 try:
     import watchdog as _watchdog
@@ -633,6 +636,25 @@ def _handle_display_text_request(firmata):
             oled_display.set_lines(lines)
     except Exception as e:
         print("Display widget: bad DISPLAY_TEXT_REQUEST payload:", e)
+
+
+def _handle_neopixel_request(firmata):
+    """Called from run_server()'s main per-connection loop when
+    firmata.pending_neopixel_config is set (see firmata_server.py's
+    NEOPIXEL_REQUEST handling) - decodes the JSON config object the
+    NeoPixel widget sent and hands it to neopixel_output.set_config().
+    No reply sent, no throttle here - the widget itself throttles its
+    own vu-mode stream (the only mode that sends anywhere near often),
+    same division of responsibility DIGITAL_MESSAGE/ANALOG_MESSAGE
+    already have (firmware just applies whatever it's sent, the sender
+    paces itself)."""
+    payload = firmata.pending_neopixel_config
+    firmata.pending_neopixel_config = None
+    try:
+        config = json.loads(payload)
+        neopixel_output.set_config(firmata, config)
+    except Exception as e:
+        print("NeoPixel widget: bad NEOPIXEL_REQUEST payload:", e)
 
 
 def _handle_pull_patch_request(firmata):
@@ -1233,11 +1255,23 @@ def run_server():
                         _handle_reload_standalone_request(firmata)
                     elif firmata.pending_display_text is not None:
                         _handle_display_text_request(firmata)
+                    elif firmata.pending_neopixel_config is not None:
+                        _handle_neopixel_request(firmata)
+
+                # Unconditional, not part of the elif chain above - the
+                # strip free-runs its pattern off time.monotonic() every
+                # iteration regardless of whether any sysex request
+                # arrived this one (see neopixel_output.py's own module
+                # docstring for why). Self-throttled internally, so this
+                # is a cheap no-op both when nothing's configured yet and
+                # on every iteration faster than its own tick interval.
+                neopixel_output.tick(firmata)
 
                 if disconnected:
                     break
         finally:
             firmata.release_all_pins()
+            neopixel_output.release()
             try:
                 conn.close()
             except Exception:
