@@ -60,7 +60,7 @@ function(Backbone, rivets, WidgetView, Template){
 		// specific pixel"), and on reflection neither was judged worth
 		// an inlet of its own.
 		ins: [
-			{title: 'in (vu level)', to: 'in'},
+			{title: 'in (vu level / brightness)', to: 'in'},
 			{title: 'speed', to: 'speed'},
 			{title: 'color', to: 'colorHue'},
 		],
@@ -185,6 +185,30 @@ function(Backbone, rivets, WidgetView, Template){
 				this.layoutPreview();
 			}
 
+			// 'in' wire (vu level / brightness, see the `ins` comment
+			// above) carries a 0-1023 value - NTK's standard inlet
+			// range, matching colorHue/vu-level's own convention - but
+			// the more-panel brightness field is 0-100. Keeping
+			// `brightness` itself in sync with the wire (converted to
+			// the same 0-100 scale) when it's actually driving
+			// brightness means the panel field visibly reflects what's
+			// happening instead of silently diverging, and buildConfig/
+			// renderPreview can just read `brightness` directly with no
+			// separate resolver. Reentrant model.set() from inside
+			// onModelChange is an established safe pattern already used
+			// by AnalogOut/DigitalOut/Display's own identical
+			// `activeOut: false` resets above - the EARLIER colorHue
+			// bug that made this seem risky was actually just colorHue
+			// never being initialized as a model attribute at all (see
+			// its own initialize() comment), unrelated to reentrancy.
+			if(changed.in !== undefined && this.model.get('mode') !== 'vu' && this.isWired('in')) {
+				var inRaw = Math.max(0, Math.min(1023, parseInt(this.model.get('in'), 10) || 0));
+				var brightnessPercent = Math.round(inRaw / 1023 * 100);
+				if(this.model.get('brightness') !== brightnessPercent) {
+					this.model.set('brightness', brightnessPercent);
+				}
+			}
+
 			var inactiveModels = this.inactiveModelsExist();
 
 			// Same "changed.activeOut === true directly captures the
@@ -302,6 +326,14 @@ function(Backbone, rivets, WidgetView, Template){
 			}
 			return hexToRgb(this.model.get('color'));
 		},
+		// Resolves brightness (0-1) from the plain more-panel field -
+		// onModelChange keeps `brightness` itself synced to the 'in'
+		// wire (converted to the same 0-100 scale) whenever it's
+		// actually driving brightness (non-vu mode, something wired),
+		// so there's nothing extra to resolve here.
+		getEffectiveBrightness: function() {
+			return Math.max(0, Math.min(1, (parseFloat(this.model.get('brightness')) || 0) / 100));
+		},
 		// Wire-ready config object - see NEOPIXEL_REQUEST's own comment
 		// in firmata_server.py/neopixel_output.py for the exact shape.
 		buildConfig: function() {
@@ -313,7 +345,7 @@ function(Backbone, rivets, WidgetView, Template){
 				mode: this.model.get('mode'),
 				speed: parseInt(this.model.get('speed'), 10) || 0,
 				color: [rgb[0], rgb[1], rgb[2], 0],
-				brightness: Math.max(0, Math.min(1, (parseFloat(this.model.get('brightness')) || 0) / 100)),
+				brightness: this.getEffectiveBrightness(),
 				level: Math.max(0, Math.min(1023, parseInt(this.model.get('in'), 10) || 0)),
 			};
 		},
@@ -347,6 +379,19 @@ function(Backbone, rivets, WidgetView, Template){
 			}
 
 			if(!app.server) {
+				// render() regenerates this widget's entire DOM from its
+				// template (Backbone/Marionette re-render - not just
+				// triggered by numPixels/previewShape changing, which
+				// rebuildPixelIndexes() already handles, but also by
+				// e.g. Patcher.js's mapToModel() calling view.render()
+				// on every hardware connect/reconnect) - the fresh
+				// .pixel divs have no inline style yet (CSS default is
+				// black), but renderPreview()'s skip-if-unchanged color
+				// cache doesn't know that and would otherwise think
+				// they're already painted correctly, leaving them stuck
+				// black. Found 2026-10-01: "the simulated display goes
+				// black when I connect."
+				this._lastPixelColors = [];
 				this.layoutPreview();
 				this._previewFrameCallback = this.renderPreview;
 				window.app.timingController.registerFrameCallback(this._previewFrameCallback, this);
@@ -503,7 +548,7 @@ function(Backbone, rivets, WidgetView, Template){
 			// chase in particular this also cuts the writes from N
 			// pixels/frame down to ~1-2, which it should be anyway.
 			if(!this._lastPixelColors) { this._lastPixelColors = []; }
-			var brightness = Math.max(0, Math.min(1, (parseFloat(this.model.get('brightness')) || 0) / 100));
+			var brightness = this.getEffectiveBrightness();
 			for(i=0; i<n; i++) {
 				var c = colors[i];
 				var css = 'rgb(' + Math.round(c[0] * brightness) + ',' + Math.round(c[1] * brightness) + ',' + Math.round(c[2] * brightness) + ')';

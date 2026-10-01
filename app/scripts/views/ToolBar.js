@@ -268,16 +268,29 @@ function( app, Backbone, Template, Widgets ) {
 			var defaultDevice = window.app.defaultDevice;
 			if(defaultDevice.deviceType !== 'network' || !defaultDevice.server || defaultDevice.server === 'auto') {
 				this.renderDeviceStatus(null);
+				this._lastSettledHostPort = null;
 				return;
 			}
-			// Shown immediately, not left blank/hidden until the poll
-			// actually returns - a real device check can take a few
-			// seconds (DeviceStatusCheck.js's own up-to-8s timeout for
-			// .local hostnames), and leaving the bar empty that whole
-			// time reads as "broken" rather than "checking" (same
-			// principle as this project's other state-visibility fixes -
-			// see CLAUDE.md's widget design principles).
-			this.renderDeviceStatus('pending');
+			// Shown immediately, not left blank/hidden, only for the
+			// FIRST check of a given host:port (or right after it
+			// changes) - a real device check can take a few seconds
+			// (DeviceStatusCheck.js's own up-to-8s timeout for .local
+			// hostnames), and leaving the bar empty that whole time
+			// reads as "broken" rather than "checking" (same principle
+			// as this project's other state-visibility fixes - see
+			// CLAUDE.md's widget design principles). Reported
+			// 2026-10-01: showing this on EVERY recurring poll (every
+			// ~10s, see startDeviceStatusPolling) made the bar flicker
+			// to "Checking..." and back even when the status hadn't
+			// changed at all - once a real result has settled for this
+			// host:port, stay on it until the result itself changes (or
+			// the host:port does) rather than re-flashing "pending" on
+			// every single poll cycle. See onDeviceStatusResult() for
+			// where _lastSettledHostPort gets set.
+			var hostPort = defaultDevice.server + ':' + (defaultDevice.port || 3030);
+			if(this._lastSettledHostPort !== hostPort) {
+				this.renderDeviceStatus('pending');
+			}
 			window.app.vent.trigger('checkDeviceStatus', {
 				host: defaultDevice.server,
 				port: defaultDevice.port || 3030,
@@ -292,6 +305,7 @@ function( app, Backbone, Template, Widgets ) {
 			if(result.host !== defaultDevice.server || result.port !== (defaultDevice.port || 3030)) {
 				return;
 			}
+			this._lastSettledHostPort = result.host + ':' + result.port;
 			// null here means the probe itself failed/timed out (device
 			// genuinely unreachable - powered off, wrong IP, etc.) -
 			// distinct from pollDeviceStatus's own null (no network
