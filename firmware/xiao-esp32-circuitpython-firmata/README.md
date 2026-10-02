@@ -60,28 +60,40 @@ mounted `CIRCUITPY` drive works too.
 
    There's also an `NTK_MDNS_HOSTNAME` setting to point NTK at a
    `<name>.local` address instead of the IP - see **mDNS hostname**
-   below for why it's not usable yet.
+   below for its mixed track record so far.
 
-## mDNS hostname (not working yet)
+## mDNS hostname (works on some networks, not others)
 
-**Hardware-verified 2026-09-23: this doesn't actually work on
-CircuitPython 10.3.1 / this board yet.** `code.py` sets up `mdns.Server`
-correctly (hostname set, `advertise_service()` called, no errors, the
-console prints the expected line) but the board never answers mDNS
-queries from other devices - confirmed with both a direct query and a
-service browse from a Mac, against a network that resolves other real
-mDNS devices (AirPlay/HomeKit/printers) fine. Left in place since it's
-harmless when set and may start working on a future CircuitPython
-release. Use the IP address from the boot console (or SoftAP's fixed
-`192.168.4.1`) for now.
+Set `NTK_MDNS_HOSTNAME = "ntk-device"` (or any name you like) in
+`settings.toml` and the board advertises itself as `ntk-device.local`
+on your network - point NTK's Device field at that name and port
+`3030` instead of an IP address, and it keeps working even if the
+router hands out a different IP later. Station mode only (SoftAP
+already has a fixed IP, `192.168.4.1`). Running more than one board on
+the same network? Give each a different hostname.
 
-The intent, once it works: set `NTK_MDNS_HOSTNAME = "ntk-device"` (or
-any name you like) in `settings.toml` and the board would advertise
-itself as `ntk-device.local` on your network - point NTK's Device field
-at that name and port `3030` instead of an IP address, and it would
-keep working even if the router hands out a different IP later. Station
-mode only (SoftAP already has a fixed IP, `192.168.4.1`). Running more
-than one board on the same network? Give each a different hostname.
+**Inconsistent results across two separate hardware tests, same board/
+CircuitPython version, cause not yet identified:**
+- **2026-09-23: didn't work.** `code.py` set up `mdns.Server` with no
+  errors (hostname set, `advertise_service()` called, console printed
+  the expected line), but the board never answered mDNS queries from
+  other devices - confirmed with both a direct query and a service
+  browse from a Mac, against a network that resolved other real mDNS
+  devices (AirPlay/HomeKit/printers) fine, so the network itself wasn't
+  the obvious culprit at the time.
+- **2026-10-02: worked.** Typed `ntk-device-2.local` directly into
+  NTK's Device field and it resolved and connected successfully, no
+  code changes to the mDNS setup itself between the two tests.
+- Likely explanation, not confirmed: the WiFi network/router was
+  different between the two tests (this session separately hit a
+  subnet mismatch after a network change), and multicast/mDNS handling
+  varies by router even when it resolves other mDNS devices fine -
+  but this hasn't actually been isolated by testing the same board on
+  both networks back to back.
+
+Harmless either way (nothing breaks if it doesn't resolve on your
+network) - worth trying, and falling back to the plain IP address from
+the boot console (or SoftAP's fixed `192.168.4.1`) if it doesn't.
 Needs a resolver that understands mDNS/
 Bonjour - built into macOS, may need [Bonjour Print
 Services](https://support.apple.com/kb/DL999) installed on Windows.

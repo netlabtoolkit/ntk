@@ -1,4 +1,4 @@
-# Firmware build: 2026-10-01 16:06 CEST - update this (and the matching
+# Firmware build: 2026-10-02 11:29 CET - update this (and the matching
 # print() further down) on every manual/dev deploy to CIRCUITPY, so
 # it's visible both in Thonny's editor view (before even running
 # anything - Thonny doesn't always reload a changed file automatically)
@@ -80,7 +80,7 @@ except ImportError:  # not every CircuitPython build ships it
 # re-reading every file's own content over serial. Previously paired
 # with a separate ntk_version.py (dropped 2026-10-02 as redundant once
 # this line started covering the packaged-release case too).
-print("Firmware build:", "2026-10-01 16:06 CEST")
+print("Firmware build:", "2026-10-02 11:29 CET")
 
 # A byte on the serial console in the next few seconds drops straight
 # to the REPL, before anything below can hang or crash. Kept here,
