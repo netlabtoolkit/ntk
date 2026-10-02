@@ -28,7 +28,10 @@ files on the device over its serial/REPL connection instead.
 
 1. In Thonny's file browser, copy `code.py`, `ntk_firmata_main.py`,
    `firmata_server.py`, and `pins.py` onto the board (overwriting any
-   existing `code.py`).
+   existing `code.py`). This directory's own `pins.py` is the XIAO
+   ESP32-C6 table - if deploying to a XIAO ESP32-S3 Sense instead
+   (this directory covers both, despite the C6-specific name), copy
+   `pins_s3.py` instead, renamed to `pins.py` on the board.
 2. Copy `settings-example.toml` to `settings.toml` on the board the same
    way, and fill in your WiFi SSID/password.
 3. The board will reset and run `code.py` automatically. Watch the
