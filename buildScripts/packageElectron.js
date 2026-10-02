@@ -33,16 +33,25 @@ const ENTITLEMENTS = path.join(__dirname, 'entitlements.mac.plist');
 
 // Bundled into every release zip alongside NTK.app, so someone who only
 // downloaded the app still has everything needed to flash a matching
-// XIAO ESP32-C6 board - see firmware/xiao-esp32c6-circuitpython-firmata/
+// XIAO ESP32-C6 board - see firmware/xiao-esp32-circuitpython-firmata/
 // README.md for the full dev-facing version this is adapted from.
-const FIRMWARE_SRC_DIR = path.join(__dirname, '..', 'firmware', 'xiao-esp32c6-circuitpython-firmata');
-// standalone_interpreter.mpy, not the .py source - importing it as raw
-// source on-device fragments the heap enough to degrade WiFi
+const FIRMWARE_SRC_DIR = path.join(__dirname, '..', 'firmware', 'xiao-esp32-circuitpython-firmata');
+// firmware/common/ holds everything verbatim-identical across every
+// firmware tree (confirmed via diff 2026-10-02, when it was split out of
+// what had been two hand-synced copies) - only the genuinely board-
+// specific files (code.py, ntk_firmata_main.py, pins.py, oled_display.py,
+// and the compiled standalone_interpreter.mpy) still live under
+// FIRMWARE_SRC_DIR above.
+const COMMON_FIRMWARE_SRC_DIR = path.join(__dirname, '..', 'firmware', 'common');
+// standalone_interpreter.mpy, not the .py source (that source lives in
+// firmware/common/, but only ever gets bundled compiled) - importing it
+// as raw source on-device fragments the heap enough to degrade WiFi
 // reliability (see circuitpython_firmata_firmware notes / CLAUDE.md's
 // mpy-cross rule). Never bundle both - CircuitPython's import
 // resolution between a same-named .py and .mpy in one directory isn't
 // something to rely on; ship only the one that's actually safe.
-const FIRMWARE_FILES = ['boot.py', 'code.py', 'ntk_firmata_main.py', 'firmata_server.py', 'oled_display.py', 'pins.py', 'standalone_interpreter.mpy', 'settings-example.toml'];
+const FIRMWARE_FILES = ['code.py', 'ntk_firmata_main.py', 'oled_display.py', 'pins.py', 'standalone_interpreter.mpy'];
+const COMMON_FIRMWARE_FILES = ['boot.py', 'firmata_server.py', 'neopixel_output.py', 'settings-example.toml'];
 const CIRCUITPYTHON_README = `# CircuitPython firmware for the Seeed XIAO ESP32-C6
 
 Turns a Seeed XIAO ESP32-C6 into an NTK "Network" device over WiFi - no
@@ -252,26 +261,41 @@ function writeVersionMarker(destDir) {
 
 function bundleCircuitPythonFirmware(destDir) {
 	fs.mkdirSync(destDir, { recursive: true });
+	for (const file of COMMON_FIRMWARE_FILES) {
+		fs.copyFileSync(path.join(COMMON_FIRMWARE_SRC_DIR, file), path.join(destDir, file));
+	}
 	for (const file of FIRMWARE_FILES) {
 		fs.copyFileSync(path.join(FIRMWARE_SRC_DIR, file), path.join(destDir, file));
 	}
-	// code.py prints this at boot if present (try/except ImportError,
-	// see its own comment) - a manual/dev deploy via Thonny has no such
-	// file and just skips the print, which is the expected case, not an
-	// error. A single string constant, not compiled to .mpy - matches
-	// every other small firmware file here (only standalone_interpreter
-	// is large enough to need that).
-	fs.writeFileSync(
-		path.join(destDir, 'ntk_version.py'),
-		`NTK_VERSION = ${JSON.stringify(pkg.version)}\n`
-	);
+	// code.py's own "Firmware build" stamp (a comment at the top of the
+	// file, plus a matching print()) is hand-maintained during manual/dev
+	// deploys (see its own comment there) - stamp both with the actual
+	// package version here instead, so a packaged release prints
+	// something meaningful rather than whatever dev timestamp happened
+	// to be last committed. Replaces a separate ntk_version.py file that
+	// used to be written here (dropped 2026-10-02 as redundant once this
+	// same stamp started covering the packaged-release case too).
+	const codePyPath = path.join(destDir, 'code.py');
+	const buildStamp = `${pkg.version} (packaged ${new Date().toISOString().slice(0, 10)})`;
+	let codePy = fs.readFileSync(codePyPath, 'utf8');
+	codePy = codePy.replace(/(# Firmware build: ).+?( - update this)/, `$1${buildStamp}$2`);
+	codePy = codePy.replace(/print\("Firmware build:", ".+?"\)/, `print("Firmware build:", ${JSON.stringify(buildStamp)})`);
+	fs.writeFileSync(codePyPath, codePy);
 	// Third-party CircuitPython driver .mpy files (adafruit_dht,
 	// adafruit_lis3dh, and their own dependencies) - a real directory
 	// tree, not flat files, so copied wholesale rather than listed
-	// individually like FIRMWARE_FILES above.
-	const libSrcDir = path.join(FIRMWARE_SRC_DIR, 'lib');
-	if (fs.existsSync(libSrcDir)) {
-		fs.cpSync(libSrcDir, path.join(destDir, 'lib'), { recursive: true });
+	// individually like FIRMWARE_FILES/COMMON_FIRMWARE_FILES above.
+	// firmware/common/lib holds everything shared across every firmware
+	// tree; a board can also have its own lib/ on top for a driver only
+	// it needs (e.g. Pico W's adafruit_httpserver) - copy common's first,
+	// then layer the board's own over it if one exists.
+	const commonLibDir = path.join(COMMON_FIRMWARE_SRC_DIR, 'lib');
+	if (fs.existsSync(commonLibDir)) {
+		fs.cpSync(commonLibDir, path.join(destDir, 'lib'), { recursive: true });
+	}
+	const boardLibDir = path.join(FIRMWARE_SRC_DIR, 'lib');
+	if (fs.existsSync(boardLibDir)) {
+		fs.cpSync(boardLibDir, path.join(destDir, 'lib'), { recursive: true });
 	}
 	fs.writeFileSync(path.join(destDir, 'readme.md'), CIRCUITPYTHON_README);
 }

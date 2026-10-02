@@ -3,7 +3,7 @@ define([], function() {
 
     /**
      * Client-side catalog for the GroveSensor widget - hand-kept in sync
-     * with firmware/xiao-esp32c6-circuitpython-firmata/pins.py's
+     * with firmware/xiao-esp32-circuitpython-firmata/pins.py's
      * GROVE_SENSOR_CATALOG (same sensor ids, same reading order). Not
      * transmitted over the wire - see firmata_server.py's module
      * docstring for why a wire-transmitted catalog was skipped for v1.

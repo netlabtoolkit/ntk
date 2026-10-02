@@ -578,7 +578,7 @@ Mirrors the OSCIn/OSCOut build (`standalone-patch-export.md`,
 2026-09-23):
 
 - Vendor `adafruit_minimqtt` (+ its `adafruit_ticks` dependency) into
-  `firmware/xiao-esp32c6-circuitpython-firmata/lib/`.
+  `firmware/xiao-esp32-circuitpython-firmata/lib/`.
 - `standalone_interpreter.py`: add `CloudIn`/`CloudOut` to
   `PORTABLE_TYPE_IDS`/`CHAIN_TYPES`, new `cloud_in`/`cloud_out` step
   kinds in `_build_steps()`, a `_claim_cloud()`/`_release_cloud()` pair

@@ -1,8 +1,12 @@
 # Firmware build: 2026-10-01 16:06 CEST - update this (and the matching
-# print() further down) on every deploy to CIRCUITPY, so it's visible
-# both in Thonny's editor view (before even running anything - Thonny
-# doesn't always reload a changed file automatically) and in the
-# console at boot.
+# print() further down) on every manual/dev deploy to CIRCUITPY, so
+# it's visible both in Thonny's editor view (before even running
+# anything - Thonny doesn't always reload a changed file automatically)
+# and in the console at boot. A packaged NTK app build overwrites both
+# this line and that print() automatically with the app's own release
+# version instead (buildScripts/packageElectron.js, staying in sync
+# with package.json) - never hand-edit this line to look like a
+# release version, that'll just be overwritten at package time anyway.
 """
 NTK Firmata bridge for the Raspberry Pi Pico W, running CircuitPython.
 
@@ -71,34 +75,21 @@ try:
 except ImportError:  # not every CircuitPython build ships it
     _watchdog = None
 
-# ntk_version.py only exists when this firmware was bundled by a
-# packaged NTK app build (buildScripts/packageElectron.js writes it,
-# staying in sync with package.json automatically - never hand-edited).
-# A manual/dev deploy via Thonny has no such file, hence the
-# try/except - that's a normal, expected case, not an error, so it
-# prints nothing rather than a scary traceback. A single string
-# constant, no function definitions - negligible compiled-code weight
-# next to os/sys/time/supervisor/wifi/microcontroller already imported
-# above, unlike the heap-fragmentation crash this file's own docstring
-# warns about for large modules like ntk_firmata_main.
-try:
-    import ntk_version as _ntk_version
-    print("NTK version:", _ntk_version.NTK_VERSION)
-except ImportError:
-    pass
-
-# Separate from ntk_version.py above (that one tracks the NTK *app*'s
-# own release version, only updated by a packaged build) - this one is
-# a plain hand-maintained stamp of when these firmware FILES were last
+# A hand-maintained stamp of when these firmware FILES were last
 # actually edited, updated by whoever's deploying a change directly to
-# CIRCUITPY during active development. Added 2026-10-01 after several
-# rounds of "did my last file copy actually take effect, or is the
-# board still running what was there before" during hands-on firmware
-# iteration - CircuitPython's auto-reload-on-file-write doesn't always
-# visibly trigger (seen hands-on: a board kept running old code until
-# manually reset, with no indication anything was wrong), so this is
-# the one unambiguous way to confirm what's actually running without
-# re-reading every file's own content over serial.
+# CIRCUITPY during active development - or, for a packaged NTK app
+# build, the app's own release version, rewritten automatically here by
+# buildScripts/packageElectron.js (see the top-of-file comment; never
+# hand-edited there). Added 2026-10-01 after several rounds of "did my
+# last file copy actually take effect, or is the board still running
+# what was there before" during hands-on firmware iteration -
+# CircuitPython's auto-reload-on-file-write doesn't always visibly
+# trigger (seen hands-on: a board kept running old code until manually
+# reset, with no indication anything was wrong), so this is the one
+# unambiguous way to confirm what's actually running without
+# re-reading every file's own content over serial. Previously paired
+# with a separate ntk_version.py (dropped 2026-10-02 as redundant once
+# this line started covering the packaged-release case too).
 print("Firmware build:", "2026-10-01 16:06 CEST")
 
 # A byte on the serial console in the next few seconds drops straight

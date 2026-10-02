@@ -2,7 +2,7 @@
 
 The GroveIn widget reads a [Grove](https://wiki.seeedstudio.com/Grove_System/) sensor plugged into a WiFi-connected board, scales the reading(s), and sends them out its outlet(s) - use it for acceleration/tilt, distance, temperature & humidity, or light, without writing any firmware yourself.
 
-GroveIn only works over **Network** (WiFi) - it needs the board running NTK's CircuitPython Firmata firmware, which is included with your NTK download (`firmware/xiao-esp32c6-circuitpython-firmata/`, with its own setup README). It does not work over a Serial (USB) connection - the "more" panel shows "Doesn't support serial" if Serial is selected.
+GroveIn only works over **Network** (WiFi) - it needs the board running NTK's CircuitPython Firmata firmware, which is included with your NTK download (`firmware/xiao-esp32-circuitpython-firmata/`, with its own setup README). It does not work over a Serial (USB) connection - the "more" panel shows "Doesn't support serial" if Serial is selected.
 
 ## How it works
 

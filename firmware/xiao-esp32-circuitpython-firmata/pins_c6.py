@@ -9,15 +9,16 @@ pins) - this is what that naming is based on. If
 different names on your specific unit/CircuitPython version, edit this
 table to match - nothing else in this project needs to change.
 
-This is the XIAO ESP32-C6 table specifically, and it's the one this
-directory's own pins.py defaults to. Deploying to a XIAO ESP32-S3
-Sense instead? Copy pins_s3.py (same directory) over CIRCUITPY's
-pins.py instead - don't deploy this C6 table there, it's needlessly
-more restrictive (fewer analog-capable pins) on that board. Not auto-
-detected at runtime deliberately - same manual "copy the right file"
-convention this project already uses everywhere else a board-specific
-choice has to be made, rather than adding new detection logic that
-would need its own hardware verification.
+This is the XIAO ESP32-C6 table specifically. This directory's own
+pins.py defaults to the XIAO ESP32-S3 Sense table instead (S3 Sense is
+the recommended board) - deploying to a C6 board? Copy THIS file over
+CIRCUITPY's pins.py instead (renaming it in the process). Don't deploy
+the default pins.py to a C6 board - it assumes D3-D5 work as analog
+input, which they don't on the C6 (see this file's own PIN_TABLE).
+Not auto-detected at runtime deliberately - same manual "copy the
+right file" convention this project already uses everywhere else a
+board-specific choice has to be made, rather than adding new detection
+logic that would need its own hardware verification.
 
 A pin with board_pin=None is "virtual" - not a real GPIO, just a
 sensor reading exposed through Firmata's ordinary analog-pin reporting

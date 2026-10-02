@@ -2,7 +2,7 @@ module.exports = function(five) {
 	var pollIntervalMod = 1;
 
 	// Custom sysex extension (not part of the Firmata spec) matching
-	// firmware/xiao-esp32c6-circuitpython-firmata/firmata_server.py's
+	// firmware/xiao-esp32-circuitpython-firmata/firmata_server.py's
 	// constants of the same name byte-for-byte - lets a GroveSensor
 	// widget subscribe to an I2C sensor the firmware already knows how
 	// to read (see that file's module docstring for why this exists
@@ -129,7 +129,7 @@ module.exports = function(five) {
 
 	// pushPatch needs WRITE access specifically, which findLocalCircuitpyMount
 	// above does NOT guarantee - CircuitPython's own boot.py (see
-	// firmware/xiao-esp32c6-circuitpython-firmata/boot.py) can remount
+	// firmware/xiao-esp32-circuitpython-firmata/boot.py) can remount
 	// the filesystem for CODE write access instead of host write access
 	// (its default, needed for the original network sysex push path to
 	// work at all), which makes the mount READ-ONLY from here despite
