@@ -249,12 +249,14 @@ def _connect_station():
     if _watchdog is not None:
         try:
             wdt = microcontroller.watchdog
-            # 30 on the XIAO ESP32 tree this is kept in sync with (10s
-            # margin over connect()'s 10s timeout, plus up to 5s for the
-            # mDNS collision-check loop below) - moot on this board
-            # either way, since any value here still exceeds RP2040's 8s
-            # cap and gets caught the same way 20 used to.
-            wdt.timeout = 30
+            # 60 on the XIAO ESP32 tree this is kept in sync with (a
+            # large margin against mdns_server.find()'s timeout=1.0
+            # argument apparently not reliably bounding its actual
+            # blocking time - see that file's own comment for the
+            # 3-resets-in-a-row failure that motivated this) - moot on
+            # this board either way, since any value here still exceeds
+            # RP2040's 8s cap and gets caught the same way 20/30 used to.
+            wdt.timeout = 60
             wdt.mode = _watchdog.WatchDogMode.RESET
             wdt.feed()
         except Exception as e:
@@ -363,7 +365,14 @@ def _connect_station():
             print("(mDNS unavailable:", e, ")")
 
     print("Connected. IP address: %s%s" % (wifi.radio.ipv4_address, mdns_suffix))
-    oled_display.set_status(ip=str(wifi.radio.ipv4_address))
+    # Only shown once mDNS is confirmed actually active (mdns_suffix
+    # non-empty means advertise_service() succeeded above) - "" clears
+    # the line instead of showing a stale/wrong value if mDNS is
+    # disabled or failed to set up.
+    oled_display.set_status(
+        ip=str(wifi.radio.ipv4_address),
+        hostname=(mdns_hostname + ".local") if mdns_suffix else "",
+    )
     try:
         print("Signal strength: RSSI", wifi.radio.ap_info.rssi, "channel", wifi.radio.ap_info.channel)
         oled_display.set_status(rssi=wifi.radio.ap_info.rssi)

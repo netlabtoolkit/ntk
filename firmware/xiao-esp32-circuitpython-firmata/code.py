@@ -1,4 +1,4 @@
-# Firmware build: 2026-10-02 14:18 CET - update this (and the matching
+# Firmware build: 2026-10-02 15:19 CET - update this (and the matching
 # print() further down) on every manual/dev deploy to CIRCUITPY, so
 # it's visible both in Thonny's editor view (before even running
 # anything - Thonny doesn't always reload a changed file automatically)
@@ -80,7 +80,7 @@ except ImportError:  # not every CircuitPython build ships it
 # re-reading every file's own content over serial. Previously paired
 # with a separate ntk_version.py (dropped 2026-10-02 as redundant once
 # this line started covering the packaged-release case too).
-print("Firmware build:", "2026-10-02 14:18 CET")
+print("Firmware build:", "2026-10-02 15:19 CET")
 
 # A byte on the serial console in the next few seconds drops straight
 # to the REPL, before anything below can hang or crash. Kept here,
@@ -225,15 +225,23 @@ def _connect_station():
     if _watchdog is not None:
         try:
             wdt = microcontroller.watchdog
-            # 10s margin over connect()'s own 10s timeout, plus up to 5s
-            # for _resolve_mdns_hostname()'s collision-check loop below
-            # (fed between attempts, but the find() call itself still
-            # can't be fed mid-call, same as connect()) - was 20 before
-            # the mDNS collision check existed; hardware-verified
-            # 2026-10-02 that 20 was too tight once that ran too; this
-            # restores the same ~2x-over-worst-case margin the original
-            # value had before that addition.
-            wdt.timeout = 30
+            # Was 20 before the mDNS collision check existed, raised to
+            # 30 once that ran too (hardware-verified 2026-10-02 that 20
+            # was too tight) - then hit a 3-resets-in-a-row failure at
+            # 30 anyway, on a boot where _resolve_mdns_hostname() needed
+            # 2 attempts (one found a real collision, one didn't).
+            # Working theory: mdns_server.find()'s own timeout=1.0
+            # argument may not reliably bound its ACTUAL blocking time -
+            # a call that receives and parses a real response is
+            # plausibly slower than one that just times out empty, and
+            # there's no verified guarantee from CircuitPython's source
+            # either way (only its argument-parsing shape was confirmed,
+            # not its runtime timing behavior). Since find() is a single
+            # blocking native call that can't be fed mid-call (same
+            # limitation as connect() above), raised to 60 for a much
+            # larger margin against that uncertainty, rather than
+            # guessing at a smaller, more "precise" number a third time.
+            wdt.timeout = 60
             wdt.mode = _watchdog.WatchDogMode.RESET
             wdt.feed()
         except Exception as e:
@@ -339,7 +347,14 @@ def _connect_station():
             print("(mDNS unavailable:", e, ")")
 
     print("Connected. IP address: %s%s" % (wifi.radio.ipv4_address, mdns_suffix))
-    oled_display.set_status(ip=str(wifi.radio.ipv4_address))
+    # Only shown once mDNS is confirmed actually active (mdns_suffix
+    # non-empty means advertise_service() succeeded above) - "" clears
+    # the line instead of showing a stale/wrong value if mDNS is
+    # disabled or failed to set up.
+    oled_display.set_status(
+        ip=str(wifi.radio.ipv4_address),
+        hostname=(mdns_hostname + ".local") if mdns_suffix else "",
+    )
     try:
         print("Signal strength: RSSI", wifi.radio.ap_info.rssi, "channel", wifi.radio.ap_info.channel)
         oled_display.set_status(rssi=wifi.radio.ap_info.rssi)
