@@ -167,10 +167,18 @@ module.exports = function(five) {
 			self = this;
 			// This instance, captured in a real closure variable. The bare
 			// `self` above is a module-global that the NEXT NetworkModel's
-			// addDefaultPins() overwrites - so a Sensor "data" callback that
-			// closed over `self` would, on a second connection, write this
-			// board's readings onto the other model. Use `boundModel` in the
-			// per-sensor callbacks instead.
+			// addDefaultPins() overwrites - so a callback that closed over
+			// `self` would, on a second connection, write this board's
+			// readings onto the other model. Use `boundModel` in the
+			// per-sensor callbacks instead - EXCEPT setIOMode()'s own digital-
+			// read listener (see its own comment), which still deliberately
+			// reads the bare global and has the exact same cross-device bug
+			// as the GROVE_SENSOR_REPLY handler used to (fixed 2026-10-02 to
+			// use boundModel instead) - not yet fixed itself, so `self =
+			// this` has to stay assigned here for now even though it's a
+			// known-live multi-device hazard. See the planned-work note on
+			// this for the real fix (give setIOMode's listener the same
+			// boundModel treatment, then this global assignment can go too).
 			var boundModel = this;
 			// Store all pin mode mappings (string -> integer)
 			this.PINMODES = this.board.io.MODES;
@@ -236,14 +244,14 @@ module.exports = function(five) {
 						// what maps index -> a human label/outlet.
 						var field = "grove-" + sensorId + "-" + i;
 
-						self.inputs[field] = {value: value};
-						self.emit('change', {field: field, value: value});
+						boundModel.inputs[field] = {value: value};
+						boundModel.emit('change', {field: field, value: value});
 					}
 				}
 				else if(subType === GROVE_STATUS) {
 					var field = "grove-" + sensorId + "-status";
-					self.inputs[field] = {value: data[3]};
-					self.emit('change', {field: field, value: data[3]});
+					boundModel.inputs[field] = {value: data[3]};
+					boundModel.emit('change', {field: field, value: data[3]});
 				}
 			});
 
