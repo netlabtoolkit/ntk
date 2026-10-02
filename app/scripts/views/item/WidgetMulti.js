@@ -635,21 +635,30 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			}
 
 			if(!duplicate) {
-				// If there is already a mapping to this destination field, update it
-				var update = false;
+				// A prior mapping to this SAME destination field (e.g.
+				// this widget reconnected against a different model
+				// instance - its default device at creation vs. the IP
+				// it was actually set to, or deactivated/reactivated
+				// against a fresh hardware connection) must be fully
+				// replaced, not left in place alongside the new one -
+				// stop listening to its old model and drop it from
+				// sources, instead of only patching its sourceField in
+				// place while the stale model reference (and its live
+				// 'change' listener) stayed around forever. Root-caused
+				// 2026-10-02 via two physical devices: a widget's inlet
+				// doubled up and its displayed value flickered between
+				// BOTH devices' live readings, because both the old and
+				// new source models stayed wired to syncWithSource
+				// indefinitely - confirmed by the symptom disappearing
+				// the instant the OLDER device was disconnected.
 				for(var i=this.sources.length-1; i>=0; i--) {
 					if(this.sources[i].map.destinationField === map.map.destinationField) {
-						this.sources[i].map.sourceField = map.map.sourceField;
-						update = true;
+						this.stopListening(this.sources[i].model, 'change', this.syncWithSource);
+						this.sources.splice(i, 1);
 					}
 				}
 
-
-				// This is good to prevent memory leaks but the update logic needs to be better
-				//if(!update) {
-					this.sources.push(map);
-				//}
-
+				this.sources.push(map);
 				this.listenTo(map.model, 'change', this.syncWithSource);
 			}
 		},
