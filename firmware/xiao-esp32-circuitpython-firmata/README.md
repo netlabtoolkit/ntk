@@ -3,8 +3,9 @@
 A from-scratch Firmata protocol server for CircuitPython, so a XIAO
 ESP32 board can act as an NTK "Network" device over WiFi - no Arduino
 IDE, no C++, no StandardFirmataWiFi sketch. Covers both the **XIAO
-ESP32-S3 Sense (recommended)** and the XIAO ESP32-C6 - see `pins.py`'s
-own docstring for the one file that differs between them.
+ESP32-S3 Sense (recommended)** and the XIAO ESP32-C6 - `pins.py`
+auto-detects which one it's actually running on and picks the right
+pin table (`pins_s3.py`/`pins_c6.py`) itself; see its own docstring.
 
 **Status: verified working on real hardware** (both boards, connected
 to NTK's AnalogIn/NeoPixel/etc widgets over WiFi) - handshake,
@@ -12,7 +13,7 @@ capability/analog-mapping queries, and continuous analog reporting all
 confirmed. Some individual pins may not support every mode on your
 specific board (an unsupported ADC/PWM/servo claim is logged and that
 pin is left unclaimed rather than crashing the connection - see
-`pins.py` if you need to adjust the table for your unit).
+`pins_s3.py`/`pins_c6.py` if you need to adjust the table for your unit).
 
 ## What this covers
 
@@ -30,11 +31,17 @@ port) to browse and transfer files on the device over its serial/REPL
 connection instead; on an S3 Sense, a plain drag-and-drop onto the
 mounted `CIRCUITPY` drive works too.
 
-1. Copy `code.py`, `ntk_firmata_main.py`, `oled_display.py`, and `pins.py`
-   from this folder onto the board (overwriting any existing `code.py`).
-   This directory's own `pins.py` is the XIAO ESP32-S3 Sense table
-   (the recommended board) - if deploying to a XIAO ESP32-C6 instead,
-   copy `pins_c6.py` instead, renamed to `pins.py` on the board.
+1. Copy `code.py`, `ntk_firmata_main.py`, `oled_display.py`, `pins.py`,
+   `pins_s3.py`, and `pins_c6.py` from this folder onto the board
+   (overwriting any existing `code.py`), unchanged - the same files,
+   with no renaming, regardless of which of the two boards you're
+   deploying to. `pins.py` detects which board it's actually running
+   on at boot and picks the matching table itself (see its own
+   docstring) - this is deliberate, not an oversight: an earlier
+   "copy just the one file that matches your board, renamed to
+   pins.py" convention was a genuinely awkward extra manual step on
+   the C6 specifically, since Thonny's file transfer can't rename a
+   file as part of uploading it.
 2. Also copy `boot.py`, `firmata_server.py`, `neopixel_output.py`,
    `settings-example.toml`, and the `lib/` folder from `../common/`
    (one level up) onto the board - these are identical across every
@@ -299,8 +306,10 @@ Nothing here changes if you never copy `standalone_interpreter.py` or `standalon
 
 ## Pin mapping
 
-See `pins.py` for the authoritative table and how to adjust it if your
-CircuitPython build names pins differently.
+See `pins_s3.py`/`pins_c6.py` (whichever matches your board) for the
+authoritative table and how to adjust it if your CircuitPython build
+names pins differently - `pins.py` itself just picks between the two
+at boot, it has no pin data of its own.
 
 | Firmata pin | XIAO pin | Analog-capable |
 |---|---|---|
@@ -324,7 +333,7 @@ simultaneous PWM/Servo widgets if you hit this.
 - **Board prints an error and stops**: reconnect the serial console to
   see the traceback - CircuitPython prints exceptions there, including
   ones from a pin name that doesn't match your specific board (see
-  `pins.py`).
+  `pins_s3.py`/`pins_c6.py`).
 - **Values look scaled wrong**: this reports analog values as 0-1023
   and expects PWM writes as 0-255, matching classic Arduino - if
   something upstream is assuming ESP32-native ranges (0-4095 ADC, 0-255

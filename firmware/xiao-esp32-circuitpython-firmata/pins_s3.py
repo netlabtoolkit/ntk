@@ -1,9 +1,11 @@
 """
-XIAO ESP32-S3 Sense pin map, in Firmata pin-index order. This is the
-default pins.py for this directory (S3 Sense is the recommended board
-- see pins_c6.py for the XIAO ESP32-C6 table instead, and this
-directory's own README.md for the "copy the right file" deploy
-convention).
+XIAO ESP32-S3 Sense pin map, in Firmata pin-index order. S3 Sense is
+the recommended board - see pins_c6.py for the XIAO ESP32-C6 table
+instead. Not imported directly by ntk_firmata_main.py - pins.py in
+this same directory auto-detects which board this actually is and
+imports whichever of this file/pins_c6.py actually matches; both get
+deployed unchanged onto every board (see pins.py's own docstring for
+why - no more manual "copy the right file and rename it" step).
 
 Board-verified 2026-09-25 via the live REPL (not assumed from the C6
 table) - see pins_c6.py for the fuller explanation of this file's

@@ -9,16 +9,18 @@ pins) - this is what that naming is based on. If
 different names on your specific unit/CircuitPython version, edit this
 table to match - nothing else in this project needs to change.
 
-This is the XIAO ESP32-C6 table specifically. This directory's own
-pins.py defaults to the XIAO ESP32-S3 Sense table instead (S3 Sense is
-the recommended board) - deploying to a C6 board? Copy THIS file over
-CIRCUITPY's pins.py instead (renaming it in the process). Don't deploy
-the default pins.py to a C6 board - it assumes D3-D5 work as analog
-input, which they don't on the C6 (see this file's own PIN_TABLE).
-Not auto-detected at runtime deliberately - same manual "copy the
-right file" convention this project already uses everywhere else a
-board-specific choice has to be made, rather than adding new detection
-logic that would need its own hardware verification.
+This is the XIAO ESP32-C6 table specifically (S3 Sense, in pins_s3.py,
+is the recommended board). Not imported directly by
+ntk_firmata_main.py - pins.py in this same directory auto-detects
+which board this actually is (a direct hardware probe - does D3
+support analogio.AnalogIn - not a board.board_id string match; see
+its own docstring) and imports whichever of this file/pins_s3.py
+actually matches. Deploy both files unchanged onto every board - no
+renaming, no picking the right one by hand (this replaced a manual
+"copy the right file and rename it" convention 2026-10-02, once that
+turned out to be a genuinely awkward extra step on the C6 specifically,
+which needs Thonny's file transfer rather than a plain CIRCUITPY
+drag-and-drop, and Thonny can't rename a file as part of uploading it).
 
 A pin with board_pin=None is "virtual" - not a real GPIO, just a
 sensor reading exposed through Firmata's ordinary analog-pin reporting

@@ -50,7 +50,11 @@ const COMMON_FIRMWARE_SRC_DIR = path.join(__dirname, '..', 'firmware', 'common')
 // mpy-cross rule). Never bundle both - CircuitPython's import
 // resolution between a same-named .py and .mpy in one directory isn't
 // something to rely on; ship only the one that's actually safe.
-const FIRMWARE_FILES = ['code.py', 'ntk_firmata_main.py', 'oled_display.py', 'pins.py', 'standalone_interpreter.mpy'];
+// pins.py auto-detects which XIAO board this actually is at boot and
+// imports whichever of pins_s3.py/pins_c6.py matches (see pins.py's
+// own docstring) - all three are bundled unchanged; nothing here picks
+// one on the dev machine's behalf.
+const FIRMWARE_FILES = ['code.py', 'ntk_firmata_main.py', 'oled_display.py', 'pins.py', 'pins_s3.py', 'pins_c6.py', 'standalone_interpreter.mpy'];
 const COMMON_FIRMWARE_FILES = ['boot.py', 'firmata_server.py', 'neopixel_output.py', 'settings-example.toml'];
 const CIRCUITPYTHON_README = `# CircuitPython firmware for the Seeed XIAO ESP32-C6
 
@@ -66,8 +70,10 @@ Arduino IDE, no C++, just these files copied onto the board.
    CircuitPython, pick the board's serial port) to browse and transfer
    files on the device over its serial/REPL connection instead.
 2. In Thonny's file browser, copy \`code.py\`, \`ntk_firmata_main.py\`,
-   \`firmata_server.py\`, and \`pins.py\` from this folder onto the
-   board, overwriting any existing \`code.py\`.
+   \`firmata_server.py\`, \`pins.py\`, \`pins_s3.py\`, and \`pins_c6.py\`
+   from this folder onto the board, overwriting any existing
+   \`code.py\` - the same files regardless of which XIAO board this is;
+   \`pins.py\` detects which one it's actually running on itself.
 3. Copy \`settings-example.toml\` to \`settings.toml\` on the board the
    same way, and edit it there to fill in your WiFi network name and
    password.
@@ -212,7 +218,9 @@ rest (0g), 1023 = +2g.
 | 6-10 | D6-D10 | no |
 
 If a pin doesn't behave as expected on your specific board unit, see
-\`pins.py\` - it's the single table controlling what each pin claims to
+\`pins_s3.py\`/\`pins_c6.py\` (whichever matches your board - \`pins.py\`
+itself just picks between them, it has no pin data of its own) - one
+of those is the actual table controlling what each pin claims to
 support, and can be edited to match your hardware.
 
 ## Troubleshooting
