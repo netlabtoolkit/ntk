@@ -102,6 +102,22 @@
 		background-color: LightSlateGray;
 	}
 
+	// Click feedback for the device buttons - a pressed state the
+	// instant the mouse goes down, and a pulsing busy state for as
+	// long as ToolBar.js's setButtonBusy() has the request out (see
+	// its comment for why these three in particular need it).
+	.pushPatchToDevice, .pullPatchFromDevice, .monitorDevice {
+		&:active {
+			background-color: LightSlateGray;
+		}
+
+		&.busy {
+			background-color: LightSlateGray;
+			cursor: progress;
+			animation: deviceButtonBusy 0.9s ease-in-out infinite;
+		}
+	}
+
     .logo {
         cursor: auto;
     }
@@ -474,4 +490,8 @@
 	.menuBar.open {
 		right: 250px;
 	}
+}
+
+@keyframes deviceButtonBusy {
+	50% { opacity: 0.5; }
 }

@@ -61,6 +61,53 @@ function( app, Backbone, Template, Widgets ) {
 			window.app.vent.on('pushPatchResult', function(result) {
 				if(result.ok) { this.pollDeviceStatus(); }
 			}, this);
+
+			// Push/Pull/Monitor all wait on a device round-trip before
+			// anything visible happens (Pull's "replace the canvas?"
+			// dialog only appears once the patch has actually come
+			// back) - with no feedback in between, a click looks like
+			// it didn't register. The button itself shows a busy state
+			// from the moment the request really goes out (keyed off
+			// the Widget:* / Monitor:start events Patcher.js and
+			// MonitorController.js fire, not the raw click, so a
+			// cancelled confirm or a "no device set" alert never
+			// leaves it stuck) until the matching result arrives.
+			window.app.vent.on('Widget:pushPatchToDevice', function() {
+				this.setButtonBusy(this.$('.pushPatchToDevice'), 'Pushing...');
+			}, this);
+			window.app.vent.on('pushPatchResult', function() {
+				this.clearButtonBusy(this.$('.pushPatchToDevice'));
+			}, this);
+			window.app.vent.on('Widget:pullPatchFromDevice', function() {
+				this.setButtonBusy(this.$('.pullPatchFromDevice'), 'Pulling...');
+			}, this);
+			window.app.vent.on('pullPatchResult', function() {
+				this.clearButtonBusy(this.$('.pullPatchFromDevice'));
+			}, this);
+			// Cleared by indicateMonitorActive (every monitorStatus) or
+			// a Monitor:stop while still connecting.
+			window.app.vent.on('Monitor:start', function() {
+				this.setButtonBusy(this.$('.monitorDevice'), 'Connecting...');
+			}, this);
+			window.app.vent.on('Monitor:stop', function() {
+				this.clearButtonBusy(this.$('.monitorDevice'));
+			}, this);
+		},
+		// Fallback so a result that never arrives (device dropped off
+		// the network mid-request) can't leave a button stuck busy.
+		BUTTON_BUSY_TIMEOUT_MS: 20000,
+		setButtonBusy: function($button, busyLabel) {
+			if(!$button.hasClass('busy')) {
+				$button.data('idleLabel', $button.text());
+			}
+			$button.addClass('busy').text(busyLabel);
+			clearTimeout($button.data('busyTimer'));
+			$button.data('busyTimer', setTimeout(this.clearButtonBusy.bind(this, $button), this.BUTTON_BUSY_TIMEOUT_MS));
+		},
+		clearButtonBusy: function($button) {
+			if(!$button.hasClass('busy')) { return; }
+			clearTimeout($button.data('busyTimer'));
+			$button.removeClass('busy').text($button.data('idleLabel'));
 		},
 		render: function() {
 			this.el.innerHTML = this.template();
@@ -509,10 +556,14 @@ function( app, Backbone, Template, Widgets ) {
 			// the save having happened first.
 			window.app.vent.trigger('ToolBar:exportPatch');
 		},
+		// Both ignore clicks while their own request is still out - see
+		// setButtonBusy()'s comment in initialize().
 		pushPatchToDevice: function() {
+			if(this.$('.pushPatchToDevice').hasClass('busy')) { return; }
 			window.app.vent.trigger('ToolBar:pushPatchToDevice');
 		},
 		pullPatchFromDevice: function() {
+			if(this.$('.pullPatchFromDevice').hasClass('busy')) { return; }
 			window.app.vent.trigger('ToolBar:pullPatchFromDevice');
 		},
         hideWidgets: function() {
@@ -570,17 +621,18 @@ function( app, Backbone, Template, Widgets ) {
 			}
 			var defaultDevice = window.app.defaultDevice;
 			if (!defaultDevice || defaultDevice.deviceType !== 'network' || !defaultDevice.server) {
-				window.alert('Set the Device picker to a Network device (server address) first - Monitor Device watches that address.');
+				window.alert('Set the Device picker to a Network device (server address) first - Monitor watches that address.');
 				return;
 			}
 			window.app.vent.trigger('Monitor:start', {host: defaultDevice.server, port: defaultDevice.port || 3030});
 		},
 		indicateMonitorActive: function indicateMonitorActive(status) {
 			var $button = this.$('.monitorDevice');
+			this.clearButtonBusy($button);
 			if (status.connected) {
-				$button.addClass('monitorActive').text('Stop Monitoring');
+				$button.addClass('monitorActive').text('Stop Monitor');
 			} else {
-				$button.removeClass('monitorActive').text('Monitor Device');
+				$button.removeClass('monitorActive').text('Monitor');
 			}
 			// Otherwise the device status bar wouldn't reflect a
 			// Monitor start/stop until the next scheduled poll (up to
