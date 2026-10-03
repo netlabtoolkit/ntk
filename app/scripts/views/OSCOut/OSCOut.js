@@ -30,7 +30,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			this.model.set({
 				title: "OSCOut",
                 server: "127.0.0.1",
-                port: 57120,
+                port: 9000,
 				messageName: options.outputMapping,
 				outputMapping: options.outputMapping,
                 activeOut: false,
@@ -61,14 +61,25 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 
 		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'OSC' : this.model.get('deviceType')},
 		getDeviceServerName: function() {return ((this.model.get('server') == undefined) || (this.model.get('server') === true) ) ? '127.0.0.1' : this.model.get('server')},
-		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9001 : this.model.get('port')},
+		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9000 : this.model.get('port')},
 		// this.model's "server"/"port" are the OUTBOUND message target (e.g. SuperCollider),
 		// not something to open a receiving socket on. The hardware-model instance this widget
 		// routes through (for sendDeviceModelUpdate/hardwareSwitch bookkeeping only - the actual
 		// send target is parsed out of the outputMapping field string, independent of this key)
 		// must instead match OSCIn's default receiving key, so OSCOut/OSCIn widgets share one
 		// server-side instance instead of each opening their own UDP socket.
-		getReceivingDeviceKey: function() {return this.getDeviceModelType() + ':127.0.0.1:57190'},
+		getReceivingDeviceKey: function() {return this.getDeviceModelType() + ':' + this.RECEIVING_SERVER},
+		RECEIVING_SERVER: '127.0.0.1:9000',
+		// The shared instance behind getReceivingDeviceKey(), created if it doesn't exist yet.
+		// It can legitimately not exist when enableDevice() runs: loading a patch applies each
+		// widget's saved attributes (which fires enableDevice() for an OSCOut saved with its
+		// output on) BEFORE the patch's mappings are restored, and a patch saved when the
+		// default receiving port was still 57190 restores its mapping under that old key, never
+		// this one. Reading hardwareModelInstances[key].model directly threw in both cases
+		// (2026-10-03: "Cannot read properties of undefined (reading 'model')" on load).
+		getReceivingHardwareModel: function() {
+			return window.app.Patcher.Controller.getHardwareModelInstance(this.getDeviceModelType(), this.RECEIVING_SERVER);
+		},
 		inactiveModelsExist: function checkForInactiveModels() {
 			var inactiveModels = false;
 
@@ -102,8 +113,9 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 
 
 			var messageAddress = this.model.get('outputMapping');
-			app.Patcher.Controller.hardwareModelInstances[this.getReceivingDeviceKey()].model.attributes.outputs[messageAddress] = this.model.get('in');
-			app.Patcher.Controller.hardwareModelInstances[this.getReceivingDeviceKey()].model.attributes[messageAddress] = this.model.get('in');
+			var receivingModel = this.getReceivingHardwareModel();
+			receivingModel.attributes.outputs[messageAddress] = this.model.get('in');
+			receivingModel.attributes[messageAddress] = this.model.get('in');
 		},
 		unMapHardwareInlet: function unMapHardwareInlet() {
 
@@ -169,7 +181,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 					}
 				}
 
-				if(changed.messageName == '/ntk/out/1:127.0.0.1:57120') {
+				if(changed.messageName == '/ntk/out/1:127.0.0.1:9000') {
 					this.model.set('messageName', '/ntk/out/1');
 				}
 			}

@@ -1484,13 +1484,13 @@ class StandaloneInterpreter:
             if step[0] == 'osc_in':
                 wid = step[1]
                 values = self.widgets[wid]['values']
-                port = int(_num(values.get('port'), 57190))
+                port = int(_num(values.get('port'), 9000))
                 address = values.get('messageName') or '/ntk/in/1'
                 osc_in_by_port.setdefault(port, {})[address] = wid
             elif step[0] == 'osc_out':
                 wid = step[1]
                 values = self.widgets[wid]['values']
-                osc_out_targets.add((_osc_host(values), int(_num(values.get('port'), 57120))))
+                osc_out_targets.add((_osc_host(values), int(_num(values.get('port'), 9000))))
 
         if not osc_in_by_port and not osc_out_targets:
             return
@@ -1964,7 +1964,7 @@ class StandaloneInterpreter:
                 if w['state'].get('_osc_last_sent') == out_value:
                     continue
                 w['state']['_osc_last_sent'] = out_value
-                client = self._osc_clients.get((_osc_host(values), int(_num(values.get('port'), 57120))))
+                client = self._osc_clients.get((_osc_host(values), int(_num(values.get('port'), 9000))))
                 if client is None:
                     continue
                 address = values.get('messageName') or '/ntk/out/1'

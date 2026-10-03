@@ -36,7 +36,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this.model.set({
 				title: 'OSCIn',
 				messageName: '/ntk/in/1',
-                port: 57190,
+                port: 9000,
                 active: true,
 			});
 
@@ -223,7 +223,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
 		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'OSC' : this.model.get('deviceType')},
 		getDeviceServerName: function() {return ((this.model.get('server') == undefined) || (this.model.get('server') === true) ) ? '127.0.0.1' : this.model.get('server')},
-		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 57190 : this.model.get('port')},
+		getDeviceServerPort: function() {return this.model.get('port') == undefined ? 9000 : this.model.get('port')},
 		enableDevice: function enableHardware() {
 			// TODO: Hack for now due to hardware usually being triggered from edit mode.
 			// Temporarily dipping into edit mode for now. See SocketAdapter:registerOutboundClientEvents

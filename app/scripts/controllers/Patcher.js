@@ -342,7 +342,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 					return newWidget;
                 }
                 else if(widgetType === 'OSCOut') {
-					var defaultMapping = '/ntk/out/1:127.0.0.1:57120';
+					var defaultMapping = '/ntk/out/1:127.0.0.1:9000';
 
 					// Check if we are already using this output pin, don't use it if we are
 					var existingMapping = _.find(this.widgetMappings, function(map) {
@@ -366,7 +366,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 							view: newWidget,
 							IOMapping: {sourceField: "out", destinationField: defaultOutputMapping},
 							modelType: 'OSC',
-							server: '127.0.0.1:57190',
+							server: '127.0.0.1:9000',
 						}, addedFromLoader);
 					}
 
