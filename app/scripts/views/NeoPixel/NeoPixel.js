@@ -14,13 +14,50 @@ function(Backbone, rivets, WidgetView, Template){
 	// preview's version of the same motion). Geometric, not linear -
 	// see that function's own comment for why (perceived speed tracks
 	// 1/period, so a linear period mapping concentrates nearly all the
-	// perceptible change into one end of the 0-100 range).
+	// perceptible change into one end of the 0-100 range). Speed 0 (or
+	// below) is "stopped" and returns 0 - a sentinel, not a period to
+	// divide by: advancePhase() leaves the phase where it is and
+	// sparkle holds its current pattern, same as the firmware.
 	var PERIOD_MAX_S = 6.0;
 	var PERIOD_MIN_S = 0.3;
 	function speedToPeriodS(speed) {
-		speed = Math.max(1, Math.min(100, parseInt(speed, 10) || 1));
+		speed = Math.min(100, parseInt(speed, 10) || 0);
+		if(speed <= 0) { return 0; }
 		var t = (speed - 1) / 99;
 		return PERIOD_MAX_S * Math.pow(PERIOD_MIN_S / PERIOD_MAX_S, t);
+	}
+
+	// Matches neopixel_output.py's _mode_chase constants exactly - see
+	// that function's own comment for why (a meteor/comet tail, not
+	// sub-pixel blending between two pixels).
+	var CHASE_TAIL_LENGTH = 4;
+	var CHASE_TAIL_DECAY = 0.6;
+	var CHASE_AHEAD_GLOW = 0.15;
+
+	// A real LED's light output is linear in the brightness value
+	// written to it, but the eye isn't - a strip at brightness 20
+	// looks far brighter than a screen color scaled to 20% does.
+	// Hardware-observed 2026-10-03: "the ntk brightness is VERY
+	// different (dimmer) than the actual leds." Everything on screen
+	// that represents brightness (the simulated preview, the color
+	// picker's swatch/values) goes through this gamma so it looks like
+	// the strip does; the value sent to the device is untouched.
+	// Deliberately much steeper than a textbook 2.2: an LED is a bright
+	// point source that still reads as clearly lit at 1% drive, where
+	// a 2.2 curve puts the on-screen pixel at near-black against the
+	// preview's dark background (hardware-observed again 2026-10-03,
+	// at 2.2: "still too dim... trailing pixels beyond 2 seem black"
+	// while the strip's whole tail was visibly lit).
+	var LED_GAMMA = 6;
+
+	// neopixel_output.py's _CHASE_GAMMA - the firmware raises each
+	// chase tail/glow factor to this before writing it to the strip.
+	// The preview applies the same thing and then LED_GAMMA's
+	// drive-level -> screen mapping on top, which nets out to one
+	// exponent.
+	var CHASE_GAMMA = 2.2;
+	function chaseFactorToScreen(factor) {
+		return Math.pow(factor, CHASE_GAMMA / LED_GAMMA);
 	}
 
 	// Same pure-Python colorwheel() neopixel_output.py falls back to
@@ -95,7 +132,8 @@ function(Backbone, rivets, WidgetView, Template){
 				numPixels: this.model.get('numPixels') || 8,
 				pixelFormat: this.model.get('pixelFormat') || 'RGB',
 				mode: this.model.get('mode') || 'full',
-				speed: this.model.get('speed') || 50,
+				// Not `|| 50` - 0 is a real value here (stopped).
+				speed: this.model.get('speed') !== undefined ? this.model.get('speed') : 50,
 				color: this.model.get('color') || '#ff0000',
 				brightness: this.model.get('brightness') || 100,
 				previewShape: this.model.get('previewShape') || 'strip',
@@ -112,6 +150,12 @@ function(Backbone, rivets, WidgetView, Template){
 				colorHue: this.model.get('colorHue') || 0,
 			});
 			this.rebuildPixelIndexes();
+			// Initialized here (not left to the first color/brightness
+			// change) for the same reason as colorHue above - the
+			// picker's rv-value needs a real attribute to bind to.
+			if(this.model.get('displayColor') === undefined) {
+				this.model.set('displayColor', this.computeDisplayColor());
+			}
 
 			// 0.0-1.0, shared by chase/rainbow preview rendering below
 			// (mutually exclusive modes, so sharing one accumulator per
@@ -236,6 +280,32 @@ function(Backbone, rivets, WidgetView, Template){
 				}
 			}
 
+			// The color picker is bound to `displayColor` (color scaled
+			// by brightness - see computeDisplayColor()), not `color`
+			// itself, so both its swatch and the RGB values shown when
+			// it's opened reflect brightness. Two directions, both
+			// written as "only set if it doesn't already agree" rather
+			// than guarded by a flag, so they settle regardless of
+			// whether Backbone delivers the resulting change nested or
+			// as a later pass:
+			// - picker edited: split the picked color back into a
+			//   full-value `color` plus a `brightness` (the picker's
+			//   own value/darkness IS brightness).
+			// - color/brightness changed elsewhere (panel field, a
+			//   wire): recompute displayColor - unless the current one
+			//   already decomposes to exactly this color/brightness,
+			//   i.e. it's the picker's own pick, which integer-percent
+			//   rounding would otherwise nudge by a level or two under
+			//   the user's cursor while dragging.
+			if(changed.displayColor !== undefined &&
+				this.model.get('displayColor') !== this.computeDisplayColor() &&
+				!this.displayColorMatchesModel()) {
+				this.model.set(this.decomposeDisplayColor(this.model.get('displayColor')));
+			}
+			if(changed.color !== undefined || changed.brightness !== undefined) {
+				this.syncDisplayColor();
+			}
+
 			var inactiveModels = this.inactiveModelsExist();
 
 			// Same "changed.activeOut === true directly captures the
@@ -349,6 +419,46 @@ function(Backbone, rivets, WidgetView, Template){
 		// so there's nothing extra to resolve here.
 		getEffectiveBrightness: function() {
 			return Math.max(0, Math.min(1, (parseFloat(this.model.get('brightness')) || 0) / 100));
+		},
+		// `color` scaled by brightness, as a hex string - what the
+		// strip/preview actually show, and what the color picker is
+		// bound to (see onModelChange).
+		computeDisplayColor: function() {
+			var rgb = this.getEffectiveColorRgb();
+			var b = this.getScreenBrightness();
+			return rgbToHex([rgb[0] * b, rgb[1] * b, rgb[2] * b]);
+		},
+		// Inverse of computeDisplayColor(): the brightest channel
+		// becomes brightness (0-100), and the color is scaled back up
+		// to full value. Black carries no hue, so it keeps the current
+		// `color` and just drops brightness to 0.
+		decomposeDisplayColor: function(hex) {
+			var rgb = hexToRgb(hex);
+			var max = Math.max(rgb[0], rgb[1], rgb[2]);
+			if(max === 0) {
+				return {color: this.model.get('color'), brightness: 0};
+			}
+			return {
+				color: rgbToHex([rgb[0] * 255 / max, rgb[1] * 255 / max, rgb[2] * 255 / max]),
+				// Inverse of getScreenBrightness(); floored at 1 so a
+				// dark-but-not-black pick never rounds to fully off.
+				brightness: Math.max(1, Math.round(Math.pow(max / 255, LED_GAMMA) * 100)),
+			};
+		},
+		displayColorMatchesModel: function() {
+			var d = this.decomposeDisplayColor(this.model.get('displayColor'));
+			return String(d.color).toLowerCase() === String(this.model.get('color')).toLowerCase() &&
+				d.brightness === parseFloat(this.model.get('brightness'));
+		},
+		syncDisplayColor: function() {
+			var computed = this.computeDisplayColor();
+			if(this.model.get('displayColor') !== computed && !this.displayColorMatchesModel()) {
+				this.model.set('displayColor', computed);
+			}
+		},
+		// Brightness (0-1) as it should LOOK on screen - see LED_GAMMA.
+		getScreenBrightness: function() {
+			return Math.pow(this.getEffectiveBrightness(), 1 / LED_GAMMA);
 		},
 		// Wire-ready config object - see NEOPIXEL_REQUEST's own comment
 		// in firmata_server.py/neopixel_output.py for the exact shape.
@@ -518,15 +628,44 @@ function(Backbone, rivets, WidgetView, Template){
 			var i;
 
 			if(mode === 'chase') {
+				// Meteor/comet tail, matching neopixel_output.py's
+				// _mode_chase: the head (current pixel) is always at
+				// full brightness, with a multi-pixel trail decaying
+				// behind it and a slight motion-blur glow on the one
+				// pixel just ahead - not sub-pixel blending between
+				// two pixels (tried first, looked like the head itself
+				// fading in/out rather than a trailing glow).
 				var chasePeriod = speedToPeriodS(this.model.get('speed'));
 				var pos = Math.floor(this.advancePhase(now, chasePeriod) * n);
-				for(i=0; i<n; i++) { colors[i] = (i === pos) ? rgb : off; }
+				var ahead = (pos + 1) % n;
+				for(i=0; i<n; i++) {
+					if(i === pos) {
+						colors[i] = rgb;
+					}
+					else if(i === ahead) {
+						var g = chaseFactorToScreen(CHASE_AHEAD_GLOW);
+						colors[i] = [rgb[0] * g, rgb[1] * g, rgb[2] * g];
+					}
+					else {
+						var behind = (pos - i + n) % n;
+						if(behind <= CHASE_TAIL_LENGTH) {
+							var f = chaseFactorToScreen(Math.pow(CHASE_TAIL_DECAY, behind));
+							colors[i] = [rgb[0] * f, rgb[1] * f, rgb[2] * f];
+						}
+						else {
+							colors[i] = off;
+						}
+					}
+				}
 			}
 			else if(mode === 'sparkle') {
 				// Matches neopixel_output.py's _mode_sparkle: a new
 				// random pattern every period/4 seconds, ~30% lit.
 				var sparklePeriod = speedToPeriodS(this.model.get('speed')) / 4;
-				var windowIndex = Math.floor(now / sparklePeriod);
+				if(sparklePeriod > 0) {
+					this._sparkleWindow = Math.floor(now / sparklePeriod);
+				}
+				var windowIndex = this._sparkleWindow || 0;
 				for(i=0; i<n; i++) {
 					// Cheap deterministic pseudo-random from (window,
 					// pixel index) - doesn't need to match the
@@ -564,7 +703,7 @@ function(Backbone, rivets, WidgetView, Template){
 			// chase in particular this also cuts the writes from N
 			// pixels/frame down to ~1-2, which it should be anyway.
 			if(!this._lastPixelColors) { this._lastPixelColors = []; }
-			var brightness = this.getEffectiveBrightness();
+			var brightness = this.getScreenBrightness();
 			for(i=0; i<n; i++) {
 				var c = colors[i];
 				var css = 'rgb(' + Math.round(c[0] * brightness) + ',' + Math.round(c[1] * brightness) + ',' + Math.round(c[2] * brightness) + ')';
