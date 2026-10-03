@@ -1,8 +1,12 @@
 # Firmware build: 2026-10-01 16:06 CEST - update this (and the matching
-# print() further down) on every deploy to CIRCUITPY, so it's visible
-# both in Thonny's editor view (before even running anything - Thonny
-# doesn't always reload a changed file automatically) and in the
-# console at boot.
+# print() further down) on every manual/dev deploy to CIRCUITPY, so
+# it's visible both in Thonny's editor view (before even running
+# anything - Thonny doesn't always reload a changed file automatically)
+# and in the console at boot. A packaged NTK app build overwrites both
+# this line and that print() automatically with the app's own release
+# version instead (buildScripts/packageElectron.js, staying in sync
+# with package.json) - never hand-edit this line to look like a
+# release version, that'll just be overwritten at package time anyway.
 """
 NTK Firmata bridge for the Raspberry Pi Pico W, running CircuitPython.
 
@@ -71,34 +75,21 @@ try:
 except ImportError:  # not every CircuitPython build ships it
     _watchdog = None
 
-# ntk_version.py only exists when this firmware was bundled by a
-# packaged NTK app build (buildScripts/packageElectron.js writes it,
-# staying in sync with package.json automatically - never hand-edited).
-# A manual/dev deploy via Thonny has no such file, hence the
-# try/except - that's a normal, expected case, not an error, so it
-# prints nothing rather than a scary traceback. A single string
-# constant, no function definitions - negligible compiled-code weight
-# next to os/sys/time/supervisor/wifi/microcontroller already imported
-# above, unlike the heap-fragmentation crash this file's own docstring
-# warns about for large modules like ntk_firmata_main.
-try:
-    import ntk_version as _ntk_version
-    print("NTK version:", _ntk_version.NTK_VERSION)
-except ImportError:
-    pass
-
-# Separate from ntk_version.py above (that one tracks the NTK *app*'s
-# own release version, only updated by a packaged build) - this one is
-# a plain hand-maintained stamp of when these firmware FILES were last
+# A hand-maintained stamp of when these firmware FILES were last
 # actually edited, updated by whoever's deploying a change directly to
-# CIRCUITPY during active development. Added 2026-10-01 after several
-# rounds of "did my last file copy actually take effect, or is the
-# board still running what was there before" during hands-on firmware
-# iteration - CircuitPython's auto-reload-on-file-write doesn't always
-# visibly trigger (seen hands-on: a board kept running old code until
-# manually reset, with no indication anything was wrong), so this is
-# the one unambiguous way to confirm what's actually running without
-# re-reading every file's own content over serial.
+# CIRCUITPY during active development - or, for a packaged NTK app
+# build, the app's own release version, rewritten automatically here by
+# buildScripts/packageElectron.js (see the top-of-file comment; never
+# hand-edited there). Added 2026-10-01 after several rounds of "did my
+# last file copy actually take effect, or is the board still running
+# what was there before" during hands-on firmware iteration -
+# CircuitPython's auto-reload-on-file-write doesn't always visibly
+# trigger (seen hands-on: a board kept running old code until manually
+# reset, with no indication anything was wrong), so this is the one
+# unambiguous way to confirm what's actually running without
+# re-reading every file's own content over serial. Previously paired
+# with a separate ntk_version.py (dropped 2026-10-02 as redundant once
+# this line started covering the packaged-release case too).
 print("Firmware build:", "2026-10-01 16:06 CEST")
 
 # A byte on the serial console in the next few seconds drops straight
@@ -159,39 +150,65 @@ oled_display.set_mode("connecting")
 _NTK_MDNS_SERVICE_TYPE = "_ntk"
 _NTK_MDNS_PROTOCOL = "_tcp"
 
+_MDNS_RENAME_MAX_ATTEMPTS = 5
+_MDNS_COLLISION_PROBE_TIMEOUT_S = 1.0
 
-def _resolve_mdns_hostname(mdns_server, candidate):
-    """Was meant to be a best-effort collision check against other NTK
-    boards already on this network (query mdns_server.find() for the
-    shared "_ntk"/"_tcp" service type above, rename to candidate-2/-3/
-    etc if another board's already using it) - DISABLED, not just
-    unverified, as of 2026-10-01.
 
-    First attempt called mdns_server.find(service_type, protocol,
-    timeout=...) - that raised a catchable "extra positional arguments
-    given" TypeError on real hardware (XIAO ESP32-S3 Sense), meaning
-    the real signature is something else entirely. Tried to pin down
-    the actual signature via the REPL next (mdns.Server.find.__doc__)
-    - that one didn't raise a catchable exception, it HARD-FAULTED the
-    board (same class of native-level crash this project's code.py
-    docstring and pins.py already document for wifi.radio.start_ap()/
-    ap_info on certain boards - unrecoverable except by a physical
-    reset, invisible to any try/except).
+def _resolve_mdns_hostname(mdns_server, candidate, wdt=None):
+    """Best-effort collision check against other NTK boards already on
+    this network: query mdns_server.find() for the shared "_ntk"/"_tcp"
+    service type above, and if another board's RemoteService.hostname
+    already matches, try candidate-2, candidate-3, ... up to
+    _MDNS_RENAME_MAX_ATTEMPTS before giving up and returning the
+    original candidate unchanged either way - this is a nice-to-have,
+    not a guarantee.
 
-    That means this mdns.Server object is fragile enough, on this
-    CircuitPython build, that touching it beyond the two calls already
-    proven safe elsewhere in this file (.hostname = ...,
-    advertise_service()) is a real risk - and this function's own
-    find() call runs on EVERY boot, automatically, with no user action
-    needed to trigger it. Shipping another blind guess at the right
-    call shape risks turning "the nice-to-have collision check doesn't
-    work" into "the board hard-faults every time it joins WiFi" if the
-    guess is wrong again - not an acceptable trade. Left as a straight
-    passthrough until find()'s real signature can be confirmed through
-    CircuitPython's own source/release notes rather than hardware
-    trial-and-error. NTK_MDNS_HOSTNAME is still the way to avoid a
-    real collision by hand in the meantime."""
-    return candidate
+    wdt, if given, is fed before each attempt - find() is a single
+    blocking native call per attempt, same as wifi.radio.connect()
+    elsewhere in this file, so it can't be fed mid-call either. The
+    caller already feeds it once right after connect() succeeds and
+    before calling this function at all (see _connect_station()'s own
+    comment on why), so this is only needed for attempt 2 onward -
+    included anyway since it's free and one less thing to get wrong if
+    this function's caller ever changes.
+
+    Re-enabled 2026-10-02 after being disabled 2026-10-01. The
+    original attempt's "extra positional arguments given" TypeError
+    turned out to be a real argument-shape bug, not a sign the whole
+    API is unsafe: confirmed via CircuitPython's own shared-bindings
+    source (shared-bindings/mdns/Server.c at the 10.3.1 tag) that
+    find()'s service_type AND protocol are BOTH keyword-only in this
+    build, not positional as the rendered docs site (incorrectly)
+    shows - only passing all three as keywords (service_type=...,
+    protocol=..., timeout=...) avoids that error. This does NOT touch
+    the separate, unexplained hard-fault that happened probing
+    mdns.Server.find.__doc__ directly in the REPL - that was a
+    different action (introspection, not a call) and is not repeated
+    anywhere here.
+
+    Every exception is caught and treated as "couldn't check, use
+    candidate as-is" - a crowded network, no responses, or anything
+    else going wrong here should never be able to block a boot that
+    would otherwise have worked at all."""
+    try:
+        print("Checking for other NTK boards on this network...")
+        for attempt in range(1, _MDNS_RENAME_MAX_ATTEMPTS + 1):
+            if wdt is not None:
+                try:
+                    wdt.feed()
+                except Exception:
+                    pass
+            attempt_hostname = candidate if attempt == 1 else "%s-%d" % (candidate, attempt)
+            found = mdns_server.find(
+                service_type=_NTK_MDNS_SERVICE_TYPE,
+                protocol=_NTK_MDNS_PROTOCOL,
+                timeout=_MDNS_COLLISION_PROBE_TIMEOUT_S,
+            )
+            if not any(s.hostname.lower() == attempt_hostname.lower() for s in found):
+                return attempt_hostname
+        return candidate  # exhausted every attempt - give up gracefully
+    except Exception:
+        return candidate
 
 
 def _connect_station():
@@ -232,7 +249,14 @@ def _connect_station():
     if _watchdog is not None:
         try:
             wdt = microcontroller.watchdog
-            wdt.timeout = 20  # > wifi.radio.connect()'s own 10s timeout - raises on RP2040 (8s max), gracefully left unarmed below
+            # 60 on the XIAO ESP32 tree this is kept in sync with (a
+            # large margin against mdns_server.find()'s timeout=1.0
+            # argument apparently not reliably bounding its actual
+            # blocking time - see that file's own comment for the
+            # 3-resets-in-a-row failure that motivated this) - moot on
+            # this board either way, since any value here still exceeds
+            # RP2040's 8s cap and gets caught the same way 20/30 used to.
+            wdt.timeout = 60
             wdt.mode = _watchdog.WatchDogMode.RESET
             wdt.feed()
         except Exception as e:
@@ -259,6 +283,25 @@ def _connect_station():
             break
         except ConnectionError as e:
             print("WiFi connect attempt failed, retrying:", e)
+    # Reset the watchdog budget right after a successful connect, before
+    # anything below (mDNS setup, the collision-check loop) gets to
+    # spend any of it - connect() above can itself take most of the 20s
+    # window on a slow join, and without this feed here, the mDNS block
+    # would only get whatever was left over rather than a fresh 20s of
+    # its own. Hardware-verified 2026-10-02 (XIAO S3): without this
+    # feed, a single ~1s mdns_server.find() call in
+    # _resolve_mdns_hostname() below was enough to trip 3 watchdog
+    # resets in a row on a boot where connect() had already eaten close
+    # to the full budget - not a hard fault like the earlier
+    # find()-related incident, but still enough to stop Firmata from
+    # starting at all. No-op on this board when wdt is None (the 20s
+    # timeout above already raised and was caught, RP2040's watchdog
+    # caps at 8s) - same as everywhere else wdt is fed in this file.
+    if wdt is not None:
+        try:
+            wdt.feed()
+        except Exception:
+            pass
     # Default power-save (wifi.PowerManagement.MIN) sleeps the radio
     # between the AP's beacon intervals and only wakes periodically -
     # adds tens-to-hundreds of ms of latency to every packet and can
@@ -299,7 +342,7 @@ def _connect_station():
             # hardware-verified caveat). A no-op, returning mdns_hostname
             # unchanged, if nothing else is found or the check itself
             # fails for any reason.
-            resolved_hostname = _resolve_mdns_hostname(_mdns_server, mdns_hostname)
+            resolved_hostname = _resolve_mdns_hostname(_mdns_server, mdns_hostname, wdt)
             if resolved_hostname != mdns_hostname:
                 print(
                     "mDNS name '%s.local' already in use on this network - "
@@ -322,7 +365,14 @@ def _connect_station():
             print("(mDNS unavailable:", e, ")")
 
     print("Connected. IP address: %s%s" % (wifi.radio.ipv4_address, mdns_suffix))
-    oled_display.set_status(ip=str(wifi.radio.ipv4_address))
+    # Only shown once mDNS is confirmed actually active (mdns_suffix
+    # non-empty means advertise_service() succeeded above) - "" clears
+    # the line instead of showing a stale/wrong value if mDNS is
+    # disabled or failed to set up.
+    oled_display.set_status(
+        ip=str(wifi.radio.ipv4_address),
+        hostname=(mdns_hostname + ".local") if mdns_suffix else "",
+    )
     try:
         print("Signal strength: RSSI", wifi.radio.ap_info.rssi, "channel", wifi.radio.ap_info.channel)
         oled_display.set_status(rssi=wifi.radio.ap_info.rssi)

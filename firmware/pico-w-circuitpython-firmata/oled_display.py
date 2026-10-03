@@ -1,15 +1,38 @@
 """
-Optional SSD1306 OLED status display (128x64, I2C), 5 lines total:
+Optional SSD1306 OLED status display (128x64, I2C), 6 lines total:
 
-    1. IP address
-    2. WiFi signal strength, then device mode: "RSSI -61, controlled"
+    1. mDNS hostname, e.g. "ntk-device.local" - blank if mDNS is
+       disabled (NTK_MDNS_HOSTNAME = "none") or unavailable, never the
+       unresolved candidate name if the collision check in code.py
+       renamed it (see set_status()'s own hostname= doc).
+    2. IP address
+    3. WiFi signal strength, then device mode: "RSSI -61, controlled"
        (mode is one of "connecting...", "waiting...", "controlled",
        "standalone", or "monitored" - see set_mode()) - combining IP+RSSI
-       on line 1 instead (an earlier layout) ran too long and got
+       on one line instead (an earlier layout) ran too long and got
        clipped on real hardware, found 2026-09-28.
-    3-5. Whatever the Display widget's three inlets are showing (see
+    4-6. Whatever the Display widget's three inlets are showing (see
        set_lines()) - blank until a patch actually has a Display widget
        wired to hardware.
+
+    Lines are y=6,16,25,34,43,52 (10px between lines 1-2, 9px between
+    every other consecutive pair - widened the first gap specifically
+    per the user's own hands-on feedback 2026-10-02 on the real
+    screen) rather than the original 5-line layout's uniform 12px, to
+    fit a 6th line in the same 64px-tall panel while still leaving a
+    few px of margin below the last line's glyphs (52+8=60, vs the
+    panel's 64) - added 2026-10-02 for the hostname line above; the
+    original 12px spacing left only 2px of margin with 5 lines and
+    wouldn't fit a 6th without this change.
+    A since-reverted attempt to start at y=2 instead of y=6 (to buy an
+    extra 1px of gap per line) clipped the top line's glyphs on real
+    hardware - Label's y is the text BASELINE, not its top-left corner,
+    so glyphs extend ABOVE y by some amount (the font's ascent); y=6
+    was far enough from the top edge (0) to absorb that, y=2 wasn't.
+    y=6 is confirmed safe (it was the original 5-line layout's own
+    first-line position, with no clipping ever reported there) - don't
+    push this above 6 without actually checking terminalio.FONT's
+    ascent/descent metrics first, not just guessing at another value.
 
 Shares the same board.I2C() bus pins.py's Grove sensors already use,
 rather than bringing its own busio.I2C(scl=..., sda=...) like the
@@ -54,6 +77,8 @@ Usage:
     oled_display.init()  # once, after board.I2C() is safe to call
     oled_display.set_status(ip="192.168.0.145")  # code.py, once connected
     oled_display.set_status(rssi=-62)            # either, whenever it's checked
+    oled_display.set_status(hostname="ntk-device.local")  # code.py, once
+                                                   # mDNS is confirmed active
     oled_display.set_mode("waiting")             # ntk_firmata_main.py/code.py,
                                                    # on every mode transition
     oled_display.set_lines(["Temp: 21.3C", "", ""])  # Display widget's 3 lines,
@@ -64,9 +89,10 @@ Usage:
 _OLED_I2C_ADDRESS = 0x3C
 
 _display = None
-_status_label = None  # line 1: IP
-_mode_label = None    # line 2: device mode + RSSI
-_line_labels = None   # lines 3-5: Display widget's three lines
+_hostname_label = None  # line 1: mDNS hostname (blank if none)
+_status_label = None    # line 2: IP
+_mode_label = None      # line 3: device mode + RSSI
+_line_labels = None     # lines 4-6: Display widget's three lines
 
 # Tracked so a change to either piece (mode or RSSI - set independently,
 # at different times, by different callers) can rebuild line 2's
@@ -93,7 +119,7 @@ def init():
     Returns True if a display was found and initialized, False
     otherwise (no display attached, or something else on the bus at
     this address)."""
-    global _display, _status_label, _mode_label, _line_labels
+    global _display, _hostname_label, _status_label, _mode_label, _line_labels
     try:
         import board
         import busio
@@ -139,17 +165,32 @@ def init():
         background = displayio.TileGrid(background_bitmap, pixel_shader=background_palette)
         main_group.append(background)
 
-        # 5 lines, evenly spaced across the 64px-tall panel (12px
-        # apart - terminalio.FONT's glyphs are 8px tall, so this leaves
-        # a small gap between lines without crowding the last one off
-        # the bottom edge: 54 + 8 = 62, just inside 64).
-        _status_label = label.Label(terminalio.FONT, text="Connecting...", color=0xFFFFFF, x=0, y=6)
-        _mode_label = label.Label(terminalio.FONT, text="", color=0xFFFFFF, x=0, y=18)
+        # 6 lines across the 64px-tall panel - 10px between lines 1-2
+        # (widened from 9px per the user's own hands-on feedback
+        # 2026-10-02 looking at the real screen), 9px between every
+        # other consecutive pair. terminalio.FONT's glyphs are 8px
+        # tall, so even the tighter 9px gaps leave a small visible gap
+        # between lines, without crowding the last one off the bottom
+        # edge: 52 + 8 = 60, inside 64 with 4px to spare. y=6 for the
+        # first line (not lower) is deliberate - see module docstring
+        # for a reverted attempt at y=2 that clipped this line's
+        # glyphs.
+        _hostname_label = label.Label(terminalio.FONT, text="", color=0xFFFFFF, x=0, y=6)
+        # Starts blank, not "Connecting..." - the mode line right below
+        # already shows that (set_mode("connecting"), called right
+        # after init() in code.py), and having both say essentially the
+        # same thing on two different lines read as redundant/confusing
+        # on real hardware - this line's whole purpose is the IP once
+        # it's actually known, so there's nothing useful to show here
+        # before then.
+        _status_label = label.Label(terminalio.FONT, text="", color=0xFFFFFF, x=0, y=16)
+        _mode_label = label.Label(terminalio.FONT, text="", color=0xFFFFFF, x=0, y=25)
         _line_labels = [
-            label.Label(terminalio.FONT, text="", color=0xFFFFFF, x=0, y=30),
-            label.Label(terminalio.FONT, text="", color=0xFFFFFF, x=0, y=42),
-            label.Label(terminalio.FONT, text="", color=0xFFFFFF, x=0, y=54),
+            label.Label(terminalio.FONT, text="", color=0xFFFFFF, x=0, y=34),
+            label.Label(terminalio.FONT, text="", color=0xFFFFFF, x=0, y=43),
+            label.Label(terminalio.FONT, text="", color=0xFFFFFF, x=0, y=52),
         ]
+        main_group.append(_hostname_label)
         main_group.append(_status_label)
         main_group.append(_mode_label)
         for line_label in _line_labels:
@@ -162,17 +203,25 @@ def init():
         return False
 
 
-def set_status(ip=None, rssi=None):
-    """ip goes straight onto line 1 - it's only ever set once, when
+def set_status(ip=None, rssi=None, hostname=None):
+    """ip goes straight onto line 2 - it's only ever set once, when
     code.py first learns it, so there's no "keep the last-known value"
-    case to handle there (unlike rssi/mode on line 2, set independently
-    of each other - see _rebuild_mode_line())."""
+    case to handle there (unlike rssi/mode on line 3, set independently
+    of each other - see _rebuild_mode_line()). hostname is the same:
+    set once, straight onto line 1 - pass the already-resolved name
+    (post collision-check rename, if any - see code.py's own
+    _resolve_mdns_hostname()), with ".local" included, or pass "" (not
+    None - None here means "no new value to apply", same as every
+    other kwarg in this function) if mDNS is disabled/unavailable so
+    the line stays blank rather than showing a stale/wrong value."""
     global _last_rssi
     if _display is None:
         return
 
     if ip is not None:
         _status_label.text = ip
+    if hostname is not None:
+        _hostname_label.text = hostname
     if rssi is not None:
         _last_rssi = rssi
         _rebuild_mode_line()

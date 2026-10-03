@@ -1,16 +1,19 @@
-# CircuitPython Firmata for the Seeed XIAO ESP32-C6
+# CircuitPython Firmata for the Seeed XIAO ESP32 family
 
 A from-scratch Firmata protocol server for CircuitPython, so a XIAO
-ESP32-C6 can act as an NTK "Network" device over WiFi - no Arduino IDE,
-no C++, no StandardFirmataWiFi sketch.
+ESP32 board can act as an NTK "Network" device over WiFi - no Arduino
+IDE, no C++, no StandardFirmataWiFi sketch. Covers both the **XIAO
+ESP32-S3 Sense (recommended)** and the XIAO ESP32-C6 - `pins.py`
+auto-detects which one it's actually running on and picks the right
+pin table (`pins_s3.py`/`pins_c6.py`) itself; see its own docstring.
 
-**Status: verified working on real hardware** (XIAO ESP32-C6, connected
-to NTK's AnalogIn widget over WiFi) - handshake, capability/analog-
-mapping queries, and continuous analog reporting all confirmed. Some
-individual pins may not support every mode on your specific board (an
-unsupported ADC/PWM/servo claim is logged and that pin is left
-unclaimed rather than crashing the connection - see `pins.py` if you
-need to adjust the table for your unit).
+**Status: verified working on real hardware** (both boards, connected
+to NTK's AnalogIn/NeoPixel/etc widgets over WiFi) - handshake,
+capability/analog-mapping queries, and continuous analog reporting all
+confirmed. Some individual pins may not support every mode on your
+specific board (an unsupported ADC/PWM/servo claim is logged and that
+pin is left unclaimed rather than crashing the connection - see
+`pins_s3.py`/`pins_c6.py` if you need to adjust the table for your unit).
 
 ## What this covers
 
@@ -21,16 +24,30 @@ string messages. None of NTK's widgets need them.
 
 ## Setup
 
-This board doesn't mount a `CIRCUITPY` USB drive like most CircuitPython
-boards - use [Thonny](https://thonny.org/) (Tools > Options > Interpreter
-> CircuitPython, pick the board's serial port) to browse and transfer
-files on the device over its serial/REPL connection instead.
+The XIAO ESP32-C6 doesn't mount a `CIRCUITPY` USB drive like most
+CircuitPython boards (the S3 Sense does) - use [Thonny](https://thonny.org/)
+(Tools > Options > Interpreter > CircuitPython, pick the board's serial
+port) to browse and transfer files on the device over its serial/REPL
+connection instead; on an S3 Sense, a plain drag-and-drop onto the
+mounted `CIRCUITPY` drive works too.
 
-1. In Thonny's file browser, copy `code.py`, `ntk_firmata_main.py`,
-   `firmata_server.py`, and `pins.py` onto the board (overwriting any
-   existing `code.py`).
-2. Copy `settings-example.toml` to `settings.toml` on the board the same
-   way, and fill in your WiFi SSID/password.
+1. Copy `code.py`, `ntk_firmata_main.py`, `oled_display.py`, `pins.py`,
+   `pins_s3.py`, and `pins_c6.py` from this folder onto the board
+   (overwriting any existing `code.py`), unchanged - the same files,
+   with no renaming, regardless of which of the two boards you're
+   deploying to. `pins.py` detects which board it's actually running
+   on at boot and picks the matching table itself (see its own
+   docstring) - this is deliberate, not an oversight: an earlier
+   "copy just the one file that matches your board, renamed to
+   pins.py" convention was a genuinely awkward extra manual step on
+   the C6 specifically, since Thonny's file transfer can't rename a
+   file as part of uploading it.
+2. Also copy `boot.py`, `firmata_server.py`, `neopixel_output.py`,
+   `settings-example.toml`, and the `lib/` folder from `../common/`
+   (one level up) onto the board - these are identical across every
+   NTK firmware tree, so they live there instead of being duplicated
+   in this folder. Rename `settings-example.toml` to `settings.toml`
+   once it's on the board, and fill in your WiFi SSID/password.
 3. The board will reset and run `code.py` automatically. Watch the
    serial console (e.g. `screen /dev/tty.usbmodem* 115200` on macOS, or
    Thonny's own Shell pane) for a line like:
@@ -50,28 +67,40 @@ files on the device over its serial/REPL connection instead.
 
    There's also an `NTK_MDNS_HOSTNAME` setting to point NTK at a
    `<name>.local` address instead of the IP - see **mDNS hostname**
-   below for why it's not usable yet.
+   below for its mixed track record so far.
 
-## mDNS hostname (not working yet)
+## mDNS hostname (works on some networks, not others)
 
-**Hardware-verified 2026-09-23: this doesn't actually work on
-CircuitPython 10.3.1 / this board yet.** `code.py` sets up `mdns.Server`
-correctly (hostname set, `advertise_service()` called, no errors, the
-console prints the expected line) but the board never answers mDNS
-queries from other devices - confirmed with both a direct query and a
-service browse from a Mac, against a network that resolves other real
-mDNS devices (AirPlay/HomeKit/printers) fine. Left in place since it's
-harmless when set and may start working on a future CircuitPython
-release. Use the IP address from the boot console (or SoftAP's fixed
-`192.168.4.1`) for now.
+Set `NTK_MDNS_HOSTNAME = "ntk-device"` (or any name you like) in
+`settings.toml` and the board advertises itself as `ntk-device.local`
+on your network - point NTK's Device field at that name and port
+`3030` instead of an IP address, and it keeps working even if the
+router hands out a different IP later. Station mode only (SoftAP
+already has a fixed IP, `192.168.4.1`). Running more than one board on
+the same network? Give each a different hostname.
 
-The intent, once it works: set `NTK_MDNS_HOSTNAME = "ntk-device"` (or
-any name you like) in `settings.toml` and the board would advertise
-itself as `ntk-device.local` on your network - point NTK's Device field
-at that name and port `3030` instead of an IP address, and it would
-keep working even if the router hands out a different IP later. Station
-mode only (SoftAP already has a fixed IP, `192.168.4.1`). Running more
-than one board on the same network? Give each a different hostname.
+**Inconsistent results across two separate hardware tests, same board/
+CircuitPython version, cause not yet identified:**
+- **2026-09-23: didn't work.** `code.py` set up `mdns.Server` with no
+  errors (hostname set, `advertise_service()` called, console printed
+  the expected line), but the board never answered mDNS queries from
+  other devices - confirmed with both a direct query and a service
+  browse from a Mac, against a network that resolved other real mDNS
+  devices (AirPlay/HomeKit/printers) fine, so the network itself wasn't
+  the obvious culprit at the time.
+- **2026-10-02: worked.** Typed `ntk-device-2.local` directly into
+  NTK's Device field and it resolved and connected successfully, no
+  code changes to the mDNS setup itself between the two tests.
+- Likely explanation, not confirmed: the WiFi network/router was
+  different between the two tests (this session separately hit a
+  subnet mismatch after a network change), and multicast/mDNS handling
+  varies by router even when it resolves other mDNS devices fine -
+  but this hasn't actually been isolated by testing the same board on
+  both networks back to back.
+
+Harmless either way (nothing breaks if it doesn't resolve on your
+network) - worth trying, and falling back to the plain IP address from
+the boot console (or SoftAP's fixed `192.168.4.1`) if it doesn't.
 Needs a resolver that understands mDNS/
 Bonjour - built into macOS, may need [Bonjour Print
 Services](https://support.apple.com/kb/DL999) installed on Windows.
@@ -192,10 +221,9 @@ board has already finished booting on its own, instead of racing it.
 ## Optional: Grove sensors (NTK's GroveIn widget)
 
 Wire a supported Grove sensor to the board (I2C pins for most; a
-digital pin for the DHT11, see below) and copy this folder's `lib/`
-subfolder onto the device (Thonny, alongside
-`code.py`/`ntk_firmata_main.py`/`firmata_server.py`/`pins.py`) - no other setup needed.
-`pins.py` detects each I2C sensor at boot (skipped silently, no error,
+digital pin for the DHT11, see below) and copy `../common/lib/` onto
+the device (Thonny, alongside everything from the Setup section above)
+- no other setup needed. `pins.py` detects each I2C sensor at boot (skipped silently, no error,
 if not attached, wired wrong, or the bus lacks pull-ups - see
 Troubleshooting below) and makes it available to add a **GroveIn**
 widget for in NTK, over the same connection as every other widget - no
@@ -260,12 +288,12 @@ exclusively.
 
 **Status: built and hardware-verified (2026-09-17), still v1** - see `plans/standalone-patch-export.md` in the main NTK repo for the full design and open items.
 
-Normally every bit of patch logic runs on the host (NTK itself) - this firmware is just a dumb Firmata relay, and closing NTK or disconnecting the board from it stops everything. `standalone_interpreter.py`, if present on the device, changes that: it loads a saved patch and evaluates it directly on the board, driving real GPIO with no host connected at all.
+Normally every bit of patch logic runs on the host (NTK itself) - this firmware is just a dumb Firmata relay, and closing NTK or disconnecting the board from it stops everything. `standalone_interpreter.mpy`, if present on the device, changes that: it loads a saved patch and evaluates it directly on the board, driving real GPIO with no host connected at all.
 
 Setup:
 
 1. In NTK, build your patch and click **Export** (in the Settings drawer) - it downloads `standalone_patch.json` directly, ready to drop onto the board's drive with no rename needed. Export itself doesn't check widget compatibility (it's also just the general "save a copy of this patch" action) - Push to Device does check, and tells you exactly which widget is unsupported if any are, before sending.
-2. Copy the downloaded `standalone_patch.json`, plus this folder's `standalone_interpreter.py`, onto the board via Thonny alongside `code.py`/`ntk_firmata_main.py`/`firmata_server.py`/`pins.py`.
+2. Copy the downloaded `standalone_patch.json`, plus this folder's `standalone_interpreter.mpy`, onto the board via Thonny alongside everything from the Setup section above. **Must be the compiled `.mpy`, never the `.py` source** (`../common/standalone_interpreter.py` is the source, kept for reference/recompiling only) - running it as raw source fragments the heap enough to degrade WiFi reliability, and CircuitPython's import resolution between a same-named `.py`/`.mpy` pair in one directory isn't something to rely on, so never let both exist on the board at once.
 3. Reboot the board. The serial console prints `Standalone patch loaded and compatible: standalone_patch.json`, and the board starts running the patch on its own - watch for `Standalone interpreter running (no client connected)`. If the patch used an unsupported widget, it instead prints exactly which one and the interpreter doesn't start.
 
 Supported widgets: AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, GroveSensor, Display, and all the pure logic/generator widgets (IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse, Sequence, Tween, Data) - the same widgets a `.ntk` patch already saves, no special "standalone" version needed. Not supported: Gesture (an open on-device performance question, not yet resolved) and anything that needs a browser (camera/AI widgets, Text/Image/Button, etc.).
@@ -278,8 +306,10 @@ Nothing here changes if you never copy `standalone_interpreter.py` or `standalon
 
 ## Pin mapping
 
-See `pins.py` for the authoritative table and how to adjust it if your
-CircuitPython build names pins differently.
+See `pins_s3.py`/`pins_c6.py` (whichever matches your board) for the
+authoritative table and how to adjust it if your CircuitPython build
+names pins differently - `pins.py` itself just picks between the two
+at boot, it has no pin data of its own.
 
 | Firmata pin | XIAO pin | Analog-capable |
 |---|---|---|
@@ -288,10 +318,11 @@ CircuitPython build names pins differently.
 
 ## Known hardware limit
 
-The ESP32-C6 has 6 PWM (LEDC) channels total, so at most 6 pins can be
-configured as PWM or Servo outputs at the same time. Trying to add a
-7th will raise an error from `pwmio` - reduce simultaneous PWM/Servo
-widgets if you hit this.
+The ESP32-S3 (this directory's default board) has 8 PWM (LEDC) channels
+total, so at most 8 pins can be configured as PWM or Servo outputs at
+the same time - the ESP32-C6 has only 6. Trying to add one more than
+your board's limit will raise an error from `pwmio` - reduce
+simultaneous PWM/Servo widgets if you hit this.
 
 ## Troubleshooting
 
@@ -302,7 +333,7 @@ widgets if you hit this.
 - **Board prints an error and stops**: reconnect the serial console to
   see the traceback - CircuitPython prints exceptions there, including
   ones from a pin name that doesn't match your specific board (see
-  `pins.py`).
+  `pins_s3.py`/`pins_c6.py`).
 - **Values look scaled wrong**: this reports analog values as 0-1023
   and expects PWM writes as 0-255, matching classic Arduino - if
   something upstream is assuming ESP32-native ranges (0-4095 ADC, 0-255

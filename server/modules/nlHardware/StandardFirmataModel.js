@@ -2,7 +2,7 @@ module.exports = function(five) {
 	var pollIntervalMod = 1;
 
 	// Custom sysex extension (not part of the Firmata spec) matching
-	// firmware/xiao-esp32c6-circuitpython-firmata/firmata_server.py's
+	// firmware/xiao-esp32-circuitpython-firmata/firmata_server.py's
 	// constants of the same name byte-for-byte - lets a GroveSensor
 	// widget subscribe to an I2C sensor the firmware already knows how
 	// to read (see that file's module docstring for why this exists
@@ -129,7 +129,7 @@ module.exports = function(five) {
 
 	// pushPatch needs WRITE access specifically, which findLocalCircuitpyMount
 	// above does NOT guarantee - CircuitPython's own boot.py (see
-	// firmware/xiao-esp32c6-circuitpython-firmata/boot.py) can remount
+	// firmware/xiao-esp32-circuitpython-firmata/boot.py) can remount
 	// the filesystem for CODE write access instead of host write access
 	// (its default, needed for the original network sysex push path to
 	// work at all), which makes the mount READ-ONLY from here despite
@@ -167,10 +167,18 @@ module.exports = function(five) {
 			self = this;
 			// This instance, captured in a real closure variable. The bare
 			// `self` above is a module-global that the NEXT NetworkModel's
-			// addDefaultPins() overwrites - so a Sensor "data" callback that
-			// closed over `self` would, on a second connection, write this
-			// board's readings onto the other model. Use `boundModel` in the
-			// per-sensor callbacks instead.
+			// addDefaultPins() overwrites - so a callback that closed over
+			// `self` would, on a second connection, write this board's
+			// readings onto the other model. Use `boundModel` in the
+			// per-sensor callbacks instead - EXCEPT setIOMode()'s own digital-
+			// read listener (see its own comment), which still deliberately
+			// reads the bare global and has the exact same cross-device bug
+			// as the GROVE_SENSOR_REPLY handler used to (fixed 2026-10-02 to
+			// use boundModel instead) - not yet fixed itself, so `self =
+			// this` has to stay assigned here for now even though it's a
+			// known-live multi-device hazard. See the planned-work note on
+			// this for the real fix (give setIOMode's listener the same
+			// boundModel treatment, then this global assignment can go too).
 			var boundModel = this;
 			// Store all pin mode mappings (string -> integer)
 			this.PINMODES = this.board.io.MODES;
@@ -236,14 +244,14 @@ module.exports = function(five) {
 						// what maps index -> a human label/outlet.
 						var field = "grove-" + sensorId + "-" + i;
 
-						self.inputs[field] = {value: value};
-						self.emit('change', {field: field, value: value});
+						boundModel.inputs[field] = {value: value};
+						boundModel.emit('change', {field: field, value: value});
 					}
 				}
 				else if(subType === GROVE_STATUS) {
 					var field = "grove-" + sensorId + "-status";
-					self.inputs[field] = {value: data[3]};
-					self.emit('change', {field: field, value: data[3]});
+					boundModel.inputs[field] = {value: data[3]};
+					boundModel.emit('change', {field: field, value: data[3]});
 				}
 			});
 

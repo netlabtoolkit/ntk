@@ -1,45 +1,39 @@
 """
-XIAO ESP32-C6 pin map, in Firmata pin-index order.
+XIAO ESP32-S3 Sense pin map, in Firmata pin-index order. S3 Sense is
+the recommended board - see pins_c6.py for the XIAO ESP32-C6 table
+instead. Not imported directly by ntk_firmata_main.py - pins.py in
+this same directory auto-detects which board this actually is and
+imports whichever of this file/pins_c6.py actually matches; both get
+deployed unchanged onto every board (see pins.py's own docstring for
+why - no more manual "copy the right file and rename it" step).
 
-Each entry is (board_pin_object_or_None, analog_channel_or_None,
-virtual_read_or_None). XIAO boards keep pin names consistent across
-variants (D0-D10, with D0-D5 doubling as A0-A5 on the same physical
-pins) - this is what that naming is based on. If
-`import board; print(dir(board))` at the CircuitPython REPL shows
-different names on your specific unit/CircuitPython version, edit this
-table to match - nothing else in this project needs to change.
+Board-verified 2026-09-25 via the live REPL (not assumed from the C6
+table) - see pins_c6.py for the fuller explanation of this file's
+shape/PIN_TABLE format; only the board-specific differences are noted
+here.
 
-A pin with board_pin=None is "virtual" - not a real GPIO, just a
-sensor reading exposed through Firmata's ordinary analog-pin reporting
-(see firmata_server.py's _VirtualAnalogIn). virtual_read is then a
-zero-arg function returning a raw 16-bit value (0-65535); it's what
-makes that work. See the Grove LIS3DHTR block below for the first one.
+Unlike the XIAO ESP32-C6, D3/D4/D5 DO work as analog input on this
+board/unit (analogio.AnalogIn succeeded on D0-D5, failed with "Invalid
+pin" from D6 on) - so all six are included as analog channels 0-5
+below, not just D0-D2. D0-D10 all confirmed working as digital I/O and
+PWM. ESP32-S3 has 8 LEDC channels (vs the C6's 6), so up to 8 pins can
+be PWM/servo at once here.
 
-Firmata pin index -> XIAO pin:
-  0-2  -> D0-D2 (also usable as ANALOG IN, via the same physical pins)
-  3-10 -> D3-D10 (digital/PWM/servo only)
+This is the "Sense" variant (adds a camera, mic, and SD card slot over
+the plain XIAO ESP32-S3) - none of that is used by NTK; board.CAM_*/
+MIC_*/SDCS are simply not referenced here.
 
-D3-D5 are marked as digital-only here (analog_channel=None) even though
-they're physically the same dual-purpose pins as D0-D2, for two
-reasons specific to this board unit: (1) analogio.AnalogIn actually
-raised "Invalid pin" on D3/D4/D5 on real hardware - they don't work as
-analog input here regardless of what this table says; (2) NTK's own
-StandardFirmataModel.js (server/modules/nlHardware/, not part of
-Firmata itself) sorts every pin the device reports as analog-capable
-into inputs-only at connect time (addDefaultPins()), permanently
-excluding it from ever being available as a Servo/AnalogOut/DigitalOut
-target - a real NTK-side limitation, not a Firmata protocol one (see
-the CircuitPython Firmata firmware memory note for the fuller story).
-Marking D3-D5 as digital-only works around both issues at once and
-costs nothing on this unit, since they didn't work as analog input
-anyway. If you need analog input specifically on D3-D5 on a different
-board/unit where they DO work, restore their channel numbers here, but
-they'll then be unavailable as output targets in NTK until that host-
-side limitation is fixed properly.
-
-Hardware note: the ESP32-C6 has 6 PWM (LEDC) channels total, so at most
-6 pins can be configured as PWM or SERVO at the same time - trying to
-add a 7th will raise an error from pwmio.
+Grove sensor support below is ported from pins_c6.py (2026-10-02) -
+NOT yet hardware-verified on a physical S3 Sense board with a sensor
+actually attached (the C6 file's own version was verified hands-on;
+this port carries the same I2C/GPIO logic, which isn't chip-specific,
+but hasn't been re-confirmed on this chip). One real difference from
+the C6 version: the LIS3DHTR accelerometer's three virtual analog
+pins use channels 6-8 here, not 3-5 - on the C6, channels 3-5 are free
+because D3-D5 are digital-only there; on the S3, D3/D4/D5 are real
+analog channels 3-5 already (see above), so the virtual pins had to
+move past the six real ones to avoid colliding with them on the same
+Firmata analog index.
 """
 
 import board
@@ -67,9 +61,9 @@ PIN_TABLE = [
     (board.D0, 0, None),
     (board.D1, 1, None),
     (board.D2, 2, None),
-    (board.D3, None, None),
-    (board.D4, None, None),
-    (board.D5, None, None),
+    (board.D3, 3, None),
+    (board.D4, 4, None),
+    (board.D5, 5, None),
     (board.D6, None, None),
     (board.D7, None, None),
     (board.D8, None, None),
@@ -79,10 +73,12 @@ PIN_TABLE = [
 
 # Optional: Grove - 3-Axis Digital Accelerometer (LIS3DHTR), I2C. Exposed
 # as three "virtual" analog pins (X/Y/Z, no real board_pin) using analog
-# channels 3-5 - unused by any real pin above (D3-D5 are digital-only on
-# this unit, see the comment above), so no collision. A widget just wires
-# up to A3/A4/A5 like any other analog input; nothing else in NTK or the
-# rest of this firmware needs to know these aren't real ADC pins.
+# channels 6-8 - unused by any real pin above (D0-D5 are all real analog
+# channels 0-5 on this board, unlike the C6 where D3-D5 are digital-only
+# and channels 3-5 are free - see this file's own docstring), so no
+# collision. A widget just wires up to A6/A7/A8 like any other analog
+# input; nothing else in NTK or the rest of this firmware needs to know
+# these aren't real ADC pins.
 #
 # Entirely optional and silently skipped if the sensor isn't attached
 # or the bus lacks pull-ups - PIN_TABLE just ends up three entries
@@ -111,9 +107,9 @@ try:
             return int(min(max(raw16, 0), 65535))
         return read
 
-    PIN_TABLE.append((None, 3, _make_accel_axis_reader(0)))  # A3 = accel X
-    PIN_TABLE.append((None, 4, _make_accel_axis_reader(1)))  # A4 = accel Y
-    PIN_TABLE.append((None, 5, _make_accel_axis_reader(2)))  # A5 = accel Z
+    PIN_TABLE.append((None, 6, _make_accel_axis_reader(0)))  # A6 = accel X
+    PIN_TABLE.append((None, 7, _make_accel_axis_reader(1)))  # A7 = accel Y
+    PIN_TABLE.append((None, 8, _make_accel_axis_reader(2)))  # A8 = accel Z
 
     # Also reachable as GroveSensor catalog entry 0 - same underlying
     # sensor object, just real m/s^2 units instead of squeezed into
@@ -139,39 +135,40 @@ except Exception:
 # LIS3DH's three, matching however many readings the widget-side
 # sensorCatalog.js entry declares.
 #
-# Hardware-verified: readings come back in mm as expected via the
-# GroveSensor widget. Entirely optional and silently skipped if not
-# attached, same graceful-skip pattern as the accelerometer above.
+# Hardware-verified on the C6 (via the GroveSensor widget); not yet
+# re-confirmed on this board - ported here unchanged since none of
+# this is chip-specific (I2C address/registers, not GPIO).
 #
-# Measured calibration offset: this particular module reads a
-# consistent ~50mm FAR of actual distance in its normal operating range
-# (150mm measured as ~200mm, 250mm measured as ~300mm - the same ~50mm
-# both times, not a percentage error), so it's corrected here with a
-# flat subtraction rather than in sensorCatalog.js/the widget, since
-# it's a property of this specific sensor module, not something NTK
-# should have to know about. Adafruit's adafruit_vl53l0x driver exposes
-# no built-in offset-calibration call (unlike some other ToF libraries),
-# so this is the only place to apply one. Right at contact (~0mm actual)
-# the raw reading jumps to ~80mm instead of following that same ~50mm
-# pattern - a known VL53L0X near-field limitation (optical crosstalk
-# between the emitter and receiver dominates the return signal at very
-# short range), not something a flat offset can correct; readings well
-# under ~50mm actual distance should be treated as unreliable regardless
-# of this correction. Re-measure and adjust this constant if a
-# different physical module/housing is ever swapped in.
+# Measured calibration offset (from the C6 unit this was verified on):
+# that module read a consistent ~50mm FAR of actual distance in its
+# normal operating range (150mm measured as ~200mm, 250mm measured as
+# ~300mm - the same ~50mm both times, not a percentage error), so it's
+# corrected here with a flat subtraction rather than in
+# sensorCatalog.js/the widget, since it's a property of the specific
+# sensor module, not something NTK should have to know about. Adafruit's
+# adafruit_vl53l0x driver exposes no built-in offset-calibration call
+# (unlike some other ToF libraries), so this is the only place to apply
+# one. Re-measure and adjust this constant for whichever physical
+# module/housing is actually attached to this board - right at contact
+# (~0mm actual) the raw reading jumps to ~80mm instead of following
+# that same ~50mm pattern on the C6 unit, a known VL53L0X near-field
+# limitation (optical crosstalk between the emitter and receiver
+# dominates the return signal at very short range), not something a
+# flat offset can correct; readings well under ~50mm actual distance
+# should be treated as unreliable regardless of this correction.
 _VL53L0X_OFFSET_MM = 50
 
-# Measured: with nothing in range at all, the sensor doesn't report an
-# error or a small/zero value - it returns a large sentinel-ish raw
-# reading (~7030mm here, well past its ~1200mm rated max), which is
-# normal VL53L0X "no valid target" behavior, not a fault. Left
-# uncorrected, that would sail straight through sensorCatalog.js's
-# scale-to-0-1023 conversion (SignalChainFunctions.js's scale() does a
-# plain linear transform with NO clamping to the configured
-# inputCeiling) and spike the outlet to several times the normal 0-1023
-# range - clamped here instead so "nothing in range" reads the same as
-# "an object sitting right at the sensor's rated max distance", which
-# is the conventional way ToF sensors handle this case.
+# Measured (C6 unit): with nothing in range at all, the sensor doesn't
+# report an error or a small/zero value - it returns a large
+# sentinel-ish raw reading (~7030mm there, well past its ~1200mm rated
+# max), which is normal VL53L0X "no valid target" behavior, not a
+# fault. Left uncorrected, that would sail straight through
+# sensorCatalog.js's scale-to-0-1023 conversion (SignalChainFunctions.js's
+# scale() does a plain linear transform with NO clamping to the
+# configured inputCeiling) and spike the outlet to several times the
+# normal 0-1023 range - clamped here instead so "nothing in range"
+# reads the same as "an object sitting right at the sensor's rated max
+# distance", which is the conventional way ToF sensors handle this case.
 _VL53L0X_MAX_RANGE_MM = 1200  # matches sensorCatalog.js's declared ceiling
 
 try:
@@ -202,11 +199,15 @@ except Exception:
 # pin when the widget unsubscribes, switches sensors, or picks a
 # different pin (see firmata_server.py's _unsubscribe_grove_sensor).
 #
-# Hardware-verified end-to-end (subscribe/pin-field/readings all the
-# way through the GroveSensor widget), wired to D7 on this unit - avoid
-# D0-D2, which NTK's server claims automatically as analog inputs the
-# moment it connects (see the addDefaultPins() limitation noted at the
-# top of this file), conflicting with the DHT11's own pin claim.
+# Hardware-verified end-to-end on the C6 unit (subscribe/pin-field/
+# readings all the way through the GroveSensor widget), wired to D7
+# there - not yet re-confirmed on this board, ported unchanged since
+# none of this is chip-specific. Avoid D0-D5 on THIS board (all six are
+# analog-capable here, unlike the C6 where only D0-D2 are) - NTK's
+# server claims every analog-capable pin automatically as an input the
+# moment it connects (see the addDefaultPins() limitation noted in
+# pins_c6.py), conflicting with the DHT11's own pin claim. D6-D10 are
+# digital-only here and safe to use.
 try:
     import adafruit_dht
 
@@ -253,10 +254,10 @@ except Exception:
 # ways to read it: infrared only, full-spectrum only, or "human visible"
 # (both diodes combined, calibrated to approximate the eye's response -
 # what adafruit_tsl2561's `.lux` property already computes). Hardware-
-# verified (address/wiring); the mode-selection wiring below itself is
-# new and untested against real hardware yet.
+# verified on the C6 unit (address/wiring); not yet re-confirmed on this
+# board - ported unchanged since none of this is chip-specific.
 #
-# needs_mode mirrors needs_pin (DHT11) below almost exactly - a 4th
+# needs_mode mirrors needs_pin (DHT11) above almost exactly - a 4th
 # sysex byte the widget sends at SUBSCRIBE time - except it never claims
 # an exclusive hardware resource, so make_read() always returns a
 # cleanup_fn of None; kept as the same (read_fn, cleanup_fn) tuple shape
@@ -349,7 +350,9 @@ except Exception:
 # the speed of sound (343 m/s), halved for the round trip, is the
 # distance.
 #
-# HARDWARE HISTORY (2026-09-05, several rounds against real hardware):
+# HARDWARE HISTORY (2026-09-05, several rounds against real hardware -
+# on the C6 unit; not yet re-confirmed on this board, ported unchanged
+# since none of this is chip-specific):
 #   1. First version used pulseio.PulseIn for echo capture - tearing down
 #      the trigger's digitalio object and building a brand-new PulseIn
 #      (an RMT peripheral) on every read. Pinned at max range always -
@@ -438,9 +441,8 @@ def _make_ultrasonic_read(pin):
 
     def read():
         # Single ping, no median/retry - see the HARDWARE HISTORY note
-        # above for why simpler turned out to be more accurate here.
-        # Hardware-confirmed accurate 2026-09-05 (via test_ultrasonic.py):
-        # 160mm measured as 146.5mm, well within reasonable tolerance.
+        # above for why simpler turned out to be more accurate here
+        # (on the C6 unit this was verified on).
         return [_ping()]
 
     def cleanup():
@@ -451,11 +453,12 @@ def _make_ultrasonic_read(pin):
 GROVE_SENSOR_CATALOG[4] = {
     "needs_pin": True,
     "make_read": _make_ultrasonic_read,
-    # Hardware-confirmed 2026-09-05 (see HARDWARE HISTORY above): this
-    # transducer's own mechanical ringing needs meaningfully longer than
-    # Seeed's own quoted ">=60ms" to fully settle between pings on this
-    # unit - 60ms produced large, inconsistent errors; 300ms (matching
-    # test_ultrasonic.py, which measured accurately) did not.
+    # Hardware-confirmed 2026-09-05 on the C6 unit (see HARDWARE HISTORY
+    # above): this transducer's own mechanical ringing needs meaningfully
+    # longer than Seeed's own quoted ">=60ms" to fully settle between
+    # pings - 60ms produced large, inconsistent errors; 300ms (matching
+    # test_ultrasonic.py, which measured accurately) did not. Not yet
+    # re-confirmed on this board.
     "min_interval_ms": 300,
 }
 # Not added to _found_sensors below, same reasoning as DHT11 above - this

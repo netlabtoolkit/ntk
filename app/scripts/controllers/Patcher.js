@@ -831,7 +831,17 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 				IOMapping = options.IOMapping,
 				view = options.view,
 				server = options.server,
-				inletOffsets = options.inletOffsets;
+				inletOffsets = options.inletOffsets,
+				// Was a bare, undeclared global (no var/let/const) - shared
+				// across every widget, not scoped to this call. Reentrant
+				// calls to mapToModel() (e.g. triggered synchronously while
+				// constructing a hardware model instance below) could
+				// overwrite it mid-flight, tagging one widget's mapping
+				// entry with a DIFFERENT widget's viewWID - the real cause
+				// of two AnalogIn widgets on different device IPs
+				// collapsing onto a single shared connection, confirmed
+				// 2026-10-02 via live two-device testing.
+				viewWID;
 
 
 			// If we have a view, grab its wid

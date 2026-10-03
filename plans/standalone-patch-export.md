@@ -139,7 +139,7 @@ an unresolved spike.
 
 ## The interpreter (built 2026-09-17)
 
-`firmware/xiao-esp32c6-circuitpython-firmata/standalone_interpreter.py`
+`firmware/xiao-esp32-circuitpython-firmata/standalone_interpreter.py`
 on the `standalone-patch-export` branch. `StandaloneInterpreter.load()`
 takes the same `{widgets, mappings}` JSON `standalone_patch.json`
 contains, rejects any widget outside `PORTABLE_TYPE_IDS` (mirrors
@@ -411,7 +411,7 @@ deploy + monitor channel.
   filesystem, it's ready to run standalone — no new settings surface
   needed. Independent of whichever WiFi mode (SoftAP/station) is active.
 
-See the CircuitPython firmware (`firmware/xiao-esp32c6-circuitpython-firmata/`,
+See the CircuitPython firmware (`firmware/xiao-esp32-circuitpython-firmata/`,
 `pins.py` / `firmata_server.py`) for the architecture this extends, and
 [device-discovery.md](device-discovery.md) for the SoftAP-mode precedent.
 
