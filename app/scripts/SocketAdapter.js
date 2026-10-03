@@ -11,8 +11,20 @@ function( Backbone ) {
 
 	SocketAdapter.prototype = {
 		bindToSocketServer: function() {
-			//var serverAddress = window.location.host,
-			var serverAddress = "127.0.0.1:9001",
+			// Was hardcoded to "127.0.0.1:9001" - works for Electron's
+			// own window and a browser on the same machine (both
+			// happen to load the UI from that same address), but means
+			// "connect to yourself" from any other device, since
+			// 127.0.0.1 is always relative to whoever's making the
+			// request. window.location.host is whatever host:port the
+			// page itself was actually loaded from - correct in every
+			// case, including a remote browser (e.g. a tablet on the
+			// same network) pointed at this machine's real IP. Fixed
+			// 2026-10-03 after a remote browser showed no widgets and
+			// couldn't create any - this socket connection failing
+			// silently (pointed at the remote device's own localhost,
+			// nothing listening there) was the root cause.
+			var serverAddress = window.location.host,
 				self = this;
 
 			console.log("SERVER ADDRESS", serverAddress);
