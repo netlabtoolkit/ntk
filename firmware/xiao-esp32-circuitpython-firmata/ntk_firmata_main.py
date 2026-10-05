@@ -400,7 +400,81 @@ def _release_boot_default_pins():
 # reliability regression, not just a style preference.
 STANDALONE_PATCH_PATH = "standalone_patch.json"
 
-def _load_standalone_patch(for_live_client=False):
+
+# Key NTK adds to a pushed patch to ask for the save-across-a-restart
+# path - see _handle_push_patch_request. Must match
+# StandardFirmataModel.js's SAVE_AFTER_RESTART_KEY.
+_SAVE_AFTER_RESTART_KEY = "__ntkSaveAfterRestart"
+
+# microcontroller.nvm layout for a stashed patch. Bytes 0 and 1 are the
+# watchdog/WiFi counters above. boot.py reads the flag byte too (same
+# index and value, hardcoded there - it can't import this module).
+_NVM_STASH_FLAG = 8          # _NVM_STASH_MAGIC while a stash is waiting
+_NVM_STASH_LENGTH = 9        # 4 bytes, big-endian; 0 = erase the patch
+_NVM_STASH_DATA = 13
+_NVM_STASH_MAGIC = 0xA5
+
+
+def _patch_stash_problem(patch_json, is_erase):
+    """None if this patch can be stashed in non-volatile memory, else a
+    short reason (goes into the push reply)."""
+    try:
+        capacity = len(microcontroller.nvm) - _NVM_STASH_DATA
+    except Exception:
+        return "this board has no non-volatile memory to save through"
+    size = 0 if is_erase else len(patch_json.encode("utf-8"))
+    if size > capacity:
+        return "too large to save without USB: %d bytes, limit %d" % (size, capacity)
+    return None
+
+
+def _stash_patch_for_save(patch_json, is_erase):
+    data = b"" if is_erase else patch_json.encode("utf-8")
+    nvm = microcontroller.nvm
+    nvm[_NVM_STASH_DATA:_NVM_STASH_DATA + len(data)] = data
+    nvm[_NVM_STASH_LENGTH:_NVM_STASH_LENGTH + 4] = len(data).to_bytes(4, "big")
+    nvm[_NVM_STASH_FLAG] = _NVM_STASH_MAGIC  # last: only valid once the rest is in place
+
+
+def _finish_stashed_patch_save():
+    """Second half of the save-across-a-restart path: called once at
+    import time, before the standalone patch is loaded. If boot.py found
+    a stash it has mounted the filesystem writable-from-code for this
+    boot; write (or erase) the patch file, clear the stash, and restart
+    again so the board comes back in its normal mode, where a computer
+    can write to the CIRCUITPY drive. The flag is cleared whatever
+    happens, so a failure here can never turn into a restart loop."""
+    try:
+        nvm = microcontroller.nvm
+        if nvm is None or nvm[_NVM_STASH_FLAG] != _NVM_STASH_MAGIC:
+            return
+    except Exception:
+        return
+    try:
+        length = int.from_bytes(bytes(nvm[_NVM_STASH_LENGTH:_NVM_STASH_LENGTH + 4]), "big")
+        if length == 0:
+            try:
+                os.remove(STANDALONE_PATCH_PATH)
+            except OSError as e:
+                if getattr(e, "errno", None) != errno.ENOENT:
+                    raise
+            print("Stashed push: standalone patch erased")
+        else:
+            with open(STANDALONE_PATCH_PATH, "wb") as f:
+                f.write(bytes(nvm[_NVM_STASH_DATA:_NVM_STASH_DATA + length]))
+            print("Stashed push: standalone patch saved (%d bytes)" % length)
+    except Exception as e:
+        print("Stashed push: could NOT save the patch:", e)
+    try:
+        nvm[_NVM_STASH_FLAG] = 0
+    except Exception as e:
+        print("Stashed push: couldn't clear the stash flag:", e)
+        return  # don't restart on a flag that would bring us straight back here
+    print("Restarting into normal mode...")
+    microcontroller.reset()
+
+
+def _load_standalone_patch(for_live_client=False, patch_from_memory=None):
     """(Re)loads STANDALONE_PATCH_PATH into a fresh StandaloneInterpreter
     and sets the module-level _standalone to it (None if no file exists,
     it's malformed, or it's rejected as incompatible). Called once at
@@ -426,14 +500,17 @@ def _load_standalone_patch(for_live_client=False):
     while running."""
     global _standalone
     _standalone = None
-    try:
-        os.stat(STANDALONE_PATCH_PATH)
-        has_patch = True
-    except OSError:
-        has_patch = False
+    # patch_from_memory: an already-parsed patch to run WITHOUT it being
+    # on disk - see _handle_push_patch_request's read-only fallback.
+    if patch_from_memory is None:
+        try:
+            os.stat(STANDALONE_PATCH_PATH)
+            has_patch = True
+        except OSError:
+            has_patch = False
 
-    if not has_patch:
-        return
+        if not has_patch:
+            return
 
     print("Loading standalone patch...")
 
@@ -470,7 +547,10 @@ def _load_standalone_patch(for_live_client=False):
         print("Standalone patch present but standalone_interpreter import failed")
         return
 
-    patch = load_patch_file(STANDALONE_PATCH_PATH)
+    if patch_from_memory is not None:
+        patch = patch_from_memory
+    else:
+        patch = load_patch_file(STANDALONE_PATCH_PATH)
     if patch is None:
         return
 
@@ -495,6 +575,7 @@ def _load_standalone_patch(for_live_client=False):
 
 
 _standalone = None
+_finish_stashed_patch_save()  # may restart the board - see its docstring
 _load_standalone_patch()  # for_live_client=False: boot-time, no client ever connected yet
 
 
@@ -533,8 +614,17 @@ def _handle_push_patch_request(firmata):
     fallback, not a silently-ignored failure."""
     patch_json = firmata.pending_push_patch
     firmata.pending_push_patch = None
+    parsed = None
+    save_after_restart = False
     try:
         parsed = json.loads(patch_json)  # raises ValueError if malformed - caught below
+        # NTK adds this key when it re-sends a push the board has just
+        # said it can't save directly - see the read-only fallback in
+        # the except branch below. It's an instruction, not part of the
+        # patch, so it's removed before anything is stored.
+        if parsed.pop(_SAVE_AFTER_RESTART_KEY, False):
+            save_after_restart = True
+            patch_json = json.dumps(parsed)
         if not parsed.get("widgets"):
             try:
                 os.remove(STANDALONE_PATCH_PATH)
@@ -565,7 +655,63 @@ def _handle_push_patch_request(firmata):
         # or handled by that fallback. Added 2026-09-25 after this
         # printing as "Push patch failed" made a normal, working push
         # look broken from the device's own console.
-        if getattr(e, "errno", None) == 30:
+        if getattr(e, "errno", None) == 30 and parsed is not None:
+            is_erase = not parsed.get("widgets")
+            # First choice: make the filesystem writable from code just
+            # for this write. CircuitPython allows that at runtime
+            # whenever no computer has the CIRCUITPY drive mounted - a
+            # board on a charger or battery - which is exactly the case
+            # NTK's own CIRCUITPY-drive fallback can't help with (found
+            # 2026-10-05: an S3 with its USB drive enabled, running on
+            # its own, refused every push as "read-only").
+            if _save_patch_with_remount(patch_json, is_erase):
+                try:
+                    firmata.send_push_patch_reply(True)
+                except Exception:
+                    pass
+                print("Standalone patch %s over the network (filesystem remounted for the write) - reloading" % ("erased" if is_erase else "saved"))
+                _load_standalone_patch(for_live_client=True)
+                return
+            # The runtime remount was refused. That is NOT only "a
+            # computer has the drive": CircuitPython refuses it on a board
+            # that has never had its drive mounted since power-up too,
+            # i.e. the normal WiFi-only deployment (hardware-observed
+            # 2026-10-05, right after the remount attempt above was
+            # added - the push was still not saved with no USB attached
+            # at all). The one place a remount always works is boot.py.
+            # So the save is done across a restart: stash the patch in
+            # non-volatile memory, restart, boot.py sees the stash and
+            # mounts the filesystem writable-from-code, and
+            # _finish_stashed_patch_save() writes the file and restarts
+            # once more into the normal (computer-writable) mode.
+            #
+            # Only done when NTK explicitly asks (save_after_restart).
+            # On the first, plain push this branch just runs the patch
+            # from memory and says what's possible in the reply - NTK may
+            # have this board's drive mounted itself, in which case it
+            # saves the file that way and no restart is needed at all.
+            # The phrases in the reply are what StandardFirmataModel.js's
+            # pushPatch() looks for.
+            stash_problem = _patch_stash_problem(patch_json, is_erase)
+            if save_after_restart and stash_problem is None:
+                _stash_patch_for_save(patch_json, is_erase)
+                try:
+                    firmata.send_push_patch_reply(True)
+                except Exception:
+                    pass
+                print("Standalone patch stashed - restarting to save it")
+                time.sleep(0.5)  # let the reply leave before the radio goes down
+                microcontroller.reset()
+            try:
+                _load_standalone_patch(for_live_client=True, patch_from_memory=None if is_erase else parsed)
+                if stash_problem is None:
+                    e = "%s (running from memory, not saved; can save after restart)" % e
+                else:
+                    e = "%s (running from memory, not saved; %s)" % (e, stash_problem)
+            except Exception as load_error:
+                print("Couldn't run the pushed patch from memory:", load_error)
+            print("Receiving standalone patch... can't save it directly; running it from memory")
+        elif getattr(e, "errno", None) == 30:
             print("Receiving standalone patch... NTK will send it via the CIRCUITPY drive")
         else:
             print("Push patch failed:", e)
@@ -573,6 +719,42 @@ def _handle_push_patch_request(firmata):
             firmata.send_push_patch_reply(False, str(e))
         except Exception:
             pass  # connection may already be in a bad state - nothing more to do
+
+
+def _save_patch_with_remount(patch_json, is_erase):
+    """Writes (or, for an erase, deletes) STANDALONE_PATCH_PATH after
+    remounting the filesystem writable-from-code, then hands write
+    access back to the host side. Returns True if the file ended up as
+    asked. storage.remount() raises when the CIRCUITPY drive is mounted
+    by a computer - the one situation this can't be used in - and
+    that's reported as False, not an error."""
+    import storage
+    try:
+        storage.remount("/", readonly=False)
+    except Exception:
+        return False
+    try:
+        if is_erase:
+            try:
+                os.remove(STANDALONE_PATCH_PATH)
+            except OSError as e:
+                if getattr(e, "errno", None) != errno.ENOENT:
+                    raise
+        else:
+            with open(STANDALONE_PATCH_PATH, "w") as f:
+                f.write(patch_json)
+        return True
+    except Exception as e:
+        print("Push patch: write failed even after remounting:", e)
+        return False
+    finally:
+        # Back to the default (see boot.py): writable from a computer,
+        # read-only from code - so plugging the board in later still
+        # gives normal Finder/Thonny access.
+        try:
+            storage.remount("/", readonly=True)
+        except Exception:
+            pass
 
 
 def _handle_reload_standalone_request(firmata):

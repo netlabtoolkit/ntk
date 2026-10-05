@@ -1276,7 +1276,17 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 				// without being wrong for either; the confirm dialog
 				// already said which one this was before the user agreed
 				// to it.
-				alert('Done - the device should reload the new patch within a few seconds, no restart needed. If it doesn\'t, reset it manually.');
+				// See StandardFirmataModel.js's pushPatch() for these.
+				if(result.error === 'SAVED_AFTER_RESTART') {
+					alert('Done - the device is restarting to save the new patch. It restarts twice, so allow about 30 seconds before it is running again.');
+				}
+				else if(String(result.error || '').indexOf('NOT_SAVED') === 0) {
+					var reason = String(result.error).slice('NOT_SAVED'.length).replace(/^[: ]+/, '');
+					alert('The device is running the new patch, but could NOT save it' + (reason ? ' (' + reason + ')' : '') + '. The patch will be gone after the device restarts. To save it, connect the device to this computer by USB and push again.');
+				}
+				else {
+					alert('Done - the device should reload the new patch within a few seconds, no restart needed. If it doesn\'t, reset it manually.');
+				}
 
 				// Auto-switch to Monitor mode after a real push (not an
 				// erase - see pushPatchToDevice's own comment, which
