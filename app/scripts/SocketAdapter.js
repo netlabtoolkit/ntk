@@ -77,6 +77,13 @@ function( Backbone ) {
 			// connect at all - a bad/unset IP, wrong port, or an
 			// unreachable device generally. See NetworkModel.js's own
 			// comment for why this used to fail completely silently.
+			// An established device connection dropped (see
+			// nlMultiClientSync.js's connectionLost) - MonitorController
+			// owns the "make this device's widgets reconnect" logic.
+			socket.on("server:hardwareConnectionLost", function(info) {
+				window.app.vent.trigger('hardwareConnectionLost', info);
+			});
+
 			socket.on("server:hardwareConnectionFailed", function(info) {
 				window.app.vent.trigger('hardwareConnectionFailed', info);
 			});

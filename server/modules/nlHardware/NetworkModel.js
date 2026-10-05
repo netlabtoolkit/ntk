@@ -90,6 +90,9 @@ module.exports = function(attributes) {
 			// connection (and its reconnect loop) outlived every widget that
 			// ever referenced it for the lifetime of the server process.
 			self.close = function() {
+				// Before anything else - tells the 'close' listener below
+				// this teardown is deliberate, not a dropped connection.
+				self._closing = true;
 				self.connected = false;
 
 				// Stop the johnny-five Sensor poll timers that addDefaultPins()
@@ -148,6 +151,23 @@ module.exports = function(attributes) {
 				self.board.on("ready", function() {
 					self.connected = true;
 					self.addDefaultPins.call(self);
+
+					// The socket this session was established on closing
+					// by itself means the board went away (reset, power,
+					// WiFi) - reported once; nlMultiClientSync.js drops
+					// this instance and has the clients reconnect. Not
+					// attached any earlier: before 'ready' a close is a
+					// failed connection ATTEMPT, already covered by
+					// connectionFailed above and etherport-client's own
+					// retry.
+					var establishedSocket = etherPortClient._tcp;
+					if (establishedSocket) {
+						establishedSocket.once('close', function() {
+							if (self._closing || !self.connected) { return; }
+							self.connected = false;
+							self.emit('connectionLost', {host: networkHost, port: networkPort});
+						});
+					}
 				});
 				self.board.on('error', function(err) {
 					console.log(err);

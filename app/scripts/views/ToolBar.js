@@ -629,7 +629,15 @@ function( app, Backbone, Template, Widgets ) {
 		indicateMonitorActive: function indicateMonitorActive(status) {
 			var $button = this.$('.monitorDevice');
 			this.clearButtonBusy($button);
-			if (status.connected) {
+			// Follows whether NTK is IN Monitor mode, not whether the
+			// monitor connection happens to be up - the two differ
+			// whenever a connection fails or drops (the server keeps
+			// retrying, see nlMultiClientSync.js's connectMonitor).
+			// Keyed on status.connected, a failed connection flipped
+			// this back to "Monitor" while everything else was still in
+			// Monitor mode, so the button claimed the opposite of the
+			// real state and clicking it did the opposite of its label.
+			if (window.app.monitoring && window.app.monitoring.active) {
 				$button.addClass('monitorActive').text('Stop Monitor');
 			} else {
 				$button.removeClass('monitorActive').text('Monitor');
