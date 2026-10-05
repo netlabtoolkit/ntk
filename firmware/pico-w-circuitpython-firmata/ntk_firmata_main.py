@@ -616,6 +616,13 @@ def _handle_reload_standalone_request(firmata):
 
 _display_last_lines = None
 _display_last_sent = 0.0
+# The newest text the Display widget asked for, whether or not it has
+# been written yet - see _flush_display_text().
+_display_wanted_lines = None
+# Minimum time between OLED writes for Display widget text (each one is
+# a real, blocking I2C write). Was 1.0s; standalone_interpreter.py's
+# display_out step uses the same value.
+_DISPLAY_MIN_INTERVAL_S = 0.3
 
 
 def _handle_display_text_request(firmata):
@@ -628,7 +635,7 @@ def _handle_display_text_request(firmata):
     an absent display are both silently harmless, same as every other
     oled_display call in this firmware.
 
-    Change-detection + a 1s minimum interval, same guard
+    Change-detection + a minimum interval (_DISPLAY_MIN_INTERVAL_S), same guard
     standalone_interpreter.py's own display_out step already applies
     (see its comment) and for the exact same reason: hardware-verified
     2026-09-30 - this call site had NO throttle at all before, unlike
@@ -640,18 +647,50 @@ def _handle_display_text_request(firmata):
     warns about. Reusing the same 1.0s floor keeps live and standalone
     mode behaving consistently instead of live mode being silently
     unthrottled."""
-    global _display_last_lines, _display_last_sent
+    global _display_wanted_lines
     payload = firmata.pending_display_text
     firmata.pending_display_text = None
     try:
-        lines = json.loads(payload)
-        now = time.monotonic()
-        if lines != _display_last_lines and (now - _display_last_sent) >= 1.0:
-            _display_last_lines = list(lines)
-            _display_last_sent = now
-            oled_display.set_lines(lines)
+        _display_wanted_lines = list(json.loads(payload))
+        _flush_display_text()
     except Exception as e:
         print("Display widget: bad DISPLAY_TEXT_REQUEST payload:", e)
+
+
+def _reset_display_text_state():
+    """Forget what the Display widget last asked for and what was last
+    written. Called when a client takes over: the standalone patch
+    writes to the same OLED lines directly, so what this module thinks
+    is on screen may no longer be - and a first request that happened
+    to equal the old one would be skipped as "already showing"."""
+    global _display_last_lines, _display_wanted_lines
+    _display_last_lines = None
+    _display_wanted_lines = None
+
+
+def _flush_display_text():
+    """Writes _display_wanted_lines to the OLED if it differs from what's
+    showing and the minimum interval has passed. Called when a request
+    arrives AND on every pass of run_server()'s per-connection loop.
+
+    The second call is the point. The throttle used to live entirely in
+    _handle_display_text_request(): a request arriving inside the
+    interval was simply dropped. If that happened to be the LAST one -
+    the value the input finally settled on - the OLED kept showing an
+    intermediate value until something changed again. With a jittery
+    input something always did, within a second; once AnalogIn's
+    smoothing was good enough to hold a reading still (2026-10-05) the
+    display visibly lagged or stuck on a stale number. Now a request
+    that can't be written yet is kept and written as soon as it can be."""
+    global _display_last_lines, _display_last_sent
+    if _display_wanted_lines is None or _display_wanted_lines == _display_last_lines:
+        return
+    now = time.monotonic()
+    if (now - _display_last_sent) < _DISPLAY_MIN_INTERVAL_S:
+        return
+    _display_last_lines = list(_display_wanted_lines)
+    _display_last_sent = now
+    oled_display.set_lines(_display_last_lines)
 
 
 def _handle_neopixel_request(firmata):
@@ -1237,6 +1276,7 @@ def run_server():
             firmata.feed(_peeked_leftover)
         conn.settimeout(0)
         connected_at = time.monotonic()
+        _reset_display_text_state()
 
         try:
             while True:
@@ -1317,6 +1357,13 @@ def run_server():
                 # is a cheap no-op both when nothing's configured yet and
                 # on every iteration faster than its own tick interval.
                 neopixel_output.tick(firmata)
+
+                # Same shape as the NeoPixel tick above: a Display
+                # request that arrived too soon after the last OLED
+                # write is waiting here to go out - see
+                # _flush_display_text(). A cheap comparison when there's
+                # nothing to do.
+                _flush_display_text()
 
                 if disconnected:
                     break
