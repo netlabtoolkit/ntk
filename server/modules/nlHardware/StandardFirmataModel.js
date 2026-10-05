@@ -888,7 +888,20 @@ module.exports = function(five) {
 				else if(mode === 'SERVO') {
 					var pinExists = this.outputs[pin] !== undefined;
 
-					if(pinExists) {
+					// Only when the pin isn't a servo already - same guard
+					// the PWM branch above has for five.Led. setHardwarePin()
+					// calls setIOMode() on EVERY write, so without it every
+					// servo position built a brand-new five.Servo, and each
+					// one re-sent the pin mode and servo config to the board
+					// ahead of the position itself. The CircuitPython
+					// firmware answered a pin-mode message by tearing the
+					// pin's PWM output down and creating it again at zero
+					// duty - twice per write, since the servo config does
+					// the same - so during a dial drag the servo's control
+					// signal was being rebuilt dozens of times a second and
+					// it could barely move (found 2026-10-05: "it still
+					// doesn't follow a drag of the dial").
+					if(pinExists && !(this.outputs[pin].pin instanceof five.Servo)) {
 						var hardwarePin = parseInt(pin.substr(1),10);
 
 						// Explicit board: - see the Sensor case above.

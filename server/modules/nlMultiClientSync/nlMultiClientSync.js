@@ -435,13 +435,19 @@ module.exports = function(options) {
 				for(var field in options.model) {
 					//var selectedModel = self.hardwareModels[modelType];
 					var selectedModel = self.hardwareModels[hardwareKey];
-					var networkDevice = typeAddressPort[1].match(/^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/);
-
-
-					if(typeAddressPort[1] == "127.0.0.1") {
-						networkDevice = false;
-					}
-
+					// Every device reached over the network gets the send
+					// throttle below (latest value per pin, at most one
+					// write every 30ms). This used to test whether the
+					// address looked like a dotted IP - so a board
+					// addressed by NAME (ntk-device.local, the default since
+					// mDNS hostnames were added) was not throttled at all:
+					// a knob drag sent every intermediate position straight
+					// to the board, far faster than it can act on them,
+					// and the output trailed further and further behind
+					// (found 2026-10-05: "the servo seems very slow to
+					// respond"). Keyed on the device TYPE now.
+					var networkDevice = modelType === 'network' &&
+						typeAddressPort[1] !== '127.0.0.1' && typeAddressPort[1] !== 'localhost';
 
 					// If there is no model to update, try to instantiate one
 					if(selectedModel == undefined) {

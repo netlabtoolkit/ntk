@@ -179,8 +179,12 @@ function( Backbone ) {
 					}
 					else {
 						// Clean sendQueue of any previously defined updated for this particular field
+						// Replace an older queued value for the same pin ON THE
+						// SAME DEVICE only - without the modelType check, two
+						// boards each driving a pin with the same name dropped
+						// each other's pending update.
 						sendQueue = _.reject(sendQueue, function(entry) {
-							return entry.model[field] !== undefined;
+							return entry.modelType === options.modelType && entry.model[field] !== undefined;
 						});
 
 						sendQueue.push(options);
@@ -188,8 +192,21 @@ function( Backbone ) {
 					}
 
 					// THROTTLE THESE
+					// A throttle, not a debounce: if a send is already
+					// scheduled, leave it alone - the queue above already
+					// holds the newest value for it to pick up. This used
+					// to cancel and re-arm the 10ms timer on every update,
+					// so a stream of updates arriving less than 10ms apart
+					// kept pushing the send back and NOTHING went out until
+					// the stream paused. Dragging a dial on a 120Hz display
+					// produces updates every ~8ms: the servo (or any
+					// output) sat still for the whole drag and only moved
+					// once the mouse stopped (found 2026-10-05: "it is slow
+					// when I drag the dial"). At 60Hz the gap is ~16ms, so
+					// the timer always fired in between and this never
+					// showed.
 					if(deviceUpdateThrottleID !== undefined) {
-						clearTimeout(deviceUpdateThrottleID);
+						return;
 					}
 
 					deviceUpdateThrottleID = setTimeout(function() {

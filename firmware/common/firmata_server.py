@@ -725,6 +725,17 @@ class FirmataServer:
         if pin_index < 0 or pin_index >= len(self.pins):
             return
         pin = self.pins[pin_index]
+        # Already a servo with a live PWM output: nothing to rebuild.
+        # Releasing and re-creating it (below) restarts the output at
+        # zero duty, i.e. drops the servo's control pulse - harmless
+        # once, but a client that re-sends the pin mode or servo config
+        # with every position (NTK's server did, until 2026-10-05) turned
+        # that into dozens of dropouts a second and the servo could
+        # barely follow. Any new min/max pulse width from a servo config
+        # has already been stored by the caller and applies from the
+        # next write.
+        if mode == SERVO and pin.mode == SERVO and pin.io is not None:
+            return
         self._release_pin_io(pin)
         pin.mode = mode
         pin.report = False
