@@ -181,8 +181,13 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 					}
 				}
 
-				if(changed.messageName == '/ntk/out/1:127.0.0.1:9000') {
-					this.model.set('messageName', '/ntk/out/1');
+				// A new widget is created with its full default mapping
+				// ("/ntk/out/N:127.0.0.1:9000", see Patcher.js) as its
+				// message name - the field itself should show just the
+				// OSC address part.
+				var defaultMapping = /^(\/ntk\/out\/\d+):127\.0\.0\.1:9000$/.exec(changed.messageName);
+				if(defaultMapping) {
+					this.model.set('messageName', defaultMapping[1]);
 				}
 			}
 		},

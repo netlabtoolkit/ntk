@@ -342,14 +342,26 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 					return newWidget;
                 }
                 else if(widgetType === 'OSCOut') {
-					var defaultMapping = '/ntk/out/1:127.0.0.1:9000';
-
-					// Check if we are already using this output pin, don't use it if we are
-					var existingMapping = _.find(this.widgetMappings, function(map) {
-						return map.map.destinationField === defaultMapping;
+					// First /ntk/out/N no OSCOut on the canvas is already
+					// using. This used to offer only /ntk/out/1 and fall
+					// back to an EMPTY mapping when that was taken - so
+					// the second OSCOut added came up with a blank
+					// message field and sent nothing until one was typed
+					// in (found 2026-10-05). Looks at each existing
+					// widget's actual message name rather than at
+					// widgetMappings, which only lists an OSCOut once its
+					// output has been switched on.
+					var usedMessageNames = {};
+					this.widgetModels.each(function(widgetModel) {
+						if(widgetModel.get('typeID') === 'OSCOut') {
+							usedMessageNames[String(widgetModel.get('messageName')).split(':')[0]] = true;
+						}
 					});
-					var defaultOutputMapping = existingMapping ? '' : defaultMapping;
-					//var defaultOutputMapping = defaultMapping;
+					var outputNumber = 1;
+					while(usedMessageNames['/ntk/out/' + outputNumber]) {
+						outputNumber++;
+					}
+					var defaultOutputMapping = '/ntk/out/' + outputNumber + ':127.0.0.1:9000';
 
 					var newWidget = new OSCOutView({
 						model: newModel,
