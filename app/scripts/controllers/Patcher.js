@@ -241,7 +241,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 				if(widgetType === 'DigitalIn') {
 					var newWidget = new DigitalInView({
 						model: newModel,
-						inputMapping: 'D12',
+						inputMapping: 'D7',
 					});
 
 					this.addWidgetToStage(newWidget, addedFromLoader);
@@ -252,7 +252,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 						this.mapToModel({
 							view: newWidget,
 							modelType: deviceMapping.modelType,
-							IOMapping: {sourceField: "D12", destinationField: 'in'},
+							IOMapping: {sourceField: "D7", destinationField: 'in'},
 							server: deviceMapping.server,
 						}, addedFromLoader);
 					}

@@ -8,9 +8,21 @@
 	.title {
 		/*background-color: #a5c9ea;*/
 	}
-	.settings {
+	// The pin field. Was `width: 25px` - content width, so with the
+	// input's own padding and border it came to 33px inside the 25px
+	// .widgetLeft column, plus Widget.scss's 3px left margin: 11px of
+	// it stuck out over the dial. Sized as a whole box now (23px + 1px
+	// margin = 24px), with the side padding dropped so there's still
+	// room for a three-character pin name like "D10". Spelled out as
+	// .widgetLeft .leftTab .settings so the margin outranks Widget.scss's
+	// own `.widgetLeft .leftTab .settings input` rule.
+	.widgetLeft .leftTab .settings {
 		input {
-			width: 25px;
+			box-sizing: border-box;
+			width: 23px;
+			margin-left: 1px;
+			padding-left: 0;
+			padding-right: 0;
 		}
 	}
 }

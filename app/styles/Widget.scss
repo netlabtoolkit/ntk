@@ -706,10 +706,11 @@ body.ntk-monitoring .monitorBlockOverlay {
     padding-top: 10px;
 }
 
-// GroveSensor widget (app/scripts/views/GroveSensor/) - note that
-// per-widget styles.scss files (e.g. AnalogIn's) are never actually
-// imported anywhere into the build, so widget-specific rules live here
-// in the shared Widget.scss instead, same as .dialwrapperUI above.
+// GroveSensor widget (app/scripts/views/GroveSensor/) - its rules live
+// here in the shared Widget.scss, same as .dialwrapperUI above. (A
+// per-widget styles.scss would also work: main.scss doesn't import
+// them, but buildScripts/buildSCSS.sh compiles each one and appends it
+// to main.css - this comment used to claim they were never built.)
 .groveSensor {
     .widgetBody {
         // Mostly fits the standard 110px, but the live value readout can

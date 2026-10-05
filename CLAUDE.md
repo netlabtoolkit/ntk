@@ -134,14 +134,21 @@
 
 ## Widget CSS layout
 
-- **A per-widget `styles.scss` (e.g. `views/SomeWidget/styles.scss`) is
-  never actually loaded** - `app/styles/main.scss` only imports
-  `Widget.scss`, nothing per-widget. Found repeatedly this way (Grove
-  Sensor, PoseTrack, Gesture, FaceTrack, Blank all had one, silently
-  dead) before being fixed by deleting the file and moving its rules into
-  `app/styles/Widget.scss` under a `.yourwidgetclassname { }` block
-  instead - that's the only file that's actually built. Don't create a
-  new per-widget `styles.scss` for a new widget; add to `Widget.scss`.
+- **A per-widget `styles.scss` (e.g. `views/SomeWidget/styles.scss`) IS
+  built** - `app/styles/main.scss` doesn't import it, but
+  `buildScripts/buildSCSS.sh` (run by `npm run build`) compiles every
+  `*.scss` under `app/scripts/` on its own and appends the result to
+  `server/dist/styles/main.css`, after everything from `Widget.scss`.
+  This note used to say the opposite ("never actually loaded");
+  corrected 2026-10-05 after AnalogIn/DigitalIn's own `styles.scss`
+  turned out to be the live source of a too-wide pin field. Two
+  consequences: when a widget's styling doesn't match what `Widget.scss`
+  says, check for a `styles.scss` next to it (29 widgets have one); and
+  because each file is compiled standalone, it can't use variables or
+  mixins from the shared files, and at equal specificity it wins over
+  `Widget.scss` by coming later. New widget rules can go in either
+  place - most recent widgets keep theirs in `Widget.scss` under a
+  `.yourwidgetclassname { }` block.
 - Every widget's `.widgetBody` gets a hardcoded 94x110px box by default
   (`app/styles/Widget.scss`), with `.widgetBodyLeft`/`.widgetBodyRight`
   floated left/right inside it.
