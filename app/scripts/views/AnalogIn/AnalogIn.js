@@ -43,7 +43,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				title: 'AnalogIn',
 				easing: false,
 				easingAmount: 30,
-				smoothingAmount: 60,
+				smoothingAmount: 250,
 				active: false,
 				port: this.model.get('port') || 3030,
 			});
@@ -58,6 +58,14 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// then push its processing function onto the stack
 			this.smoother = new SignalChainClasses.Smoother({tolerance: this.model.get('smoothingAmount')});
 			this.signalChainFunctions.push(this.smoother.getChainFunction());
+			// The smoother object is separate from the model's
+			// 'smoothing'/'smoothingAmount' fields, and used to be
+			// updated only by this widget's own click/typing handlers.
+			// A loaded or pulled patch sets the fields directly, so the
+			// "smo" button showed as on while the smoother itself stayed
+			// off at the default amount (found 2026-10-05: "I did a pull.
+			// Smoothing seems to not be working").
+			this.model.on('change:smoothing change:smoothingAmount', this.syncSmootherWithModel, this);
 
             this.localProcessSignalChain = function() {
 				this.processSignalChain();
@@ -243,6 +251,17 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			e.preventDefault();
 			e.stopPropagation();
 			this.model.set('invert', !this.model.get('invert'));
+		},
+		syncSmootherWithModel: function() {
+			var on = !!this.model.get('smoothing');
+			if(this.smoother.active !== on) {
+				this.smoother.active = on;
+				this.smoother.reset();
+			}
+			var amount = this.model.get('smoothingAmount');
+			if(String(this.smoother.amount) !== String(amount)) {
+				this.smoother.setBufferLength(amount);
+			}
 		},
 		/**
 		 * toggleSmoothing - toggle on/off signal smoothing

@@ -557,6 +557,15 @@ body.ntk-monitoring .monitorBlockOverlay {
                 width: 30px;
             }
 
+            // .narrowLabel's 30px fits "min"/"max" but not "smooth" -
+            // the label overflowed under its own field and lost its
+            // last letter. Used on every label that starts a row in that
+            // block (min, ease, smooth) so their fields all share one
+            // left edge.
+            .narrowLabel.wordLabel {
+                width: 46px;
+            }
+
             .moreParam {
                 width: 40px;
             }
