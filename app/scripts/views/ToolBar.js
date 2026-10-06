@@ -124,6 +124,31 @@ function( app, Backbone, Template, Widgets ) {
 
 			var sortedWidgets = this.sortWidgetCategories();
 
+			// A category opened near the bottom of the panel used to put
+			// its widget buttons below the edge of the window, with
+			// nothing to show they were there (the panel scrolls, but
+			// only if you think to). Scroll the panel up just far enough
+			// to bring the whole list into view - or, if the list is
+			// taller than the panel, far enough to put the category's
+			// own header at the top. Measured from the last button, not
+			// the <ul>: its items are floated, so the list itself has no
+			// height.
+			function revealCategoryList($header, $list) {
+				var $panel = $header.closest('.addWidgets'),
+					$lastItem = $list.children().last();
+				if($panel.length === 0 || $lastItem.length === 0) { return; }
+
+				var panelRect = $panel[0].getBoundingClientRect(),
+					hiddenBelow = $lastItem[0].getBoundingClientRect().bottom - panelRect.bottom,
+					roomAbove = $header[0].getBoundingClientRect().top - panelRect.top;
+				if(hiddenBelow <= 0) { return; }
+
+				var scrollBy = Math.min(hiddenBelow + 8, roomAbove);
+				if(scrollBy > 0) {
+					$panel.stop(true).animate({scrollTop: $panel.scrollTop() + scrollBy}, 200);
+				}
+			}
+
 			for(var categoryName in sortedWidgets) {
 				var categoryEl = document.createElement('div'),
 					categoryUl = document.createElement('ul'),
@@ -133,7 +158,11 @@ function( app, Backbone, Template, Widgets ) {
 					.addClass(categoryClasses)
 					.text(categoryName)
 					.click(function categoryClick(e) {
-						$(this).next('ul').toggle();
+						var $list = $(this).next('ul');
+						$list.toggle();
+						if($list.is(':visible')) {
+							revealCategoryList($(this), $list);
+						}
 					})
 
 
