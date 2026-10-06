@@ -12,7 +12,7 @@
     </div>
     <div class="widgetBody">
         <div class="widgetBodyLeft">
-            <div class="inletValue"><span rv-text="widget:play | rounded">100</span> <span rv-text="widget:playText">Pause</span></div>
+            <div class="inletValue"><span rv-text="widget:play | rounded">100</span> <span rv-text="widget:playText">Pause</span><span class="playToggle" rv-class-playing="widget:isPlaying" title="Play / stop"></span></div>
             <div class="inletValue"><span rv-text="widget:volume | rounded">100</span> Volume</div>
             <div class="inletValue"><span rv-text="widget:speed | rounded">100</span> Speed</div>
             <div class="inletValue"><input class="loop" type="checkbox" rv-checked="widget:loop" /> Loop</div>

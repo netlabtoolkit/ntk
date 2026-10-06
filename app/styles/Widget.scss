@@ -1638,6 +1638,29 @@ body.ntk-monitoring .monitorBlockOverlay {
     }
 }
 
+// Video/Audio: play/pause button beside the Play inlet's label - a green
+// play triangle, or two red bars while playing (same shapes-from-borders
+// approach and colors as SpeechOut's .playButton below, just small enough
+// to sit on an inlet row). See Video.js/Audio.js's togglePlay.
+.widget.video .playToggle, .widget.audio .playToggle {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 6px;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 6px 0 6px 10px;
+    border-color: transparent transparent transparent #3a7d3a;
+    cursor: pointer;
+
+    &.playing {
+        width: 3px;
+        height: 12px;
+        border-width: 0 4px;
+        border-color: #c94a4a;
+    }
+}
+
 .speechout {
     .widgetBody {
         text-align: center;

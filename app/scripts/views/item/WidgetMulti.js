@@ -35,11 +35,44 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		template: function(serializedModel) {
 			return _.template( WidgetTmpl, {server: app.server} );
 		},
+		// What every widget's own template is rendered with. The
+		// templates of widgets with an on-canvas element (Image, Video,
+		// Text, Knob, Button, Audio, HTML, the camera widgets) wrap that
+		// element in <% if(!server) { %>, where `server` is meant to be
+		// the app's headless "server mode" flag. Marionette's default
+		// hands the template the model's attributes, and `server` is
+		// ALSO the model attribute hardware widgets keep their device
+		// address in. That was harmless until 2026-10-01, when every
+		// newly added widget started being stamped with the default
+		// device (Patcher.js's applyDefaultDeviceToModel in the generic
+		// branch): from then on an Image's `server` was e.g.
+		// "ntk-device.local", truthy, and the next re-render - which
+		// wiring anything into the widget triggers - silently left the
+		// on-canvas element out (found 2026-10-06: "when I put any
+		// input, the image goes completely off screen"; same for
+		// Video). The template's `server` is always the real flag now,
+		// whatever the model holds.
+		serializeData: function() {
+			var data = this.model ? _.clone(this.model.attributes) : {};
+			data.server = !!(window.app && window.app.server);
+			return data;
+		},
 
 		initialize: function(options) {
 			// We pass the model to the widget which ends up in options. If we extend options here, we'd end up with a recursive reference so nulling it out for now.
 			options.model = undefined;
-			_.extend(this.events, this.widgetEvents);
+			// A fresh events map for THIS view. This used to be
+			// _.extend(this.events, this.widgetEvents) - but this.events
+			// is the one object on the shared prototype, so every widget
+			// type's widgetEvents piled into the same map for all types,
+			// and where two types use the same selector with different
+			// handler names the most recently created type won. With an
+			// Image on the canvas, a Video's 'change .displayWidth' was
+			// looked up as Image's setImageDimensions, which a Video
+			// doesn't have, so its width field did nothing (found
+			// 2026-10-06); Text has the same selector, and IfThen/Data
+			// clash on their data-type radios.
+			this.events = _.extend({}, this.events, this.widgetEvents);
 			options = options ? options : {};
 			_.extend(options, {ins: this.ins});
 			_.extend(options, {outs: this.outs});

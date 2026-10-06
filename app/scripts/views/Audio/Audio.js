@@ -18,6 +18,7 @@ define([
 				'change .continuous': 'continuousChange',
 				'change .srcFile': 'srcFileChange',
 				'click .browseAudio': 'browseAudio',
+				'click .playToggle': 'togglePlay',
 			},
 
 			initialize: function(options) {
@@ -41,6 +42,10 @@ define([
 
 					play: 0,
 					playText: "Pause",
+					// Whether the audio element is actually playing right
+					// now - drives the play/pause button's look. Kept in
+					// step by the element's own events (see onRender).
+					isPlaying: false,
 					toggle: 0,
 					volume: 100.0,
 					speed: 100.0,
@@ -59,6 +64,16 @@ define([
 				WidgetView.prototype.onRender.call(this);
 				var self = this;
 				if (!app.server) {
+					// Same as Video.js: the button, and this.playing (which
+					// the Play inlet's threshold logic reads), follow what
+					// the element is really doing - including a clip that
+					// ran out with loop off, which used to still count as
+					// playing.
+					var audioEl = this.$(".audio")[0];
+					audioEl.addEventListener('play', function() { self.setPlayingState(true); });
+					audioEl.addEventListener('pause', function() { self.setPlayingState(false); });
+					audioEl.addEventListener('ended', function() { self.setPlayingState(false); });
+
 					this.$(".audio")[0].loop = this.model.get('loop');
 					if (this.model.get('continuous')) {
 						this.playing = true;
@@ -109,6 +124,36 @@ define([
 					}
 				}
 
+			},
+
+			// playText keeps this widget's existing wording: "Stop" when
+			// it stops with loop off (it rewinds then), "Pause" with loop on.
+			setPlayingState: function(playing) {
+				this.playing = playing;
+				this.model.set({
+					isPlaying: playing,
+					playText: playing ? "Play" : (this.model.get('loop') ? "Pause" : "Stop"),
+				});
+			},
+
+			// The button next to the Play inlet's label - plays or stops
+			// directly, so the widget can be tried without wiring anything
+			// into Play. Stopping behaves like the inlet does: with loop
+			// off it rewinds, with loop on it pauses in place.
+			togglePlay: function(e) {
+				if (app.server) { return; }
+				var audioEl = this.$(".audio")[0];
+				if (!audioEl) { return; }
+				if (audioEl.paused || audioEl.ended) {
+					audioEl.loop = this.model.get('loop');
+					audioEl.play();
+				}
+				else {
+					audioEl.pause();
+					if (!this.model.get('loop')) {
+						audioEl.currentTime = 0;
+					}
+				}
 			},
 
 			loopChange: function(e) {
