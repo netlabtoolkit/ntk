@@ -387,6 +387,17 @@ body.ntk-monitoring .monitorBlockOverlay {
             color: #2e7d32;
         }
 
+        // CloudIn: connected and subscribed, nothing received yet.
+        .timeLeft.cloudwaiting {
+            color: #b26a00;
+        }
+
+        // The broker refused or couldn't be reached - the label is the
+        // short reason (utils/cloudStatus.js), full message on hover.
+        .timeLeft.clouderror {
+            color: #c62828;
+        }
+
         .ifFalse {
             background-color: #f8c885;
         }
@@ -2301,6 +2312,11 @@ body.ntk-monitoring .monitorBlockOverlay {
     .sendCountdown {
         margin-left: 5px;
         color: #888;
+
+        // The countdown is running - see CloudOut.js's sendPending.
+        &.sendpending {
+            color: #ff0000;
+        }
     }
 
     // One more stacked line under the dial than CloudIn (which only

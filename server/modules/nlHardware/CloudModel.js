@@ -1,5 +1,10 @@
 module.exports = function(attributes) {
 
+	// How long an Adafruit IO feed check result is reused, and how soon a
+	// "no such feed" result is checked again - see _checkFeed().
+	var FEED_CHECK_REUSE_MS = 60000;
+	var FEED_RECHECK_MISSING_MS = 5000;
+
 	var _ = require('underscore'),
 		events = require('events'),
 		mqtt = require('mqtt'),
@@ -24,6 +29,12 @@ module.exports = function(attributes) {
 		this.client = null;
 		this.connected = false;
 		this.everConnected = false;
+		// See _subscribeBrokerNotices().
+		this._brokerNoticeTopics = {};
+		// topic -> has anything arrived since it was last subscribed.
+		this._topicHasData = {};
+		// topic -> Adafruit IO feed-existence check - see _checkFeed().
+		this._feedChecks = {};
 
 		// Per-topic sendInterval throttle state (see set() below) -
 		// keyed by topic since one broker connection can carry multiple
@@ -157,7 +168,17 @@ module.exports = function(attributes) {
 					|| this._lastPassword !== password
 					|| this._lastTls !== tls;
 
-				if (this.everConnected || !credsDiffer) {
+				// SECOND EXCEPTION: options.forceReconnect - CloudOut.js
+				// sets it on the first enable after the user actually
+				// edits username/password/TLS (once, not on its routine
+				// per-value re-sends, so it can't restart the fight
+				// described above). Without it a connection that had
+				// ever succeeded could never pick up changed
+				// credentials at all (found 2026-10-03: editing a
+				// connected CloudOut's login did nothing).
+				var forced = !!(options && options.forceReconnect) && credsDiffer;
+
+				if (!forced && (this.everConnected || !credsDiffer)) {
 					// Re-emit the CURRENT status even though nothing
 					// about the connection itself changes - a widget
 					// joining a broker that's already connected (or
@@ -175,10 +196,39 @@ module.exports = function(attributes) {
 					return;
 				}
 
-				console.log(prefix, 'retrying with different credentials for', this.address, '- previous attempt never connected');
+				console.log(prefix, forced
+					? 'reconnecting with edited credentials for'
+					: 'retrying with different credentials for', this.address,
+					forced ? '' : '- previous attempt never connected');
+				// Detach first - the old client's own 'close' would
+				// otherwise land after the new one is created and mark
+				// the NEW connection as down. The no-op 'error' listener
+				// keeps a late error from the dying socket from being an
+				// unhandled 'error' event.
+				this.client.removeAllListeners();
+				this.client.on('error', function() {});
 				this.client.end(true);
 				this.client = null;
+				this.connected = false;
+				this.everConnected = false;
 			}
+
+			// The broker already refused exactly these credentials (see
+			// the 'error' handler below, which drops the client when
+			// that happens) - trying them again can't end differently,
+			// and widgets call in here constantly (CloudOut on every
+			// value change), so without this a wrong password meant an
+			// endless stream of login attempts. Only an explicit request
+			// (forceReconnect - the user switching the widget on) gets
+			// another go with the same login, in case the account itself
+			// was what got fixed.
+			if (!this.client && this._refused
+				&& this._refused.username === username && this._refused.password === password && this._refused.tls === tls
+				&& !(options && options.forceReconnect)) {
+				this.emit('status', {connected: false, error: this._refused.message});
+				return;
+			}
+			this._refused = null;
 
 			// this.address is the FULL "Cloud:host:port" key this
 			// instance was constructed under (see Hardware.js) - logging
@@ -203,7 +253,7 @@ module.exports = function(attributes) {
 			if (password) connectOptions.password = password;
 
 			var self = this;
-			this.client = mqtt.connect(url, connectOptions);
+			var client = this.client = mqtt.connect(url, connectOptions);
 
 			console.log(prefix, 'connecting to', url, '(username: ' + (username || '<none>') + ')');
 
@@ -221,8 +271,9 @@ module.exports = function(attributes) {
 				// or credential change would otherwise leave every
 				// CloudIn silently deaf with no error shown anywhere.
 				_.each(_.keys(self.receiving), function(topic) {
-					self.client.subscribe(topic);
+					self._subscribe(topic);
 				});
+				self._subscribeBrokerNotices(username);
 			});
 			this.client.on('reconnect', function() {
 				self.connected = false;
@@ -238,9 +289,50 @@ module.exports = function(attributes) {
 				self.connected = false;
 				console.log(prefix, 'error on', url, '-', String(err && err.message || err));
 				self.emit('status', {connected: false, error: String(err && err.message || err)});
+
+				// CONNACK 4/5: bad username/password, not authorized.
+				// mqtt.js would otherwise retry the same rejected login
+				// every reconnectPeriod forever (found 2026-10-03: "seems
+				// hungry in trying to connect all the time") - give up
+				// on this client instead; see _refused in connect().
+				if (err && (err.code === 4 || err.code === 5) && self.client === client) {
+					console.log(prefix, 'login refused - not retrying until the credentials change or the widget is switched on again');
+					self._refused = {username: username, password: password, tls: tls, message: String(err.message || err)};
+					client.removeAllListeners();
+					client.on('error', function() {});
+					client.end(true);
+					self.client = null;
+				}
 			});
 			this.client.on('message', function(topic, payload) {
 				var value = payload.toString();
+
+				// Not data - the broker's own complaint channel (see
+				// _subscribeBrokerNotices). Reported broker-wide (no
+				// topic), since the notice text isn't in any fixed
+				// format that would say which widget's topic it's about.
+				if (self._brokerNoticeTopics[topic]) {
+					console.log(prefix, 'broker notice on', topic, '-', value);
+					// Pin it on one widget's topic when the notice names
+					// that topic's feed (longest name first, so "light"
+					// doesn't claim a notice about "lighting"); otherwise
+					// it's broker-wide.
+					var known = _.sortBy(_.keys(self.receiving).concat(_.keys(self.sending)), function(t) { return -t.length; });
+					var about = _.find(known, function(t) {
+						var feed = t.split('/').pop();
+						return feed && value.indexOf(feed) !== -1;
+					});
+					self._topicError(about || null, value);
+					return;
+				}
+
+				// First message on this topic since it was (re)subscribed
+				// - lets a CloudIn tell "connected and receiving" from
+				// "connected, nothing has ever arrived".
+				if (!self._topicHasData[topic]) {
+					self._topicHasData[topic] = true;
+					self.emit('status', {connected: self.connected, topicData: topic});
+				}
 
 				// Tracked for set()'s own feedback-loop guard (see the
 				// constructor comment) - recorded unconditionally, before
@@ -337,7 +429,7 @@ module.exports = function(attributes) {
 				self.pendingCount[field] = 0;
 				self.lastPublishedValue[field] = String(toSend);
 				self.lastPublishedAt[field] = Date.now();
-				self.client.publish(field, String(toSend));
+				self._publish(field, String(toSend));
 				// Separate from 'change' (reserved for actual INCOMING
 				// topic values, which CloudIn reads) - lets CloudOut show
 				// what it actually just published, not just its own
@@ -404,12 +496,175 @@ module.exports = function(attributes) {
 					console.log('[CloudOut] settle publish', field, '=', settledValue, '(last published was', self.lastPublishedValue[field], ')');
 					self.lastPublishedValue[field] = String(settledValue);
 					self.lastPublishedAt[field] = Date.now();
-					self.client.publish(field, String(settledValue));
+					self._publish(field, String(settledValue));
 					self.emit('published', {field: field, value: settledValue});
 				}
 			}, interval);
 		},
 		setPollSpeed: function(highLow) {
+		},
+		// A problem with one TOPIC, as opposed to the connection itself
+		// (which the client's own 'error' event covers) - the connection
+		// is typically still up, so this rides on 'status' as a separate
+		// topicError field rather than as `error`, and carries which
+		// topic it's about (null = broker-wide) so only the widget(s)
+		// using that topic show it. Added 2026-10-03: a refused
+		// subscription or a rejected publish used to fail with nothing
+		// shown anywhere but this console.
+		_topicError: function(topic, message) {
+			console.log('[Cloud] topic error', topic || '(broker-wide)', '-', message);
+			this.emit('status', {connected: this.connected, topicError: String(message), topic: topic});
+		},
+		// MQTT forbids wildcards (and an empty name) in a topic being
+		// PUBLISHED to - a broker's answer to one is to drop the whole
+		// connection, which would then just look like a flaky network.
+		_publish: function(topic, value) {
+			var self = this;
+			if (!topic || /[#+]/.test(topic)) {
+				this._topicError(topic, topic ? 'Invalid publish topic (wildcards # and + are not allowed)' : 'No topic set');
+				return;
+			}
+			// Adafruit IO feed check (see _checkFeed): hold the value
+			// while the check is in flight, and never publish to a feed
+			// that doesn't exist - Adafruit would silently create it.
+			var check = this._feedChecks[topic];
+			if (check && check.state === 'pending') {
+				check.heldValue = value;
+				return;
+			}
+			if (check && check.state === 'missing') {
+				this._topicError(topic, check.message);
+				return;
+			}
+			this.client.publish(topic, value, function(err) {
+				if (err) { self._topicError(topic, 'Publish failed: ' + String(err.message || err)); }
+			});
+		},
+		// A broker can refuse a subscription (SUBACK 0x80 - e.g. no
+		// permission for that topic) while keeping the connection open;
+		// mqtt.js reports that through this callback's err.
+		_subscribe: function(topic) {
+			var self = this, client = this.client;
+			if (!topic) { return; }
+			// Nothing has arrived on this topic since THIS subscribe -
+			// see the 'message' handler's topicData status.
+			this._topicHasData[topic] = false;
+			client.subscribe(topic, function(err, granted) {
+				// The connection this was sent on has since been closed
+				// or replaced (widget switched off, credentials edited) -
+				// mqtt.js fails every pending subscribe with "Connection
+				// closed" then, which says nothing about the topic.
+				if (self.client !== client || !self.connected) { return; }
+				var refused = granted && granted[0] && granted[0].qos === 128;
+				if (err || refused) {
+					self._topicError(topic, 'Subscription refused' + (err ? ': ' + String(err.message || err) : ''));
+					return;
+				}
+				self._requestLastValue(topic);
+			});
+		},
+		// Adafruit IO accepts a subscription to ANY feed name under your
+		// account, existing or not, and stays silent either way - a
+		// mistyped feed looked exactly like a quiet one (found
+		// 2026-10-06: "bad topic not indicated"). It does answer a
+		// publish to <feed>/get, though: with the feed's last value on
+		// the feed topic if it exists, or with a complaint on
+		// <username>/errors if it doesn't. So ask, once per subscribe -
+		// which also means a CloudIn shows the current value straight
+		// away instead of waiting for the next change. Other brokers
+		// have no such request; for them a subscription that has
+		// produced nothing yet is reported as just that ("No data yet").
+		_requestLastValue: function(topic) {
+			if (!this._isAdafruit() || !/^[^\/#+]+\/(feeds|f)\/[^\/#+]+$/.test(topic)) { return; }
+			this.client.publish(topic + '/get', '\0');
+		},
+		// Does this Adafruit IO feed exist? MQTT can't say: Adafruit
+		// accepts a subscription to any feed name, and a publish to a
+		// feed that doesn't exist CREATES it - so a mistyped feed name in
+		// a CloudOut produced no error at all, just a new stray feed
+		// (found 2026-10-06: "bad topic not indicated", twice). Its REST
+		// API does say, so ask it once when a widget registers a topic:
+		// 404 means no such feed. Anything else that isn't a clear "yes"
+		// (network error, other status, a non-feed topic, another broker)
+		// is treated as "can't tell" and blocks nothing.
+		//
+		// State per topic in this._feedChecks: 'pending' | 'ok' |
+		// 'missing' | 'unknown'. A result is reused for a while - widgets
+		// re-register on every value change - but a 'missing' one is
+		// re-checked after a few seconds, so creating the feed and
+		// switching the widget back on is picked up.
+		_checkFeed: function(topic) {
+			var self = this;
+			var parts = /^([^\/#+]+)\/(?:feeds|f)\/([^\/#+]+)$/.exec(topic || '');
+			if (!this._isAdafruit() || !parts || !this._lastPassword) { return; }
+
+			var existing = this._feedChecks[topic];
+			if (existing) {
+				var age = Date.now() - existing.at;
+				if (existing.state === 'pending') { return; }
+				if (existing.state === 'missing' ? age < FEED_RECHECK_MISSING_MS : age < FEED_CHECK_REUSE_MS) {
+					if (existing.state === 'missing') { this._topicError(topic, existing.message); }
+					return;
+				}
+			}
+
+			var check = this._feedChecks[topic] = {state: 'pending', at: Date.now()};
+			this._fetchFeedStatus(parts[1], parts[2], this._lastPassword, function(statusCode) {
+				if (self._feedChecks[topic] !== check) { return; }   // superseded
+				check.at = Date.now();
+				if (statusCode === 404) {
+					check.state = 'missing';
+					check.message = 'Feed "' + parts[2] + '" does not exist on Adafruit IO';
+					delete check.heldValue;
+					self._topicError(topic, check.message);
+					return;
+				}
+				check.state = statusCode === 200 ? 'ok' : 'unknown';
+				if (check.heldValue !== undefined) {
+					var held = check.heldValue;
+					delete check.heldValue;
+					if (self.client) { self._publish(topic, held); }
+				}
+			});
+		},
+		// callback(statusCode), or callback(null) if the request failed.
+		// Its own method so tests can replace it.
+		_fetchFeedStatus: function(username, feedKey, aioKey, callback) {
+			var done = false;
+			function finish(code) { if (!done) { done = true; callback(code); } }
+			try {
+				var request = require('https').get({
+					host: 'io.adafruit.com',
+					path: '/api/v2/' + encodeURIComponent(username) + '/feeds/' + encodeURIComponent(feedKey),
+					headers: {'X-AIO-Key': aioKey},
+					timeout: 5000,
+				}, function(response) {
+					response.resume();
+					finish(response.statusCode);
+				});
+				request.on('timeout', function() { request.destroy(); finish(null); });
+				request.on('error', function() { finish(null); });
+			}
+			catch (e) { finish(null); }
+		},
+		_isAdafruit: function() {
+			return /(^|\.)adafruit\.com$/i.test(String(address));
+		},
+		// Plain MQTT 3.1.1 has no way to tell a client its QoS-0 publish
+		// was rejected (unknown feed, no permission, rate limit) - the
+		// message is just dropped. Adafruit IO instead reports those on
+		// two per-account topics, <username>/errors and
+		// <username>/throttle; listening to them is the only way a
+		// wrong feed name there is ever visible. Other brokers have no
+		// equivalent, so this is a no-op for them.
+		_subscribeBrokerNotices: function(username) {
+			this._brokerNoticeTopics = {};
+			if (!username || !this._isAdafruit()) { return; }
+			var self = this;
+			_.each([username + '/errors', username + '/throttle'], function(topic) {
+				self._brokerNoticeTopics[topic] = true;
+				self.client.subscribe(topic);
+			});
 		},
 		// mode: 'in' registers+subscribes a topic for a CloudIn widget,
 		// 'out' just registers a topic as a known publish target for a
@@ -419,13 +674,14 @@ module.exports = function(attributes) {
 		// send them on every enableDevice(), not just the first).
 		setIOMode: function setIOMode(topic, mode, options) {
 			this.connect(options, mode);
+			this._checkFeed(topic);
 
 			if (mode == 'in') {
 				if (this.receiving[topic] === undefined) {
 					this.receiving[topic] = 0;
 				}
 				if (this.client && this.connected) {
-					this.client.subscribe(topic);
+					this._subscribe(topic);
 				} else if (this.client) {
 					// Not connected yet - the 'connect' handler above
 					// re-subscribes every known receiving topic once it

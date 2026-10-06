@@ -6,8 +6,9 @@ define([
     'jqueryknob',
 
 	'utils/SignalChainFunctions',
+	'utils/cloudStatus',
 ],
-function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunctions){
+function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunctions, cloudStatus){
 	'use strict';
 
 	return WidgetView.extend({
@@ -16,6 +17,22 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 		categories: ['network'],
 		className: 'cloudOut',
 		template: _.template(Template),
+		// Rivets only writes a text field back to the model on the DOM
+		// 'change' event - i.e. once the field loses focus or Enter is
+		// pressed - so typing a new username/password did nothing
+		// visible until the user clicked somewhere else: the widget sat
+		// there "Connected" with half a new password in the box (found
+		// 2026-10-03: "making change to credential still doesn't
+		// disconnect"). These push each keystroke to the model, so the
+		// first character typed switches the widget off (see
+		// onModelChange).
+		widgetEvents: {
+			'input input[name="username"]': 'onCredentialInput',
+			'input input[name="password"]': 'onCredentialInput',
+		},
+		onCredentialInput: function(e) {
+			this.model.set(e.currentTarget.name, e.currentTarget.value);
+		},
 
 		ins: [
 			{title: 'input', to: 'in'},
@@ -38,12 +55,18 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 				password: '',
 				activeOut: false,
 				cloudConnected: false,
-				// 2000ms default - safe headroom under Adafruit IO's free
-				// tier (30 points/min = 1 per 2s max); set to 0 for no
-				// minimum on a self-hosted/unlimited broker. See
-				// CloudModel.js's set() for where the actual throttle
-				// (and averaging, below) lives.
-				sendInterval: 2000,
+				// What the connection indicator shows - see
+				// utils/cloudStatus.js.
+				cloudStatusLabel: 'Not connected',
+				cloudError: false,
+				cloudErrorDetail: '',
+				// 5000ms default (was 2000 until 2026-10-03) - Adafruit
+				// IO's free tier allows 30 points/min, i.e. 1 per 2s at
+				// most, so 2000 sat right on the limit with no headroom;
+				// set to 0 for no minimum on a self-hosted/unlimited
+				// broker. See CloudModel.js's set() for where the actual
+				// throttle (and averaging, below) lives.
+				sendInterval: 5000,
 				// Mirrors the OLD CloudOut's averageInputs option - when
 				// on, publishes the mean of every value seen during the
 				// sendInterval window instead of just the latest one.
@@ -66,6 +89,10 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 				// 'published' broadcast every client already receives is
 				// enough to keep this in sync on its own.
 				sendCountdownText: '',
+				// True while the "send in ..." countdown is running, i.e.
+				// a new value would have to wait - shown in red (see
+				// updateSendCountdown and Widget.scss's .sendpending).
+				sendPending: false,
 			});
 
             this.signalChainFunctions.push(SignalChainFunctions.roundToInt);
@@ -106,7 +133,10 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			this.onHardwareStatus = function(data) {
 				if (data.modelType === this.getHardwareKey()) {
 					this.lastStatusInfo = data.info;
+					this.lastCloudError = cloudStatus.nextError(this.lastCloudError, data.info);
+					this.lastTopicError = cloudStatus.topicErrorFor(this.lastTopicError, data.info, this.model.get('outputMapping'));
 					this.model.set('cloudConnected', this.model.get('activeOut') === true && !!(data.info && data.info.connected));
+					this.updateCloudStatus();
 				}
 			}.bind(this);
 			window.app.vent.on('hardwareStatus', this.onHardwareStatus);
@@ -221,13 +251,25 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			var sendInterval = parseInt(this.model.get('sendInterval'), 10) || 0;
 			var text = '';
 
+			var counting = false;
+
 			if (this.model.get('activeOut') && sendInterval > 0) {
 				var remaining = sendInterval - (Date.now() - this.lastPublishedAt);
 				text = 'send in ' + (Math.max(remaining, 0) / 1000).toFixed(1) + 's';
+				counting = remaining > 0;
 			}
 
 			if (this.model.get('sendCountdownText') !== text) {
 				this.model.set('sendCountdownText', text);
+			}
+
+			// Red for as long as the countdown is running; back to grey
+			// once the next send is allowed. (First tried as "red only
+			// while a changed value is actually waiting" - but the first
+			// change after a quiet spell is published at once, so the
+			// countdown that follows it never turned red at all.)
+			if (this.model.get('sendPending') !== counting) {
+				this.model.set('sendPending', counting);
 			}
 		},
 		// Overrides WidgetMulti.js's base setFromModel (called by
@@ -249,6 +291,10 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			this.model.set('active', loadedModel.active);
 			this.model.set('activeOut', false);
 			return this;
+		},
+		// See utils/cloudStatus.js - what the connection indicator shows.
+		updateCloudStatus: function() {
+			this.model.set(cloudStatus.describe(this.model.get('activeOut') === true, this.model.get('cloudConnected'), this.lastCloudError, this.lastTopicError));
 		},
 		getHardwareKey: function() {
 			return 'Cloud:' + (this.model.get('host') || '') + ':' + (this.model.get('port') || 1883);
@@ -306,7 +352,16 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 				// just tells it what interval/mode to use for this topic.
 				sendInterval: this.model.get('sendInterval'),
 				averageInputs: this.model.get('averageInputs'),
+				// Set when the user switches the widget on (see
+				// onModelChange) and sent once: tells CloudModel.js this
+				// is a deliberate connect, as opposed to the routine
+				// re-send this function also does on every value change.
+				// Only a deliberate one may replace a connection that's
+				// already up with different credentials, or retry a
+				// login the broker has already refused.
+				forceReconnect: this.explicitConnect === true,
 			});
+			this.explicitConnect = false;
 
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel, modeRequested: 3});
 		},
@@ -322,8 +377,46 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			} else if (changed && changed.activeOut === true) {
 				this.model.set('cloudConnected', !!(this.lastStatusInfo && this.lastStatusInfo.connected));
 			}
+			// A topic error describes the settings it happened under -
+			// see utils/cloudStatus.js's topicErrorFor.
+			if (changed && (changed.topic !== undefined || changed.host !== undefined || changed.port !== undefined
+				|| changed.username !== undefined || changed.password !== undefined || changed.tls !== undefined
+				|| changed.activeOut === false)) {
+				this.lastTopicError = null;
+			}
+			if (changed && (changed.activeOut !== undefined || changed.cloudConnected !== undefined || changed.topic !== undefined)) {
+				this.updateCloudStatus();
+			}
 
 			if(changed) {
+				// A username/password/TLS edit is the same kind of change
+				// as host/port below - what's connected no longer matches
+				// what the widget says - so it turns the widget off the
+				// same way, and the next enable reconnects with the new
+				// values (see enableDevice's forceReconnect). Found
+				// 2026-10-03: editing the credentials of a connected
+				// CloudOut did nothing at all - it stayed "Connected" on
+				// the old login. The previous attempt's error no longer
+				// describes the new settings either.
+				if(changed.username !== undefined || changed.password !== undefined || changed.tls !== undefined) {
+					this.lastCloudError = null;
+					// The last status described the old login - without
+					// this, switching back on shows "Connected" for a
+					// moment before the server has answered at all.
+					this.lastStatusInfo = null;
+					this.model.set('activeOut', false);
+				}
+				if(changed.host !== undefined || changed.port !== undefined) {
+					this.lastCloudError = null;
+				}
+				// A topic edit switches the widget off too, like every
+				// other connection setting (2026-10-06) - nothing gets
+				// published to a topic that's still being changed.
+				if(changed.topic !== undefined) {
+					this.model.set('activeOut', false);
+				}
+
+
 				// A host/port edit needs a real new MQTT connection - force
 				// an explicit re-enable rather than silently reconnecting
 				// under a topic that's still being typed. Same pattern
@@ -362,17 +455,12 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 					// triggered a mapping sync).
 					window.app.vent.trigger('updateModelMappings', window.app.Patcher.Controller.widgetMappings);
 
+					this.explicitConnect = (changed.activeOut === true);
 					this.enableDevice();
 				}
 			}
 		},
         onRender: function() {
-			// Must be registered before WidgetView.prototype.onRender
-			// below - see CLAUDE.md's Rivets/Backbone gotcha.
-			rivets.formatters.cloudStatusText = function(connected) {
-				return connected ? 'Connected' : 'Not connected';
-			};
-
 			// always call the superclass
 			WidgetView.prototype.onRender.call(this);
 

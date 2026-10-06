@@ -17,8 +17,8 @@
             <div class="display outvalue" rv-text="widget:displayOut | rounded">1023</div>
             <div style="position:relative;"><input type="text" class="dial" rv-value="widget:in" rv-knob="widget:in"/></div>
         </div>
-        <br><div class='timeLeft' rv-class-cloudconnected="widget:cloudConnected" rv-text="widget:cloudConnected | cloudStatusText"></div>
-        <div class='sendCountdown' rv-text="widget:sendCountdownText"></div>
+        <br><div class='timeLeft' rv-class-cloudconnected="widget:cloudConnected" rv-class-clouderror="widget:cloudError" rv-title="widget:cloudErrorDetail" rv-text="widget:cloudStatusLabel"></div>
+        <div class='sendCountdown' rv-class-sendpending="widget:sendPending" rv-text="widget:sendCountdownText"></div>
 
     </div>
 
