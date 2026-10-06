@@ -62,11 +62,12 @@ broker is unreachable) - a failed connect just leaves that group
 unconnected until the next claim_hardware() call (e.g. a full patch
 reload, or regaining control after a client disconnects) retries it;
 there is no continuous automatic reconnect-while-ticking in this v1,
-unlike the live-connection widget's mqtt.js client. Self-echo
-suppression (a connection receiving its own just-published message
-back, since MQTT has no protocol-level way to prevent this) mirrors
-CloudModel.js's fix for the exact same problem - see _claim_cloud's
-`_cloud_last_published` tracking. CloudOut's sendInterval/averageInputs
+unlike the live-connection widget's mqtt.js client. A connection
+receives its own just-published messages back (MQTT has no
+protocol-level way to prevent this); they ARE delivered to CloudIn,
+and a feedback loop is prevented on the publishing side instead, as
+in CloudModel.js - see the cloud_out step's `_cloud_last_received`
+guard. CloudOut's sendInterval/averageInputs
 throttle and settle-publish are NOT ported here - v1 sends on every
 actual change only, same simplification OSCOut already makes for its
 own roundToInt-only chain handling; the full throttle/average/settle
@@ -176,6 +177,10 @@ def _hex_to_rgb(hex_str):
     except (ValueError, IndexError):
         return (255, 0, 0)
 
+
+# How long after a value arrives on a topic a CloudOut refuses to
+# publish that same value back to it - CloudModel.js uses 2s too.
+_CLOUD_ECHO_GUARD_S = 2.0
 
 # Minimum time between OLED writes from a Display widget - matches
 # ntk_firmata_main.py's own _DISPLAY_MIN_INTERVAL_S (was 1.0s in both).
@@ -1178,7 +1183,8 @@ class StandaloneInterpreter:
         self._cloud_ssl_context = None  # only created if some group needs TLS
         self._cloud_clients = {}         # group key -> MQTT.MQTT
         self._cloud_topic_widgets = {}   # group key -> {topic: [wid, ...]} (cloud_in routing)
-        self._cloud_last_published = {}  # (group key, topic) -> (value_str, monotonic_time) - self-echo guard
+        self._cloud_last_published = {}  # (group key, topic) -> (value_str, monotonic_time)
+        self._cloud_last_received = {}  # (group key, topic) -> (value, monotonic_time) - feedback-loop guard, see the cloud_out step
         self._cloud_last_poll = 0.0      # shared gate so MQTT polling doesn't run every single tick
 
     def load(self, patch):
@@ -1863,14 +1869,16 @@ class StandaloneInterpreter:
         correctly there, matching how any other text-valued inlet
         already works."""
         def handler(client, topic, message):
-            # Self-echo suppression - see module docstring. A connection
-            # that both publishes and subscribes to one topic sees its
-            # own just-published message come back as an ordinary
-            # incoming one; MQTT has no protocol-level way to prevent
-            # this. Mirrors CloudModel.js's identical fix.
-            last = self._cloud_last_published.get((key, topic))
-            if last is not None and last[0] == message and (time.monotonic() - last[1]) < 5.0:
-                return
+            # Delivered even when it's the echo of this board's own
+            # publish. It used to be dropped here (as a feedback-loop
+            # guard), which meant a CloudIn on the same feed as a
+            # CloudOut in the same patch never showed the values that
+            # CloudOut sent - unlike the same patch running live in NTK
+            # (found 2026-10-06: the feed updated on Adafruit, the
+            # board's own OLED fed from that CloudIn did not). The loop
+            # is broken on the PUBLISHING side instead, the way
+            # CloudModel.js's set() does it - see the cloud_out step.
+            self._cloud_last_received[(key, topic)] = (message, time.monotonic())
             for wid in self._cloud_topic_widgets.get(key, {}).get(topic, []):
                 self.widgets[wid]['values']['in'] = message
         return handler
@@ -2134,6 +2142,14 @@ class StandaloneInterpreter:
                 # (no float/int toggle unlike OSCOut) - matches that
                 # here rather than sending a raw float string.
                 payload = str(int(round(out_value)))
+                # Feedback-loop guard, same rule as CloudModel.js's
+                # set(): don't publish a value that has just arrived on
+                # this same topic. Without it a CloudIn wired (directly
+                # or not) into a CloudOut on the same feed would bounce
+                # each value back to the broker forever.
+                received = self._cloud_last_received.get((key, topic))
+                if received is not None and (now - received[1]) < _CLOUD_ECHO_GUARD_S and _num(received[0], None) == float(payload):
+                    continue
                 try:
                     client.publish(topic, payload)
                     # Recorded BEFORE any echo could come back, so the
