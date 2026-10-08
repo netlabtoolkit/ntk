@@ -89,7 +89,11 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
                 left: 250,
                 top: 320,
 				opacity: 100,
-                displayWidth: 260,
+                // 225 rather than the old 260: a new Text widget's box is
+                // placed beside the widget (Patcher.js's
+                // DETACHED_DISPLAY_BESIDE) and has to end short of the next
+                // grid column, where the following widget lands.
+                displayWidth: 225,
                 displayHeight: 110,
                 displayFont: "Arial, Helvetica, sans-serif",
                 displayFontSize: "18px",

@@ -602,13 +602,23 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 		// displays are small and fixed-size, so those still reserve room.
 		WIDGETS_RESERVING_EXTRA_GRID_SPACE: ['Button', 'Knob'],
 		// Vertical offset from a widget's own box to its detached display,
-		// per typeID - Text/Image/Video sit 5px lower than Button/Knob.
+		// per typeID - Image/Video sit 5px lower than Button/Knob. (Text
+		// isn't here - see DETACHED_DISPLAY_BESIDE.)
 		DETACHED_DISPLAY_TOP_OFFSET: {
 			Button: 150,
 			Knob: 150,
 			Video: 155,
 			Image: 155,
-			Text: 155,
+		},
+		// Types whose detached display goes to the RIGHT of the widget, level
+		// with its top, instead of below it. Below is exactly where the
+		// "more" panel opens, and Text's display box sat over the top of its
+		// own panel, hiding the "Hide text display" button. `left` clears
+		// the widget's 148px box plus its outlet column; the widget reserves
+		// the grid cell beside it too (see placeNewWidget), which Text's
+		// default box width (see Text.js) is sized to stay inside.
+		DETACHED_DISPLAY_BESIDE: {
+			Text: {left: 165, top: 0},
 		},
 		GRID_STEP_X: 200,
 		GRID_STEP_Y: 190,
@@ -694,8 +704,10 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 		placeNewWidget: function(view) {
 			var hasDetachedDisplay = this.WIDGETS_WITH_DETACHED_DISPLAY.indexOf(view.typeID) !== -1,
 				reservesExtraGridSpace = this.WIDGETS_RESERVING_EXTRA_GRID_SPACE.indexOf(view.typeID) !== -1,
+				beside = this.DETACHED_DISPLAY_BESIDE[view.typeID],
 				cells = reservesExtraGridSpace ? 2 : 1,
-				slots = this.findFreeGridSlots(cells, cells),
+				// A display beside the widget takes the next cell along.
+				slots = beside ? this.findFreeGridSlots(Math.min(2, this.getGridColumns()), 1) : this.findFreeGridSlots(cells, cells),
 				cols = this.getGridColumns(),
 				topLeftRow = Math.floor(slots[0] / cols),
 				topLeftCol = slots[0] % cols,
@@ -718,7 +730,10 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 			// path ("Expected number" for the cable's `d` attribute).
 			view.model.set({offsetLeft: position.left, offsetTop: position.top, width: 148});
 
-			if(hasDetachedDisplay) {
+			if(beside) {
+				view.model.set({left: position.left + beside.left, top: position.top + beside.top});
+			}
+			else if(hasDetachedDisplay) {
 				// Keep this widget type's traditional offset between its
 				// own box and its detached display (originally (120,50)
 				// vs (100,200) - 20px left, ~150px down), just relative to
