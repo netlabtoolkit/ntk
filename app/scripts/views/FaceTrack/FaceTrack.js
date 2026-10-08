@@ -216,6 +216,28 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 		onModelChange: function(model) {
 			var changed = model.changedAttributes();
 
+			// The checkbox on the left tab is the camera switch (its
+			// tooltip says so, and it's what PoseRecog/ObjectRecog's does)
+			// - but here it used to only pause the face detection, leaving
+			// the camera itself running whenever the input was above the
+			// threshold (found 2026-10-06). The camera is on only when
+			// BOTH are true: the box is ticked and the input gate is open.
+			if(changed.active !== undefined) {
+				if(this.model.get('active')) {
+					if(this.model.get('tracking')) {
+						this.startCamera();
+					}
+				}
+				else {
+					this.stopCamera();
+					// x/y/smile are left where they were - zeroing them
+					// made whatever they drive jump to a corner the
+					// moment the camera was switched off. Only "face"
+					// drops, since no face is being seen any more.
+					this.model.set({faceDetected: 0});
+				}
+			}
+
 			if(changed.simulate !== undefined) {
 				if(this.model.get('simulate')) {
 					// Simulate bypasses the camera/threshold gate entirely,
@@ -414,13 +436,26 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 		// bounded-active-time spirit as SpeechIn's listenStart/listenStop only
 		// holding the mic open between calls.
 		startCamera: function() {
-			if(this.model.get('simulate')) {
+			// Not while simulating, not with the camera switch off (see
+			// onModelChange), and not twice - a second getUserMedia would
+			// open a second stream and orphan the first.
+			if(this.model.get('simulate') || !this.model.get('active') || this.mediaStream || this.cameraStarting) {
 				return;
 			}
+			this.cameraStarting = true;
 
 			var self = this;
 			navigator.mediaDevices.getUserMedia({video: {width: 320, height: 240}, audio: false})
 				.then(function(stream) {
+					self.cameraStarting = false;
+					// Opening the camera takes a moment - if it was
+					// switched off (or tracking stopped) in the meantime,
+					// hand the stream straight back instead of leaving the
+					// camera on with nothing using it.
+					if(!self.model.get('active') || !self.model.get('tracking') || self.model.get('simulate')) {
+						stream.getTracks().forEach(function(track) { track.stop(); });
+						return;
+					}
 					self.mediaStream = stream;
 					if(self.videoEl) {
 						self.videoEl.srcObject = stream;
@@ -429,6 +464,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 					return self.ensureFaceLandmarker();
 				})
 				.catch(function(err) {
+					self.cameraStarting = false;
 					self.model.set({
 						statusMessage: 'Camera error: ' + err.message,
 						tracking: false,

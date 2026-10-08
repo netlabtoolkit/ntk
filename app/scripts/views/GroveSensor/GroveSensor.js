@@ -77,7 +77,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				readingReadout: '',
 				easing: false,
 				easingAmount: 30,
-				smoothingAmount: 60,
+				smoothingAmount: 250,
 				// deviceType/server/port are deliberately NOT defaulted
 				// here, matching AnalogIn - getDeviceModelType()/
 				// getDeviceServerName()/getDeviceServerPort() below supply

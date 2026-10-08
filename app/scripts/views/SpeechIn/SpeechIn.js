@@ -61,8 +61,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				threshold: 512,
 				lastIn: -1,
 				locale: 'en-US',
-				recording: false,
-				status: 'idle',   // idle | recording | transcribing | error | unavailable
+				recording: false, // button held / trigger high (the helper has been asked to listen)
+				live: false,      // the helper has confirmed the mic is actually open
+				status: 'idle',   // idle | starting | recording | transcribing | error | unavailable
 				statusText: '',
 			});
 		},
@@ -89,6 +90,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 					self.setStatus('unavailable', 'macOS only');
 					return;
 				}
+				self.warmHelper();
 				if(ntkElectron.speechLocales) {
 					ntkElectron.speechLocales().then(function(locales) {
 						if(Array.isArray(locales) && locales.length) {
@@ -137,12 +139,16 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			if(!window.ntkElectron || !window.ntkElectron.speechStart) { return; }
 
 			var self = this;
-			this.model.set({recording: true, partial: ''});
-			this.setStatus('recording', '');
+			// 'starting' until the helper reports 'listening' (see
+			// onSpeechMessage) - the mic takes a moment to open, and
+			// showing 'recording' straight away invited talking into a
+			// mic that wasn't live yet, losing the first words.
+			this.model.set({recording: true, live: false, partial: ''});
+			this.setStatus('starting', '');
 			window.ntkElectron.speechStart(this.model.get('wid'), this.model.get('locale'))
 				.then(function(ok) {
 					if(!ok && self.model.get('recording')) {
-						self.model.set('recording', false);
+						self.model.set({recording: false, live: false});
 						self.setStatus('error', 'could not start');
 					}
 				});
@@ -150,7 +156,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 		stopRecording: function() {
 			if(app.server || !this.model.get('recording')) { return; }
-			this.model.set('recording', false);
+			this.model.set({recording: false, live: false});
 			this.setStatus('transcribing', '');
 			if(window.ntkElectron && window.ntkElectron.speechStop) {
 				window.ntkElectron.speechStop(this.model.get('wid'));
@@ -166,7 +172,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 					}
 					break;
 				case 'listening':
-					this.setStatus('recording', '');
+					// Ignore one that lands after the button was already
+					// released (status has moved on to 'transcribing').
+					if(this.model.get('recording')) {
+						this.model.set('live', true);
+						this.setStatus('recording', '');
+					}
 					break;
 				case 'partial':
 					this.model.set('partial', msg.text || '');
@@ -178,14 +189,24 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 					if(msg.text) {
 						this.model.set('output', msg.text);
 					}
-					this.model.set('recording', false);
+					this.model.set({recording: false, live: false});
 					this.setStatus('idle', '');
 					break;
 				case 'error':
-					this.model.set('recording', false);
+					this.model.set({recording: false, live: false});
 					this.setStatus('error', msg.message || 'error');
 					break;
 			}
+		},
+
+		// Launch this widget's helper and have it build the recognizer for
+		// the current locale before the first press, so that press only
+		// has to open the mic. Opens no mic and raises no permission
+		// prompt (see `warm` in speechhelper.swift).
+		warmHelper: function() {
+			if(app.server || !window.ntkElectron || !window.ntkElectron.speechWarm) { return; }
+			if(this.model.get('status') === 'unavailable' || this.model.get('recording')) { return; }
+			window.ntkElectron.speechWarm(this.model.get('wid'), this.model.get('locale'));
 		},
 
 		setStatus: function(status, text) {
@@ -245,6 +266,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 		localeSelectChange: function() {
 			this.model.set('locale', this.$('.localeSelect').val());
+			this.warmHelper();
 		},
 
 	});

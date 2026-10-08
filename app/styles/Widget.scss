@@ -387,6 +387,17 @@ body.ntk-monitoring .monitorBlockOverlay {
             color: #2e7d32;
         }
 
+        // CloudIn: connected and subscribed, nothing received yet.
+        .timeLeft.cloudwaiting {
+            color: #b26a00;
+        }
+
+        // The broker refused or couldn't be reached - the label is the
+        // short reason (utils/cloudStatus.js), full message on hover.
+        .timeLeft.clouderror {
+            color: #c62828;
+        }
+
         .ifFalse {
             background-color: #f8c885;
         }
@@ -557,6 +568,15 @@ body.ntk-monitoring .monitorBlockOverlay {
                 width: 30px;
             }
 
+            // .narrowLabel's 30px fits "min"/"max" but not "smooth" -
+            // the label overflowed under its own field and lost its
+            // last letter. Used on every label that starts a row in that
+            // block (min, ease, smooth) so their fields all share one
+            // left edge.
+            .narrowLabel.wordLabel {
+                width: 46px;
+            }
+
             .moreParam {
                 width: 40px;
             }
@@ -706,10 +726,11 @@ body.ntk-monitoring .monitorBlockOverlay {
     padding-top: 10px;
 }
 
-// GroveSensor widget (app/scripts/views/GroveSensor/) - note that
-// per-widget styles.scss files (e.g. AnalogIn's) are never actually
-// imported anywhere into the build, so widget-specific rules live here
-// in the shared Widget.scss instead, same as .dialwrapperUI above.
+// GroveSensor widget (app/scripts/views/GroveSensor/) - its rules live
+// here in the shared Widget.scss, same as .dialwrapperUI above. (A
+// per-widget styles.scss would also work: main.scss doesn't import
+// them, but buildScripts/buildSCSS.sh compiles each one and appends it
+// to main.css - this comment used to claim they were never built.)
 .groveSensor {
     .widgetBody {
         // Mostly fits the standard 110px, but the live value readout can
@@ -1585,7 +1606,14 @@ body.ntk-monitoring .monitorBlockOverlay {
         margin: 8px auto 4px;
         cursor: pointer;
 
+        // Held, but the mic isn't open yet - dimmed, no pulse, so it's
+        // obvious when it's actually time to talk (.recording, below).
+        &.starting {
+            opacity: 0.45;
+        }
+
         &.recording {
+            opacity: 1;
             animation: speechinRecordPulse 1s ease-in-out infinite;
         }
     }
@@ -1614,6 +1642,29 @@ body.ntk-monitoring .monitorBlockOverlay {
     .localeInput {
         width: 90%;
         margin: 2px 0;
+    }
+}
+
+// Video/Audio: play/pause button beside the Play inlet's label - a green
+// play triangle, or two red bars while playing (same shapes-from-borders
+// approach and colors as SpeechOut's .playButton below, just small enough
+// to sit on an inlet row). See Video.js/Audio.js's togglePlay.
+.widget.video .playToggle, .widget.audio .playToggle {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 6px;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 6px 0 6px 10px;
+    border-color: transparent transparent transparent #3a7d3a;
+    cursor: pointer;
+
+    &.playing {
+        width: 3px;
+        height: 12px;
+        border-width: 0 4px;
+        border-color: #c94a4a;
     }
 }
 
@@ -2291,6 +2342,11 @@ body.ntk-monitoring .monitorBlockOverlay {
     .sendCountdown {
         margin-left: 5px;
         color: #888;
+
+        // The countdown is running - see CloudOut.js's sendPending.
+        &.sendpending {
+            color: #ff0000;
+        }
     }
 
     // One more stacked line under the dial than CloudIn (which only

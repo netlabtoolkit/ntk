@@ -241,7 +241,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 				if(widgetType === 'DigitalIn') {
 					var newWidget = new DigitalInView({
 						model: newModel,
-						inputMapping: 'D12',
+						inputMapping: 'D7',
 					});
 
 					this.addWidgetToStage(newWidget, addedFromLoader);
@@ -252,7 +252,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 						this.mapToModel({
 							view: newWidget,
 							modelType: deviceMapping.modelType,
-							IOMapping: {sourceField: "D12", destinationField: 'in'},
+							IOMapping: {sourceField: "D7", destinationField: 'in'},
 							server: deviceMapping.server,
 						}, addedFromLoader);
 					}
@@ -342,14 +342,26 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 					return newWidget;
                 }
                 else if(widgetType === 'OSCOut') {
-					var defaultMapping = '/ntk/out/1:127.0.0.1:57120';
-
-					// Check if we are already using this output pin, don't use it if we are
-					var existingMapping = _.find(this.widgetMappings, function(map) {
-						return map.map.destinationField === defaultMapping;
+					// First /ntk/out/N no OSCOut on the canvas is already
+					// using. This used to offer only /ntk/out/1 and fall
+					// back to an EMPTY mapping when that was taken - so
+					// the second OSCOut added came up with a blank
+					// message field and sent nothing until one was typed
+					// in (found 2026-10-05). Looks at each existing
+					// widget's actual message name rather than at
+					// widgetMappings, which only lists an OSCOut once its
+					// output has been switched on.
+					var usedMessageNames = {};
+					this.widgetModels.each(function(widgetModel) {
+						if(widgetModel.get('typeID') === 'OSCOut') {
+							usedMessageNames[String(widgetModel.get('messageName')).split(':')[0]] = true;
+						}
 					});
-					var defaultOutputMapping = existingMapping ? '' : defaultMapping;
-					//var defaultOutputMapping = defaultMapping;
+					var outputNumber = 1;
+					while(usedMessageNames['/ntk/out/' + outputNumber]) {
+						outputNumber++;
+					}
+					var defaultOutputMapping = '/ntk/out/' + outputNumber + ':127.0.0.1:9000';
 
 					var newWidget = new OSCOutView({
 						model: newModel,
@@ -366,7 +378,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 							view: newWidget,
 							IOMapping: {sourceField: "out", destinationField: defaultOutputMapping},
 							modelType: 'OSC',
-							server: '127.0.0.1:57190',
+							server: '127.0.0.1:9000',
 						}, addedFromLoader);
 					}
 
@@ -590,13 +602,23 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 		// displays are small and fixed-size, so those still reserve room.
 		WIDGETS_RESERVING_EXTRA_GRID_SPACE: ['Button', 'Knob'],
 		// Vertical offset from a widget's own box to its detached display,
-		// per typeID - Text/Image/Video sit 5px lower than Button/Knob.
+		// per typeID - Image/Video sit 5px lower than Button/Knob. (Text
+		// isn't here - see DETACHED_DISPLAY_BESIDE.)
 		DETACHED_DISPLAY_TOP_OFFSET: {
 			Button: 150,
 			Knob: 150,
 			Video: 155,
 			Image: 155,
-			Text: 155,
+		},
+		// Types whose detached display goes to the RIGHT of the widget, level
+		// with its top, instead of below it. Below is exactly where the
+		// "more" panel opens, and Text's display box sat over the top of its
+		// own panel, hiding the "Hide text display" button. `left` clears
+		// the widget's 148px box plus its outlet column; the widget reserves
+		// the grid cell beside it too (see placeNewWidget), which Text's
+		// default box width (see Text.js) is sized to stay inside.
+		DETACHED_DISPLAY_BESIDE: {
+			Text: {left: 165, top: 0},
 		},
 		GRID_STEP_X: 200,
 		GRID_STEP_Y: 190,
@@ -682,8 +704,10 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 		placeNewWidget: function(view) {
 			var hasDetachedDisplay = this.WIDGETS_WITH_DETACHED_DISPLAY.indexOf(view.typeID) !== -1,
 				reservesExtraGridSpace = this.WIDGETS_RESERVING_EXTRA_GRID_SPACE.indexOf(view.typeID) !== -1,
+				beside = this.DETACHED_DISPLAY_BESIDE[view.typeID],
 				cells = reservesExtraGridSpace ? 2 : 1,
-				slots = this.findFreeGridSlots(cells, cells),
+				// A display beside the widget takes the next cell along.
+				slots = beside ? this.findFreeGridSlots(Math.min(2, this.getGridColumns()), 1) : this.findFreeGridSlots(cells, cells),
 				cols = this.getGridColumns(),
 				topLeftRow = Math.floor(slots[0] / cols),
 				topLeftCol = slots[0] % cols,
@@ -706,7 +730,10 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 			// path ("Expected number" for the cable's `d` attribute).
 			view.model.set({offsetLeft: position.left, offsetTop: position.top, width: 148});
 
-			if(hasDetachedDisplay) {
+			if(beside) {
+				view.model.set({left: position.left + beside.left, top: position.top + beside.top});
+			}
+			else if(hasDetachedDisplay) {
 				// Keep this widget type's traditional offset between its
 				// own box and its detached display (originally (120,50)
 				// vs (100,200) - 20px left, ~150px down), just relative to
@@ -1264,7 +1291,17 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 				// without being wrong for either; the confirm dialog
 				// already said which one this was before the user agreed
 				// to it.
-				alert('Done - the device should reload the new patch within a few seconds, no restart needed. If it doesn\'t, reset it manually.');
+				// See StandardFirmataModel.js's pushPatch() for these.
+				if(result.error === 'SAVED_AFTER_RESTART') {
+					alert('Done - the device is restarting to save the new patch. It restarts twice, so allow about 30 seconds before it is running again.');
+				}
+				else if(String(result.error || '').indexOf('NOT_SAVED') === 0) {
+					var reason = String(result.error).slice('NOT_SAVED'.length).replace(/^[: ]+/, '');
+					alert('The device is running the new patch, but could NOT save it' + (reason ? ' (' + reason + ')' : '') + '. The patch will be gone after the device restarts. To save it, connect the device to this computer by USB and push again.');
+				}
+				else {
+					alert('Done - the device should reload the new patch within a few seconds, no restart needed. If it doesn\'t, reset it manually.');
+				}
 
 				// Auto-switch to Monitor mode after a real push (not an
 				// erase - see pushPatchToDevice's own comment, which

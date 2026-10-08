@@ -12,7 +12,7 @@
     </div>
 
     <div class="widgetBody">
-        <div class="recordButton" rv-class-recording="widget:recording" title="Hold to record"></div>
+        <div class="recordButton" rv-class-starting="widget:recording" rv-class-recording="widget:live" title="Hold to record"></div>
         <div class="speechStatus" rv-text="widget:status"></div>
         <div class="speechTranscript" rv-show="widget:partial" rv-text="widget:partial"></div>
         <div class="speechTranscript" rv-hide="widget:partial" rv-text="widget:output"></div>

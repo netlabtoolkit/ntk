@@ -112,6 +112,9 @@ module.exports = function(five) {
 	// was built for (2026-09-25); would pick the wrong board if more
 	// than one CircuitPython device were mounted locally at once - a
 	// known limitation, not a hidden one.
+	// Must match the firmware's _SAVE_AFTER_RESTART_KEY - see pushPatch().
+	var SAVE_AFTER_RESTART_KEY = '__ntkSaveAfterRestart';
+
 	var LOCAL_CIRCUITPY_PATH = '/Volumes/CIRCUITPY';
 	var LOCAL_CIRCUITPY_PATCH_FILE = LOCAL_CIRCUITPY_PATH + '/standalone_patch.json';
 
@@ -380,6 +383,51 @@ module.exports = function(five) {
 				}
 				var mount = findWritableLocalCircuitpyMount();
 				if(!mount) {
+					// The board couldn't save the patch (a computer other
+					// than this one has its CIRCUITPY drive) but is
+					// running it from memory - see the firmware's
+					// _handle_push_patch_request. That's a push that
+					// worked, with a caveat the user needs to hear, not a
+					// failure. The NOT_SAVED prefix is what Patcher.js's
+					// onPushPatchResult looks for.
+					//
+					// And if the board says it CAN save across a restart
+					// (it stashes the patch in non-volatile memory,
+					// restarts with its filesystem writable-from-code,
+					// writes the file, and restarts back to normal),
+					// ask for that by sending the same patch again with
+					// SAVE_AFTER_RESTART_KEY set. This is the normal path
+					// for a board running on its own power: CircuitPython
+					// keeps the filesystem read-only to the board's own
+					// code unless it's remounted at boot.
+					if(/can save after restart/.test(errorMessage || '')) {
+						var marked;
+						try {
+							marked = JSON.parse(patchJson);
+							marked[SAVE_AFTER_RESTART_KEY] = true;
+						}
+						catch(markErr) { marked = null; }
+						if(marked) {
+							self._pushPatchOverNetwork(JSON.stringify(marked), function(ok2, errorMessage2) {
+								if(ok2) {
+									console.log('pushPatch: device is restarting to save the patch itself');
+									callback(true, 'SAVED_AFTER_RESTART');
+								}
+								else if(/running from memory, not saved/.test(errorMessage2 || '')) {
+									callback(true, 'NOT_SAVED');
+								}
+								else {
+									callback(false, errorMessage2);
+								}
+							});
+							return;
+						}
+					}
+					if(/running from memory, not saved/.test(errorMessage || '')) {
+						var tooLarge = /too large to save without USB[^)]*/.exec(errorMessage);
+						callback(true, tooLarge ? 'NOT_SAVED: ' + tooLarge[0] : 'NOT_SAVED');
+						return;
+					}
 					callback(false, errorMessage);
 					return;
 				}
@@ -888,7 +936,20 @@ module.exports = function(five) {
 				else if(mode === 'SERVO') {
 					var pinExists = this.outputs[pin] !== undefined;
 
-					if(pinExists) {
+					// Only when the pin isn't a servo already - same guard
+					// the PWM branch above has for five.Led. setHardwarePin()
+					// calls setIOMode() on EVERY write, so without it every
+					// servo position built a brand-new five.Servo, and each
+					// one re-sent the pin mode and servo config to the board
+					// ahead of the position itself. The CircuitPython
+					// firmware answered a pin-mode message by tearing the
+					// pin's PWM output down and creating it again at zero
+					// duty - twice per write, since the servo config does
+					// the same - so during a dial drag the servo's control
+					// signal was being rebuilt dozens of times a second and
+					// it could barely move (found 2026-10-05: "it still
+					// doesn't follow a drag of the dial").
+					if(pinExists && !(this.outputs[pin].pin instanceof five.Servo)) {
 						var hardwarePin = parseInt(pin.substr(1),10);
 
 						// Explicit board: - see the Sensor case above.

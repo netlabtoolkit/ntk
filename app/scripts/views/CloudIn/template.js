@@ -23,7 +23,7 @@
             <td><input class="range-input" type="text" pattern="[0-9]*" rv-value="widget:outputCeiling"></td>
           </tr>
         </table>
-        <div class='timeLeft' rv-class-cloudconnected="widget:cloudConnected" rv-text="widget:cloudConnected | cloudStatusText"></div>
+        <div class='timeLeft' rv-class-cloudconnected="widget:cloudConnected" rv-class-cloudwaiting="widget:cloudWaiting" rv-class-clouderror="widget:cloudError" rv-title="widget:cloudErrorDetail" rv-text="widget:cloudStatusLabel"></div>
 
     </div>
 

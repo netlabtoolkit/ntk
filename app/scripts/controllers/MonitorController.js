@@ -44,6 +44,7 @@ define([
 			window.app.vent.on('Monitor:start', this.start, this);
 			window.app.vent.on('Monitor:stop', this.stop, this);
 			window.app.vent.on('Monitor:blockedEdit', this.blockAndWarn, this);
+			window.app.vent.on('hardwareConnectionLost', this.onHardwareConnectionLost, this);
 		},
 
 		start: function start(options) {
@@ -82,6 +83,29 @@ define([
 			window.app.vent.trigger('stopMonitor');
 			this.hideBanner();
 
+			// The server closed every OSC socket when monitoring started
+			// (see nlMultiClientSync.js's oscSuspendedBy) and only
+			// reopens one when a widget asks. An OSCOut asks by itself
+			// the next time it has a value to send; an OSCIn has nothing
+			// to send, so without this it would sit there deaf until the
+			// patch was reloaded. Sent after 'stopMonitor' above, on the
+			// same socket, so the server has already lifted the
+			// suspension by the time it arrives.
+			_.each(window.app.Patcher.Controller.widgets, function(widgetView) {
+				if (widgetView.typeID === 'OSCIn' && widgetView.model.get('active') === true) {
+					widgetView.enableDevice();
+				}
+			});
+
+			this.reconnectDeviceWidgets(host, port);
+		},
+
+		// Makes every hardware widget pointed at this device re-run its
+		// own "am I connected? if not, connect" check. Used when
+		// monitoring stops, and when the server reports that an
+		// established connection to the device dropped by itself
+		// (onHardwareConnectionLost).
+		reconnectDeviceWidgets: function reconnectDeviceWidgets(host, port) {
 			// Starting monitoring closes NTK's own normal hardware
 			// connection to this device to free it up for the monitor
 			// connection (see nlMultiClientSync.js's client:startMonitor
@@ -127,9 +151,52 @@ define([
 					// reconnect branch that actually calls mapToModel/
 					// enableDevice() - root-caused via a real uncaught
 					// TypeError from hands-on testing 2026-09-22.
-					widgetView.model.trigger('change', widgetView.model, {});
+					//
+					// The trigger alone isn't enough, though. Every
+					// widget's onModelChange starts from
+					// model.changedAttributes(), and Backbone answers
+					// that from whatever the model's LAST set() changed
+					// - false if that set() changed nothing. While
+					// monitoring, the board's values are written into
+					// the widget several times a second, so with a
+					// steady reading the last set() is nearly always a
+					// no-op, changedAttributes() is false, and the
+					// widget returns before reaching its reconnect
+					// check. It only ever worked because a jittery
+					// sensor kept the value changing (found 2026-10-05,
+					// right after AnalogIn's smoothing got good enough
+					// to hold a reading still: Stop Monitor left NTK
+					// connected to nothing). So for the duration of
+					// this one event the model reports a change - to
+					// 'wid', its own id, with its current value: an
+					// attribute every widget has, nothing reacts to,
+					// and the patch sync can forward without altering
+					// anything.
+					var model = widgetView.model;
+					model.changedAttributes = function() {
+						return {wid: model.get('wid')};
+					};
+					try {
+						model.trigger('change', model, {});
+					}
+					finally {
+						delete model.changedAttributes;
+					}
 				}
 			});
+		},
+
+		// The board went away mid-session (reset, power, WiFi) and the
+		// server has dropped its dead connection. Without this the
+		// widgets stayed switched on with nothing behind them - found
+		// 2026-10-05. Ignored while monitoring: there's no control
+		// connection to restore then, and the monitor connection has its
+		// own retry on the server.
+		onHardwareConnectionLost: function onHardwareConnectionLost(info) {
+			if (this.active) {
+				return;
+			}
+			this.reconnectDeviceWidgets(info.host, info.port);
 		},
 
 		// Shared "you can't do that right now" feedback for every place
@@ -197,6 +264,8 @@ define([
 			}
 			if (status.connected) {
 				this.showBanner('NTK is in remote monitoring mode - watching ' + this.host + ':' + this.port + ' (read only)');
+			} else if (status.reconnecting) {
+				this.showBanner('Monitor mode - no connection to ' + this.host + ':' + this.port + ', retrying...' + (status.error ? ' (' + status.error + ')' : ''));
 			} else if (status.error) {
 				this.showBanner('Monitor connection failed: ' + status.error);
 			} else {

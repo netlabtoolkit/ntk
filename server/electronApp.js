@@ -133,6 +133,13 @@ ipcMain.handle('speech-locales', function() {
 		return sttLocalesCache || [];
 	});
 });
+// Spawns the widget's helper ahead of the first press and has it build the
+// recognizer for this locale - no mic, no permission prompt (see `warm` in
+// speechhelper.swift).
+ipcMain.handle('speech-warm', function(event, opts) {
+	if (!stt.available) return false;
+	return stt.write(opts.wid, 'warm ' + (opts.locale || 'en-US'));
+});
 ipcMain.handle('speech-start', function(event, opts) {
 	if (!stt.available) return false;
 	return stt.write(opts.wid, 'start ' + (opts.locale || 'en-US'));

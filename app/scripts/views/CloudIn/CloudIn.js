@@ -6,8 +6,9 @@ define([
 
 	'utils/SignalChainFunctions',
 	'utils/SignalChainClasses',
+	'utils/cloudStatus',
 ],
-function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalChainClasses){
+function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalChainClasses, cloudStatus){
     'use strict';
 
 	return WidgetView.extend({
@@ -16,7 +17,16 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		outs: [
 			{title: 'out', from: 'in', to: 'out'},
 		],
-		widgetEvents: {},
+		// Same as CloudOut.js's - push each keystroke to the model, so
+		// the first character typed into a login field switches the
+		// widget off instead of waiting for the field to lose focus.
+		widgetEvents: {
+			'input input[name="username"]': 'onCredentialInput',
+			'input input[name="password"]': 'onCredentialInput',
+		},
+		onCredentialInput: function(e) {
+			this.model.set(e.currentTarget.name, e.currentTarget.value);
+		},
 		typeID: 'CloudIn',
 		deviceMode: 'in',
 		lastChanged: {in: 99},
@@ -37,14 +47,17 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				username: '',
 				password: '',
 				// false to match CloudOut's activeOut default - starts
-				// deactivated, user opts in explicitly (2026-09-24). The
-				// underlying subscribe still gets established once
-				// host+topic are set regardless of this flag (see the
-				// topic-change listener below) - 'active' only gates
-				// whether incoming values get applied locally and
-				// whether the widget shows "Connected".
+				// deactivated, user opts in explicitly (2026-09-24).
+				// Nothing connects or subscribes until it's switched on
+				// (2026-10-03 - see the change listener below).
 				active: false,
 				cloudConnected: false,
+				// What the connection indicator shows - see
+				// utils/cloudStatus.js.
+				cloudStatusLabel: 'Not connected',
+				cloudError: false,
+				cloudWaiting: false,
+				cloudErrorDetail: '',
 			});
 
             this.signalChainFunctions.push(SignalChainFunctions.scale);
@@ -84,29 +97,31 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 					}
 				}
 
-				// Actually (re-)send the subscribe request whenever any
-				// connection-relevant field changes and a real topic
-				// exists - not just on topic changing. The bootstrap
-				// enableDevice() call from Patcher.js's onExternalAddWidget
-				// fires at widget CREATION time, when every field (topic
-				// AND username/password) is still blank - the server's
-				// client:changeIOMode handler silently no-ops on an empty
-				// topic, so that very first request never actually
-				// subscribes to anything (found 2026-09-24). Originally
-				// only re-fired on topic changing, which meant filling in
-				// host+topic BEFORE username/password (a natural order)
-				// sent one real request with blank credentials, got
-				// rejected, and nothing ever retried with the real
-				// credentials once they were filled in - CloudIn only
-				// ever recovered if some OTHER widget's later, correctly-
-				// credentialed connect happened to succeed first and
-				// swept CloudIn's already-seeded topic into its resubscribe
-				// (CloudModel.js's 'connect' handler). Found 2026-09-24,
-				// second round - the credentials-ignored-after-topic gap.
-				if (model.get('topic') && (changed.topic !== undefined || changed.host !== undefined
-					|| changed.port !== undefined || changed.tls !== undefined
-					|| changed.username !== undefined || changed.password !== undefined)) {
-					this.enableDevice();
+				// CloudIn used to (re)connect on every edit of any of
+				// these fields as soon as a topic existed, whether or not
+				// the widget was switched on - so filling in the panel
+				// fired a login attempt per field, with whatever half-
+				// entered credentials were there at that moment (found
+				// 2026-10-03: "seems hungry in trying to connect all the
+				// time", three refused logins in the console before the
+				// password was even typed). It now works like CloudOut:
+				// nothing connects until the checkbox is switched on
+				// (see onModelChange, which calls enableDevice() on that
+				// edge), and editing a connection setting while it's on
+				// switches it off rather than reconnecting underneath
+				// the user. That includes the topic (it briefly
+				// re-subscribed in place instead; changed 2026-10-06 so
+				// every setting behaves the same way).
+				var connectionEdited = changed.host !== undefined || changed.port !== undefined
+					|| changed.tls !== undefined || changed.username !== undefined || changed.password !== undefined
+					|| changed.topic !== undefined;
+				if (connectionEdited) {
+					this.lastCloudError = null;
+					// The last status described the old settings.
+					this.lastStatusInfo = null;
+					if (model.get('active') === true && changed.active === undefined) {
+						this.model.set('active', false);
+					}
 				}
 			}, this);
 
@@ -128,7 +143,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this.onHardwareStatus = function(data) {
 				if (data.modelType === this.getHardwareKey()) {
 					this.lastStatusInfo = data.info;
+					this.lastCloudError = cloudStatus.nextError(this.lastCloudError, data.info);
+					this.lastTopicError = cloudStatus.topicErrorFor(this.lastTopicError, data.info, this.model.get('topic'));
+					if (data.info && data.info.topicData === this.model.get('topic')) {
+						this.topicHasData = true;
+					}
 					this.model.set('cloudConnected', this.model.get('active') === true && !!(data.info && data.info.connected));
+					this.updateCloudStatus();
 				}
 			}.bind(this);
 			window.app.vent.on('hardwareStatus', this.onHardwareStatus);
@@ -144,14 +165,6 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// connection - found 2026-09-24.
 		},
 		onRender: function() {
-			// Must be registered before WidgetView.prototype.onRender
-			// below - see CLAUDE.md's Rivets/Backbone gotcha (a custom
-			// formatter registered after the base onRender's bind pass
-			// is silently never invoked).
-			rivets.formatters.cloudStatusText = function(connected) {
-				return connected ? 'Connected' : 'Not connected';
-			};
-
 			WidgetView.prototype.onRender.call(this);
 			var self = this;
 
@@ -196,6 +209,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// reference it in a patch (see plans/cloud-widgets.md); the first
 		// widget to connect sets the credentials the shared connection
 		// uses, later widgets pointed at the same host:port share it.
+		// See utils/cloudStatus.js - what the connection indicator shows.
+		updateCloudStatus: function() {
+			this.model.set(cloudStatus.describe(this.model.get('active') === true, this.model.get('cloudConnected'), this.lastCloudError, this.lastTopicError, !this.topicHasData));
+		},
 		getHardwareKey: function() {
 			return 'Cloud:' + (this.model.get('host') || '') + ':' + (this.model.get('port') || 1883);
 		},
@@ -229,6 +246,16 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// another widget indefinitely, so re-checking 'active' with
 			// an already-stable connection would otherwise never see a
 			// fresh event to react to).
+			// A topic error describes the settings it happened under -
+			// see utils/cloudStatus.js's topicErrorFor.
+			if (changed && (changed.topic !== undefined || changed.host !== undefined || changed.port !== undefined
+				|| changed.username !== undefined || changed.password !== undefined || changed.tls !== undefined
+				|| changed.active === false)) {
+				this.lastTopicError = null;
+			}
+			if (changed && (changed.active !== undefined || changed.cloudConnected !== undefined || changed.topic !== undefined)) {
+				this.updateCloudStatus();
+			}
 			if (changed && changed.active === false) {
 				this.model.set('cloudConnected', false);
 			} else if (changed && changed.active === true) {
@@ -246,6 +273,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				// unconditionally: CloudModel.js's connect() is a no-op on
 				// an already-live connection with the same credentials.
 				if (this.model.get('topic')) {
+					// A deliberate connect - see enableDevice().
+					this.explicitConnect = true;
 					this.enableDevice();
 				}
 
@@ -350,6 +379,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			return inactiveModels;
 		},
 		enableDevice: function enableHardware() {
+			// Every call (re)subscribes - see utils/cloudStatus.js's
+			// waitingForData.
+			this.topicHasData = false;
 			window.app.vent.trigger('Widget:hardwareSwitch', {
 				deviceType: this.getHardwareKey(),
 				port: this.model.get('topic'),
@@ -357,7 +389,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				username: this.model.get('username'),
 				password: this.model.get('password'),
 				tls: this.model.get('tls'),
+				// Same meaning as CloudOut.js's - sent once, on the
+				// switch-on that set it.
+				forceReconnect: this.explicitConnect === true,
 			});
+			this.explicitConnect = false;
 		},
 
 	});

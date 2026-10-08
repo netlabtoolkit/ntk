@@ -11,8 +11,20 @@ function( Backbone ) {
 
 	SocketAdapter.prototype = {
 		bindToSocketServer: function() {
-			//var serverAddress = window.location.host,
-			var serverAddress = "127.0.0.1:9001",
+			// Was hardcoded to "127.0.0.1:9001" - works for Electron's
+			// own window and a browser on the same machine (both
+			// happen to load the UI from that same address), but means
+			// "connect to yourself" from any other device, since
+			// 127.0.0.1 is always relative to whoever's making the
+			// request. window.location.host is whatever host:port the
+			// page itself was actually loaded from - correct in every
+			// case, including a remote browser (e.g. a tablet on the
+			// same network) pointed at this machine's real IP. Fixed
+			// 2026-10-03 after a remote browser showed no widgets and
+			// couldn't create any - this socket connection failing
+			// silently (pointed at the remote device's own localhost,
+			// nothing listening there) was the root cause.
+			var serverAddress = window.location.host,
 				self = this;
 
 			console.log("SERVER ADDRESS", serverAddress);
@@ -65,6 +77,13 @@ function( Backbone ) {
 			// connect at all - a bad/unset IP, wrong port, or an
 			// unreachable device generally. See NetworkModel.js's own
 			// comment for why this used to fail completely silently.
+			// An established device connection dropped (see
+			// nlMultiClientSync.js's connectionLost) - MonitorController
+			// owns the "make this device's widgets reconnect" logic.
+			socket.on("server:hardwareConnectionLost", function(info) {
+				window.app.vent.trigger('hardwareConnectionLost', info);
+			});
+
 			socket.on("server:hardwareConnectionFailed", function(info) {
 				window.app.vent.trigger('hardwareConnectionFailed', info);
 			});
@@ -160,8 +179,12 @@ function( Backbone ) {
 					}
 					else {
 						// Clean sendQueue of any previously defined updated for this particular field
+						// Replace an older queued value for the same pin ON THE
+						// SAME DEVICE only - without the modelType check, two
+						// boards each driving a pin with the same name dropped
+						// each other's pending update.
 						sendQueue = _.reject(sendQueue, function(entry) {
-							return entry.model[field] !== undefined;
+							return entry.modelType === options.modelType && entry.model[field] !== undefined;
 						});
 
 						sendQueue.push(options);
@@ -169,8 +192,21 @@ function( Backbone ) {
 					}
 
 					// THROTTLE THESE
+					// A throttle, not a debounce: if a send is already
+					// scheduled, leave it alone - the queue above already
+					// holds the newest value for it to pick up. This used
+					// to cancel and re-arm the 10ms timer on every update,
+					// so a stream of updates arriving less than 10ms apart
+					// kept pushing the send back and NOTHING went out until
+					// the stream paused. Dragging a dial on a 120Hz display
+					// produces updates every ~8ms: the servo (or any
+					// output) sat still for the whole drag and only moved
+					// once the mouse stopped (found 2026-10-05: "it is slow
+					// when I drag the dial"). At 60Hz the gap is ~16ms, so
+					// the timer always fired in between and this never
+					// showed.
 					if(deviceUpdateThrottleID !== undefined) {
-						clearTimeout(deviceUpdateThrottleID);
+						return;
 					}
 
 					deviceUpdateThrottleID = setTimeout(function() {

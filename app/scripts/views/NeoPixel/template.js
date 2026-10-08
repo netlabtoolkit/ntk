@@ -58,7 +58,7 @@
               <option value="vu">VU meter</option>
             </select><br>
             <label class="narrowLabel">speed</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:speed"><br>
-            <label class="narrowLabel">color</label> <input class="moreParam" type="color" rv-value="widget:color"><br>
+            <label class="narrowLabel">color</label> <input class="moreParam" type="color" rv-value="widget:displayColor"><br>
             <label class="narrowLabel">brightness</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:brightness"><br>
             <hr>
             <label class="narrowLabel">preview</label> <select class="moreParam" rv-value="widget:previewShape">

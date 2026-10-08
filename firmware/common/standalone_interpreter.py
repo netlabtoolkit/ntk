@@ -62,11 +62,12 @@ broker is unreachable) - a failed connect just leaves that group
 unconnected until the next claim_hardware() call (e.g. a full patch
 reload, or regaining control after a client disconnects) retries it;
 there is no continuous automatic reconnect-while-ticking in this v1,
-unlike the live-connection widget's mqtt.js client. Self-echo
-suppression (a connection receiving its own just-published message
-back, since MQTT has no protocol-level way to prevent this) mirrors
-CloudModel.js's fix for the exact same problem - see _claim_cloud's
-`_cloud_last_published` tracking. CloudOut's sendInterval/averageInputs
+unlike the live-connection widget's mqtt.js client. A connection
+receives its own just-published messages back (MQTT has no
+protocol-level way to prevent this); they ARE delivered to CloudIn,
+and a feedback loop is prevented on the publishing side instead, as
+in CloudModel.js - see the cloud_out step's `_cloud_last_received`
+guard. CloudOut's sendInterval/averageInputs
 throttle and settle-publish are NOT ported here - v1 sends on every
 actual change only, same simplification OSCOut already makes for its
 own roundToInt-only chain handling; the full throttle/average/settle
@@ -175,6 +176,20 @@ def _hex_to_rgb(hex_str):
         return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
     except (ValueError, IndexError):
         return (255, 0, 0)
+
+
+# How long after a value arrives on a topic a CloudOut refuses to
+# publish that same value back to it - CloudModel.js uses 2s too.
+_CLOUD_ECHO_GUARD_S = 2.0
+
+# Minimum time between OLED writes from a Display widget - matches
+# ntk_firmata_main.py's own _DISPLAY_MIN_INTERVAL_S (was 1.0s in both).
+_DISPLAY_MIN_INTERVAL_S = 0.3
+
+
+# OSCOut targets that mean "this same device" - see
+# StandaloneInterpreter._osc_loopback_wid.
+_OSC_LOOPBACK_HOSTS = ('127.0.0.1', 'localhost')
 
 
 def _osc_host(values):
@@ -327,24 +342,87 @@ def _ease(name, gamma, t):
 
 
 # ==================== Smoother (AnalogIn/DigitalIn/Process) ====================
-# Ported from app/scripts/utils/Smoother.js - a plain moving-average
-# buffer, active only when the widget's 'smoothing' field is true.
+# Ported from app/scripts/utils/Smoother.js, active only when the
+# widget's 'smoothing' field is true - see that file for what this is
+# (a speed-adaptive "One Euro" low-pass with a median catch-up term and
+# output hysteresis, which replaced a plain moving average 2026-10-05)
+# and why. The constants
+# and maths here must stay a line-for-line match of the JS.
+_SMOOTH_REST_CUTOFF_SCALE = 15.0
+_SMOOTH_SPEED_GAIN = 0.02
+_SMOOTH_SPEED_FLOOR = 150.0
+_SMOOTH_CATCHUP_READINGS = 7
+_SMOOTH_CATCHUP_DEADBAND = 4.0
+_SMOOTH_CATCHUP_GAIN = 0.5
+_SMOOTH_CATCHUP_REPEAT_S = 0.15
+_SMOOTH_SPEED_CUTOFF = 1.0
+_SMOOTH_RESET_AFTER_S = 0.5
+_SMOOTH_OUTPUT_HYSTERESIS = 0.75
+
+
+def _round_half_up(value):
+    # JS's Math.round, not Python's round() (which rounds .5 to even).
+    return int(_math.floor(value + 0.5))
+
+
+def _low_pass_alpha(dt, cutoff):
+    tau = 1.0 / (6.283185307179586 * cutoff)
+    return 1.0 / (1.0 + tau / dt)
+
+
 class _Smoother:
-    def __init__(self, buffer_len):
-        self.buffer_len = max(1, int(buffer_len))
-        self.values = []
+    def __init__(self, amount):
+        self.amount = max(1.0, float(amount))
+        self.reset()
+
+    def reset(self):
+        self.last_time = None
+        self.last_input = 0.0
+        self.filtered = 0.0
+        self.speed = 0.0
+        self.output = 0
+        self.readings = []
+        self.last_reading_time = 0.0
 
     def set_buffer_length(self, size):
-        self.buffer_len = max(1, int(size))
-        self.values = [0.0] * self.buffer_len
+        self.amount = max(1.0, float(size))
+        self.reset()
 
-    def smooth(self, value):
-        if len(self.values) == 0:
-            self.values = [value] * self.buffer_len
-        else:
-            self.values.pop(0)
-            self.values.append(value)
-        return sum(self.values) / len(self.values)
+    def smooth(self, value, now=None):
+        if now is None:
+            now = time.monotonic()
+        dt = None if self.last_time is None else now - self.last_time
+        self.last_time = now
+
+        if dt is None or dt <= 0 or dt > _SMOOTH_RESET_AFTER_S:
+            self.last_input = value
+            self.filtered = value
+            self.speed = 0.0
+            self.output = _round_half_up(value)
+            self.readings = [value]
+            self.last_reading_time = now
+            return self.output
+
+        raw_speed = (value - self.last_input) / dt
+        self.last_input = value
+        self.speed += _low_pass_alpha(dt, _SMOOTH_SPEED_CUTOFF) * (raw_speed - self.speed)
+
+        readings = self.readings
+        if value != readings[-1] or now - self.last_reading_time > _SMOOTH_CATCHUP_REPEAT_S:
+            readings.append(value)
+            self.last_reading_time = now
+            if len(readings) > _SMOOTH_CATCHUP_READINGS:
+                readings.pop(0)
+        median = sorted(readings)[len(readings) // 2]
+
+        cutoff = (_SMOOTH_REST_CUTOFF_SCALE / self.amount
+                  + _SMOOTH_SPEED_GAIN * max(0.0, abs(self.speed) - _SMOOTH_SPEED_FLOOR)
+                  + _SMOOTH_CATCHUP_GAIN * max(0.0, abs(median - self.filtered) - _SMOOTH_CATCHUP_DEADBAND))
+        self.filtered += _low_pass_alpha(dt, cutoff) * (value - self.filtered)
+
+        if abs(self.filtered - self.output) >= _SMOOTH_OUTPUT_HYSTERESIS:
+            self.output = _round_half_up(self.filtered)
+        return self.output
 
 
 # ==================== generic signal-chain functions ====================
@@ -513,7 +591,7 @@ def _chain_easing(value, values, state):
 def _chain_smoother(value, values, state):
     smoother = state.get('smoother')
     if smoother is None:
-        smoother = _Smoother(_num(values.get('smoothingAmount'), 60.0))
+        smoother = _Smoother(_num(values.get('smoothingAmount'), 250.0))
         state['smoother'] = smoother
     if values.get('smoothing'):
         return int(smoother.smooth(value))
@@ -1089,6 +1167,11 @@ class StandaloneInterpreter:
         self._osc_pool = None
         self._osc_servers = {}  # port -> microosc.OSCServer
         self._osc_clients = {}  # (host, port) -> microosc.OSCClient
+        # For OSCOut -> OSCIn loopback on this same board (see
+        # _osc_loopback_wid): port -> {address: wid} for every OSCIn in
+        # the patch, and this board's own IP once it's known.
+        self._osc_in_by_port = {}
+        self._osc_my_ip = None
         # CloudIn/CloudOut support (see module docstring) - lazily
         # imported (adafruit_minimqtt, wifi, socketpool, ssl) and only
         # ever touched at all if a loaded patch actually has a cloud_in/
@@ -1100,7 +1183,8 @@ class StandaloneInterpreter:
         self._cloud_ssl_context = None  # only created if some group needs TLS
         self._cloud_clients = {}         # group key -> MQTT.MQTT
         self._cloud_topic_widgets = {}   # group key -> {topic: [wid, ...]} (cloud_in routing)
-        self._cloud_last_published = {}  # (group key, topic) -> (value_str, monotonic_time) - self-echo guard
+        self._cloud_last_published = {}  # (group key, topic) -> (value_str, monotonic_time)
+        self._cloud_last_received = {}  # (group key, topic) -> (value, monotonic_time) - feedback-loop guard, see the cloud_out step
         self._cloud_last_poll = 0.0      # shared gate so MQTT polling doesn't run every single tick
 
     def load(self, patch):
@@ -1484,13 +1568,17 @@ class StandaloneInterpreter:
             if step[0] == 'osc_in':
                 wid = step[1]
                 values = self.widgets[wid]['values']
-                port = int(_num(values.get('port'), 57190))
+                port = int(_num(values.get('port'), 9000))
                 address = values.get('messageName') or '/ntk/in/1'
                 osc_in_by_port.setdefault(port, {})[address] = wid
             elif step[0] == 'osc_out':
                 wid = step[1]
                 values = self.widgets[wid]['values']
-                osc_out_targets.add((_osc_host(values), int(_num(values.get('port'), 57120))))
+                osc_out_targets.add((_osc_host(values), int(_num(values.get('port'), 9000))))
+
+        # Kept for _osc_loopback_wid - set before any of the early
+        # returns below, since loopback needs no network at all.
+        self._osc_in_by_port = osc_in_by_port
 
         if not osc_in_by_port and not osc_out_targets:
             return
@@ -1511,6 +1599,7 @@ class StandaloneInterpreter:
             return
 
         my_ip = str(self._osc_wifi.radio.ipv4_address)
+        self._osc_my_ip = my_ip
         for port, addr_map in osc_in_by_port.items():
             dispatch_map = {}
             for address, wid in addr_map.items():
@@ -1521,10 +1610,34 @@ class StandaloneInterpreter:
                 print("standalone_interpreter: OSC receive on port", port, "failed:", e)
 
         for host, port in osc_out_targets:
+            # Handled in-process, no socket - see _osc_loopback_wid.
+            if host in _OSC_LOOPBACK_HOSTS or host == my_ip:
+                continue
             try:
                 self._osc_clients[(host, port)] = self._microosc.OSCClient(self._osc_pool, host, port)
             except Exception as e:
                 print("standalone_interpreter: OSC send target", host, port, "failed:", e)
+
+    def _osc_loopback_wid(self, host, port, address):
+        """The OSCIn widget on THIS board that an OSCOut aimed at
+        (host, port, address) is really talking to, or None if it's a
+        normal send to somewhere else.
+
+        An OSCOut and an OSCIn sharing a port and message is a handy
+        self-test loop, and works on the computer running NTK: both
+        ends are the same machine, so 127.0.0.1 loops straight back.
+        On a standalone board it silently didn't - the OSCIn listens
+        on the board's WiFi address only, nothing listens on
+        127.0.0.1, and the OSCIn just sat at whatever value it had
+        been pushed with (found 2026-10-05: "receiving some random
+        fixed value"). Rather than depend on the network stack looping
+        a packet back, a send to 127.0.0.1 - or to the board's own
+        address - is handed directly to the matching OSCIn. With no
+        matching OSCIn it goes nowhere, same as on a computer with
+        nothing listening."""
+        if host not in _OSC_LOOPBACK_HOSTS and host != self._osc_my_ip:
+            return None
+        return self._osc_in_by_port.get(port, {}).get(address, False)
 
     def _make_osc_in_handler(self, wid):
         """One closure per OSCIn widget, used as its dispatch_map entry -
@@ -1756,14 +1869,16 @@ class StandaloneInterpreter:
         correctly there, matching how any other text-valued inlet
         already works."""
         def handler(client, topic, message):
-            # Self-echo suppression - see module docstring. A connection
-            # that both publishes and subscribes to one topic sees its
-            # own just-published message come back as an ordinary
-            # incoming one; MQTT has no protocol-level way to prevent
-            # this. Mirrors CloudModel.js's identical fix.
-            last = self._cloud_last_published.get((key, topic))
-            if last is not None and last[0] == message and (time.monotonic() - last[1]) < 5.0:
-                return
+            # Delivered even when it's the echo of this board's own
+            # publish. It used to be dropped here (as a feedback-loop
+            # guard), which meant a CloudIn on the same feed as a
+            # CloudOut in the same patch never showed the values that
+            # CloudOut sent - unlike the same patch running live in NTK
+            # (found 2026-10-06: the feed updated on Adafruit, the
+            # board's own OLED fed from that CloudIn did not). The loop
+            # is broken on the PUBLISHING side instead, the way
+            # CloudModel.js's set() does it - see the cloud_out step.
+            self._cloud_last_received[(key, topic)] = (message, time.monotonic())
             for wid in self._cloud_topic_widgets.get(key, {}).get(topic, []):
                 self.widgets[wid]['values']['in'] = message
         return handler
@@ -1924,7 +2039,7 @@ class StandaloneInterpreter:
                         fs._handle_analog_write(idx, out_value)
             elif kind == 'display_out':
                 # No pin (see _build_steps()'s own comment) - straight to
-                # the OLED. Change-detection + a 1s minimum interval,
+                # the OLED. Change-detection + a minimum interval,
                 # same reasoning as oled_display.py's own set_lines()
                 # docstring: each refresh is a real blocking I2C write,
                 # and an inlet could in principle be changing every
@@ -1937,7 +2052,7 @@ class StandaloneInterpreter:
                 values = w['values']
                 lines = [values.get('line1Text', ''), values.get('line2Text', ''), values.get('line3Text', '')]
                 state = w['state']
-                if lines != state.get('display_last_lines') and (now - state.get('display_last_sent', 0.0)) >= 1.0:
+                if lines != state.get('display_last_lines') and (now - state.get('display_last_sent', 0.0)) >= _DISPLAY_MIN_INTERVAL_S:
                     state['display_last_lines'] = list(lines)
                     state['display_last_sent'] = now
                     oled_display.set_lines(lines)
@@ -1964,9 +2079,8 @@ class StandaloneInterpreter:
                 if w['state'].get('_osc_last_sent') == out_value:
                     continue
                 w['state']['_osc_last_sent'] = out_value
-                client = self._osc_clients.get((_osc_host(values), int(_num(values.get('port'), 57120))))
-                if client is None:
-                    continue
+                osc_host = _osc_host(values)
+                osc_port = int(_num(values.get('port'), 9000))
                 address = values.get('messageName') or '/ntk/out/1'
                 # roundToInt from SignalChainFunctions.js, applied here
                 # (not via CHAIN_TYPES) since it only matters for what
@@ -1976,6 +2090,16 @@ class StandaloneInterpreter:
                     args, types = [int(out_value)], ('i',)
                 else:
                     args, types = [out_value], ('f',)
+                # None = a real network target; a wid = deliver to that
+                # OSCIn here; False = loopback with nobody listening.
+                loopback_wid = self._osc_loopback_wid(osc_host, osc_port, address)
+                if loopback_wid is not None:
+                    if loopback_wid is not False:
+                        self.widgets[loopback_wid]['values']['in'] = args[0]
+                    continue
+                client = self._osc_clients.get((osc_host, osc_port))
+                if client is None:
+                    continue
                 try:
                     client.send(self._microosc.OscMsg(address, args, types))
                 except Exception as e:
@@ -2018,6 +2142,14 @@ class StandaloneInterpreter:
                 # (no float/int toggle unlike OSCOut) - matches that
                 # here rather than sending a raw float string.
                 payload = str(int(round(out_value)))
+                # Feedback-loop guard, same rule as CloudModel.js's
+                # set(): don't publish a value that has just arrived on
+                # this same topic. Without it a CloudIn wired (directly
+                # or not) into a CloudOut on the same feed would bounce
+                # each value back to the broker forever.
+                received = self._cloud_last_received.get((key, topic))
+                if received is not None and (now - received[1]) < _CLOUD_ECHO_GUARD_S and _num(received[0], None) == float(payload):
+                    continue
                 try:
                     client.publish(topic, payload)
                     # Recorded BEFORE any echo could come back, so the

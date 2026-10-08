@@ -166,6 +166,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// Instance state referenced by onModelChange must exist before
 			// the model.set() below (it fires 'change' synchronously).
 			this._sendTimer = null;
+			this._sendQueued = false;
+			this._warmTimer = null;
+			this._warmedKey = '';
 			this.modelList = FALLBACK_MODELS.ollama.slice();
 
 			// Whatever model was last picked for Ollama, in ANY LLM widget
@@ -206,7 +209,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				maxTokens: 1024,
 
 				assembledSystem: '',
-				autoSend: false,
+				// On by default so a wired source (e.g. SpeechIn) sends as
+				// soon as its text arrives, without hunting for the checkbox.
+				autoSend: true,
 				// Last model picked for each provider - see LAST_MODEL_FIELD.
 				// Seeded from localStorage (readStoredLastModel) so this
 				// widget starts already knowing what a DIFFERENT, possibly
@@ -239,7 +244,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				documentMatchStyle: false,
 				documentGrounded: false,
 
-				status: 'idle',    // idle | calling | error
+				status: 'idle',    // idle | loading (warming a local model) | calling | error
 				calling: false,
 				statusText: '',
 				keyText: '',
@@ -281,10 +286,56 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this.updateTempRange();
 			this.refreshKeyStatus();
 			this.fetchModels();
+			this.scheduleWarm();
 		},
 
 		onRemove: function() {
 			if(this._sendTimer) { clearTimeout(this._sendTimer); }
+			if(this._warmTimer) { clearTimeout(this._warmTimer); }
+		},
+
+		// ---- warm-up ----
+		// Have a local (Ollama) model loaded into memory before the first
+		// prompt arrives, so that prompt doesn't also wait out the model
+		// load. Runs when the widget appears and whenever the provider,
+		// model or base URL changes. Debounced, because those settle over
+		// several changes in a row (the render-time default, then a loaded
+		// patch's saved values, then the live model list) and each
+		// different model warmed is a whole model loaded for nothing.
+		scheduleWarm: function() {
+			if(app.server || !window.ntkElectron || !window.ntkElectron.llmWarm) { return; }
+			var self = this;
+			if(this._warmTimer) { clearTimeout(this._warmTimer); }
+			this._warmTimer = setTimeout(function() { self._warmTimer = null; self.warmModel(); }, 1500);
+		},
+
+		warmModel: function() {
+			var provider = this.model.get('provider');
+			var model = String(this.model.get('model') || '').trim();
+			if(provider !== 'ollama' || !model) {
+				// Nothing to load - and don't leave a 'loading' that came
+				// in with a saved patch sitting there.
+				if(this.model.get('status') === 'loading') { this.setStatus('idle', ''); }
+				return;
+			}
+			var baseURL = this.model.get('baseURL') || undefined;
+			var key = provider + '|' + model + '|' + (baseURL || '');
+			if(key === this._warmedKey) { return; }
+			this._warmedKey = key;
+
+			// 'loading' only ever replaces 'idle', and only 'loading' is
+			// put back to 'idle' afterwards - a send (or its error) that
+			// happens meanwhile owns the status line, and Ollama simply
+			// queues that request behind the load.
+			var self = this;
+			if(this.model.get('status') === 'idle') { this.setStatus('loading', ''); }
+			window.ntkElectron.llmWarm({provider: provider, model: model, baseURL: baseURL}).then(function(res) {
+				// Failed (Ollama not running, model not pulled) - say
+				// nothing here, send() reports it properly; just allow a
+				// retry the next time something changes.
+				if((!res || res.error) && self._warmedKey === key) { self._warmedKey = ''; }
+				if(self.model.get('status') === 'loading') { self.setStatus('idle', ''); }
+			});
 		},
 
 		// Loading a saved patch (and the save round-trip, which reloads
@@ -686,9 +737,18 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			return isNaN(t) ? undefined : t;
 		},
 
-		send: function() {
+		// `auto` is true only for the auto-send timer (see onModelChange);
+		// a click on the send button passes its event object instead.
+		send: function(auto) {
 			if(app.server) { return; }
-			if(this.model.get('status') === 'calling') { return; }
+			if(this.model.get('status') === 'calling') {
+				// A prompt that arrives mid-call (e.g. the next SpeechIn
+				// utterance) used to be dropped silently - remember it and
+				// send once the call in flight comes back.
+				this._sendQueued = true;
+				return;
+			}
+			this._sendQueued = false;
 			if(!window.ntkElectron || !window.ntkElectron.llmComplete) {
 				this.setStatus('error', 'Needs the desktop app');
 				return;
@@ -703,7 +763,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				if(this.model.get('mode') === 'summarize' && docText) {
 					user = 'Summarize the attached document.';
 				} else {
-					this.setStatus('error', 'no prompt');
+					// An empty prompt is only an error when someone actually
+					// asked to send it. Auto-send also fires when the prompt
+					// is merely empty - a freshly placed widget (its prompt
+					// going from unset to ''), or the text being cleared -
+					// and "error: no prompt" there read as something broken.
+					if(auto !== true) { this.setStatus('error', 'no prompt'); }
 					return;
 				}
 			}
@@ -729,15 +794,16 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			}).then(function(res) {
 				if(!res || res.error) {
 					self.setStatus('error', (res && res.error) || 'failed');
-					return;
+				} else {
+					var text = res.text || '';
+					self.model.set({
+						output: text,
+						preview: text.length > 140 ? text.slice(0, 140) + '…' : text,
+						tempNote: res.tempDropped ? 'this model ignores temperature' : '',
+					});
+					self.setStatus('idle', '');
 				}
-				var text = res.text || '';
-				self.model.set({
-					output: text,
-					preview: text.length > 140 ? text.slice(0, 140) + '…' : text,
-					tempNote: res.tempDropped ? 'this model ignores temperature' : '',
-				});
-				self.setStatus('idle', '');
+				if(self._sendQueued) { self.send(true); }
 			});
 		},
 
@@ -770,6 +836,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// A patch load sets `provider` via model.set (not the DOM
 			// change event), so the provider-dependent controls have to be
 			// re-synced here rather than only in onProviderChange.
+			if(changed.provider !== undefined || changed.model !== undefined || changed.baseURL !== undefined) {
+				this.scheduleWarm();
+			}
 			if(changed.provider !== undefined) {
 				this.resetModelList();
 				this.updateTempRange();
@@ -778,13 +847,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				this.fetchModels();
 			}
 
-			// Auto-send on a new prompt (debounced, off by default).
+			// Auto-send on a new prompt (debounced, on by default).
 			if(changed.in !== undefined && this.model.get('autoSend')) {
 				var self = this;
 				var delay = parseInt(this.model.get('autoSendDelay'), 10);
 				if(isNaN(delay) || delay < 0) { delay = 2000; }
 				if(this._sendTimer) { clearTimeout(this._sendTimer); }
-				this._sendTimer = setTimeout(function() { self.send(); }, delay);
+				this._sendTimer = setTimeout(function() { self.send(true); }, delay);
 			}
 		},
 

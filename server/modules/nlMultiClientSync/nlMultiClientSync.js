@@ -18,6 +18,58 @@ module.exports = function(options) {
 	// any pins, doesn't go through the Firmata handshake, and belongs
 	// to one specific client's UI session, not the shared patch.
 	var activeMonitors = {};
+	// How long to wait before retrying a monitor connection that failed
+	// or dropped - see client:startMonitor's connectMonitor().
+	var MONITOR_RETRY_MS = 3000;
+	// See bindModelToTransport's connectionLost/connectionFailed.
+	var recentConnectionLoss = {};
+	var CONNECTION_LOSS_QUIET_MS = 60000;
+	function stopMonitorFor(socketId) {
+		var existing = activeMonitors[socketId];
+		if (existing) {
+			// Deleted BEFORE close() - its 'close' handler checks this
+			// map to tell "stopped on purpose" from "dropped".
+			delete activeMonitors[socketId];
+			clearTimeout(existing.retryTimer);
+			existing.close();
+		}
+	}
+
+	// While a client is in Monitor mode NTK is only WATCHING a board
+	// run its own standalone patch - the board is the one receiving
+	// and sending that patch's OSC. NTK's own OSC sockets must not stay
+	// open alongside it: an OSCIn's listener keeps the UDP port taken
+	// on this computer (and keeps consuming anything sent to it), and
+	// an OSCOut would send its own copy of every value the board is
+	// already sending. Keyed by socket.id like activeMonitors, but
+	// tracked separately from it - this follows the client's monitor
+	// MODE (start until stop/disconnect), not whether the monitor
+	// connection itself happens to be up at the moment. Suspended
+	// while any client is monitoring; nothing reopens the sockets
+	// here on resume - they're created on demand the next time a
+	// widget asks (see MonitorController.js's stop()).
+	var oscSuspendedBy = {};
+	function isOSCKey(key) {
+		return key === 'OSC' || String(key).indexOf('OSC:') === 0;
+	}
+	function oscSuspended() {
+		return !_.isEmpty(oscSuspendedBy);
+	}
+	function suspendOSC(socketId) {
+		oscSuspendedBy[socketId] = true;
+		for(var key in self.hardwareModels) {
+			if(isOSCKey(key)) {
+				console.log('[Monitor] closing OSC sockets for', key, 'while monitoring');
+				if(typeof self.hardwareModels[key].close === 'function') {
+					self.hardwareModels[key].close();
+				}
+				delete self.hardwareModels[key];
+			}
+		}
+	}
+	function resumeOSC(socketId) {
+		delete oscSuspendedBy[socketId];
+	}
 
 
 	var QueueHandler = utils.QueueHandler;
@@ -274,7 +326,37 @@ module.exports = function(options) {
 			// connected browser client cares equally that this device
 			// isn't reachable.
 			model.on('connectionFailed', function(info) {
+				// A device that just dropped off is expected to be
+				// unreachable for a bit (it's most likely restarting) -
+				// the client reconnects by itself (see connectionLost
+				// below) and doesn't need an alert about each attempt
+				// made before the board is back.
+				if (Date.now() - (recentConnectionLoss[model.address] || 0) < CONNECTION_LOSS_QUIET_MS) {
+					return;
+				}
 				this.transport.emit('server:hardwareConnectionFailed', info);
+			}.bind(this));
+
+			// An ESTABLISHED device connection went away by itself (board
+			// reset, power, WiFi) - see NetworkModel.js. Nothing used to
+			// notice: the widgets stayed switched on, the client still
+			// believed the device was connected, and etherport-client's
+			// own socket-level reconnect brought back a TCP connection
+			// that the board (a fresh Firmata session per connection, no
+			// pins configured) never sent anything on. Drop the dead
+			// instance and tell every client, so the widgets re-run their
+			// own connect path against a new one.
+			model.on('connectionLost', function(info) {
+				var key = model.address;
+				console.log('[Hardware] connection to', key, 'lost - dropping it so widgets can reconnect');
+				recentConnectionLoss[key] = Date.now();
+				if (self.hardwareModels[key] === model) {
+					delete self.hardwareModels[key];
+				}
+				if (typeof model.close === 'function') {
+					model.close();
+				}
+				this.transport.emit('server:hardwareConnectionLost', {modelType: key, host: info.host, port: info.port});
 			}.bind(this));
 
 			// Generic status channel, separate from 'change' (reserved
@@ -342,6 +424,9 @@ module.exports = function(options) {
 			socket.emit('serverActive', self.serverActive);
 			socket.emit('loadPatchFromServer', JSON.stringify(self.masterPatch));
 			socket.on('sendModelUpdate', function(options) {
+				// See oscSuspendedBy - would otherwise recreate the
+				// instance (reopening its port) and send.
+				if(isOSCKey(options.modelType) && oscSuspended()) { return; }
 
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
@@ -350,13 +435,19 @@ module.exports = function(options) {
 				for(var field in options.model) {
 					//var selectedModel = self.hardwareModels[modelType];
 					var selectedModel = self.hardwareModels[hardwareKey];
-					var networkDevice = typeAddressPort[1].match(/^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$/);
-
-
-					if(typeAddressPort[1] == "127.0.0.1") {
-						networkDevice = false;
-					}
-
+					// Every device reached over the network gets the send
+					// throttle below (latest value per pin, at most one
+					// write every 30ms). This used to test whether the
+					// address looked like a dotted IP - so a board
+					// addressed by NAME (ntk-device.local, the default since
+					// mDNS hostnames were added) was not throttled at all:
+					// a knob drag sent every intermediate position straight
+					// to the board, far faster than it can act on them,
+					// and the output trailed further and further behind
+					// (found 2026-10-05: "the servo seems very slow to
+					// respond"). Keyed on the device TYPE now.
+					var networkDevice = modelType === 'network' &&
+						typeAddressPort[1] !== '127.0.0.1' && typeAddressPort[1] !== 'localhost';
 
 					// If there is no model to update, try to instantiate one
 					if(selectedModel == undefined) {
@@ -397,6 +488,9 @@ module.exports = function(options) {
 			socket.on('client:changeIOMode', function(options) {
 				var options = JSON.parse(options),
 					modelType = options.deviceType;
+
+				// See oscSuspendedBy.
+				if(isOSCKey(modelType) && oscSuspended()) { return; }
 
 				if(options.port && options.mode) {
 					// A widget can ask to switch a pin's mode (e.g. DigitalIn
@@ -585,17 +679,28 @@ module.exports = function(options) {
 			// socket replaces whatever it already had running, same as
 			// the reasoning for keying activeMonitors by socket.id below.
 			socket.on('client:startMonitor', function(options) {
-				var existing = activeMonitors[socket.id];
-				if (existing) {
-					existing.close();
-					delete activeMonitors[socket.id];
-				}
+				suspendOSC(socket.id);
+				stopMonitorFor(socket.id);
 
 				var host = options.host,
 					port = options.port;
 
+				// A monitor connection that fails or drops is retried
+				// until the client stops monitoring, rather than
+				// reported once and abandoned. The common case is the
+				// board restarting right when Monitor starts: a push
+				// over the USB-mounted CIRCUITPY drive (the fallback
+				// when the board's own filesystem is read-only) makes
+				// CircuitPython restart the board's code, and the
+				// automatic switch to Monitor 2s after a push then
+				// found nothing listening. That left NTK in Monitor
+				// mode with no connection of any kind - not monitoring,
+				// not controlling - until someone noticed (found
+				// 2026-10-05: "the board and ntk say the device is in
+				// standalone, but it should be in controlled").
 				function connectMonitor() {
 					var monitor = StandaloneMonitor(host, port);
+					var lastError = null;
 					activeMonitors[socket.id] = monitor;
 
 					monitor.on('connected', function() {
@@ -605,13 +710,23 @@ module.exports = function(options) {
 						socket.emit('server:monitorValue', [update]);
 					});
 					monitor.on('error', function(err) {
-						socket.emit('server:monitorStatus', {connected: false, error: String(err)});
+						// Reported from 'close' below, which always
+						// follows - one status per failed attempt.
+						lastError = String(err);
 					});
 					monitor.on('close', function() {
-						socket.emit('server:monitorStatus', {connected: false});
-						if (activeMonitors[socket.id] === monitor) {
-							delete activeMonitors[socket.id];
+						// Stopped or replaced (client:stopMonitor, a new
+						// client:startMonitor, disconnect) - not ours to
+						// report or retry.
+						if (activeMonitors[socket.id] !== monitor) {
+							return;
 						}
+						socket.emit('server:monitorStatus', {connected: false, reconnecting: true, error: lastError});
+						monitor.retryTimer = setTimeout(function() {
+							if (activeMonitors[socket.id] === monitor) {
+								connectMonitor();
+							}
+						}, MONITOR_RETRY_MS);
 					});
 				}
 
@@ -664,11 +779,12 @@ module.exports = function(options) {
 			});
 
 			socket.on('client:stopMonitor', function() {
-				var existing = activeMonitors[socket.id];
-				if (existing) {
-					existing.close();
-					delete activeMonitors[socket.id];
-				}
+				resumeOSC(socket.id);
+				stopMonitorFor(socket.id);
+				// The monitor's own 'close' no longer reports a
+				// deliberate stop (see connectMonitor) - the toolbar's
+				// Monitor button resets off this.
+				socket.emit('server:monitorStatus', {connected: false});
 			});
 
 			// Background poll (app/scripts/views/ToolBar.js's
@@ -696,7 +812,9 @@ module.exports = function(options) {
 				var suffix = ':' + host + ':' + port;
 
 				var monitored = _.some(_.values(activeMonitors), function(monitor) {
-					return monitor.host === host && String(monitor.port) === String(port);
+					// .connected - a monitor that's between retries
+					// isn't watching anything right now.
+					return monitor.connected && monitor.host === host && String(monitor.port) === String(port);
 				});
 				if (monitored) {
 					socket.emit('server:deviceStatusResult', {host: host, port: port, status: 'monitored'});
@@ -749,11 +867,8 @@ module.exports = function(options) {
 			});
 
 			socket.on('disconnect', function() {
-				var existing = activeMonitors[socket.id];
-				if (existing) {
-					existing.close();
-					delete activeMonitors[socket.id];
-				}
+				resumeOSC(socket.id);
+				stopMonitorFor(socket.id);
 				self.emit('clientDisconnected');
 			});
 

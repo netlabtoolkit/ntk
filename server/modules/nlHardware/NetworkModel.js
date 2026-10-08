@@ -41,6 +41,11 @@ module.exports = function(attributes) {
 		var standardFirmataModel = require("./StandardFirmataModel")(five);
 		_.extend(constructor.prototype, standardFirmataModel);
 
+		// How long a connection may sit open without completing the
+		// Firmata handshake before it's given up on - see handshakeTimer.
+		// The handshake normally takes well under a second.
+		var HANDSHAKE_TIMEOUT_MS = 8000;
+
 		console.log('Connecting to ...', networkHost, networkPort);
 		//var client = net.connect({host: networkHost, port: networkPort}, function() {
 			//var socketClient = this;
@@ -77,6 +82,28 @@ module.exports = function(attributes) {
 				});
 			}
 			etherPortClient._tcp.on('error', reportConnectionFailureOnce);
+
+			// The TCP connection opened but the board never completed
+			// the Firmata handshake. Happens when the connection lands
+			// on a board that's on its way down (it was accepted, then
+			// the board reset): the board that comes back knows nothing
+			// about this socket, nothing more is ever sent on it, so no
+			// error ever arrives either - it just sits there looking
+			// connected. Seen 2026-10-05, right after a board reset: NTK
+			// held a connection for minutes with no "Connected Firmata".
+			// Treated the same as a dropped connection (see 'ready'
+			// below): give up on this instance so the widgets try again
+			// with a new one. A connection that never opens at all (bad
+			// address) is NOT this case - that stays with
+			// connectionFailed above and etherport-client's own retry.
+			var handshakeTimer = null;
+			etherPortClient._tcp.once('connect', function() {
+				handshakeTimer = setTimeout(function() {
+					if (self._closing || self.connected) { return; }
+					console.log('No Firmata handshake from', networkHost, networkPort, 'after', HANDSHAKE_TIMEOUT_MS / 1000, 's - dropping the connection to retry');
+					self.emit('connectionLost', {host: networkHost, port: networkPort});
+				}, HANDSHAKE_TIMEOUT_MS);
+			});
 			etherPortClient._tcp.on('timeout', function() {
 				reportConnectionFailureOnce(new Error('connection timed out'));
 			});
@@ -90,7 +117,11 @@ module.exports = function(attributes) {
 			// connection (and its reconnect loop) outlived every widget that
 			// ever referenced it for the lifetime of the server process.
 			self.close = function() {
+				// Before anything else - tells the 'close' listener below
+				// this teardown is deliberate, not a dropped connection.
+				self._closing = true;
 				self.connected = false;
+				clearTimeout(handshakeTimer);
 
 				// Stop the johnny-five Sensor poll timers that addDefaultPins()
 				// (in StandardFirmataModel.js) started for every analog pin.
@@ -148,6 +179,23 @@ module.exports = function(attributes) {
 				self.board.on("ready", function() {
 					self.connected = true;
 					self.addDefaultPins.call(self);
+
+					// The socket this session was established on closing
+					// by itself means the board went away (reset, power,
+					// WiFi) - reported once; nlMultiClientSync.js drops
+					// this instance and has the clients reconnect. Not
+					// attached any earlier: before 'ready' a close is a
+					// failed connection ATTEMPT, already covered by
+					// connectionFailed above and etherport-client's own
+					// retry.
+					var establishedSocket = etherPortClient._tcp;
+					if (establishedSocket) {
+						establishedSocket.once('close', function() {
+							if (self._closing || !self.connected) { return; }
+							self.connected = false;
+							self.emit('connectionLost', {host: networkHost, port: networkPort});
+						});
+					}
 				});
 				self.board.on('error', function(err) {
 					console.log(err);

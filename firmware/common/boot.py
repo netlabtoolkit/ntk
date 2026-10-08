@@ -48,5 +48,19 @@ identically regardless of this setting.
 import os
 import storage
 
-if os.getenv("NTK_REMOUNT_FOR_CODE_WRITES") or False:
+# A push the board couldn't save directly leaves the patch stashed in
+# non-volatile memory and restarts (ntk_firmata_main.py's
+# _handle_push_patch_request / _finish_stashed_patch_save). This is the
+# one place the filesystem can always be made writable-from-code, so
+# when a stash is waiting, do it for this one boot; the firmware writes
+# the file, clears the flag and restarts back into the normal mode.
+# Index 8 / value 0xA5 are _NVM_STASH_FLAG / _NVM_STASH_MAGIC there.
+_stash_waiting = False
+try:
+    import microcontroller
+    _stash_waiting = microcontroller.nvm is not None and microcontroller.nvm[8] == 0xA5
+except Exception:
+    pass
+
+if os.getenv("NTK_REMOUNT_FOR_CODE_WRITES") or _stash_waiting:
     storage.remount("/", readonly=False)

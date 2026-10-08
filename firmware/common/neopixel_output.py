@@ -191,11 +191,15 @@ _PERIOD_MIN_S = 0.3  # speed=100, fastest
 def _speed_to_period_s(speed):
     """speed: 0-100 widget scale -> seconds per full cycle (one chase
     lap, one rainbow revolution). Deliberately inverted (higher speed =
-    shorter period) and clamped well away from 0 - a speed of 0 would
-    otherwise mean "never move" via a divide-by-zero, not "stopped but
-    still a valid period." Range (0.3s very fast .. 6s very slow) isn't
+    shorter period). Range (0.3s very fast .. 6s very slow) isn't
     from any spec - just what looked right against the hands-on D7
     spike's strip.
+
+    A speed of 0 (or below) means STOPPED and returns a period of 0 -
+    not a real period, a sentinel every caller has to check for rather
+    than divide by: _advance_phase() already leaves the phase where it
+    is for a non-positive period (chase/rainbow freeze in place), and
+    _mode_sparkle holds its current pattern.
 
     Geometric (log-spaced), not linear, between the two endpoints -
     found 2026-10-01: perceived speed tracks roughly 1/period (how
@@ -207,7 +211,9 @@ def _speed_to_period_s(speed):
     between consecutive speed steps constant instead, which is the
     same reason audio pitch/playback-speed controls are log-scaled
     rather than linear."""
-    speed = max(1, min(100, int(speed or 1)))
+    speed = min(100, int(speed or 0))
+    if speed <= 0:
+        return 0.0
     t = (speed - 1) / 99.0  # 0.0 .. 1.0
     return _PERIOD_MAX_S * ((_PERIOD_MIN_S / _PERIOD_MAX_S) ** t)
 
@@ -242,31 +248,97 @@ def _mode_full(now):
     _strip.fill(_get_color())
 
 
+def _scale_color(color, factor):
+    """Each channel of color scaled by factor (0.0-1.0), rounded to
+    the nearest int - used by _mode_chase below to blend brightness
+    between two adjacent pixels instead of jumping the lit pixel
+    between them at full brightness each."""
+    return tuple(int(round(c * factor)) for c in color)
+
+
+_CHASE_TAIL_LENGTH = 4  # pixels behind the head that still show some light
+_CHASE_TAIL_DECAY = 0.6  # each pixel further back is this fraction as bright as the last
+_CHASE_AHEAD_GLOW = 0.15  # slight motion-blur glow on the single pixel just ahead of the head
+# The factors above are PERCEIVED brightness steps (they're shared
+# as-is with NeoPixel.js's browser preview, where scaling an sRGB
+# value linearly already looks roughly proportional). A real LED's
+# light output is linear in the value written, and the eye isn't -
+# written straight to the strip, 0.8 of full is barely
+# distinguishable from full and even the last tail pixel (0.8**4 =
+# 0.41) still reads as most of the way there. Hardware-observed
+# 2026-10-03: "the trailing pixels are the same brightness as the
+# leading pixel." Raising each factor to this gamma before scaling
+# turns it into the linear drive level that actually looks like that
+# fraction (0.6 -> 0.33, 0.6**4 = 0.13 -> 0.01).
+_CHASE_GAMMA = 2.2
+
+
+def _chase_scale(color, factor):
+    return _scale_color(color, factor ** _CHASE_GAMMA)
+
+
 def _mode_chase(now):
+    # Meteor/comet tail: the head (current pixel) is always at full
+    # brightness, with a multi-pixel trail decaying behind it (each
+    # step _CHASE_TAIL_DECAY as bright as the last, out to
+    # _CHASE_TAIL_LENGTH pixels) and a slight glow on the one pixel
+    # just ahead (motion blur) - this is what actually reads as an
+    # "organic, fluid" chase, not sub-pixel blending between two
+    # pixels (tried first, looked like the head itself fading in/out
+    # rather than a trailing glow).
     n = len(_strip)
     period = _speed_to_period_s(_config.get("speed", 50))
     pos = int(_advance_phase(now, period) * n)
     color = _get_color()
     off = _off_color()
+    ahead = (pos + 1) % n
     for i in range(n):
-        _strip[i] = color if i == pos else off
+        if i == pos:
+            _strip[i] = color
+        elif i == ahead:
+            _strip[i] = _chase_scale(color, _CHASE_AHEAD_GLOW)
+        else:
+            behind = (pos - i) % n
+            if behind <= _CHASE_TAIL_LENGTH:
+                _strip[i] = _chase_scale(color, _CHASE_TAIL_DECAY ** behind)
+            else:
+                _strip[i] = off
+
+
+_SPARKLE_DENSITY = 0.3  # fraction of pixels lit in any one pattern
+_sparkle_window = None  # window index the current pattern was rolled for
+_sparkle_lit = []  # one bool per pixel - the current pattern
 
 
 def _mode_sparkle(now):
+    global _sparkle_window, _sparkle_lit
     import random
     n = len(_strip)
     # Re-roll which pixels are lit at a rate derived from speed, not
-    # every tick - every tick would look like noise, not sparkle.
-    # Reseed deterministically from a time-derived "window index"
-    # rather than held state - simplest way to get "a new random
-    # pattern every window" using only time, no extra tracking
-    # variables to reset on reconfigure.
+    # every tick - every tick would look like noise, not sparkle. The
+    # pattern is rolled once per time "window" and kept in
+    # _sparkle_lit until the window index changes; at speed 0
+    # (stopped, period 0) the index simply never changes, so the
+    # current pattern is held.
+    #
+    # This used to call random.seed(window index) every tick and draw
+    # the pattern fresh from that - no state to keep, but consecutive
+    # small integer seeds put CircuitPython's generator in nearly the
+    # same starting state each time, so the first draws after seeding
+    # barely vary from one window to the next and the pixels they
+    # decide come out the same every pattern. Hardware-observed
+    # 2026-10-03: "sparkle never seems to light up pixel 1." Drawing
+    # from the free-running generator instead (never reseeded) gives
+    # every pixel the same odds.
     period = _speed_to_period_s(_config.get("speed", 50)) / 4
-    random.seed(int(now / period))
+    window = int(now / period) if period > 0 else _sparkle_window
+    if window != _sparkle_window or len(_sparkle_lit) != n:
+        _sparkle_window = window
+        _sparkle_lit = [random.random() < _SPARKLE_DENSITY for _ in range(n)]
     color = _get_color()
     off = _off_color()
     for i in range(n):
-        _strip[i] = color if random.random() < 0.3 else off
+        _strip[i] = color if _sparkle_lit[i] else off
 
 
 def _colorwheel(pos):

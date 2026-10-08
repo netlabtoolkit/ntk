@@ -15,6 +15,12 @@ const { ipcMain, shell, app } = require('electron');
 const ANTHROPIC_VERSION = '2023-06-01';
 const DEFAULT_ANTHROPIC_BASE = 'https://api.anthropic.com';
 const DEFAULT_OLLAMA_BASE = 'http://localhost:11434';
+// How long Ollama keeps a model in memory after its last use. Ollama's own
+// default is 5 minutes, after which the next call pays the full load time
+// again - too short for a patch that sits idle between prompts. Sent with
+// both the warm-up (ollamaWarm) and every completion, since each request
+// resets the timer to whatever that request asked for.
+const OLLAMA_KEEP_ALIVE = '30m';
 
 // ---- tiny flat TOML reader (sections + key = "value", # comments) ----
 function readToml(filePath) {
@@ -139,7 +145,7 @@ async function ollamaComplete(opts) {
 	const nPredict = parseInt(opts.maxTokens, 10);
 	if (nPredict) options.num_predict = nPredict;
 
-	const body = { model: opts.model, messages: messages, stream: false };
+	const body = { model: opts.model, messages: messages, stream: false, keep_alive: OLLAMA_KEEP_ALIVE };
 	if (Object.keys(options).length) body.options = options;
 
 	try {
@@ -160,6 +166,30 @@ async function ollamaComplete(opts) {
 			return { error: 'Ollama not reachable at ' + base + ' — is it running?', code: 'no-ollama' };
 		}
 		return { error: 'Could not reach Ollama: ' + e.message, code: 'network' };
+	}
+}
+
+// ---- warm-up ----
+
+// Has Ollama load the model into memory ahead of the first real prompt,
+// so that prompt doesn't also pay the load time (seconds, for a model
+// that isn't already resident). A chat request with no messages is
+// Ollama's documented way to do that: it loads the model and returns
+// without generating anything. Resolves once the model is loaded.
+async function ollamaWarm(opts) {
+	if (!opts.model) return { error: 'no-model' };
+	const base = trimSlash(opts.baseURL || DEFAULT_OLLAMA_BASE);
+	try {
+		const res = await fetch(base + '/api/chat', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ model: opts.model, messages: [], stream: false, keep_alive: OLLAMA_KEEP_ALIVE }),
+		});
+		if (!res.ok) return { error: String(res.status) };
+		await res.text();
+		return { ok: true };
+	} catch (e) {
+		return { error: 'no-ollama' };
 	}
 }
 
@@ -219,6 +249,13 @@ module.exports = function registerLLMHandlers() {
 		opts = opts || {};
 		if (opts.provider === 'ollama') return ollamaModels(opts.baseURL);
 		return anthropicModels();
+	});
+
+	// Only Ollama has anything to load - a cloud model is always "warm".
+	ipcMain.handle('llm-warm', function(event, opts) {
+		opts = opts || {};
+		if (opts.provider === 'ollama') return ollamaWarm(opts);
+		return { skipped: true };
 	});
 
 	ipcMain.handle('llm-complete', function(event, opts) {
