@@ -1606,7 +1606,14 @@ body.ntk-monitoring .monitorBlockOverlay {
         margin: 8px auto 4px;
         cursor: pointer;
 
+        // Held, but the mic isn't open yet - dimmed, no pulse, so it's
+        // obvious when it's actually time to talk (.recording, below).
+        &.starting {
+            opacity: 0.45;
+        }
+
         &.recording {
+            opacity: 1;
             animation: speechinRecordPulse 1s ease-in-out infinite;
         }
     }

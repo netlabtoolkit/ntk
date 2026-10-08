@@ -31,6 +31,9 @@ contextBridge.exposeInMainWorld('ntkElectron', {
 	speechLocales: function() {
 		return ipcRenderer.invoke('speech-locales');
 	},
+	speechWarm: function(wid, locale) {
+		return ipcRenderer.invoke('speech-warm', { wid: wid, locale: locale });
+	},
 	speechStart: function(wid, locale) {
 		return ipcRenderer.invoke('speech-start', { wid: wid, locale: locale });
 	},
@@ -81,6 +84,9 @@ contextBridge.exposeInMainWorld('ntkElectron', {
 	},
 	llmModels: function(opts) {
 		return ipcRenderer.invoke('llm-models', opts || {});
+	},
+	llmWarm: function(opts) {
+		return ipcRenderer.invoke('llm-warm', opts || {});
 	},
 	llmComplete: function(opts) {
 		return ipcRenderer.invoke('llm-complete', opts || {});
