@@ -129,6 +129,19 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
                 // live inside the widget's own stacking context. Re-parent
                 // it to the shared widget layer and float it above the
                 // widgets (toolbar is z-index 100, so 30 is clear).
+                //
+                // The widget is rendered again whenever something is wired
+                // into it (Patcher.js's mapToModel calls view.render()),
+                // and each render builds a brand-new box from the
+                // template. The previous one lives out in the shared layer,
+                // not inside this.$el, so the re-render doesn't take it
+                // with it - drop it here, or the two sit exactly on top of
+                // each other (the old one still follows the model's saved
+                // position via its original rivets bindings) and dragging
+                // the box shows a second "old" copy left behind until the
+                // mouse is released.
+                if(this.$box && this.$box.get(0) !== $box.get(0)) { this.$box.remove(); }
+                if(this._onWheel) { document.removeEventListener('wheel', this._onWheel, { passive: false }); }
                 this.$box = $box;
                 var $layer = this.$el.closest('.widgets');
                 if($layer.length) { $box.appendTo($layer); }
