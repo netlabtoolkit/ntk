@@ -127,7 +127,10 @@
 	}
 	.version {
 		position: absolute;
-		bottom: 0;
+		// One line up from the very bottom (where the "Beta" label used
+		// to sit) - at bottom: 0 the window's rounded corner clipped the
+		// first character ("v2026..." lost its v).
+		bottom: 14px;
 		color: #fff;
 		font-size: smaller;
 
@@ -138,12 +141,6 @@
 		}
 	}
 
-	.versionBeta {
-		position: absolute;
-		bottom: 14px;
-		color: #fff;
-		font-size: smaller;
-	}
 }
 
 #toolBarRegion .addWidgets {
