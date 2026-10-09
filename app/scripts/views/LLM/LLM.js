@@ -42,6 +42,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			['an email', 'an email'],
 			['a presentation', 'a presentation'],
 			['a social media post', 'a social media post'],
+			['a bulleted list', 'a bulleted list'],
 			['other', 'other…'],
 		],
 		// "Write for this audience: ___." ('' = omit the clause entirely.)

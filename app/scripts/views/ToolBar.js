@@ -403,6 +403,9 @@ function( app, Backbone, Template, Widgets ) {
 		// itself watching for right now (should be rare in practice,
 		// but the device probe can still land there if neither check
 		// matched for some other reason).
+		// Explanations must fit three lines of the 250px bar, which is a
+		// fixed height (see .deviceStatusBar in toolBar.scss) - longer
+		// text is cut off rather than growing the bar.
 		DEVICE_STATUS_INFO: {
 			'pending': {
 				label: 'Checking...',
@@ -410,7 +413,7 @@ function( app, Backbone, Template, Widgets ) {
 			},
 			'standalone': {
 				label: 'Standalone',
-				explanation: 'A standalone patch is loaded on this device and not currently connected to NTK - push a blank patch to remove it if you don\'t want it running.',
+				explanation: 'Running a standalone patch, not connected to NTK. Push a blank patch to remove it.',
 			},
 			'waiting': {
 				label: 'Waiting',
@@ -422,7 +425,7 @@ function( app, Backbone, Template, Widgets ) {
 			},
 			'monitored': {
 				label: 'Monitored',
-				explanation: 'This device is running a standalone patch, being watched (not controlled) by NTK\'s Monitor mode.',
+				explanation: 'Running a standalone patch, watched (not controlled) by NTK\'s Monitor mode.',
 			},
 			'in-use': {
 				label: 'In use',
@@ -433,12 +436,9 @@ function( app, Backbone, Template, Widgets ) {
 				// expected to show up routinely (authoring without
 				// hardware connected is core to how NTK works, not an
 				// edge case - see CLAUDE.md's widget design principles).
-				// The longer wrapped text this used to have made the bar
-				// taller than 'pending', bumping the rest of the panel
-				// (including the menu below it) down every time it
-				// appeared - reported 2026-09-30 as actively distracting
-				// mid-click. Label alone stays the same height as
-				// 'pending'.
+				// (The bar is a fixed height for every status now - see
+				// .deviceStatusBar in toolBar.scss - so text length no
+				// longer moves the panel below it.)
 				label: 'Unreachable',
 				explanation: '',
 			},

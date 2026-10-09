@@ -777,25 +777,92 @@ def _eval_concat(values, state, now):
     values['out1'] = sep.join(parts)
 
 
+def _display_value_text(values, n):
+    """Input n (1-3) as Display shows it: (text, is_number). A number is
+    given a fixed count of decimal places, set per line in the widget
+    (line<n>Decimals; 2 if missing or unusable, capped at 4), matching
+    Display.js's formatValue() on the live-connection side - see that
+    comment for why. 0 gives whole numbers (14, not 14.00)."""
+    v = values.get('in%d' % n)
+    if v is None or v == '':
+        return '', False
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        try:
+            places = int(values.get('line%dDecimals' % n))
+        except (TypeError, ValueError):
+            places = 2
+        if places < 0:
+            places = 2
+        return ('%%.%df' % min(places, 4)) % v, True
+    return str(v), False
+
+
+def _display_zero_pad(text, width):
+    # "5" -> "05", "5.25" -> "05.25", "-5" -> "-05" for width 2 - same as
+    # Display.js's zeroPad().
+    negative = text[:1] == '-'
+    body = text[1:] if negative else text
+    dot = body.find('.')
+    whole = body if dot < 0 else body[:dot]
+    rest = '' if dot < 0 else body[dot:]
+    while len(whole) < width:
+        whole = '0' + whole
+    return ('-' if negative else '') + whole + rest
+
+
+def _display_format(fmt, values):
+    """A line's format string with its placeholders filled in - ported
+    from Display.js's composeFormat(): <1> <2> <3> insert the widget's
+    three inputs, <2:2> pads a number's whole part with zeros to 2
+    digits (one digit of width). Anything else is kept as typed. Scanned
+    by hand rather than with `re`, which not every board's CircuitPython
+    build includes."""
+    out = []
+    i = 0
+    length = len(fmt)
+    while i < length:
+        if fmt[i] == '<' and i + 2 < length and fmt[i + 1] in '123':
+            n = int(fmt[i + 1])
+            end = -1
+            pad = 0
+            if fmt[i + 2] == '>':
+                end = i + 2
+            elif fmt[i + 2] == ':' and i + 4 < length and fmt[i + 3] in '0123456789' and fmt[i + 4] == '>':
+                pad = int(fmt[i + 3])
+                end = i + 4
+            if end >= 0:
+                text, is_number = _display_value_text(values, n)
+                if pad and is_number:
+                    text = _display_zero_pad(text, pad)
+                out.append(text)
+                i = end + 1
+                continue
+        out.append(fmt[i])
+        i += 1
+    return ''.join(out)
+
+
 def _eval_display(values, state, now):
     # Ported from Display.js's own per-line compose (prepend + value +
-    # append) - see that file for the live-connection equivalent. Three
-    # lines only (in1-in3), matching the widget's three inlets and the
-    # OLED's own line 3-5 budget (see oled_display.py's module
-    # docstring) - lines 1-2 are reserved for system status.
+    # append, or the line's format string if it has one) - see that file
+    # for the live-connection equivalent. Three lines only (in1-in3),
+    # matching the widget's three inlets and the OLED's own line 3-5
+    # budget (see oled_display.py's module docstring) - lines 1-2 are
+    # reserved for system status.
     for i in (1, 2, 3):
+        # The widget's per-line "blank" checkbox - nothing on this line,
+        # whatever is wired into its inlet (an inlet that only feeds
+        # another line's format).
+        if values.get('line%dBlank' % i) is True:
+            values['line%dText' % i] = ''
+            continue
+        fmt = values.get('line%dFormat' % i)
+        if isinstance(fmt, str) and fmt != '':
+            values['line%dText' % i] = _display_format(fmt, values)
+            continue
         prepend = values.get('line%dPrepend' % i) or ''
         append = values.get('line%dAppend' % i) or ''
-        v = values.get('in%d' % i)
-        if v is None or v == '':
-            v_text = ''
-        elif isinstance(v, (int, float)) and not isinstance(v, bool):
-            # Always exactly 2 decimal places (5 -> "5.00"), matching
-            # Display.js's formatValue()/toFixed(2) on the live-
-            # connection side - see that comment for why.
-            v_text = '%.2f' % v
-        else:
-            v_text = str(v)
+        v_text, _is_number = _display_value_text(values, i)
         values['line%dText' % i] = '%s%s%s' % (prepend, v_text, append)
 
 

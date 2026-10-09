@@ -127,7 +127,10 @@
 	}
 	.version {
 		position: absolute;
-		bottom: 0;
+		// One line up from the very bottom (where the "Beta" label used
+		// to sit) - at bottom: 0 the window's rounded corner clipped the
+		// first character ("v2026..." lost its v).
+		bottom: 14px;
 		color: #fff;
 		font-size: smaller;
 
@@ -138,12 +141,6 @@
 		}
 	}
 
-	.versionBeta {
-		position: absolute;
-		bottom: 14px;
-		color: #fff;
-		font-size: smaller;
-	}
 }
 
 #toolBarRegion .addWidgets {
@@ -239,6 +236,17 @@
 
 		font-size: 0.85em;
 		line-height: 1.4;
+		// One fixed height for every status: the label line plus room
+		// for three lines of explanation (4 x the 1.4 line-height, the
+		// explanation's 4px top margin, and the 10px padding top and
+		// bottom - border-box, so 'pending's 1px border is inside it
+		// too). The bar used to be as tall as its text, so each change
+		// of status (a label alone, or one to five wrapped lines)
+		// resized it and bumped everything below it in the panel. The
+		// explanations in ToolBar.js's DEVICE_STATUS_INFO are written
+		// to fit three lines - keep them that short.
+		height: calc(5.6em + 24px);
+		overflow: hidden;
 
 		display: none;
 		&.hasStatus {
@@ -333,9 +341,16 @@
 		font-size: 0.75em;
 		color: #333;
 
+		// The box's one line of text ends in a URL, which has nowhere to
+		// wrap on its own and would run out of the 250px panel.
+		a {
+			color: #1a3f7a;
+			word-break: break-all;
+		}
+
 		// Overrides the panel-wide user-select:none set above (see the
 		// #toolBarRegion .settings, .addWidgets rule near the top of
-		// this file) - useful text to actually copy (an IP address),
+		// this file) - useful text to actually copy (a URL),
 		// unlike the rest of this drag-and-drop-heavy panel where
 		// accidental text selection is more annoying than useful.
 		-webkit-user-select: text;

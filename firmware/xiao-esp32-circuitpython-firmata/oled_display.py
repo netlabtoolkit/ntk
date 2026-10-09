@@ -5,7 +5,8 @@ Optional SSD1306 OLED status display (128x64, I2C), 6 lines total:
        disabled (NTK_MDNS_HOSTNAME = "none") or unavailable, never the
        unresolved candidate name if the collision check in code.py
        renamed it (see set_status()'s own hostname= doc).
-    2. IP address
+    2. IP address - prefixed "AP " in SoftAP mode ("AP 192.168.4.1"),
+       when the board is running its own network (see code.py)
     3. WiFi signal strength, then device mode: "RSSI -61, controlled"
        (mode is one of "connecting...", "waiting...", "controlled",
        "standalone", or "monitored" - see set_mode()) - combining IP+RSSI

@@ -44,7 +44,7 @@ Click **▸ personality** in the "more" panel to open it (closed by default — 
 - **random** — set the four traits and the temperature to a random combination (purpose and audience are left as they are). Good for exploring tones you wouldn't have picked.
 - **reset** — clear the personality back to defaults: all traits none, purpose/audience/length/extra-instructions empty, temperature 0.7. (The response task is left alone.)
 - **4 trait dropdowns** — qualities to write with (humor, scientific, conciseness, persuasive, conservative, kind…). Set any to **other…** to type your own.
-- **purpose** — what the text is for: "an executive summary", "an essay", "an email", "a social media post"… or **other…** for your own. **(none)** adds no purpose instruction.
+- **purpose** — what the text is for: "an executive summary", "an essay", "an email", "a social media post", "a bulleted list"… or **other…** for your own. **(none)** adds no purpose instruction.
 - **audience** — "an executive", "an engineer", "a general reader", "a friend"… or **other…**. **(none)** adds no audience instruction.
 - **length** — a target word count. In **Rewrite** mode it's read as a percentage of the original instead (e.g. `50` = half as long).
 - **temperature** — higher = more varied and creative, lower = more focused and repeatable. The slider goes to **2.0** for Ollama, **1.0** for Anthropic.

@@ -44,6 +44,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				in4: '-',
 				output: 0,
                 mixType: 'latest',
+                // "more" panel checkbox, 'latest' mode only: an input going
+                // blank ('' or only spaces) doesn't count as the latest
+                // change, so the output keeps the last real value. For
+                // sources that send a value and then clear it - e.g. two
+                // PoseRecog outlets in "output slot name" mode, where one
+                // slot's name arrives and the other slot's '' follows right
+                // behind it and would otherwise replace it.
+                ignoreBlank: false,
             });
 
 		},
@@ -75,13 +83,22 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 }
                 
                 var result = 0;
+                // False only when 'latest' had nothing but blanks to go on
+                // with ignoreBlank ticked - the output is then left alone.
+                var haveLatest = true;
                 
                 switch(this.model.get('mixType')) {
                     case 'latest':
-                        if (model.changedAttributes().in1 !== undefined) result = this.model.get('in1');
-                        if (model.changedAttributes().in2 !== undefined) result = this.model.get('in2');
-                        if (model.changedAttributes().in3 !== undefined) result = this.model.get('in3');
-                        if (model.changedAttributes().in4 !== undefined) result = this.model.get('in4');
+                        var changed = model.changedAttributes();
+                        var ignoreBlank = this.model.get('ignoreBlank') === true;
+                        haveLatest = false;
+                        for (var n=1;n<=4;n++) {
+                            if (changed['in' + n] === undefined) continue;
+                            var value = this.model.get('in' + n);
+                            if (ignoreBlank && (value === null || String(value).trim() === '')) continue;
+                            result = value;
+                            haveLatest = true;
+                        }
                         break;
                         
                     case 'avg':
@@ -125,7 +142,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     default:
                         //
                 }
-                if (this.model.get('mixType') == 'latest' || ins.length > 0) {
+                if ((this.model.get('mixType') == 'latest' && haveLatest) ||
+                    (this.model.get('mixType') != 'latest' && ins.length > 0)) {
                     this.model.set('output',result);
                 } // else don't send any output if all inputs are non-numeric
                 

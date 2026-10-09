@@ -73,7 +73,8 @@
             <label class="wide-label">stillness ms</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:stillnessMs"><br>
             <label class="wide-label">wait time true</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:waitTimeTrue"><br>
             <label class="wide-label">wait time false</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:waitTimeFalse"><br>
-            <table class="rangeTable gestureOutputsTable" border="0" cellspacing="3" cellpadding="0">
+            <div class="inletValue"><input class="outputName" type="checkbox" rv-checked="widget:outputName" /> output slot name</div>
+            <table class="rangeTable gestureOutputsTable" rv-hide="widget:outputName" border="0" cellspacing="3" cellpadding="0">
                 <tr>
                     <td></td>
                     <td class="tableHeader">no match</td>

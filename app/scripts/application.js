@@ -97,8 +97,6 @@ function( Backbone, Communicator, MainRouter, PatcherModule, ToolBarModule, buil
 				i++;
 			}
 
-			$('#toolBarRegion .settings').append('<div class="versionBeta">Beta</div>');
-
 			if(versionIsCurrent) {
 				$('#toolBarRegion .settings').append('<div class="version">v'+localData.version+'</div>');
 			}

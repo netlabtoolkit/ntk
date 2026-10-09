@@ -1,4 +1,4 @@
-# Firmware build: 2026-10-06 10:02 CET - update this (and the matching
+# Firmware build: 2026-10-09 14:24 CET - update this (and the matching
 # print() further down) on every manual/dev deploy to CIRCUITPY, so
 # it's visible both in Thonny's editor view (before even running
 # anything - Thonny doesn't always reload a changed file automatically)
@@ -90,7 +90,7 @@ except ImportError:  # not every CircuitPython build ships it
 # re-reading every file's own content over serial. Previously paired
 # with a separate ntk_version.py (dropped 2026-10-02 as redundant once
 # this line started covering the packaged-release case too).
-print("Firmware build:", "2026-10-06 10:02 CET")
+print("Firmware build:", "2026-10-09 14:24 CET")
 
 # A byte on the serial console in the next few seconds drops straight
 # to the REPL, before anything below can hang or crash. Kept here,
@@ -446,11 +446,49 @@ if wifi_mode == "ap":
             print("(start_dhcp_ap not needed / unavailable:", e, ")")
 
         ap_ip = wifi.radio.ipv4_address_ap
-        print("SoftAP started. IP address:", ap_ip)
-        oled_display.set_status(ip=str(ap_ip))
+
+        # mDNS on the board's own network too, so NTK can be pointed at
+        # the same "<hostname>.local" in SoftAP mode as in station mode
+        # instead of the special 192.168.4.1. Same on-by-default /
+        # NTK_MDNS_HOSTNAME = "none" opt-out as _connect_station(), kept
+        # in the same module-level _mdns_server global for the same
+        # reason (see its comment above). No collision check here: this
+        # is the board's own network, there is no other NTK board on it
+        # to collide with - and _resolve_mdns_hostname()'s blocking
+        # find() isn't something to add to a path that runs with no
+        # watchdog. Inline rather than a helper function, per this
+        # file's rule about not adding function defs ahead of
+        # start_ap(). Best effort: a failure here (or a build whose
+        # responder only answers on the station interface) leaves the
+        # fixed IP working exactly as before.
+        ap_hostname = os.getenv("NTK_MDNS_HOSTNAME") or "ntk-device"
+        ap_mdns_suffix = ""
+        if ap_hostname.lower() != "none":
+            try:
+                import mdns
+                _mdns_server = mdns.Server(wifi.radio)
+                _mdns_server.hostname = ap_hostname
+                # advertise_service() is what actually activates the
+                # responder - see _connect_station().
+                _mdns_server.advertise_service(
+                    service_type=_NTK_MDNS_SERVICE_TYPE, protocol=_NTK_MDNS_PROTOCOL, port=FIRMATA_PORT
+                )
+                ap_mdns_suffix = " (or %s.local)" % ap_hostname
+            except Exception as e:
+                print("(mDNS unavailable in SoftAP mode:", e, ")")
+
+        print("SoftAP started. IP address: %s%s" % (ap_ip, ap_mdns_suffix))
+        # "AP " ahead of the address is the only on-screen sign that the
+        # board is running its own network rather than having joined one
+        # - the two look identical otherwise, and the address is the
+        # wrong thing to try from a computer still on its usual WiFi.
+        oled_display.set_status(
+            ip="AP %s" % ap_ip,
+            hostname=(ap_hostname + ".local") if ap_mdns_suffix else "",
+        )
         print(
-            "Join WiFi '%s'%s, then point NTK (Device: Network) at %s port %d"
-            % (ssid, "" if password else " (open)", ap_ip, FIRMATA_PORT)
+            "Join WiFi '%s'%s, then point NTK (Device: Network) at %s%s port %d"
+            % (ssid, "" if password else " (open)", ap_ip, ap_mdns_suffix, FIRMATA_PORT)
         )
         ap_started = True
     except Exception as e:

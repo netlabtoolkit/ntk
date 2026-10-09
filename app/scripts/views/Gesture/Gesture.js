@@ -178,6 +178,13 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 				// Shared across slots (the timing behavior, not the template).
 				waitTimeTrue: 0,
 				waitTimeFalse: 1000,
+				// "more" panel checkbox: each outlet sends its slot's NAME
+				// (text) while that slot is matched, and '' while it isn't,
+				// instead of the numeric match / no match values - for
+				// wiring straight into text-consuming widgets (Text, LLM,
+				// SpeechOut). Same option as PoseRecog's; see
+				// slotOutputValue().
+				outputName: false,
 			};
 
 			for(var i = 1; i <= SLOT_COUNT; i++) {
@@ -313,6 +320,34 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 			clearTimeout(this.playTimer);
 		},
 
+		/**
+		 * slotDisplayName - the slot's name, falling back to "Slot N" if
+		 * none has been typed in yet (see selectedSlotName/slotName<i>).
+		 *
+		 * @param {number} slot 1-4
+		 * @return {string}
+		 */
+		slotDisplayName: function(slot) {
+			return this.model.get('slotName' + slot) || ('Slot ' + slot);
+		},
+
+		/**
+		 * slotOutputValue - what out<slot> should carry for a given
+		 * matched state: the slot's name / '' when the "output slot name"
+		 * checkbox is on, otherwise the configured match / no match
+		 * numbers.
+		 *
+		 * @param {number} slot 1-4
+		 * @param {boolean} isMatched
+		 * @return {string|number}
+		 */
+		slotOutputValue: function(slot, isMatched) {
+			if(this.model.get('outputName')) {
+				return isMatched ? this.slotDisplayName(slot) : '';
+			}
+			return this.model.get((isMatched ? 'ifMatch' : 'ifNoMatch') + slot);
+		},
+
 		// ifMatch<slot>/ifNoMatch<slot> are otherwise only read at the moment
 		// a match/no-match transition commits (see commitMatched) - editing
 		// one in the "more" panel while a slot is just sitting in that same
@@ -323,17 +358,19 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 		onModelChange: function(model) {
 			var changed = model.changedAttributes();
 
+			// Same "push it through now" treatment for the things the name
+			// output depends on: the checkbox itself, and a slot being
+			// renamed while it's matched.
 			for(var i = 1; i <= SLOT_COUNT; i++) {
-				var ifState = this.model.get('ifState' + i);
-
-				if(changed['ifMatch' + i] !== undefined && ifState === 'trueOn') {
-					this.model.set('out' + i, changed['ifMatch' + i]);
-				}
-				// out<i> also still equals ifNoMatch<i> while pending
+				// out<i> also still carries the no-match value while pending
 				// ('trueWaitStart') - the true transition hasn't committed
-				// yet, only 'trueOn' means out<i> is currently ifMatch<i>.
-				if(changed['ifNoMatch' + i] !== undefined && ifState !== 'trueOn') {
-					this.model.set('out' + i, changed['ifNoMatch' + i]);
+				// yet, only 'trueOn' means out<i> is currently the match value.
+				var isOn = this.model.get('ifState' + i) === 'trueOn';
+
+				if(changed.outputName !== undefined || changed['slotName' + i] !== undefined ||
+				   (changed['ifMatch' + i] !== undefined && isOn) ||
+				   (changed['ifNoMatch' + i] !== undefined && !isOn)) {
+					this.model.set('out' + i, this.slotOutputValue(i, isOn));
 				}
 			}
 		},
@@ -546,16 +583,13 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 			var self = this;
 			var outKey = 'out' + slot;
 
-			// Falls back to "Slot N" if the user hasn't typed a name in for
-			// this slot yet (see selectedSlotName/slotName<i>). Ported from
-			// PoseRecog's identical pattern.
-			var displayName = this.model.get('slotName' + slot) || ('Slot ' + slot);
+			var displayName = this.slotDisplayName(slot);
 
 			if(isMatched) {
 				var trueUpdate = {};
 				trueUpdate['matched' + slot] = true;
 				trueUpdate['ifState' + slot] = 'trueOn';
-				trueUpdate[outKey] = this.model.get('ifMatch' + slot);
+				trueUpdate[outKey] = this.slotOutputValue(slot, true);
 				// Shown prominently in the main body (see template.js's
 				// .currentMatch) - the most useful live readout once you're
 				// actually using a trained widget, not just training it.
@@ -576,7 +610,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 				var falseUpdate = {};
 				falseUpdate['matched' + slot] = false;
 				falseUpdate['ifState' + slot] = 'falseOn';
-				falseUpdate[outKey] = this.model.get('ifNoMatch' + slot);
+				falseUpdate[outKey] = this.slotOutputValue(slot, false);
 				// Only clear the displayed name if THIS slot was the one being
 				// shown - otherwise this slot's own timeout expiring would wipe
 				// a *different*, still-active slot's name out from under it.

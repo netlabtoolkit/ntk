@@ -204,6 +204,9 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 		},
 
 		onRemove: function() {
+			// Before stopCamera() - a camera still opening when the widget
+			// goes is released on arrival (see startCamera).
+			this.removed = true;
 			window.app.timingController.removeFrameCallback(this.localFrameTick, this);
 			clearTimeout(this.trueTimer);
 			clearTimeout(this.falseTimer);
@@ -439,7 +442,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			// Not while simulating, not with the camera switch off (see
 			// onModelChange), and not twice - a second getUserMedia would
 			// open a second stream and orphan the first.
-			if(this.model.get('simulate') || !this.model.get('active') || this.mediaStream || this.cameraStarting) {
+			if(this.removed || this.model.get('simulate') || !this.model.get('active') || this.mediaStream || this.cameraStarting) {
 				return;
 			}
 			this.cameraStarting = true;
@@ -452,7 +455,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 					// switched off (or tracking stopped) in the meantime,
 					// hand the stream straight back instead of leaving the
 					// camera on with nothing using it.
-					if(!self.model.get('active') || !self.model.get('tracking') || self.model.get('simulate')) {
+					if(self.removed || !self.model.get('active') || !self.model.get('tracking') || self.model.get('simulate')) {
 						stream.getTracks().forEach(function(track) { track.stop(); });
 						return;
 					}

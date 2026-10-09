@@ -75,9 +75,10 @@ Set `NTK_MDNS_HOSTNAME = "ntk-device"` (or any name you like) in
 `settings.toml` and the board advertises itself as `ntk-device.local`
 on your network - point NTK's Device field at that name and port
 `3030` instead of an IP address, and it keeps working even if the
-router hands out a different IP later. Station mode only (SoftAP
-already has a fixed IP, `192.168.4.1`). Running more than one board on
-the same network? Give each a different hostname.
+router hands out a different IP later. The same name is advertised in
+SoftAP mode too (see below), so one address works either way. Running
+more than one board on the same network? Give each a different
+hostname.
 
 **Inconsistent results across two separate hardware tests, same board/
 CircuitPython version, cause not yet identified:**
@@ -133,8 +134,18 @@ which is why you have to read the IP off the serial console.
 
 Set `NTK_WIFI_MODE = "ap"` in `settings.toml` to instead have the board
 run **its own WiFi network**. It's then always reachable at a fixed
-**`192.168.4.1`, port `3030`** - nothing to discover. Good for workshops,
-demos, or any place with no usable/locked-down WiFi.
+**`192.168.4.1`, port `3030`** - nothing to discover - and also at the
+same **`ntk-device.local`** name it uses in station mode (whatever
+`NTK_MDNS_HOSTNAME` is set to; `"none"` turns the name off), so NTK's
+Device field doesn't have to change when you switch modes. Good for
+workshops, demos, or any place with no usable/locked-down WiFi. The
+name in SoftAP mode was hardware-verified on a XIAO ESP32-S3 Sense
+(2026-10-09); it has not been tried on a C6 or a Pico W - use the IP
+if the name doesn't resolve.
+
+With an OLED attached, the IP line reads `AP 192.168.4.1` in this mode
+- the "AP" is how you tell the board is running its own network rather
+than having joined one.
 
 ```
 NTK_WIFI_MODE = "ap"
@@ -143,7 +154,8 @@ NTK_AP_PASSWORD = "netlabtoolkit"   # 8-63 chars; "" for an open network
 ```
 
 Then join the WiFi network `NTK-Firmata` from your computer and point
-NTK's **Device** picker at `192.168.4.1` / port `3030`.
+NTK's **Device** picker at `ntk-device.local` (or `192.168.4.1`) / port
+`3030`.
 
 Trade-offs: while your computer is on the board's network it has **no
 normal WiFi / internet** (use Ethernet if you need both), it's really

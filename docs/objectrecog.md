@@ -69,7 +69,11 @@ and the previous training kept.
   COCO class).
 - **test with an image file…** — run the same detect + recognize
   pipeline on a still image from disk, so you can build and check a
-  patch's logic before pointing a camera at anything.
+  patch's logic before pointing a camera at anything. The image
+  replaces the camera (and shows in the preview, with the detection
+  box) until you click the same button again, now labelled **back to
+  camera**. It works with the camera switched off, and you can record
+  a slot from the image too.
 - **match threshold %** — how confident a match must be to count
   (default 65).
 - **wait time true / false** — same as IfThen/Gesture: delay before the

@@ -130,6 +130,8 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 			this.countdownTickTimer = undefined;
 			this.countdownStartMs = 0;
 			this.mediaStream = null;
+			this.cameraStarting = false;
+			this.removed = false;
 			this.landmarker = null;
 			this.loadingLandmarker = null;
 			this.videoEl = null;
@@ -302,6 +304,12 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 				this.populateTrackModeSelect();
 				this.primeCameraPermission();
 
+				// A re-render builds a new <video>; the stream already open
+				// has to be moved onto it (startCamera won't open another).
+				if(this.mediaStream && this.videoEl) {
+					this.videoEl.srcObject = this.mediaStream;
+					this.videoEl.play();
+				}
 				if(this.model.get('active')) {
 					this.startCamera();
 				}
@@ -356,6 +364,9 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 		},
 
 		onRemove: function() {
+			// Before stopCamera() - a camera still opening when the widget
+			// goes is released on arrival (see startCamera).
+			this.removed = true;
 			window.app.timingController.removeFrameCallback(this.localFrameTick, this);
 			for(var i = 0; i < SLOT_COUNT; i++) {
 				clearTimeout(this.trueTimers[i]);
@@ -898,10 +909,31 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 
 		// Privacy/CPU: the camera stream opens/closes with `active`,
 		// same bounded-active-time spirit as FaceTrack/SpeechIn.
+		// Guarded three ways, because every unguarded path left a camera
+		// stream open with nothing holding a reference to stop it (the
+		// camera light stayed on after the widget was deleted, or after
+		// its checkbox was unticked - found 2026-10-09):
+		// - not twice: a new widget asked for the camera from
+		//   initialize() (the defaults' active:true fires onModelChange)
+		//   AND again from onRender(), and the second stream replaced the
+		//   first in this.mediaStream, orphaning it;
+		// - not once removed;
+		// - and a stream that arrives after the widget was removed or
+		//   switched off in the meantime is handed straight back.
 		startCamera: function() {
+			if(this.removed || !this.model.get('active') || this.mediaStream || this.cameraStarting) {
+				return;
+			}
+			this.cameraStarting = true;
+
 			var self = this;
 			navigator.mediaDevices.getUserMedia({video: {width: 320, height: 240}, audio: false})
 				.then(function(stream) {
+					self.cameraStarting = false;
+					if(self.removed || !self.model.get('active')) {
+						stream.getTracks().forEach(function(track) { track.stop(); });
+						return;
+					}
 					self.mediaStream = stream;
 					if(self.videoEl) {
 						self.videoEl.srcObject = stream;
@@ -910,6 +942,7 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 					return self.ensureLandmarker();
 				})
 				.catch(function(err) {
+					self.cameraStarting = false;
 					self.model.set({
 						statusMessage: 'Camera error: ' + err.message,
 						active: false,

@@ -173,6 +173,23 @@ define([
 					// and the patch sync can forward without altering
 					// anything.
 					var model = widgetView.model;
+					// The "not connected" flag is ONE flag shared by every
+					// widget on this device, and a widget that reconnects
+					// sets it back to true as it goes (an output widget's
+					// mapToModel does - see Patcher.js). Cleared again
+					// here, per widget, or every widget after the first
+					// such one found the device already "connected" and
+					// skipped its own reconnect. An AnalogIn got away with
+					// that (the board reports analog pins unasked); a
+					// GroveIn did not - it has to re-subscribe its sensor,
+					// and with a Display ahead of it in the list it never
+					// did, so GroveIn, the Display fed by it and the
+					// board's OLED all froze after leaving Monitor mode
+					// (found 2026-10-09, confirmed by replaying this step
+					// in a second window: no remap, no subscribe).
+					if (hardwareModelInstance && hardwareModelInstance.model) {
+						hardwareModelInstance.model.active = false;
+					}
 					model.changedAttributes = function() {
 						return {wid: model.get('wid')};
 					};
@@ -181,6 +198,29 @@ define([
 					}
 					finally {
 						delete model.changedAttributes;
+					}
+
+					// That check only ever reconnects an INPUT widget
+					// (AnalogIn/DigitalIn/GroveIn). An output widget's
+					// version of it asks "is one of my sources an
+					// inactive hardware model?", and a hardware OUTPUT
+					// mapping is never in a widget's sources at all (see
+					// AnalogOut.js's onModelChange) - so AnalogOut,
+					// DigitalOut, Servo, NeoPixel and Display sat out the
+					// reconnect entirely and only came back the next time
+					// their own value happened to change. A patch whose
+					// switched-on hardware widgets were all outputs
+					// therefore left NTK connected to nothing after Stop
+					// Monitor, the board still running its standalone
+					// patch (reported 2026-10-09: "does not switch to
+					// controlled, but continues to run in standalone").
+					// enableDevice() is what such a widget calls on every
+					// value change anyway; the server opens the device
+					// connection on demand when it arrives.
+					var mode = widgetView.deviceMode;
+					if (mode !== undefined && mode !== 'INPUT' && mode !== 'in' &&
+						model.get('activeOut') === true && typeof widgetView.enableDevice === 'function') {
+						widgetView.enableDevice();
 					}
 				}
 			});

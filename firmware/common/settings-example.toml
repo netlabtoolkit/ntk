@@ -34,6 +34,8 @@ NTK_WIFI_PASSWORD="your-wifi-password"
 # NTK_MDNS_HOSTNAME = "ntk-device"
 
 # --- Optional: SoftAP mode (board makes its own WiFi, fixed IP 192.168.4.1) ---
+# Also reachable at the same <NTK_MDNS_HOSTNAME>.local name as in station
+# mode (verified on a XIAO ESP32-S3 Sense; use the IP if it doesn't resolve).
 # Use when there is no usable router. The computer joins the board's network
 # (and loses its normal WiFi / internet while joined). Range is shorter than
 # station mode - the board's small antenna with no router to help.

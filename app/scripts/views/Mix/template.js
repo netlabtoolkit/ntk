@@ -43,6 +43,8 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
+            <div class="inletValue"><input class="ignoreBlank" type="checkbox" rv-checked="widget:ignoreBlank" /> ignore blank inputs (latest)</div>
+            <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/mix/" target="_blank">Widget help</a>
         </div>
     </div>
