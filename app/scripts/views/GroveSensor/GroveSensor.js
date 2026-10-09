@@ -765,7 +765,19 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				// A real reading for the currently-selected sensor arrived -
 				// flip from "waiting" to "ok" (CLAUDE.md: actively show the
 				// user something is working, not just accept silently).
-				var currentReadingKeys = _.pluck(this.model.get('outs') || [], 'to');
+				//
+				// Keyed off the RAW fields ('x_raw', what the hardware
+				// mapping writes), not the outlets ('x'). An outlet also
+				// changes with no new reading at all - when Monitor mode
+				// ends, processSignalChain resumes and recomputes every
+				// outlet from the last raw value it had, replacing the
+				// board's monitored value. That counted as "a reading
+				// arrived", flipped the status to ok, and stopped
+				// subscribeSensor's ask-again timer before the board had
+				// actually been re-subscribed - GroveIn (and a Display fed
+				// by it) then sat frozen after leaving Monitor mode
+				// (found 2026-10-09).
+				var currentReadingKeys = _.pluck(this.model.get('outs') || [], 'from');
 				if(this.model.get('sensorStatus') === 'waiting' && _.some(currentReadingKeys, function(key) { return changed[key] !== undefined; })) {
 					this.model.set('sensorStatus', 'ok');
 				}
