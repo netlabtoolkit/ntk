@@ -1,47 +1,86 @@
 # GroveIn
 
-The GroveIn widget reads a [Grove](https://wiki.seeedstudio.com/Grove_System/) sensor plugged into a WiFi-connected board, scales the reading(s), and sends them out its outlet(s) - use it for acceleration/tilt, distance, temperature & humidity, or light, without writing any firmware yourself.
+Read sensor value(s) from a Grove sensor connected to your device.
 
-GroveIn only works over **Network** (WiFi) - it needs the board running NTK's CircuitPython Firmata firmware, which is included with your NTK download (`firmware/xiao-esp32-circuitpython-firmata/`, with its own setup README). It does not work over a Serial (USB) connection - the "more" panel shows "Doesn't support serial" if Serial is selected.
+The GroveIn widget reads a [Grove](https://wiki.seeedstudio.com/Grove_System/) sensor plugged into a WiFi-connected board, scales the reading(s), and sends them out its outlet(s). Use it for acceleration/tilt, distance, temperature & humidity, light, or the time of day, without writing any firmware yourself.
+
+GroveIn only works over **Network** (WiFi). It needs a board running NTK's CircuitPython Firmata firmware, which is included with your NTK download (the `CircuitPython/` folder, with its own setup README). It does not work over a Serial (USB) connection; the "more" panel shows "Doesn't support serial" if Serial is selected.
 
 ## How it works
 
-- Pick a sensor from the dropdown in the widget body. The chip name (e.g. "LIS3DHTR") is shown underneath, and one outlet appears on the right for each reading that sensor provides.
-- Check the checkbox on the left edge to start reading. The status dot and text below the dropdown show what's happening:
-  - **idle** - not yet checked on.
-  - **waiting** - checked on, request sent, no reading back yet.
-  - **ok** - readings are arriving normally.
-- Readings are scaled from the sensor's raw range (**input range**, in the "more" panel) to whatever range downstream widgets expect (**output range**), same as AnalogIn - with **inv** (invert), **smo** (smoothing), and **eas** (easing) available per-reading in the widget body.
-- A small line under the status shows which outlet nub is which (e.g. "X, Y, Z" or "Temp, Humidity", top to bottom). Once readings are arriving it also shows each one's **live scaled value** next to its label ("Distance 1234", "X 512   Y 480   Z 600") - the same number that widget's outlet is sending.
+- **Pick a sensor** from the dropdown in the widget body. The chip name (e.g. "LIS3DHTR") is shown underneath, and one outlet appears on the right for each reading that sensor provides.
+- **Tick the checkbox** on the left edge to start reading. The status dot and text below the dropdown show what's happening:
+  - **idle** - not switched on.
+  - **waiting** - switched on and asking the board, no reading back yet. The widget keeps asking every few seconds, so it recovers by itself if the board was still connecting.
+  - **ok** - readings are arriving.
+- **Readings are scaled** from the sensor's own range (**input range**, in the "more" panel) to the range you want downstream (**output range**), the same way AnalogIn works. **inv** (invert), **smo** (smoothing) and **eas** (easing) are in the widget body.
+- **A line under the status** shows which outlet is which, top to bottom (e.g. "X, Y, Z" or "Temp, Humidity"). Once readings arrive it also shows each one's live value ("Distance 1234"), the same number that outlet is sending.
 
 ## Supported sensors
 
-| Dropdown label | Chip | Readings | Notes |
-|---|---|---|---|
-| Accelerometer | LIS3DHTR | X, Y, Z (m/s²) | I2C - just plug in, no extra setup. Input range defaults to about ±1g, enough for tilt; widen it in the "more" panel to also capture harder shakes/impacts. |
-| Distance | VL53L0X | Distance (mm) | I2C - just plug in. Reliable from a few cm out to roughly 1.2m; very close range (under ~5cm) is inherently noisy on this sensor. With nothing in range, reads as maximum distance rather than 0. |
-| Temp & Humidity | DHT11 | Temp (°C), Humidity (%) | **Single-wire digital, not I2C** - defaults to pin `D7`; change it in the "more" panel's **pin** field if you wired it elsewhere. Avoid `D0`-`D2` (reserved by the board for analog input); use `D3`-`D10`. Updates at most every 1-2 seconds - that's a limit of the sensor itself, not the widget. |
-| Light | TSL2561 | Light (no fixed unit) | I2C - just plug in. Has a **mode** dropdown in the "more" panel: **Visible (lux)** (calibrated to match how bright it looks to the eye), **Full Spectrum**, or **Infrared** (raw sensor-channel counts, not lux). Reads as `0` in very bright light as well as in darkness - Visible/lux mode is the one to use unless you specifically need the raw channels. |
-| Distance (Ultrasonic) | Ultrasonic Ranger | Distance (mm) | **Single-wire digital, not I2C** - same **pin** field as Temp & Humidity above (defaults to `D7`; avoid `D0`-`D2`). Rated range is roughly 2cm-350cm; with nothing in range, reads as maximum distance rather than 0. Outlet reads real millimeters directly (same 1:1 passthrough as Temp & Humidity/Light above), not the usual 0-1023 scale. Updates roughly every 300ms - slower than most sensors here, since this specific module needs more settle time between pings than its own datasheet suggests. Hardware-verified. |
-| Clock | PCF8563 | Hour, Minute, Second | The battery-backed clock chip on the Seeed XIAO expansion board (not a Grove module, but on the same I2C bus) - just attach the board. Outlets read the real hour (0-23), minute and second. **Read only:** set the clock once by running `firmware/test/test_rtc.py` on the board (needs WiFi with internet; the time zone is a constant at the top of that file, and the chip doesn't adjust for daylight saving). Reads 0, 0, 0 until it has been set, or after the battery has been out. |
+Two things differ from sensor to sensor and are worth checking in this table before you wire anything up:
 
-Only sensors actually wired to the board respond - I2C sensors are auto-detected at boot (see the board's serial console for a "Grove sensors found: ..." summary line), and picking one that isn't attached just leaves the status at "waiting" indefinitely rather than erroring.
+- **How it connects.** I2C sensors just plug into the board's I2C Grove socket and are found automatically. Single-wire sensors plug into a digital Grove socket, and you must tell the widget which **pin**.
+- **What the outlet sends.** Some sensors send NTK's usual 0-1023 scaling of their range. Others send the real-world number directly (°C, mm, the hour). You can change either in the "more" panel.
+
+| Dropdown label | Chip / module | Connects by | Outlets | Outlet sends (default) | Updates |
+|---|---|---|---|---|---|
+| **Accelerometer** | LIS3DHTR | I2C | X, Y, Z | 0-1023, scaled from ±10 m/s² (about ±1g) | up to 50 times a second |
+| **Distance** | VL53L0X (time of flight) | I2C | Distance | 0-1023, scaled from 0-1200 mm | up to 20 times a second |
+| **Temp & Humidity** | DHT11 | Single wire - set **pin** (default `D7`) | Temp, Humidity | Real values: °C and % | every 2 seconds |
+| **Light** | TSL2561 | I2C | Light | Real value, 0-10000 (lux in the default mode) | twice a second |
+| **Distance (Ultrasonic)** | Grove Ultrasonic Ranger | Single wire - set **pin** (default `D7`) | Distance | Real value: mm, 0-3500 | about 3 times a second |
+| **Clock** | PCF8563, on the Seeed XIAO expansion board | I2C (built into the expansion board) | Hour, Minute, Second | Real values: 0-23, 0-59, 0-59 | 4 times a second |
+
+Notes on each sensor:
+
+- **Accelerometer.** The default input range of about ±1g is what tilting the board through every orientation produces, so a full tilt swings the outlet across nearly the whole 0-1023 range. Widen the input range to capture harder shakes and impacts.
+- **Distance (VL53L0X).** Reliable from a few centimetres out to roughly 1.2 m. Under about 5 cm it is inherently noisy. With nothing in range it reads maximum distance, not 0.
+- **Temp & Humidity.** Avoid pins the board uses for analog input: `D0`-`D5` on the XIAO ESP32-S3, `D0`-`D2` on the XIAO ESP32-C6. `D7` works on both. The two-second update rate is a limit of the sensor itself.
+- **Light.** A **mode** dropdown in the "more" panel chooses **Visible (lux)**, calibrated to how bright it looks to the eye, or **Full Spectrum** / **Infrared**, which are raw sensor counts, not lux. It reads `0` in very bright light as well as in darkness. Readings are capped at 10000.
+- **Distance (Ultrasonic).** Rated for roughly 2 cm to 350 cm. Same pin advice as Temp & Humidity. With nothing in range it reads maximum distance, not 0.
+- **Clock.** This is the battery-backed clock chip on the Seeed XIAO expansion board (the one with the OLED and the coin cell on the back), not a separate Grove module. It keeps time with the board unpowered. See "Using the clock" below.
+
+Only sensors actually attached to the board respond. I2C sensors are detected when the board starts (its serial console prints a "Grove sensors found: ..." line). Picking one that isn't attached leaves the status at "waiting"; it does not show an error.
+
+## Using the clock
+
+**Set it once.** GroveIn only reads the clock. To set it, run the [`test_rtc.py`](https://github.com/netlabtoolkit/ntk/blob/master/firmware/test/test_rtc.py) script on the board (paste it into the REPL, or open it in Thonny and press Run). The script is in NTK's source on GitHub, under `firmware/test/`; it is not in the `CircuitPython/` folder of the download. It fetches the time from an internet time server over WiFi and writes it to the chip, so the board needs a network with internet access for that one step - not SoftAP mode. After that the coin cell keeps it running.
+
+- The **time zone** is a constant at the top of that file (`UTC_OFFSET_HOURS`). The chip has no notion of time zones or daylight saving: it counts on from whatever local time it was given, so run the script again when the clocks change.
+- Until it has been set, or after the battery has been out, the outlets read **0, 0, 0**.
+
+**Show it as a time.** Wire Hour, Minute and Second into a **Display** widget's three inlets. In the Display's "more" panel:
+
+1. Set **decimals** to `0` on all three lines.
+2. Set line 1's **format** to `<1:2>:<2:2>:<3:2>`.
+3. Tick **blank** on lines 2 and 3.
+
+Line 1 then shows `14:05:09`.
+
+**Act on it.** The outlets are ordinary numbers, so IfThen can trigger something at a given hour or minute.
 
 ## Settings ("more" panel)
 
-- **Device** - must be **Network**; pick the board from the ip/port fields (or use the left panel's default Device, applied automatically to new hardware widgets).
-- **pin** - only shown for the single-wire sensors (DHT11, Ultrasonic). The board pin it's wired to; **defaults to `D7`**.
-- **mode** - only shown for sensors that offer it (currently the light sensor). Which of the sensor's own readings to use.
-- **input range** (min/max) - the expected range of the raw sensor reading. Pre-filled with a sensible default per sensor; widen or narrow it to taste.
-- **output range** (min/max) - the range sent out the outlet. Defaults to NTK's usual `0`-`1023` convention, except Temp & Humidity, which defaults to a 1:1 passthrough so the outlet reads real-world °C/% directly.
-- **ease** / **smooth** - amount of easing/smoothing applied when those options are turned on in the widget body.
+- **Device** - must be **Network**. Set the board's address and port (or use the left panel's default Device, which is applied to new hardware widgets automatically).
+- **pin** - only shown for the single-wire sensors (Temp & Humidity, Ultrasonic). The board pin the sensor is wired to; defaults to `D7`.
+- **mode** - only shown for the Light sensor. Which of its readings to use.
+- **input range** (min/max) - the expected range of the sensor's own reading. Pre-filled per sensor.
+- **output range** (min/max) - the range sent out the outlet. `0`-`1023` for Accelerometer and Distance; for the others it matches the input range, so the outlet carries the real-world value. Change it to rescale.
+- **ease** / **smooth** - how much easing or smoothing is applied when those are switched on in the widget body.
 
-A sensor with more than one reading (Accelerometer's X/Y/Z, Temp & Humidity's two values) shares **one** input/output range across all of them - if the readings are on very different scales, narrowing the range for the one you care about will over- or under-scale the other.
+A sensor with more than one reading (X/Y/Z, Temp and Humidity, Hour/Minute/Second) shares **one** input range and one output range across all of them.
+
+## Standalone patches and Monitor mode
+
+GroveIn works in a patch pushed to the board: the board reads the sensor itself, with the same scaling. In Monitor mode the widget shows the board's live values.
 
 ## Troubleshooting
 
-- **Stuck on "waiting"** - the selected sensor isn't actually wired to the board, isn't wired correctly, or (for the single-wire sensors) the **pin** field is wrong (it defaults to `D7`). Check the board's serial console for what it found at boot.
-- **A reading looks frozen at exactly 511.5 and never updates** - this is NTK's generic "never received a value" placeholder, not a sensor problem. It usually means a cable was drawn to this widget's outlet *before* switching sensors or editing the sensor's readings, and is still pointing at an outlet that no longer exists under that name. Delete and redraw the cable.
-- **Distance or light readings hit their max and stay there** - the sensor is out of range (nothing in front of the distance sensor, or the light sensor saturated in very bright light) rather than reporting an error; this is expected sensor behavior, not a bug.
-- **Values jump around a lot** - turn on **smo** (smoothing) in the widget body, and raise **smooth** in the "more" panel.
-- Multiple GroveIn widgets can point at the same board and the same sensor at once (e.g. two widgets both reading temperature) - they all receive the same live readings independently.
+- **Stuck on "waiting".** The selected sensor isn't attached, isn't wired correctly, or (for the single-wire sensors) the **pin** is wrong. Check the board's serial console for what it found when it started. A few seconds of "waiting" right after loading a patch or leaving Monitor mode is normal.
+- **The clock reads 0, 0, 0.** It hasn't been set, or it lost power with no battery fitted. See "Using the clock".
+- **The clock is an hour out.** Daylight saving changed. Update `UTC_OFFSET_HOURS` and run the set script again.
+- **A reading is frozen at exactly 511.5.** That is NTK's "never received a value" placeholder, not a sensor fault. It usually means a cable was drawn from this widget's outlet before you switched sensors, and it still points at an outlet that no longer exists. Delete and redraw the cable.
+- **Distance or light sits at its maximum.** The sensor is out of range (nothing in front of the distance sensor, or the light sensor saturated). That is how these sensors report it.
+- **Values jump around.** Switch on **smo** in the widget body and raise **smooth** in the "more" panel.
+- **Two widgets, one sensor.** Several GroveIn widgets can read the same sensor on the same board at once; each gets the same live readings.
