@@ -221,6 +221,22 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		 * @return {void}
 		 */
 		processSignalChain: function() {
+			// While this widget is being monitored its outlet values are
+			// the BOARD's, written straight into the model by
+			// MonitorController - don't recompute them here from the
+			// widget's own raw readings, which stopped arriving when
+			// monitoring took over the connection. This override lacked
+			// the guard WidgetMulti's own processSignalChain has (see its
+			// comment), so every monitored value was immediately
+			// overwritten with a stale one: GroveIn's outlets, and
+			// everything wired to them, froze in Monitor mode while the
+			// board itself carried on (found 2026-10-09 with the Clock
+			// feeding a Display).
+			if (window.app.monitoring && window.app.monitoring.active &&
+				window.app.monitoring.wids && window.app.monitoring.wids[this.model.get('wid')]) {
+				return;
+			}
+
 			var outputs = this.model.get('outs');
 
 			if(!outputs) { return; }
