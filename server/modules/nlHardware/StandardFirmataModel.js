@@ -755,6 +755,16 @@ module.exports = function(five) {
 				// already-connected path) - crashing anything below that
 				// reads `self`.
 				var retryModel = this;
+				// An instance that has been closed will never connect -
+				// stop here instead of retrying every 500ms for the life
+				// of the server. Loading a patch creates and discards a
+				// couple of instances for the same device before one
+				// sticks (see nlMultiClientSync.js's
+				// pruneOrphanedHardwareModels), and a request that
+				// arrived for one of the discarded ones is simply lost;
+				// the widget that sent it has to ask again (GroveSensor
+				// does - see its subscribeSensor).
+				if(retryModel._closing) { return; }
 				setTimeout(function() {
 					retryModel.setIOMode(pin, mode, extraOptions);
 				}, 500);

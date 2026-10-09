@@ -11,6 +11,12 @@ define([
 function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView, WidgetSettingsView, Template, sensorCatalog){
 	'use strict';
 
+	// How long a subscribe may go unanswered before it is sent again (see
+	// subscribeSensor). Longer than the slowest sensor's first reading
+	// (DHT11, 1-2s) and than the ~5s a ".local" device address takes to
+	// resolve before the connection is even up.
+	var RESUBSCRIBE_AFTER_MS = 6000;
+
 	// Compact display of one scaled reading: whole number when it's
 	// effectively an integer (the usual 0-1023 case), one decimal
 	// otherwise (real-unit readings like DHT11 °C).
@@ -665,6 +671,26 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 			this.model.set('sensorStatus', 'waiting');
 
+			// Ask again for as long as nothing has come back. The request
+			// is a one-shot message with no acknowledgement, and it can be
+			// lost: on a patch load the server creates and discards a
+			// couple of connections to the device before one sticks, and
+			// a subscribe addressed to a discarded one never reaches the
+			// board - the widget then sat on "waiting" forever (found
+			// 2026-10-09 reloading a patch with the Clock sensor). A
+			// repeat is harmless: the firmware drops the old subscription
+			// and starts a fresh one. Stops as soon as a reading arrives
+			// (sensorStatus leaves 'waiting'), the widget is switched off
+			// or removed, or a different sensor is picked.
+			var self = this;
+			clearTimeout(this.resubscribeTimer);
+			this.resubscribeTimer = setTimeout(function() {
+				if(self.removed || self.model.get('active') !== true) { return; }
+				if(self.model.get('sensorStatus') !== 'waiting') { return; }
+				if(String(self.model.get('sensor')) !== String(sensorId)) { return; }
+				self.subscribeSensor(sensorId);
+			}, RESUBSCRIBE_AFTER_MS);
+
 			window.app.vent.trigger('Widget:hardwareSwitch', {
 				deviceType: this.sources[0].model.get('type') + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),
 				port: sensorId,
@@ -795,6 +821,8 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		 * @return {void}
 		 */
 		onRemove: function() {
+			this.removed = true;
+			clearTimeout(this.resubscribeTimer);
 			window.app.timingController.removeFrameCallback(this.localProcessSignalChain, this);
 			window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
 			this.unMapAllHardwareInlets();
