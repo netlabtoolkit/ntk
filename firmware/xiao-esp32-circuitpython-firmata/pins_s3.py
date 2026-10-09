@@ -466,4 +466,72 @@ GROVE_SENSOR_CATALOG[4] = {
 # whether a sensor is actually wired up isn't knowable until a widget
 # subscribes with a real pin.
 
+# Optional: real-time clock (PCF8563), I2C, fixed address 0x51 - the
+# battery-backed clock chip on the Seeed XIAO expansion board (coin cell
+# on the back), which keeps time with the board unpowered. Not a Grove
+# module, but it sits on the same I2C bus and reads the same way, so it
+# is offered through the GroveSensor widget like the sensors above.
+# GroveSensor catalog entry 5 - three readings: hour (0-23), minute,
+# second.
+#
+# READ ONLY. Nothing here sets the clock: run firmware/test/test_rtc.py
+# once to set it from an internet time server (it also carries the time
+# zone - the chip just counts whatever local time it was given, with no
+# notion of zones or daylight saving). Until that's been done, or after
+# the battery has been out, the chip's own "lost power" flag is set and
+# its time is garbage; read() then returns all zeros rather than
+# nonsense values.
+#
+# Driven directly over I2C (three BCD registers from 0x02), no driver
+# library - the bus lock is taken per read and released again, since the
+# other I2C devices above (and the OLED) share this same bus.
+#
+# Hardware-verified 2026-10-09 on a XIAO ESP32-S3 Sense with the
+# expansion board, through to the GroveSensor widget's three outlets,
+# and the battery held the time across a few minutes unpowered. Not
+# tried on a C6.
+_PCF8563_ADDRESS = 0x51
+
+try:
+    _clock_i2c = board.I2C()
+    while not _clock_i2c.try_lock():
+        pass
+    try:
+        _clock_present = _PCF8563_ADDRESS in _clock_i2c.scan()
+    finally:
+        _clock_i2c.unlock()
+    if not _clock_present:
+        raise OSError("no PCF8563")
+
+    _clock_raw = bytearray(3)
+    _clock_reg = bytes([0x02])  # seconds, then minutes, hours
+
+    def _bcd(value):
+        return (value >> 4) * 10 + (value & 0x0F)
+
+    def _read_clock():
+        if not _clock_i2c.try_lock():
+            # Something else is mid-transaction on the bus - skip this
+            # poll rather than wait; firmata_server.py's update() treats
+            # a raised read as "no reading this time".
+            raise OSError("I2C bus busy")
+        try:
+            _clock_i2c.writeto_then_readfrom(_PCF8563_ADDRESS, _clock_reg, _clock_raw)
+        finally:
+            _clock_i2c.unlock()
+        if _clock_raw[0] & 0x80:  # "voltage low" flag - time was lost, never set since
+            return [0, 0, 0]
+        return [_bcd(_clock_raw[2] & 0x3F), _bcd(_clock_raw[1] & 0x7F), _bcd(_clock_raw[0] & 0x7F)]
+
+    GROVE_SENSOR_CATALOG[5] = {
+        "read": _read_clock,
+        # The seconds reading only changes once a second; 250ms keeps
+        # the widget within a quarter second of the chip without
+        # spending bus time on re-reading the same value.
+        "min_interval_ms": 250,
+    }
+    _found_sensors.append("PCF8563 clock")
+except Exception:
+    pass
+
 print("Grove sensors found:", ", ".join(_found_sensors) if _found_sensors else "none")

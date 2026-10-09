@@ -199,5 +199,30 @@ define([], function() {
             range: {floor: 0, ceiling: 3500},
             outputRange: {floor: 0, ceiling: 3500},
         },
+        // Firmware side: pins.py's GROVE_SENSOR_CATALOG entry 5. Not a
+        // Grove module - the battery-backed clock chip on the Seeed XIAO
+        // expansion board, on the same I2C bus, read the same way.
+        // Read only: the clock is set by running firmware/test/
+        // test_rtc.py on the board (see pins.py's comment), and reads
+        // 0, 0, 0 until it has been. Hardware-verified end to end
+        // 2026-10-09 (XIAO ESP32-S3 Sense).
+        5: {
+            label: 'Clock',
+            deviceId: 'PCF8563',
+            tested: true,
+            readings: [
+                {key: 'hour', label: 'Hour', unit: ''},
+                {key: 'minute', label: 'Minute', unit: ''},
+                {key: 'second', label: 'Second', unit: ''},
+            ],
+            // One shared range for all three readings (same constraint
+            // as the accelerometer's X/Y/Z) - 0-59 covers minutes and
+            // seconds exactly and hours (0-23) with room to spare.
+            range: {floor: 0, ceiling: 59},
+            // 1:1 passthrough, same as DHT11/TSL2561 - the outlets read
+            // the real hour, minute and second, not a 0-1023 scaling
+            // of them.
+            outputRange: {floor: 0, ceiling: 59},
+        },
     };
 });
