@@ -31,6 +31,7 @@ function(Backbone, rivets, WidgetView, Template, MatchColor){
 	// object's identity doesn't change frame-to-frame the way a gesture
 	// does, so this is plenty responsive.
 	var DETECT_INTERVAL_MS = 100;
+	var TEST_IMAGE_BUTTON_TEXT = 'test with an image file\u2026';
 	// 1-NN cosine distance -> 0-100% match level. MediaPipe's MobileNet
 	// embeddings are L2-normalized, so cosine distance lands in roughly
 	// [0, 1]; the same object tends to sit near 0.05-0.2 and a different
@@ -121,6 +122,9 @@ function(Backbone, rivets, WidgetView, Template, MatchColor){
 			this.embedder = null;
 			this.loadingModels = null;
 			this.videoEl = null;
+			// A still image being tested in place of the camera (see
+			// testWithImageFile) - null when the camera is the source.
+			this.testImage = null;
 			this.canvasEl = null;
 			this.cropCanvas = null;
 			this.lastDetectMs = 0;
@@ -225,6 +229,7 @@ function(Backbone, rivets, WidgetView, Template, MatchColor){
 				this.videoEl = this.$('.objectVideo').get(0);
 				this.canvasEl = this.$('.objectCanvas').get(0);
 				this.cropCanvas = document.createElement('canvas');
+				this.updateTestImageButton();
 				this.primeCameraPermission();
 
 				if(this.model.get('active')) {
@@ -531,8 +536,17 @@ function(Backbone, rivets, WidgetView, Template, MatchColor){
 		},
 
 		frameTick: function() {
-			if(!this.model.get('active')) { return; }
-			if(!this.detector || !this.embedder || !this.videoEl || this.videoEl.readyState < 2) { return; }
+			// A test image stands in for the camera for as long as it's
+			// set, and is processed on every tick just as a camera frame
+			// would be - it works with the camera switched off too, which
+			// is the point of testing without one.
+			var source = this.testImage;
+			if(!source) {
+				if(!this.model.get('active')) { return; }
+				if(!this.videoEl || this.videoEl.readyState < 2) { return; }
+				source = this.videoEl;
+			}
+			if(!this.detector || !this.embedder) { return; }
 
 			var now = performance.now();
 			if(now - this.lastDetectMs < DETECT_INTERVAL_MS) { return; }
@@ -541,7 +555,7 @@ function(Backbone, rivets, WidgetView, Template, MatchColor){
 			// Timing.js's tick() has no try/catch - an uncaught throw here
 			// kills every widget's frame callbacks, not just this one.
 			try {
-				this.processFrame(this.videoEl);
+				this.processFrame(source);
 			}
 			catch(err) {
 				this.model.set('statusMessage', 'Recognition error: ' + err.message);
@@ -664,6 +678,13 @@ function(Backbone, rivets, WidgetView, Template, MatchColor){
 			var ctx = this.canvasEl.getContext('2d');
 			var cw = this.canvasEl.width, ch = this.canvasEl.height;
 			ctx.clearRect(0, 0, cw, ch);
+			// The canvas sits over the camera preview. A test image is
+			// painted onto it (stretched to the canvas, the same mapping
+			// the box below uses) so the preview shows what is actually
+			// being recognised rather than the live camera behind it.
+			if(source && source === this.testImage) {
+				try { ctx.drawImage(source, 0, 0, cw, ch); } catch(e) { /* not drawable - box only */ }
+			}
 			if(!source || !primary || !primary.boundingBox) { return; }
 
 			var vw = source.videoWidth || source.naturalWidth || source.width || 1;
@@ -702,7 +723,16 @@ function(Backbone, rivets, WidgetView, Template, MatchColor){
 		// image chosen from disk, so a patch's classification / transition
 		// logic can be built and checked before wiring up a camera. Same
 		// /localImage route the Image widget uses.
+		//
+		// The image REPLACES the camera as the source until the same
+		// button (now "back to camera") is clicked again. It used to be
+		// run through the pipeline exactly once: with the camera on, the
+		// next camera frame 100ms later overwrote the result (a brief
+		// flash of the box, then nothing), and with it off a single frame
+		// could never hold a match anyway - matches are kept alive by
+		// being seen again on following frames.
 		testWithImageFile: function() {
+			if(this.testImage) { this.setTestImage(null); return; }
 			if(app.server || !window.ntkElectron || !window.ntkElectron.pickImageFile) { return; }
 			var self = this;
 			window.ntkElectron.pickImageFile().then(function(filePath) {
@@ -711,13 +741,35 @@ function(Backbone, rivets, WidgetView, Template, MatchColor){
 					var img = new Image();
 					img.onload = function() {
 						self.model.set('statusMessage', '');
-						try { self.processFrame(img); }
-						catch(err) { self.model.set('statusMessage', 'Test image error: ' + err.message); }
+						self.setTestImage(img);
 					};
 					img.onerror = function() { self.model.set('statusMessage', "Couldn't load that image"); };
 					img.src = '/localImage?path=' + encodeURIComponent(filePath);
 				});
+			}).catch(function(err) {
+				self.model.set('statusMessage', 'Test image error: ' + (err && err.message ? err.message : err));
 			});
+		},
+
+		// The button turns into the way back to the camera while an image
+		// is being tested. Set on the element rather than through a model
+		// field, so "back to camera" can't be saved into a patch and come
+		// back on a widget that has no test image.
+		updateTestImageButton: function() {
+			this.$('.testImageButton').text(this.testImage ? 'back to camera' : TEST_IMAGE_BUTTON_TEXT);
+		},
+
+		// img, or null to go back to the camera.
+		setTestImage: function(img) {
+			this.testImage = img || null;
+			this.updateTestImageButton();
+			if(!this.testImage) {
+				// Wipe the painted image off the preview; the label and
+				// any match clear themselves as camera frames (or the
+				// match timeout) take over.
+				this.drawOverlay(null, null);
+				if(!this.model.get('active')) { this.model.set({cocoLabel: '', cocoConfidence: 0}); }
+			}
 		},
 
 	});
