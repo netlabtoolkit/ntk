@@ -43,6 +43,27 @@ function(Backbone, rivets, WidgetView, Template){
 				line2Append: this.model.get('line2Append') || '',
 				line3Prepend: this.model.get('line3Prepend') || '',
 				line3Append: this.model.get('line3Append') || '',
+				// Decimal places a NUMBER on each line is shown with (see
+				// formatValue). 2 is the long-standing behaviour; 0 is
+				// for whole-number values such as a clock's hour.
+				line1Decimals: this.model.get('line1Decimals') === undefined ? 2 : this.model.get('line1Decimals'),
+				line2Decimals: this.model.get('line2Decimals') === undefined ? 2 : this.model.get('line2Decimals'),
+				line3Decimals: this.model.get('line3Decimals') === undefined ? 2 : this.model.get('line3Decimals'),
+				// Optional per-line format (see composeFormat). When set
+				// it replaces that line's prepend + value + append, and
+				// can use any of the three inputs: "<1:2>:<2:2>:<3:2>"
+				// turns hour/minute/second into "14:05:09" on one line.
+				// Per-line "blank" checkbox: the line shows nothing, whatever
+				// is wired into its inlet. For an inlet that is only there
+				// to feed another line's format (minute and second in the
+				// time readout above would otherwise also appear on lines
+				// 2 and 3).
+				line1Blank: this.model.get('line1Blank') === true,
+				line2Blank: this.model.get('line2Blank') === true,
+				line3Blank: this.model.get('line3Blank') === true,
+				line1Format: this.model.get('line1Format') || '',
+				line2Format: this.model.get('line2Format') || '',
+				line3Format: this.model.get('line3Format') || '',
 			});
 
 			// Composes the initial line1Text/line2Text/line3Text so the
@@ -111,7 +132,8 @@ function(Backbone, rivets, WidgetView, Template){
 			// second pass from our own write below).
 			var onlyComputedChanged = true;
 			for(var key in changed) {
-				if(key !== 'line1Text' && key !== 'line2Text' && key !== 'line3Text') {
+				if(key !== 'line1Text' && key !== 'line2Text' && key !== 'line3Text' &&
+				   key !== 'line1Value' && key !== 'line2Value' && key !== 'line3Value') {
 					onlyComputedChanged = false;
 					break;
 				}
@@ -224,23 +246,6 @@ function(Backbone, rivets, WidgetView, Template){
 				rivets.formatters.isNetworkDeviceType = function(deviceType) {
 					return deviceType === 'network';
 				};
-				// More panel's prepend|value|append preview - a pure
-				// function of v (no `this`), so, like isNetworkDeviceType
-				// above, it's harmless that rivets.formatters is one
-				// global registry shared across every Display instance -
-				// they'd all register the exact same behavior anyway.
-				// Kept as a duplicate of formatValue() rather than a
-				// bound reference to one specific instance's method,
-				// since a closure over a particular widget's `this`
-				// here would silently apply to every OTHER Display
-				// widget's binding too once multiple exist on canvas.
-				rivets.formatters.displayValuePreview = function(v) {
-					if(v === undefined || v === null || v === '') { return ''; }
-					if(typeof v === 'number') {
-						return v.toFixed(2);
-					}
-					return String(v);
-				};
 			}
 
 			WidgetView.prototype.onRender.call(this);
@@ -259,26 +264,69 @@ function(Backbone, rivets, WidgetView, Template){
 				var prepend = this.model.get('line' + i + 'Prepend') || '';
 				var append = this.model.get('line' + i + 'Append') || '';
 				var v = this.model.get('in' + i);
-				var vText = this.formatValue(v);
-				this.model.set('line' + i + 'Text', prepend + vText + append);
+				var vText = this.formatValue(v, this.model.get('line' + i + 'Decimals'));
+				// line<i>Value is the formatted value on its own - the
+				// more panel's preview between the prepend/append fields
+				// binds to it, so the preview and what is sent can't
+				// disagree about the number of decimals.
+				this.model.set('line' + i + 'Value', vText);
+				var format = this.model.get('line' + i + 'Format');
+				var text = (typeof format === 'string' && format !== '') ?
+					this.composeFormat(format) : prepend + vText + append;
+				if(this.model.get('line' + i + 'Blank') === true) { text = ''; }
+				this.model.set('line' + i + 'Text', text);
 			}
 		},
 
-		// Numeric inputs are always shown to exactly 2 decimal places -
-		// a wired-in value is often a raw sensor/computed reading with
-		// many more digits than the OLED has room to show, or than
-		// makes sense to a viewer, and a fixed hundredths precision
-		// (5 -> "5.00", not just "5") makes a column of these line up
-		// consistently rather than jumping width depending on whatever
-		// happened to be connected. Non-numeric values (strings) pass
-		// through unchanged. Shared by rebuild() (what actually gets
-		// sent) and the more panel's live value preview (rv-text in
-		// the template), so both always agree on what the "value"
-		// piece of prepend|value|append is.
-		formatValue: function(v) {
+		// Numeric inputs are shown to a FIXED number of decimal places,
+		// set per line in the "more" panel (default 2). Fixed, rather
+		// than "as many as the number happens to have": a wired-in
+		// value is often a raw sensor/computed reading with many more
+		// digits than the OLED has room for, and a constant precision
+		// (5 -> "5.00") keeps a line from jumping width as the value
+		// changes. 0 gives whole numbers (14, not 14.00) for values
+		// that are whole by nature - a clock's hour, a count. A missing
+		// or unusable setting falls back to 2; more than 4 is capped.
+		// Non-numeric values (strings) pass through unchanged. The
+		// standalone interpreter's _eval_display mirrors this.
+		// A line's format string, with its placeholders filled in - the
+		// same <1> <2> <3> convention as Webhook's URL template, where
+		// the number is one of this widget's three INPUTS (not lines):
+		//   <2>     input 2, formatted as on its own line (formatValue
+		//           with line 2's decimals)
+		//   <2:2>   the same, with a number's whole part padded with
+		//           zeros to at least 2 digits (5 -> "05") - what a time
+		//           readout needs. One digit, 1-9; text values are never
+		//           padded.
+		// Anything else in the string is kept as typed. The standalone
+		// interpreter's _display_format mirrors this exactly.
+		composeFormat: function(format) {
+			var self = this;
+			return format.replace(/<([123])(?::(\d))?>/g, function(match, n, pad) {
+				var v = self.model.get('in' + n);
+				var text = self.formatValue(v, self.model.get('line' + n + 'Decimals'));
+				if(pad && typeof v === 'number') { text = self.zeroPad(text, parseInt(pad, 10)); }
+				return text;
+			});
+		},
+
+		// "5" -> "05", "5.25" -> "05.25", "-5" -> "-05" for width 2.
+		zeroPad: function(text, width) {
+			var negative = text.charAt(0) === '-';
+			var body = negative ? text.slice(1) : text;
+			var dot = body.indexOf('.');
+			var whole = dot === -1 ? body : body.slice(0, dot);
+			var rest = dot === -1 ? '' : body.slice(dot);
+			while(whole.length < width) { whole = '0' + whole; }
+			return (negative ? '-' : '') + whole + rest;
+		},
+
+		formatValue: function(v, decimals) {
 			if(v === undefined || v === null || v === '') { return ''; }
 			if(typeof v === 'number') {
-				return v.toFixed(2);
+				var places = parseInt(decimals, 10);
+				if(isNaN(places) || places < 0) { places = 2; }
+				return v.toFixed(Math.min(places, 4));
 			}
 			return String(v);
 		},

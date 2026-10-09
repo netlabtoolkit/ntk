@@ -2288,6 +2288,34 @@ body.ntk-monitoring .monitorBlockOverlay {
             margin-bottom: 4px;
             white-space: nowrap;
 
+            // Optional format string, full width under prepend|value|append.
+            .lineFormat {
+                width: 134px;
+                box-sizing: border-box;
+                font-size: 0.8em;
+                margin-top: 2px;
+            }
+
+            // "blank" checkbox, after decimals on the line's label row.
+            .lineBlank {
+                font-size: 0.8em;
+                color: #555;
+                margin-left: 4px;
+            }
+
+            // "decimals" + a one-digit field, on the line's label row.
+            .lineDecimals {
+                font-size: 0.8em;
+                color: #555;
+                margin-left: 6px;
+
+                input {
+                    width: 18px;
+                    box-sizing: border-box;
+                    text-align: center;
+                }
+            }
+
             .linePrepend, .lineAppend {
                 width: 48px;
                 box-sizing: border-box;
