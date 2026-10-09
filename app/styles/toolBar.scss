@@ -344,9 +344,16 @@
 		font-size: 0.75em;
 		color: #333;
 
+		// The box's one line of text ends in a URL, which has nowhere to
+		// wrap on its own and would run out of the 250px panel.
+		a {
+			color: #1a3f7a;
+			word-break: break-all;
+		}
+
 		// Overrides the panel-wide user-select:none set above (see the
 		// #toolBarRegion .settings, .addWidgets rule near the top of
-		// this file) - useful text to actually copy (an IP address),
+		// this file) - useful text to actually copy (a URL),
 		// unlike the rest of this drag-and-drop-heavy panel where
 		// accidental text selection is more annoying than useful.
 		-webkit-user-select: text;

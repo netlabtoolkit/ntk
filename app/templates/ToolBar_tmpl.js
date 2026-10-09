@@ -45,7 +45,7 @@
 	<div class="deviceStatusExplanation"></div>
 </div>
 <div class="networkInfo">
-	<div class="softApInfo">When your remote device is running SoftAP, use this IP: 192.168.4.1</div>
+	<div class="wifiInfo">For more information about connecting to your device over WiFi, go to <a href="https://www.netlabtoolkit.org/wifi-connections/" target="_blank">https://www.netlabtoolkit.org/wifi-connections/</a></div>
 </div>
 <span id="messages"></span>
 </div>
