@@ -235,3 +235,7 @@ and shipped. Its historical step-by-step plan is at
   Adafruit-IO-only CloudIn/CloudOut to generic, host-agnostic MQTT, and
   give them standalone on-device support like OSCIn/OSCOut — the
   feature that makes NTK a genuine IoT device authoring tool.
+- **[Device camera widget](device-camera-widget.md)** — CameraIn: pull
+  still frames from the XIAO ESP32-S3 Sense's camera over the existing
+  device connection and feed them to ObjectRecog through a new `image`
+  inlet. Plan only; starts with a hardware check of `espcamera`.
