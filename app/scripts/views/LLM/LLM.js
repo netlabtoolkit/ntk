@@ -60,14 +60,19 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 	// Shown before the model list has been fetched, or if the fetch fails.
 	var FALLBACK_MODELS = {
 		anthropic: ['claude-sonnet-5', 'claude-opus-5', 'claude-haiku-4-5', 'claude-fable-5-1'],
+		// GreenPT's own two models (language, reasoning) - shown until the
+		// live list arrives, which needs a key (see docs.greenpt.ai/models).
+		greenpt: ['green-l', 'green-r'],
 		ollama: [],
 	};
 	var DEFAULT_MODEL = {
 		anthropic: 'claude-sonnet-5',
+		greenpt: 'green-l',
 		ollama: '',
 	};
 	var DEFAULT_BASE_URL = {
 		anthropic: '',
+		greenpt: '',
 		ollama: 'http://localhost:11434',
 	};
 	// Which model field remembers the last one picked for each provider,
@@ -75,6 +80,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 	// resetting to DEFAULT_MODEL every time (see onProviderChange).
 	var LAST_MODEL_FIELD = {
 		anthropic: 'lastAnthropicModel',
+		greenpt: 'lastGreenptModel',
 		ollama: 'lastOllamaModel',
 	};
 	// Mirrored into localStorage (not just this widget's own model) so a
@@ -83,6 +89,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 	// deleted, but localStorage survives that.
 	var LAST_MODEL_STORAGE_KEY = {
 		anthropic: 'ntk.llm.lastModel.anthropic',
+		greenpt: 'ntk.llm.lastModel.greenpt',
 		ollama: 'ntk.llm.lastModel.ollama',
 	};
 	function writeStoredLastModel(provider, value) {
@@ -108,6 +115,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// (the same corruption as the anthropic case above, just in the
 		// other direction).
 		if(provider === 'ollama') { return !(/^claude-/).test(id); }
+		// GreenPT serves a mix of its own and other open-weight models
+		// (green-l, gemma4, gpt-oss-120b, ...) - no convention to check
+		// positively, but it never serves a Claude model.
+		if(provider === 'greenpt') { return !(/^claude-/).test(id); }
 		return true;
 	}
 	function readStoredLastModel(provider) {
@@ -219,6 +230,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				// now-deleted LLM widget last used.
 				lastOllamaModel: initialOllamaModel,
 				lastAnthropicModel: readStoredLastModel('anthropic'),
+				lastGreenptModel: readStoredLastModel('greenpt'),
 				// Longer than Text's fixed 400ms settle - a wired source like
 				// SpeechIn can pause briefly between words while still
 				// dictating, and firing an API call mid-utterance is more
@@ -495,12 +507,17 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				if(self.model.get('provider') !== requestedProvider) { return; }
 				if(res && res.models && res.models.length) {
 					self.modelList = res.models;
-					self.populateModelSelect();
+					// The provider's own list is the authority on what it
+					// can run - see populateModelSelect.
+					self.populateModelSelect(true);
 				}
 			});
 		},
 
-		populateModelSelect: function() {
+		// `fromProvider` is true when this.modelList has just come back
+		// from the provider itself (fetchModels), false/absent when it is
+		// only the built-in fallback list.
+		populateModelSelect: function(fromProvider) {
 			var select = this.modelSelectEl;
 			if(!select) { return; }
 			var provider = this.model.get('provider');
@@ -511,9 +528,22 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// a deliberate preference ordering (current flagship first),
 			// left as-is.
 			if(provider === 'ollama') { list.sort(); }
-			// A model from a saved patch that the provider no longer lists
-			// stays selectable.
-			if(current && list.indexOf(current) === -1) { list.unshift(current); }
+			// Against the built-in fallback list, a model that isn't in it
+			// stays selectable - the fallback is only a guess, and the
+			// model may well be real (a saved patch's, or one typed in).
+			// Against the provider's own list it does not: a model the
+			// provider doesn't have can't be run, and keeping it left the
+			// PREVIOUS provider's model sitting at the top of the dropdown
+			// after switching (e.g. an Ollama model under GreenPT). The
+			// selection then falls to this provider's default if it is
+			// listed, else the first model.
+			if(current && list.indexOf(current) === -1) {
+				if(fromProvider) {
+					current = list.indexOf(DEFAULT_MODEL[provider]) !== -1 ? DEFAULT_MODEL[provider] : list[0];
+				} else {
+					list.unshift(current);
+				}
+			}
 
 			select.innerHTML = '';
 			list.forEach(function(id) { select.appendChild(new Option(id, id)); });
@@ -841,6 +871,19 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				this.scheduleWarm();
 			}
 			if(changed.provider !== undefined) {
+				// The provider dropdown reaches the model through rivets
+				// BEFORE onProviderChange runs, so at this point `model`
+				// is still the previous provider's. Swap it for this
+				// provider's remembered/default one first - otherwise
+				// populateModelSelect below would not only list the old
+				// model but record it as this provider's "last used" one.
+				// A patch load sets provider and model together
+				// (changed.model is defined then) and keeps its own model.
+				if(changed.model === undefined) {
+					var remembered = this.model.get(LAST_MODEL_FIELD[changed.provider]);
+					if(remembered && !isPlausibleModelID(changed.provider, remembered)) { remembered = ''; }
+					this.model.set('model', remembered || DEFAULT_MODEL[changed.provider] || '');
+				}
 				this.resetModelList();
 				this.updateTempRange();
 				this.populateModelSelect();

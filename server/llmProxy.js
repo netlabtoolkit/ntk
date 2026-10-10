@@ -5,8 +5,10 @@
 // browser CORS. Wired up from electronApp.js; exposed to the renderer
 // through preload.js's contextBridge as window.ntkElectron.llm*.
 //
-// v1 providers: Anthropic (cloud, needs a key) and Ollama (local, no
-// key). Node 22 in the main process has global fetch - no HTTP dep.
+// Providers: Anthropic (cloud, needs a key), GreenPT (cloud, needs a
+// key - an OpenAI-compatible API, see docs.greenpt.ai) and Ollama
+// (local, no key). Node 22 in the main process has global fetch - no
+// HTTP dep.
 
 const fs = require('fs');
 const path = require('path');
@@ -15,6 +17,25 @@ const { ipcMain, shell, app } = require('electron');
 const ANTHROPIC_VERSION = '2023-06-01';
 const DEFAULT_ANTHROPIC_BASE = 'https://api.anthropic.com';
 const DEFAULT_OLLAMA_BASE = 'http://localhost:11434';
+// GreenPT's EU endpoint; includes the /v1 the OpenAI-style paths hang
+// off, so a base_url override must too (the US one is
+// https://api.us.greenpt.ai/v1).
+const DEFAULT_GREENPT_BASE = 'https://api.greenpt.ai/v1';
+// What "set up key" adds to an ai-keys.toml that predates GreenPT (the
+// file is only ever created from the example once). A live section with
+// a placeholder key, like the example's [anthropic] one - resolveGreenPT
+// ignores the placeholder. It was first written commented out, to be
+// uncommented by hand, and the very first use uncommented only the
+// api_key line: the key then belonged to whatever section came before
+// it ([anthropic], replacing that key) and GreenPT still had none.
+const GREENPT_KEYS_TEMPLATE = [
+	'',
+	'# GreenPT (https://greenpt.com) - create a key in your GreenPT account',
+	'# and paste it between the quotes below, replacing sk-...',
+	'[greenpt]',
+	'api_key = "sk-..."',
+	'',
+].join('\n');
 // How long Ollama keeps a model in memory after its last use. Ollama's own
 // default is 5 minutes, after which the next call pays the full load time
 // again - too short for a patch that sits idle between prompts. Sent with
@@ -60,7 +81,32 @@ function resolveAnthropic() {
 	return { key: null, source: 'none' };
 }
 
+// { key, source: 'env'|'file'|'none', baseURL? }
+function resolveGreenPT() {
+	if (process.env.GREENPT_API_KEY) {
+		return { key: process.env.GREENPT_API_KEY, source: 'env' };
+	}
+	const toml = readToml(keysFilePath());
+	if (toml.greenpt && toml.greenpt.api_key && toml.greenpt.api_key.indexOf('sk-...') !== 0) {
+		return { key: toml.greenpt.api_key, source: 'file', baseURL: toml.greenpt.base_url };
+	}
+	return { key: null, source: 'none' };
+}
+
 function trimSlash(u) { return String(u || '').replace(/\/+$/, ''); }
+
+function greenptErrorMessage(status, text) {
+	let detail = '';
+	try {
+		const body = JSON.parse(text);
+		detail = (body.error && (body.error.message || body.error)) || body.message || '';
+	} catch (e) { detail = String(text || '').slice(0, 200); }
+	if (status === 401 || status === 403) return 'Invalid GreenPT API key';
+	if (status === 404) return 'Model not found: check the model id';
+	if (status === 429) return 'Rate limited or out of credit — wait a moment and retry';
+	if (status >= 500) return 'GreenPT service error (' + status + ')';
+	return 'GreenPT error ' + status + (detail ? ': ' + String(detail).slice(0, 200) : '');
+}
 
 function anthropicErrorMessage(status, text) {
 	let detail = '';
@@ -131,6 +177,49 @@ async function anthropicComplete(opts) {
 		return { text: text, model: data.model, tempDropped: tempDropped };
 	} catch (e) {
 		return { error: 'Could not reach Anthropic: ' + e.message, code: 'network' };
+	}
+}
+
+// OpenAI-style chat completion: system + user messages in, the first
+// choice's message content out.
+async function greenptComplete(opts) {
+	const cfg = resolveGreenPT();
+	if (!cfg.key) {
+		return { error: 'No GreenPT API key. Use "set up key" to add one.', code: 'no-key' };
+	}
+	const base = trimSlash(opts.baseURL || cfg.baseURL || DEFAULT_GREENPT_BASE);
+	const messages = [];
+	if (opts.system) messages.push({ role: 'system', content: String(opts.system) });
+	messages.push({ role: 'user', content: String(opts.user || '') });
+
+	const body = {
+		model: opts.model,
+		messages: messages,
+		max_tokens: parseInt(opts.maxTokens, 10) || 1024,
+		stream: false,
+	};
+	if (typeof opts.temperature === 'number' && !isNaN(opts.temperature)) body.temperature = opts.temperature;
+
+	try {
+		const res = await fetch(base + '/chat/completions', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + cfg.key },
+			body: JSON.stringify(body),
+		});
+		if (!res.ok) {
+			const t = await res.text();
+			return { error: greenptErrorMessage(res.status, t), code: String(res.status) };
+		}
+		const data = await res.json();
+		const message = data.choices && data.choices[0] && data.choices[0].message;
+		let text = message && message.content;
+		// Content is normally a string; tolerate the array-of-parts form too.
+		if (Array.isArray(text)) {
+			text = text.map(function(part) { return (part && part.text) || ''; }).join('');
+		}
+		return { text: text || '', model: data.model };
+	} catch (e) {
+		return { error: 'Could not reach GreenPT: ' + e.message, code: 'network' };
 	}
 }
 
@@ -211,6 +300,28 @@ async function anthropicModels() {
 	}
 }
 
+async function greenptModels(baseURL) {
+	const cfg = resolveGreenPT();
+	if (!cfg.key) return { error: 'no-key' };
+	const base = trimSlash(baseURL || cfg.baseURL || DEFAULT_GREENPT_BASE);
+	try {
+		const res = await fetch(base + '/models', { headers: { 'authorization': 'Bearer ' + cfg.key } });
+		if (!res.ok) return { error: String(res.status) };
+		const data = await res.json();
+		// The same key also reaches GreenPT's embedding, reranking, OCR and
+		// speech models, which /models lists alongside the chat ones -
+		// leave those out of a dropdown that can only chat.
+		const ids = (data.data || []).map(function(m) { return m.id; }).filter(function(id) {
+			// (The list carries no capability field to go by, only ids;
+			// "bge-" is an embedding family that doesn't say so.)
+			return id && !/embed|rerank|ocr|whisper|speech|transcri|tts|^bge-/i.test(id);
+		});
+		return { models: ids };
+	} catch (e) {
+		return { error: 'network' };
+	}
+}
+
 async function ollamaModels(baseURL) {
 	const base = trimSlash(baseURL || DEFAULT_OLLAMA_BASE);
 	try {
@@ -229,7 +340,7 @@ module.exports = function registerLLMHandlers() {
 	ipcMain.handle('llm-key-status', function(event, opts) {
 		opts = opts || {};
 		if (opts.provider === 'ollama') return { source: 'none-needed', hasKey: true };
-		const cfg = resolveAnthropic();
+		const cfg = opts.provider === 'greenpt' ? resolveGreenPT() : resolveAnthropic();
 		return { source: cfg.source, hasKey: !!cfg.key, path: keysFilePath() };
 	});
 
@@ -240,6 +351,14 @@ module.exports = function registerLLMHandlers() {
 				fs.copyFileSync(path.join(__dirname, 'ai-keys.toml.example'), p);
 			} catch (e) { /* fall through to opening the folder */ }
 		}
+		// A keys file created before GreenPT existed has no [greenpt]
+		// section to fill in - add a commented-out one. Appended only,
+		// and only once; nothing already in the file is touched.
+		try {
+			if (fs.existsSync(p) && !/^\s*#?\s*\[greenpt\]/m.test(fs.readFileSync(p, 'utf8'))) {
+				fs.appendFileSync(p, GREENPT_KEYS_TEMPLATE);
+			}
+		} catch (e) { /* read-only or unreadable - the user can still add it by hand */ }
 		if (fs.existsSync(p)) shell.showItemInFolder(p);
 		else shell.openPath(app.getPath('userData'));
 		return p;
@@ -248,6 +367,7 @@ module.exports = function registerLLMHandlers() {
 	ipcMain.handle('llm-models', function(event, opts) {
 		opts = opts || {};
 		if (opts.provider === 'ollama') return ollamaModels(opts.baseURL);
+		if (opts.provider === 'greenpt') return greenptModels(opts.baseURL);
 		return anthropicModels();
 	});
 
@@ -261,6 +381,7 @@ module.exports = function registerLLMHandlers() {
 	ipcMain.handle('llm-complete', function(event, opts) {
 		opts = opts || {};
 		if (opts.provider === 'ollama') return ollamaComplete(opts);
+		if (opts.provider === 'greenpt') return greenptComplete(opts);
 		return anthropicComplete(opts);
 	});
 };

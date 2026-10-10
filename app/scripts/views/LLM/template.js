@@ -69,6 +69,7 @@
                 <select class="providerSelect" rv-value="widget:provider">
                     <option value="ollama">Ollama (local)</option>
                     <option value="anthropic">Anthropic</option>
+                    <option value="greenpt">GreenPT</option>
                 </select>
             </div>
             <div class="f">

@@ -2,10 +2,11 @@
 
 The LLM widget sends a prompt to a large language model and sends the model's reply out its outlet. Feed it a question or a block of text (typed into the widget, or wired into the **prompt** inlet), pick how it should respond, and the answer comes out the **text** outlet as a string — ready for a Text widget, SpeechOut, CloudOut, or anything else that takes text.
 
-It talks to two kinds of model:
+It can use three providers:
 
 - **Ollama (local)** — the default. Runs models on your own machine, no API key, nothing leaves the computer. You need [Ollama](https://ollama.com) installed and running, with at least one model pulled (`ollama pull llama3.2`).
 - **Anthropic** — Claude models over the API. Fast and high quality, but needs an API key and sends your prompt to Anthropic's servers.
+- **GreenPT** — open-weight models (GreenPT's own *green-l* and *green-r*, plus others such as Gemma and Mistral) hosted in Europe on renewable energy. Needs a [GreenPT](https://greenpt.com) API key and sends your prompt to GreenPT's servers.
 
 The LLM widget needs the NTK **desktop app** — it does not work in a plain web browser. All model calls go through the app's background process, so your API key never touches the patch file or the browser.
 
@@ -24,7 +25,7 @@ With Ollama, the widget asks Ollama to load the chosen model into memory as soon
 
 The small status line under the send button shows `idle`, `loading`, `calling`, or an error (`no prompt`, `pick a model`, `Ollama not reachable`, a key problem, etc.).
 
-## Setting up an API key (Anthropic)
+## Setting up an API key (Anthropic or GreenPT)
 
 Switch **provider** to *Anthropic* in the "more" panel, then click **set up key**. That opens a file called `ai-keys.toml` in NTK's app data folder. Add your key:
 
@@ -35,7 +36,16 @@ api_key = "sk-ant-..."
 
 Save the file, then switch provider away from and back to *Anthropic* (or just wait a moment) — the model list refreshes automatically. The key row should now read "key found (ai-keys.toml)". Setting the `ANTHROPIC_API_KEY` environment variable works too and takes priority.
 
-The key lives only in that file — it is never written into the `.ntk` patch, so patches are safe to share.
+**GreenPT** works the same way: switch **provider** to *GreenPT*, click **set up key**, and fill in its section of the same file (one is added for you if the file doesn't have it yet — paste your key between the quotes, replacing `sk-...`, and leave the `[greenpt]` line above it as it is):
+
+```toml
+[greenpt]
+api_key = "sk-..."
+```
+
+Create the key in your GreenPT account. The `GREENPT_API_KEY` environment variable works too and takes priority. Until a key is in place the model list shows only *green-l* and *green-r*; with one, it lists everything your account can chat with.
+
+The keys live only in that file — they are never written into the `.ntk` patch, so patches are safe to share.
 
 ## Personality — shaping the response
 
@@ -47,7 +57,7 @@ Click **▸ personality** in the "more" panel to open it (closed by default — 
 - **purpose** — what the text is for: "an executive summary", "an essay", "an email", "a social media post", "a bulleted list"… or **other…** for your own. **(none)** adds no purpose instruction.
 - **audience** — "an executive", "an engineer", "a general reader", "a friend"… or **other…**. **(none)** adds no audience instruction.
 - **length** — a target word count. In **Rewrite** mode it's read as a percentage of the original instead (e.g. `50` = half as long).
-- **temperature** — higher = more varied and creative, lower = more focused and repeatable. The slider goes to **2.0** for Ollama, **1.0** for Anthropic.
+- **temperature** — higher = more varied and creative, lower = more focused and repeatable. The slider goes to **2.0** for Ollama and GreenPT, **1.0** for Anthropic.
 - **Markdown response** (on by default) — ask for the reply formatted as Markdown. Pair with a Text widget set to *Render Markdown* to show it formatted.
 - **extra instructions** — free text appended to the system prompt for anything the dropdowns don't cover.
 
@@ -68,10 +78,10 @@ A PDF that's scanned/image-only (no real text layer) shows "No extractable text 
 
 ## Settings ("more" panel)
 
-- **provider** — Ollama (local) or Anthropic.
-- **model** — populated from the provider automatically (on render, and whenever you switch provider). For Ollama it lists the models you've pulled, sorted alphabetically; for Anthropic, the current Claude models in their normal (current-flagship-first) order. A model saved in a patch stays selectable even if it's no longer listed. Switching provider and back restores whichever model you last picked for that provider, instead of resetting to a default each time.
+- **provider** — Ollama (local), Anthropic or GreenPT.
+- **model** — populated from the provider automatically (on render, and whenever you switch provider). For Ollama it lists the models you've pulled, sorted alphabetically; for Anthropic, the current Claude models in their normal (current-flagship-first) order. Once the provider's own list has arrived, a selected model it doesn't offer (one saved in a patch, or left over from another provider) is dropped in favour of the provider's default or first model. Switching provider and back restores whichever model you last picked for that provider, instead of resetting to a default each time.
 - **max tokens** — hard cap on the reply length (default 1024). Raise it for long outputs.
-- **base URL** — override the provider endpoint. Defaults to `http://localhost:11434` for Ollama, blank (Anthropic's own) for Anthropic. Point it at a remote Ollama box to offload the work.
+- **base URL** — override the provider endpoint. Defaults to `http://localhost:11434` for Ollama, blank (the provider's own) for Anthropic and GreenPT. A GreenPT override must include the `/v1` (its US endpoint is `https://api.us.greenpt.ai/v1`). Point it at a remote Ollama box to offload the work.
 - **system prompt (assembled)** — read-only preview of what the personality settings produce.
 
 ## Notes
