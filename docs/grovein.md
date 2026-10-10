@@ -45,7 +45,7 @@ Only sensors actually attached to the board respond. I2C sensors are detected wh
 
 ## Using the clock
 
-**Set it once.** GroveIn only reads the clock. To set it, run the [`test_rtc.py`](https://github.com/netlabtoolkit/ntk/blob/master/firmware/test/test_rtc.py) script on the board (paste it into the REPL, or open it in Thonny and press Run). The script is in NTK's source on GitHub, under `firmware/test/`; it is not in the `CircuitPython/` folder of the download. It fetches the time from an internet time server over WiFi and writes it to the chip, so the board needs a network with internet access for that one step - not SoftAP mode. After that the coin cell keeps it running.
+**Set it once.** GroveIn only reads the clock. To set it, run the [`test_rtc.py`](https://github.com/netlabtoolkit/ntk/blob/master/firmware/test/test_rtc.py) script on the board (paste it into the REPL, or open it in Thonny and press Run). The script is in the `CircuitPython/` folder of the download (NTK 2026.10.4 and later), and in NTK's source on GitHub under `firmware/test/`. It fetches the time from an internet time server over WiFi and writes it to the chip, so the board needs a network with internet access for that one step - not SoftAP mode. After that the coin cell keeps it running.
 
 - The **time zone** is a constant at the top of that file (`UTC_OFFSET_HOURS`). The chip has no notion of time zones or daylight saving: it counts on from whatever local time it was given, so run the script again when the clocks change.
 - Until it has been set, or after the battery has been out, the outlets read **0, 0, 0**.

@@ -56,6 +56,14 @@ const COMMON_FIRMWARE_SRC_DIR = path.join(__dirname, '..', 'firmware', 'common')
 // one on the dev machine's behalf.
 const FIRMWARE_FILES = ['code.py', 'ntk_firmata_main.py', 'oled_display.py', 'pins.py', 'pins_s3.py', 'pins_c6.py', 'standalone_interpreter.mpy'];
 const COMMON_FIRMWARE_FILES = ['boot.py', 'firmata_server.py', 'neopixel_output.py', 'settings-example.toml'];
+// Run-once utility scripts from firmware/test that a user of the
+// download needs, not just a developer with the repo - copied in beside
+// the firmware files. They are NOT part of the firmware: nothing imports
+// them and they only do anything when run by hand from the REPL/Thonny
+// (see the readme's "Clock" entry). test_rtc.py is the only way to set
+// the expansion board's clock chip, which GroveIn's Clock sensor reads.
+const FIRMWARE_UTILITY_SRC_DIR = path.join(__dirname, '..', 'firmware', 'test');
+const FIRMWARE_UTILITY_FILES = ['test_rtc.py'];
 const CIRCUITPYTHON_README = `# CircuitPython firmware for the Seeed XIAO ESP32-C6
 
 Turns a Seeed XIAO ESP32-C6 into an NTK "Network" device over WiFi - no
@@ -203,6 +211,17 @@ Supported so far:
   pin field. Hardware-verified; updates roughly every 300ms (slower than
   most sensors here - this module needs more settle time between pings
   than its own datasheet suggests).
+- **Clock (PCF8563)** - the battery-backed clock chip on the Seeed XIAO
+  expansion board (not a Grove module, but on the same I2C bus). Gives
+  hour, minute and second. GroveIn only READS it - set it once by
+  running \`test_rtc.py\` from this folder on the board (open it in
+  Thonny and press Run, or paste it into the REPL). That script takes
+  the time from an internet time server over WiFi, so the board needs a
+  network with internet access for that one step (not SoftAP mode); the
+  time zone is the \`UTC_OFFSET_HOURS\` constant at the top of the
+  file, and the chip does not adjust for daylight saving. \`test_rtc.py\`
+  does not need to be copied onto the board and is not part of the
+  firmware. Hardware-verified on a XIAO ESP32-S3 Sense.
 
 An accelerometer can also still be read the older way, as three
 ordinary-looking analog pins, **A3**, **A4**, and **A5**, so an AnalogIn
@@ -274,6 +293,9 @@ function bundleCircuitPythonFirmware(destDir) {
 	}
 	for (const file of FIRMWARE_FILES) {
 		fs.copyFileSync(path.join(FIRMWARE_SRC_DIR, file), path.join(destDir, file));
+	}
+	for (const file of FIRMWARE_UTILITY_FILES) {
+		fs.copyFileSync(path.join(FIRMWARE_UTILITY_SRC_DIR, file), path.join(destDir, file));
 	}
 	// code.py's own "Firmware build" stamp (a comment at the top of the
 	// file, plus a matching print()) is hand-maintained during manual/dev
