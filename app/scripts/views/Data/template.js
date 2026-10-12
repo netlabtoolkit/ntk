@@ -62,7 +62,7 @@
 
                 </textarea>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/data/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/data/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

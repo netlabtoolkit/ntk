@@ -28,7 +28,7 @@
             <div class="browseAudio">Browse&hellip;</div>
             <div class="localAudioPath" rv-show="widget:localAudioPath" rv-text="widget:localAudioPath"></div>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/audio/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/audio/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

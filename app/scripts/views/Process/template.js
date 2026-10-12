@@ -56,7 +56,7 @@
             <label class="narrowLabel wordLabel">ease</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:easingAmount"><br>
             <label class="narrowLabel wordLabel">smooth</label> <input class='smoothingAmount moreParam' type="text" pattern="[0-9]*" rv-value="widget:smoothingAmount">
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/process/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/process/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

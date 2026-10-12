@@ -52,7 +52,7 @@
               <label class="wide-label">gamma value</label> <input class="moreParam" type="text" pattern="[0-9.]*" rv-value="widget:gammaValue">
             </div>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/analogout/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/analogout/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

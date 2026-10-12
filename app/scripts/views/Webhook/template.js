@@ -36,7 +36,7 @@
             <label>output</label> <span rv-text="widget:urlComputed">
 
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/webhook/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/webhook/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

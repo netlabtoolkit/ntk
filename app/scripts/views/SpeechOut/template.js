@@ -38,7 +38,7 @@
             <label>text</label>
             <textarea class="database" rv-value="widget:in2" rows="3" cols="70"></textarea>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/speechout/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/speechout/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

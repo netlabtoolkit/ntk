@@ -27,7 +27,7 @@
             <div class="browseImage">Browse&hellip;</div>
             <div class="localImagePath" rv-show="widget:localImagePath" rv-text="widget:localImagePath"></div>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/image/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/image/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

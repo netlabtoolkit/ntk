@@ -41,7 +41,7 @@
             <label>min ms</label> <input class="moreParam" style="margin-right:8px" name="sendInterval" type="text" pattern="[0-9]*" rv-value="widget:sendInterval">
             <label class="narrowLabel">avg</label> <input name="averageInputs" type="checkbox" rv-checked="widget:averageInputs">
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/cloudout/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/cloudout/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

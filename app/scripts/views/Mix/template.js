@@ -45,7 +45,7 @@
         <div class="content">
             <div class="inletValue"><input class="ignoreBlank" type="checkbox" rv-checked="widget:ignoreBlank" /> ignore blank inputs (latest)</div>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/mix/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/mix/" target="_blank">Widget help</a>
         </div>
     </div>
 

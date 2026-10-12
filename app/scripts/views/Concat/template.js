@@ -30,7 +30,7 @@
             <input class="separator moreParam" type="text" rv-value="widget:separator">
             <div class="hint">between each value &mdash; clear for none</div>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/concat/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/concat/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

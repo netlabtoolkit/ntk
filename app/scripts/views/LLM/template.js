@@ -190,7 +190,7 @@
             </div>
 
             <hr>
-            <a class="widgetHelpLink wide" href="https://www.netlabtoolkit.org/documentation/widgets-old/llm/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink wide" href="https://www.netlabtoolkit.org/documentation/widgets/llm/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

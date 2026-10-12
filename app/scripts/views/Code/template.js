@@ -36,7 +36,7 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content"><textarea class="filterFunction" rv-value="widget:filter"/><hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/code/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/code/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

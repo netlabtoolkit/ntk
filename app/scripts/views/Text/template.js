@@ -59,7 +59,7 @@
                 <span class="topKeywords"></span>
             </div>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/text/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/text/" target="_blank">Widget help</a>
         </div>
     </div>
 

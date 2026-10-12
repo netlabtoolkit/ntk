@@ -69,7 +69,7 @@
               <br><input class="lineFormat" type="text" placeholder="or format: &lt;1:2&gt;:&lt;2:2&gt;:&lt;3:2&gt;" title="Optional. Replaces prepend/value/append for this line. &lt;1&gt; &lt;2&gt; &lt;3&gt; insert the three inputs; &lt;1:2&gt; pads a number with zeros to 2 digits." rv-value="widget:line3Format">
             </div>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/display/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/display/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>
