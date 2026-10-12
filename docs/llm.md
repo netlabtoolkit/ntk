@@ -19,11 +19,12 @@ All model calls go through NTK's background process, so your API key never touch
   - **Summarize** — condense the incoming text, or an attached document if one's attached (see "Attaching a document" below) — no typed prompt needed in that case.
   - **Argue with** — make the strongest case against the incoming text.
 - **Click send.** The button pulses while the request is in flight. The reply appears (truncated) in the widget body, and the full text goes out the **text** outlet.
+- **Click stop** to abandon a request. While a request is in flight the send button reads **stop**; clicking it cancels the request, leaves the previous reply and the outlet as they were, and shows `stopped` with the time it had been running. A local Ollama model stops generating as well.
 - **Auto-send on new prompt** (right under the prompt box in "more") is on by default: the widget fires automatically whenever the prompt changes — typed or wired in — so `SpeechIn → LLM → SpeechOut` runs with nothing to click. Untick it to send only when you click send. The **settle (ms)** field next to the checkbox sets how long the widget waits that long after the last change before sending, so a source that updates in bursts (a few words at a time from SpeechIn, or your own typing) doesn't fire off a separate request for every partial update. Defaults to 2000ms, longer than a Text widget's fixed 400ms, since firing mid-utterance is more costly to get wrong than a local display update.
 
 With Ollama, the widget asks Ollama to load the chosen model into memory when a saved patch containing the widget opens, and whenever you pick a provider or model, so the first prompt doesn't also wait for the model to load. A widget you have only just placed doesn't load anything until you pick a model or send a prompt. The status line shows `loading` while that happens, and the model is kept in memory for 30 minutes after its last use.
 
-The small status line under the send button shows `idle`, `loading`, `calling`, or an error (`no prompt`, `pick a model`, `Ollama not reachable`, a key problem, etc.).
+The small status line under the send button shows `idle`, `loading`, `calling`, `stopped`, or an error (`no prompt`, `pick a model`, `Ollama not reachable`, a key problem, etc.).
 
 Next to the status is a **timer**. It counts up while a request is in flight and then stays on the final time — how long that send took, from the request going out to the reply coming back — until the next send. The auto-send settle delay isn't counted. With Ollama, the first send to a model that is still loading includes the wait for it to load.
 

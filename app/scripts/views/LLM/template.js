@@ -19,7 +19,7 @@
             <option value="argue">Argue with</option>
         </select>
         <div class="llmPrompt" rv-text="widget:in"></div>
-        <div class="sendButton" rv-class-calling="widget:calling">send</div>
+        <div class="sendButton" rv-class-calling="widget:calling"><span rv-hide="widget:calling">send</span><span rv-show="widget:calling">stop</span></div>
         <div class="llmStatus"><span rv-text="widget:status"></span> <span class="llmElapsed" title="Time from send to response" rv-text="widget:elapsed"></span></div>
         <div class="llmPreview" rv-text="widget:preview"></div>
         <div class="llmError" rv-show="widget:statusText" rv-text="widget:statusText"></div>

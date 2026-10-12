@@ -1743,9 +1743,11 @@ body.ntk-monitoring .monitorBlockOverlay {
     }
 }
 
+// The send button while a call is in flight - it is a stop button then
+// (see LLM.js's onSendButton), so it pulses red rather than its own green.
 @keyframes llmCallingPulse {
-    0%, 100% { background-color: #B8860B; }
-    50%      { background-color: #e0b352; }
+    0%, 100% { background-color: #c0392b; }
+    50%      { background-color: #e57368; }
 }
 
 .llm {
@@ -1768,13 +1770,13 @@ body.ntk-monitoring .monitorBlockOverlay {
     .sendButton {
         display: inline-block;
         padding: 3px 16px;
-        background-color: #B8860B;
+        background-color: #2e8b47;
         color: #fff;
         border-radius: 4px;
         font-size: 0.85em;
         cursor: pointer;
 
-        &.calling { animation: llmCallingPulse 1s ease-in-out infinite; }
+        &.calling { background-color: #c0392b; animation: llmCallingPulse 1s ease-in-out infinite; }
     }
     .llmStatus {
         font-size: 0.75em;

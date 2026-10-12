@@ -141,6 +141,7 @@ async function anthropicComplete(opts) {
 		if (!withTemp) delete b.temperature;
 		return fetch(base + '/v1/messages', {
 			method: 'POST',
+			signal: opts.signal,
 			headers: {
 				'content-type': 'application/json',
 				'x-api-key': cfg.key,
@@ -203,6 +204,7 @@ async function greenptComplete(opts) {
 	try {
 		const res = await fetch(base + '/chat/completions', {
 			method: 'POST',
+			signal: opts.signal,
 			headers: { 'content-type': 'application/json', 'authorization': 'Bearer ' + cfg.key },
 			body: JSON.stringify(body),
 		});
@@ -240,6 +242,7 @@ async function ollamaComplete(opts) {
 	try {
 		const res = await fetch(base + '/api/chat', {
 			method: 'POST',
+			signal: opts.signal,
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify(body),
 		});
@@ -378,10 +381,33 @@ module.exports = function registerLLMHandlers() {
 		return { skipped: true };
 	});
 
-	ipcMain.handle('llm-complete', function(event, opts) {
-		opts = opts || {};
-		if (opts.provider === 'ollama') return ollamaComplete(opts);
-		if (opts.provider === 'greenpt') return greenptComplete(opts);
-		return anthropicComplete(opts);
+	// Completions in flight, by the widget's own request id, so the
+	// widget's stop button can abort one (llm-cancel). Aborting closes
+	// the connection, which is also what makes a local Ollama stop
+	// generating rather than finish a reply nobody is waiting for.
+	const inFlight = new Map();
+
+	ipcMain.handle('llm-complete', async function(event, opts) {
+		opts = Object.assign({}, opts);
+		const controller = new AbortController();
+		const id = opts.requestID;
+		opts.signal = controller.signal;
+		if (id) inFlight.set(id, controller);
+		try {
+			let res;
+			if (opts.provider === 'ollama') res = await ollamaComplete(opts);
+			else if (opts.provider === 'greenpt') res = await greenptComplete(opts);
+			else res = await anthropicComplete(opts);
+			// The providers report an aborted fetch as a network error.
+			return controller.signal.aborted ? { canceled: true } : res;
+		} finally {
+			if (id && inFlight.get(id) === controller) inFlight.delete(id);
+		}
+	});
+
+	ipcMain.handle('llm-cancel', function(event, opts) {
+		const controller = opts && inFlight.get(opts.requestID);
+		if (controller) controller.abort();
+		return { canceled: !!controller };
 	});
 };

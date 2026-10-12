@@ -144,7 +144,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		],
 
 		widgetEvents: {
-			'click .sendButton': 'send',
+			'click .sendButton': 'onSendButton',
 			'change .providerSelect': 'onProviderChange',
 			'change .modelSelect': 'onModelSelectChange',
 			'click .setupKey': 'openKeysFile',
@@ -180,6 +180,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this._sendTimer = null;
 			this._sendQueued = false;
 			this._sentPrompt = null;
+			this._callID = null;
 			this._restoring = false;
 			this._warmTimer = null;
 			this._warmedKey = '';
@@ -261,7 +262,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				documentMatchStyle: false,
 				documentGrounded: false,
 
-				status: 'idle',    // idle | loading (warming a local model) | calling | error
+				status: 'idle',    // idle | loading (warming a local model) | calling | stopped | error
 				calling: false,
 				statusText: '',
 				// How long the last send took, from the request going out
@@ -355,12 +356,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			if(key === this._warmedKey) { return; }
 			this._warmedKey = key;
 
-			// 'loading' only ever replaces 'idle', and only 'loading' is
+			// 'loading' only ever replaces 'idle' (or 'stopped'), and only 'loading' is
 			// put back to 'idle' afterwards - a send (or its error) that
 			// happens meanwhile owns the status line, and Ollama simply
 			// queues that request behind the load.
 			var self = this;
-			if(this.model.get('status') === 'idle') { this.setStatus('loading', ''); }
+			var status = this.model.get('status');
+			if(status === 'idle' || status === 'stopped') { this.setStatus('loading', ''); }
 			window.ntkElectron.llmWarm({provider: provider, model: model, baseURL: baseURL}).then(function(res) {
 				// Failed (Ollama not running, model not pulled) - say
 				// nothing here, send() reports it properly; just allow a
@@ -398,7 +400,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// last send's time sat next to the warm-up's 'loading' as if
 			// that were a send.
 			var status = this.model.get('status');
-			if(status === 'calling' || status === 'loading') { this.setStatus('idle', ''); }
+			if(status === 'calling' || status === 'loading' || status === 'stopped') { this.setStatus('idle', ''); }
 			this.setElapsed('');
 			if(!app.server) {
 				this.syncPersonalityUI();
@@ -813,6 +815,31 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			return isNaN(t) ? undefined : t;
 		},
 
+		// The send button is a stop button for as long as a call is in
+		// flight (its label swaps in the template, off widget:calling).
+		onSendButton: function(e) {
+			if(this.model.get('status') === 'calling') { this.stop(); } else { this.send(e); }
+		},
+
+		// Abandon the call in flight. The widget is free again at once -
+		// the reply, should it still arrive, is ignored (see the _callID
+		// check in send) - and the request itself is aborted too, so a
+		// local model stops generating instead of finishing unheard.
+		stop: function() {
+			if(this.model.get('status') !== 'calling') { return; }
+			var callID = this._callID;
+			this._callID = null;
+			// Stop means stop: nothing queued or still settling goes out
+			// in its place.
+			this._sendQueued = false;
+			if(this._sendTimer) { clearTimeout(this._sendTimer); this._sendTimer = null; }
+			this.stopElapsed();
+			this.setStatus('stopped', '');
+			if(callID && window.ntkElectron && window.ntkElectron.llmCancel) {
+				window.ntkElectron.llmCancel(callID);
+			}
+		},
+
 		// `auto` is true only for the auto-send timer (see onModelChange);
 		// a click on the send button passes its event object instead.
 		send: function(auto) {
@@ -866,10 +893,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			var self = this;
 			this._warmEnabled = true;
 			this._sentPrompt = this.promptText();
+			var callID = this._callID = this.cid + '-' + Date.now();
 			this.setStatus('calling', '');
 			this.model.set('tempNote', ''); // clear any stale note from a previous model/call
 			this.startElapsed();
 			window.ntkElectron.llmComplete({
+				requestID: callID,
 				provider: this.model.get('provider'),
 				model: model,
 				baseURL: this.model.get('baseURL') || undefined,
@@ -878,6 +907,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				temperature: this.parsedTemp(),
 				maxTokens: parseInt(this.model.get('maxTokens'), 10) || 1024,
 			}).then(function(res) {
+				// Stopped (see stop) - this call no longer owns the widget,
+				// and a later send may already be running.
+				if(callID !== self._callID) { return; }
+				self._callID = null;
 				self.stopElapsed();
 				if(!res || res.error) {
 					self.setStatus('error', (res && res.error) || 'failed');
