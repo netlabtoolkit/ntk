@@ -1743,9 +1743,11 @@ body.ntk-monitoring .monitorBlockOverlay {
     }
 }
 
+// The send button while a call is in flight - it is a stop button then
+// (see LLM.js's onSendButton), so it pulses red rather than its own green.
 @keyframes llmCallingPulse {
-    0%, 100% { background-color: #B8860B; }
-    50%      { background-color: #e0b352; }
+    0%, 100% { background-color: #c0392b; }
+    50%      { background-color: #e57368; }
 }
 
 .llm {
@@ -1768,13 +1770,13 @@ body.ntk-monitoring .monitorBlockOverlay {
     .sendButton {
         display: inline-block;
         padding: 3px 16px;
-        background-color: #B8860B;
+        background-color: #2e8b47;
         color: #fff;
         border-radius: 4px;
         font-size: 0.85em;
         cursor: pointer;
 
-        &.calling { animation: llmCallingPulse 1s ease-in-out infinite; }
+        &.calling { background-color: #c0392b; animation: llmCallingPulse 1s ease-in-out infinite; }
     }
     .llmStatus {
         font-size: 0.75em;
@@ -1789,6 +1791,16 @@ body.ntk-monitoring .monitorBlockOverlay {
         // outlines directly, independent of font-weight support.
         -webkit-text-stroke: 0.35px currentColor;
         margin-top: 2px;
+
+        // The response timer, on the same line as the status word but
+        // lighter, and with fixed-width digits so the line doesn't
+        // jitter as it counts up.
+        .llmElapsed {
+            font-weight: normal;
+            -webkit-text-stroke: 0;
+            text-transform: none;
+            font-variant-numeric: tabular-nums;
+        }
     }
     .llmPreview {
         font-size: 0.75em;
@@ -2071,15 +2083,19 @@ body.ntk-monitoring .monitorBlockOverlay {
 }
 
 .text {
-    // Word count + top words readout in the "more" panel.
+    // Word count + top words + keywords readout in the "more" panel.
     .textStats {
         margin-top: 4px;
         font-size: 0.78em;
-        color: #666;
+        color: #000;
         line-height: 1.35;
+        font-weight: bold;
+        // Same reason as .llmStatus: with only a weight-400 font
+        // registered, bold alone can be hard to tell from normal at
+        // this size.
+        -webkit-text-stroke: 0.35px currentColor;
 
-        .wordCount { font-weight: bold; }
-        .topWords { display: block; }
+        .topWords, .topKeywords { display: block; }
     }
 
     .widgetBottom .content {

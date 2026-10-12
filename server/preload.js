@@ -91,6 +91,10 @@ contextBridge.exposeInMainWorld('ntkElectron', {
 	llmComplete: function(opts) {
 		return ipcRenderer.invoke('llm-complete', opts || {});
 	},
+	// Aborts the llmComplete call that was given this requestID.
+	llmCancel: function(requestID) {
+		return ipcRenderer.invoke('llm-cancel', { requestID: requestID });
+	},
 	// "Attach document" (PDF/txt/md) - see server/electronApp.js and
 	// plans/llm-widget.md's "Document attach" section. Returns
 	// {name, path, text, wordCount, truncated} or {name, error} or null

@@ -7,7 +7,7 @@ and it reads them through your computer's speakers.
 On **macOS** it uses Apple's speech engine, which can use the
 high-quality neural ("Premium") voices — but **you have to download those
 voices yourself first** (see below). On Windows/Linux it uses the
-browser's built-in speech synthesis.
+system's built-in speech synthesis.
 
 ## Download the good voices first (macOS)
 
@@ -29,8 +29,8 @@ voice automatically. Until you download at least one, the widget notes
 "Tip: download Premium voices in System Settings" and you're stuck with
 the basic voices.
 
-(This only applies to the Mac path. On Windows the browser already
-exposes the good "Natural" voices, so there's nothing to download.)
+(This only applies to the Mac path. On Windows the good "Natural"
+voices are already available, so there's nothing to download.)
 
 ## How it works
 
@@ -47,7 +47,7 @@ exposes the good "Natural" voices, so there's nothing to download.)
 ## Settings ("more" panel)
 
 - **voice** — grouped **Premium → Enhanced → Default**. English voices
-  are listed first. On Windows/Linux this lists the browser's voices
+  are listed first. On Windows/Linux this lists the system's voices
   instead.
 - **rate** — how fast it talks. Middle is normal.
 - **threshold** — the trigger-inlet level (0–1023) that starts playback.
@@ -63,8 +63,6 @@ exposes the good "Natural" voices, so there's nothing to download.)
 - A patch saved on a Mac with a Premium voice, opened on a machine that
   doesn't have that voice, falls back to a default voice rather than
   going silent.
-- SpeechOut needs the NTK **desktop app** — it doesn't work in a plain
-  web browser.
 
 ## Example patches
 

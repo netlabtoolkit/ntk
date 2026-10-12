@@ -45,7 +45,7 @@
             <label>user</label> <input name="username" type="text" rv-value="widget:username"><br>
             <label>pass</label> <input name="password" type="password" rv-value="widget:password">
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/cloudin/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/cloudin/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

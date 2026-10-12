@@ -48,12 +48,19 @@ In the "more" panel, under *Displayed Text*:
 - **export…** — save the current text to a file. The default name is
   `text.md`.
 
-Both need the NTK **desktop app** — they don't work in a plain browser.
+Below the buttons a small readout analyses the text, updating live as
+it changes:
 
-Below the buttons a small readout shows the **word count** and the **5
-most frequent words** (case-insensitive, punctuation stripped, common
-function words and one/two-letter words skipped). It updates live as the
-text changes.
+- **word count**
+- **top words** — the 5 most frequent words, with how often each
+  appears (case-insensitive, punctuation stripped, common function words
+  and one/two-letter words skipped).
+- **keywords** — the 5 strongest key phrases of up to three words, e.g.
+  "rooftop solar panels" rather than just "solar". They are worked out
+  from the text itself, with no language model involved: a phrase ranks
+  higher the more often it appears and the more its words turn up inside
+  longer phrases. On a very short text this is little more than a list
+  of its phrases in order.
 
 ## Settings ("more" panel)
 

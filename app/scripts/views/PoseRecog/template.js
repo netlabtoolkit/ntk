@@ -97,7 +97,7 @@
                 <% } %>
             </div>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/poserecog/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/poserecog/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

@@ -66,7 +66,7 @@
               <option value="ring">Ring</option>
             </select><br>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/neopixel/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/neopixel/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

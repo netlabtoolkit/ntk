@@ -102,7 +102,7 @@
             <label>gamma</label> <input class="moreParam" type="text" pattern="[0-9.]*" rv-value="widget:gamma"><br>
             <a href="https://pvanallen.github.io/VarSpeedPython/docs/easings_cheatsheet/" target="_blank">easings cheatsheet</a><br>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/tween/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/tween/" target="_blank">Widget help</a>
         </div>
         <div class="animateDiv"></div>
     </div>

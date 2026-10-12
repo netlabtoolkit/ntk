@@ -19,8 +19,8 @@
             <option value="argue">Argue with</option>
         </select>
         <div class="llmPrompt" rv-text="widget:in"></div>
-        <div class="sendButton" rv-class-calling="widget:calling">send</div>
-        <div class="llmStatus" rv-text="widget:status"></div>
+        <div class="sendButton" rv-class-calling="widget:calling"><span rv-hide="widget:calling">send</span><span rv-show="widget:calling">stop</span></div>
+        <div class="llmStatus"><span rv-text="widget:status"></span> <span class="llmElapsed" title="Time from send to response" rv-text="widget:elapsed"></span></div>
         <div class="llmPreview" rv-text="widget:preview"></div>
         <div class="llmError" rv-show="widget:statusText" rv-text="widget:statusText"></div>
     </div>
@@ -68,6 +68,7 @@
                 <label>provider</label>
                 <select class="providerSelect" rv-value="widget:provider">
                     <option value="ollama">Ollama (local)</option>
+                    <option value="greenpt">GreenPT</option>
                     <option value="anthropic">Anthropic</option>
                 </select>
             </div>
@@ -189,7 +190,7 @@
             </div>
 
             <hr>
-            <a class="widgetHelpLink wide" href="https://www.netlabtoolkit.org/documentation/widgets-old/llm/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink wide" href="https://www.netlabtoolkit.org/documentation/widgets/llm/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

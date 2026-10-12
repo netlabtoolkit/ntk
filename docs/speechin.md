@@ -51,8 +51,6 @@ Privacy & Security**.
 - **Accuracy** depends on your microphone and background noise, same as
   any dictation. A headset mic in a quiet room is best; a laptop mic
   across a noisy room is worst.
-- SpeechIn needs the NTK **desktop app** — it doesn't work when NTK is
-  opened in a plain web browser.
 
 ## Example patches
 

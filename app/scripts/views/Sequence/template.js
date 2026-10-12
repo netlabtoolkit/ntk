@@ -76,7 +76,7 @@
             
             <textarea class="database" rv-value="widget:sequence3" rows="4" cols="70"></textarea>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/sequence/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/sequence/" target="_blank">Widget help</a>
         </div>
         <div class="animateDiv"></div>
     </div>

@@ -14,6 +14,10 @@ body, html {
 	width: 100%;
 	height: 100%;
 
+	// Same grey as #patcherRegion (patcher.scss), which is only one
+	// window tall/wide: widgets dragged past that make the page scroll,
+	// and the area beyond it showed the default white page as a band.
+	background-color: #eee;
 }
 
 

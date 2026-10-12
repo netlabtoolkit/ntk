@@ -2,12 +2,13 @@
 
 The LLM widget sends a prompt to a large language model and sends the model's reply out its outlet. Feed it a question or a block of text (typed into the widget, or wired into the **prompt** inlet), pick how it should respond, and the answer comes out the **text** outlet as a string — ready for a Text widget, SpeechOut, CloudOut, or anything else that takes text.
 
-It talks to two kinds of model:
+It can use three providers:
 
 - **Ollama (local)** — the default. Runs models on your own machine, no API key, nothing leaves the computer. You need [Ollama](https://ollama.com) installed and running, with at least one model pulled (`ollama pull llama3.2`).
+- **GreenPT** — open-weight models (GreenPT's own *green-l* and *green-r*, plus others such as Gemma and Mistral) hosted in Europe on renewable energy. Needs a [GreenPT](https://greenpt.com) API key and sends your prompt to GreenPT's servers.
 - **Anthropic** — Claude models over the API. Fast and high quality, but needs an API key and sends your prompt to Anthropic's servers.
 
-The LLM widget needs the NTK **desktop app** — it does not work in a plain web browser. All model calls go through the app's background process, so your API key never touches the patch file or the browser.
+All model calls go through NTK's background process, so your API key never touches the patch file.
 
 ## How it works
 
@@ -18,13 +19,16 @@ The LLM widget needs the NTK **desktop app** — it does not work in a plain web
   - **Summarize** — condense the incoming text, or an attached document if one's attached (see "Attaching a document" below) — no typed prompt needed in that case.
   - **Argue with** — make the strongest case against the incoming text.
 - **Click send.** The button pulses while the request is in flight. The reply appears (truncated) in the widget body, and the full text goes out the **text** outlet.
+- **Click stop** to abandon a request. While a request is in flight the send button reads **stop**; clicking it cancels the request, leaves the previous reply and the outlet as they were, and shows `stopped` with the time it had been running. A local Ollama model stops generating as well.
 - **Auto-send on new prompt** (right under the prompt box in "more") is on by default: the widget fires automatically whenever the prompt changes — typed or wired in — so `SpeechIn → LLM → SpeechOut` runs with nothing to click. Untick it to send only when you click send. The **settle (ms)** field next to the checkbox sets how long the widget waits that long after the last change before sending, so a source that updates in bursts (a few words at a time from SpeechIn, or your own typing) doesn't fire off a separate request for every partial update. Defaults to 2000ms, longer than a Text widget's fixed 400ms, since firing mid-utterance is more costly to get wrong than a local display update.
 
-With Ollama, the widget asks Ollama to load the chosen model into memory as soon as the widget appears (and again whenever you pick a different model), so the first prompt doesn't also wait for the model to load. The status line shows `loading` while that happens, and the model is kept in memory for 30 minutes after its last use.
+With Ollama, the widget asks Ollama to load the chosen model into memory when a saved patch containing the widget opens, and whenever you pick a provider or model, so the first prompt doesn't also wait for the model to load. A widget you have only just placed doesn't load anything until you pick a model or send a prompt. The status line shows `loading` while that happens, and the model is kept in memory for 30 minutes after its last use.
 
-The small status line under the send button shows `idle`, `loading`, `calling`, or an error (`no prompt`, `pick a model`, `Ollama not reachable`, a key problem, etc.).
+The small status line under the send button shows `idle`, `loading`, `calling`, `stopped`, or an error (`no prompt`, `pick a model`, `Ollama not reachable`, a key problem, etc.).
 
-## Setting up an API key (Anthropic)
+Next to the status is a **timer**. It counts up while a request is in flight and then stays on the final time — how long that send took, from the request going out to the reply coming back — until the next send. The auto-send settle delay isn't counted. With Ollama, the first send to a model that is still loading includes the wait for it to load.
+
+## Setting up an API key (Anthropic or GreenPT)
 
 Switch **provider** to *Anthropic* in the "more" panel, then click **set up key**. That opens a file called `ai-keys.toml` in NTK's app data folder. Add your key:
 
@@ -35,7 +39,16 @@ api_key = "sk-ant-..."
 
 Save the file, then switch provider away from and back to *Anthropic* (or just wait a moment) — the model list refreshes automatically. The key row should now read "key found (ai-keys.toml)". Setting the `ANTHROPIC_API_KEY` environment variable works too and takes priority.
 
-The key lives only in that file — it is never written into the `.ntk` patch, so patches are safe to share.
+**GreenPT** works the same way: switch **provider** to *GreenPT*, click **set up key**, and fill in its section of the same file (one is added for you if the file doesn't have it yet — paste your key between the quotes, replacing `sk-...`, and leave the `[greenpt]` line above it as it is):
+
+```toml
+[greenpt]
+api_key = "sk-..."
+```
+
+Create the key in your GreenPT account. The `GREENPT_API_KEY` environment variable works too and takes priority. Until a key is in place the model list shows only *green-l* and *green-r*; with one, it lists everything your account can chat with.
+
+The keys live only in that file — they are never written into the `.ntk` patch, so patches are safe to share.
 
 ## Personality — shaping the response
 
@@ -47,7 +60,7 @@ Click **▸ personality** in the "more" panel to open it (closed by default — 
 - **purpose** — what the text is for: "an executive summary", "an essay", "an email", "a social media post", "a bulleted list"… or **other…** for your own. **(none)** adds no purpose instruction.
 - **audience** — "an executive", "an engineer", "a general reader", "a friend"… or **other…**. **(none)** adds no audience instruction.
 - **length** — a target word count. In **Rewrite** mode it's read as a percentage of the original instead (e.g. `50` = half as long).
-- **temperature** — higher = more varied and creative, lower = more focused and repeatable. The slider goes to **2.0** for Ollama, **1.0** for Anthropic.
+- **temperature** — higher = more varied and creative, lower = more focused and repeatable. The slider goes to **2.0** for Ollama and GreenPT, **1.0** for Anthropic.
 - **Markdown response** (on by default) — ask for the reply formatted as Markdown. Pair with a Text widget set to *Render Markdown* to show it formatted.
 - **extra instructions** — free text appended to the system prompt for anything the dropdowns don't cover.
 
@@ -68,10 +81,10 @@ A PDF that's scanned/image-only (no real text layer) shows "No extractable text 
 
 ## Settings ("more" panel)
 
-- **provider** — Ollama (local) or Anthropic.
-- **model** — populated from the provider automatically (on render, and whenever you switch provider). For Ollama it lists the models you've pulled, sorted alphabetically; for Anthropic, the current Claude models in their normal (current-flagship-first) order. A model saved in a patch stays selectable even if it's no longer listed. Switching provider and back restores whichever model you last picked for that provider, instead of resetting to a default each time.
+- **provider** — Ollama (local), GreenPT or Anthropic.
+- **model** — populated from the provider automatically (on render, and whenever you switch provider). For Ollama it lists the models you've pulled, sorted alphabetically; for Anthropic, the current Claude models in their normal (current-flagship-first) order. Once the provider's own list has arrived, a selected model it doesn't offer (one saved in a patch, or left over from another provider) is dropped in favour of the provider's default or first model. Switching provider and back restores whichever model you last picked for that provider, instead of resetting to a default each time.
 - **max tokens** — hard cap on the reply length (default 1024). Raise it for long outputs.
-- **base URL** — override the provider endpoint. Defaults to `http://localhost:11434` for Ollama, blank (Anthropic's own) for Anthropic. Point it at a remote Ollama box to offload the work.
+- **base URL** — override the provider endpoint. Defaults to `http://localhost:11434` for Ollama, blank (the provider's own) for Anthropic and GreenPT. A GreenPT override must include the `/v1` (its US endpoint is `https://api.us.greenpt.ai/v1`). Point it at a remote Ollama box to offload the work.
 - **system prompt (assembled)** — read-only preview of what the personality settings produce.
 
 ## Notes

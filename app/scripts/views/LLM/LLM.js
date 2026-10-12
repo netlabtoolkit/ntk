@@ -60,14 +60,19 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 	// Shown before the model list has been fetched, or if the fetch fails.
 	var FALLBACK_MODELS = {
 		anthropic: ['claude-sonnet-5', 'claude-opus-5', 'claude-haiku-4-5', 'claude-fable-5-1'],
+		// GreenPT's own two models (language, reasoning) - shown until the
+		// live list arrives, which needs a key (see docs.greenpt.ai/models).
+		greenpt: ['green-l', 'green-r'],
 		ollama: [],
 	};
 	var DEFAULT_MODEL = {
 		anthropic: 'claude-sonnet-5',
+		greenpt: 'green-l',
 		ollama: '',
 	};
 	var DEFAULT_BASE_URL = {
 		anthropic: '',
+		greenpt: '',
 		ollama: 'http://localhost:11434',
 	};
 	// Which model field remembers the last one picked for each provider,
@@ -75,6 +80,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 	// resetting to DEFAULT_MODEL every time (see onProviderChange).
 	var LAST_MODEL_FIELD = {
 		anthropic: 'lastAnthropicModel',
+		greenpt: 'lastGreenptModel',
 		ollama: 'lastOllamaModel',
 	};
 	// Mirrored into localStorage (not just this widget's own model) so a
@@ -83,6 +89,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 	// deleted, but localStorage survives that.
 	var LAST_MODEL_STORAGE_KEY = {
 		anthropic: 'ntk.llm.lastModel.anthropic',
+		greenpt: 'ntk.llm.lastModel.greenpt',
 		ollama: 'ntk.llm.lastModel.ollama',
 	};
 	function writeStoredLastModel(provider, value) {
@@ -108,6 +115,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// (the same corruption as the anthropic case above, just in the
 		// other direction).
 		if(provider === 'ollama') { return !(/^claude-/).test(id); }
+		// GreenPT serves a mix of its own and other open-weight models
+		// (green-l, gemma4, gpt-oss-120b, ...) - no convention to check
+		// positively, but it never serves a Claude model.
+		if(provider === 'greenpt') { return !(/^claude-/).test(id); }
 		return true;
 	}
 	function readStoredLastModel(provider) {
@@ -133,7 +144,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		],
 
 		widgetEvents: {
-			'click .sendButton': 'send',
+			'click .sendButton': 'onSendButton',
 			'change .providerSelect': 'onProviderChange',
 			'change .modelSelect': 'onModelSelectChange',
 			'click .setupKey': 'openKeysFile',
@@ -168,8 +179,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// the model.set() below (it fires 'change' synchronously).
 			this._sendTimer = null;
 			this._sendQueued = false;
+			this._sentPrompt = null;
+			this._callID = null;
+			this._restoring = false;
 			this._warmTimer = null;
 			this._warmedKey = '';
+			this._warmEnabled = false;
+			this._elapsedTimer = null;
 			this.modelList = FALLBACK_MODELS.ollama.slice();
 
 			// Whatever model was last picked for Ollama, in ANY LLM widget
@@ -219,6 +235,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				// now-deleted LLM widget last used.
 				lastOllamaModel: initialOllamaModel,
 				lastAnthropicModel: readStoredLastModel('anthropic'),
+				lastGreenptModel: readStoredLastModel('greenpt'),
 				// Longer than Text's fixed 400ms settle - a wired source like
 				// SpeechIn can pause briefly between words while still
 				// dictating, and firing an API call mid-utterance is more
@@ -245,9 +262,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				documentMatchStyle: false,
 				documentGrounded: false,
 
-				status: 'idle',    // idle | loading (warming a local model) | calling | error
+				status: 'idle',    // idle | loading (warming a local model) | calling | stopped | error
 				calling: false,
 				statusText: '',
+				// How long the last send took, from the request going out
+				// to the response (or error) coming back - counts up
+				// while the call is in flight, then holds the final time
+				// until the next send. Display string, see formatElapsed.
+				elapsed: '',
 				keyText: '',
 				// Separate from statusText/llmError (body, genuine errors) -
 				// this is an informational note, shown in "more" right below
@@ -287,23 +309,33 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this.updateTempRange();
 			this.refreshKeyStatus();
 			this.fetchModels();
-			this.scheduleWarm();
 		},
 
 		onRemove: function() {
 			if(this._sendTimer) { clearTimeout(this._sendTimer); }
 			if(this._warmTimer) { clearTimeout(this._warmTimer); }
+			this.stopElapsed();
 		},
 
 		// ---- warm-up ----
 		// Have a local (Ollama) model loaded into memory before the first
 		// prompt arrives, so that prompt doesn't also wait out the model
-		// load. Runs when the widget appears and whenever the provider,
-		// model or base URL changes. Debounced, because those settle over
-		// several changes in a row (the render-time default, then a loaded
-		// patch's saved values, then the live model list) and each
-		// different model warmed is a whole model loaded for nothing.
+		// load. Runs whenever the provider, model or base URL changes -
+		// but not for a widget that has only just been placed: dropping
+		// one on the canvas shouldn't start loading a model nobody has
+		// chosen or used yet. enableWarm() switches it on once the widget
+		// is clearly in use (it came in with a patch, a provider/model
+		// was picked, or a prompt was sent). Debounced, because those
+		// settle over several changes in a row (a loaded patch's saved
+		// values, then the live model list) and each different model
+		// warmed is a whole model loaded for nothing.
+		enableWarm: function() {
+			this._warmEnabled = true;
+			this.scheduleWarm();
+		},
+
 		scheduleWarm: function() {
+			if(!this._warmEnabled) { return; }
 			if(app.server || !window.ntkElectron || !window.ntkElectron.llmWarm) { return; }
 			var self = this;
 			if(this._warmTimer) { clearTimeout(this._warmTimer); }
@@ -324,12 +356,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			if(key === this._warmedKey) { return; }
 			this._warmedKey = key;
 
-			// 'loading' only ever replaces 'idle', and only 'loading' is
+			// 'loading' only ever replaces 'idle' (or 'stopped'), and only 'loading' is
 			// put back to 'idle' afterwards - a send (or its error) that
 			// happens meanwhile owns the status line, and Ollama simply
 			// queues that request behind the load.
 			var self = this;
-			if(this.model.get('status') === 'idle') { this.setStatus('loading', ''); }
+			var status = this.model.get('status');
+			if(status === 'idle' || status === 'stopped') { this.setStatus('loading', ''); }
 			window.ntkElectron.llmWarm({provider: provider, model: model, baseURL: baseURL}).then(function(res) {
 				// Failed (Ollama not running, model not pulled) - say
 				// nothing here, send() reports it properly; just allow a
@@ -345,11 +378,35 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// populated by JS, not rivets, so they don't pick up the restored
 		// values on their own - re-sync them here.
 		setFromModel: function(model) {
-			WidgetView.prototype.setFromModel.call(this, model);
+			// The saved prompt arriving here is not a new prompt - without
+			// this, opening a patch (or reloading the window) re-asked
+			// whatever question was saved in it (see onModelChange).
+			this._restoring = true;
+			try {
+				WidgetView.prototype.setFromModel.call(this, model);
+			} finally {
+				this._restoring = false;
+			}
+			// initialize()'s own defaults count as a prompt change too
+			// (unset -> ''), which leaves an auto-send timer running from
+			// the moment the widget is created. Harmless for a widget just
+			// placed (it fires on an empty prompt), but here it would fire
+			// on the prompt restored above.
+			if(this._sendTimer) { clearTimeout(this._sendTimer); this._sendTimer = null; }
+			// Status and timer are saved with the patch like everything
+			// else, but they describe a call that isn't running any more:
+			// a patch saved (or a window reloaded) mid-call came back
+			// stuck on 'calling' with send() queueing forever, and the
+			// last send's time sat next to the warm-up's 'loading' as if
+			// that were a send.
+			var status = this.model.get('status');
+			if(status === 'calling' || status === 'loading' || status === 'stopped') { this.setStatus('idle', ''); }
+			this.setElapsed('');
 			if(!app.server) {
 				this.syncPersonalityUI();
 				this.populateModelSelect();
 				this.refreshKeyStatus();
+				this.enableWarm();
 			}
 			return this;
 		},
@@ -467,6 +524,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this.updateTempRange();
 			this.refreshKeyStatus();
 			this.fetchModels();
+			this.enableWarm();
 		},
 
 		// Seed the model dropdown with the current provider's built-in
@@ -495,12 +553,17 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				if(self.model.get('provider') !== requestedProvider) { return; }
 				if(res && res.models && res.models.length) {
 					self.modelList = res.models;
-					self.populateModelSelect();
+					// The provider's own list is the authority on what it
+					// can run - see populateModelSelect.
+					self.populateModelSelect(true);
 				}
 			});
 		},
 
-		populateModelSelect: function() {
+		// `fromProvider` is true when this.modelList has just come back
+		// from the provider itself (fetchModels), false/absent when it is
+		// only the built-in fallback list.
+		populateModelSelect: function(fromProvider) {
 			var select = this.modelSelectEl;
 			if(!select) { return; }
 			var provider = this.model.get('provider');
@@ -511,9 +574,22 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// a deliberate preference ordering (current flagship first),
 			// left as-is.
 			if(provider === 'ollama') { list.sort(); }
-			// A model from a saved patch that the provider no longer lists
-			// stays selectable.
-			if(current && list.indexOf(current) === -1) { list.unshift(current); }
+			// Against the built-in fallback list, a model that isn't in it
+			// stays selectable - the fallback is only a guess, and the
+			// model may well be real (a saved patch's, or one typed in).
+			// Against the provider's own list it does not: a model the
+			// provider doesn't have can't be run, and keeping it left the
+			// PREVIOUS provider's model sitting at the top of the dropdown
+			// after switching (e.g. an Ollama model under GreenPT). The
+			// selection then falls to this provider's default if it is
+			// listed, else the first model.
+			if(current && list.indexOf(current) === -1) {
+				if(fromProvider) {
+					current = list.indexOf(DEFAULT_MODEL[provider]) !== -1 ? DEFAULT_MODEL[provider] : list[0];
+				} else {
+					list.unshift(current);
+				}
+			}
 
 			select.innerHTML = '';
 			list.forEach(function(id) { select.appendChild(new Option(id, id)); });
@@ -528,6 +604,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			var value = this.$('.modelSelect').val();
 			this.model.set('model', value);
 			this.rememberModel(this.model.get('provider'), value);
+			this.enableWarm();
 		},
 
 		// Records the picked model both on this widget's own model (so
@@ -738,6 +815,31 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			return isNaN(t) ? undefined : t;
 		},
 
+		// The send button is a stop button for as long as a call is in
+		// flight (its label swaps in the template, off widget:calling).
+		onSendButton: function(e) {
+			if(this.model.get('status') === 'calling') { this.stop(); } else { this.send(e); }
+		},
+
+		// Abandon the call in flight. The widget is free again at once -
+		// the reply, should it still arrive, is ignored (see the _callID
+		// check in send) - and the request itself is aborted too, so a
+		// local model stops generating instead of finishing unheard.
+		stop: function() {
+			if(this.model.get('status') !== 'calling') { return; }
+			var callID = this._callID;
+			this._callID = null;
+			// Stop means stop: nothing queued or still settling goes out
+			// in its place.
+			this._sendQueued = false;
+			if(this._sendTimer) { clearTimeout(this._sendTimer); this._sendTimer = null; }
+			this.stopElapsed();
+			this.setStatus('stopped', '');
+			if(callID && window.ntkElectron && window.ntkElectron.llmCancel) {
+				window.ntkElectron.llmCancel(callID);
+			}
+		},
+
 		// `auto` is true only for the auto-send timer (see onModelChange);
 		// a click on the send button passes its event object instead.
 		send: function(auto) {
@@ -745,16 +847,23 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			if(this.model.get('status') === 'calling') {
 				// A prompt that arrives mid-call (e.g. the next SpeechIn
 				// utterance) used to be dropped silently - remember it and
-				// send once the call in flight comes back.
-				this._sendQueued = true;
+				// send once the call in flight comes back. Only a prompt
+				// that differs from the one in flight, though: queueing
+				// the same one asked the question a second time the moment
+				// the answer arrived (type a prompt, click send before the
+				// auto-send settle runs out, and the settle timer then
+				// fired mid-call).
+				if(this.promptText() !== this._sentPrompt) { this._sendQueued = true; }
 				return;
 			}
 			this._sendQueued = false;
+			// This send covers whatever auto-send was still waiting to fire.
+			if(this._sendTimer) { clearTimeout(this._sendTimer); this._sendTimer = null; }
 			if(!window.ntkElectron || !window.ntkElectron.llmComplete) {
 				this.setStatus('error', 'Needs the desktop app');
 				return;
 			}
-			var user = String(this.model.get('in') || '').trim();
+			var user = this.promptText();
 			if(!user) {
 				// Summarizing an attached document needs no separate typed
 				// prompt - the document itself is the thing to summarize
@@ -782,9 +891,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this.model.set('assembledSystem', system);
 
 			var self = this;
+			this._warmEnabled = true;
+			this._sentPrompt = this.promptText();
+			var callID = this._callID = this.cid + '-' + Date.now();
 			this.setStatus('calling', '');
 			this.model.set('tempNote', ''); // clear any stale note from a previous model/call
+			this.startElapsed();
 			window.ntkElectron.llmComplete({
+				requestID: callID,
 				provider: this.model.get('provider'),
 				model: model,
 				baseURL: this.model.get('baseURL') || undefined,
@@ -793,6 +907,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				temperature: this.parsedTemp(),
 				maxTokens: parseInt(this.model.get('maxTokens'), 10) || 1024,
 			}).then(function(res) {
+				// Stopped (see stop) - this call no longer owns the widget,
+				// and a later send may already be running.
+				if(callID !== self._callID) { return; }
+				self._callID = null;
+				self.stopElapsed();
 				if(!res || res.error) {
 					self.setStatus('error', (res && res.error) || 'failed');
 				} else {
@@ -804,12 +923,61 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 					});
 					self.setStatus('idle', '');
 				}
-				if(self._sendQueued) { self.send(true); }
+				// The queued prompt may have been edited back to the one
+				// just answered in the meantime - nothing new to send then.
+				var resend = self._sendQueued && self.promptText() !== self._sentPrompt;
+				self._sendQueued = false;
+				if(resend) { self.send(true); }
 			});
+		},
+
+		promptText: function() {
+			return String(this.model.get('in') || '').trim();
 		},
 
 		setStatus: function(status, text) {
 			this.model.set({status: status, calling: status === 'calling', statusText: text || ''});
+		},
+
+		// ---- response timer ----
+		// Times a send from the request going out to the response coming
+		// back (an error counts too - how long a failure took is worth
+		// seeing). The auto-send settle delay and time spent queued behind
+		// another call are not included; a local model still loading is,
+		// since the request waits on it.
+		startElapsed: function() {
+			var self = this;
+			this.stopElapsed();
+			this._elapsedStart = performance.now();
+			this.setElapsed(this.formatElapsed(0));
+			this._elapsedTimer = setInterval(function() { self.showElapsed(); }, 100);
+		},
+
+		// Stops the count and leaves the final time showing.
+		stopElapsed: function() {
+			if(!this._elapsedTimer) { return; }
+			clearInterval(this._elapsedTimer);
+			this._elapsedTimer = null;
+			this.showElapsed();
+		},
+
+		showElapsed: function() {
+			this.setElapsed(this.formatElapsed(performance.now() - this._elapsedStart));
+		},
+
+		// updateNoTrigger keeps the count local (see Patcher.js's
+		// bindModelToServer) - otherwise every tick is a model update
+		// sent to the server, ten a second for as long as a call runs.
+		setElapsed: function(text) {
+			this.model.set('elapsed', text, {updateNoTrigger: true});
+		},
+
+		formatElapsed: function(ms) {
+			var tenths = Math.floor(ms / 100);
+			if(tenths < 600) { return (tenths / 10).toFixed(1) + 's'; }
+			var whole = Math.floor(ms / 1000);
+			var sec = whole % 60;
+			return Math.floor(whole / 60) + 'm ' + (sec < 10 ? '0' : '') + sec + 's';
 		},
 
 		// ---- model changes ----
@@ -825,7 +993,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			var onlyBookkeeping = _.every(_.keys(changed), function(k) {
 				return k === 'assembledSystem' || k === 'output' || k === 'preview' ||
 					k === 'status' || k === 'calling' || k === 'statusText' ||
-					k === 'keyText' || k === 'model' || k === 'in';
+					k === 'elapsed' || k === 'keyText' || k === 'model' || k === 'in';
 			});
 			if(!onlyBookkeeping) {
 				var sys = this.assembleSystem();
@@ -841,6 +1009,19 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				this.scheduleWarm();
 			}
 			if(changed.provider !== undefined) {
+				// The provider dropdown reaches the model through rivets
+				// BEFORE onProviderChange runs, so at this point `model`
+				// is still the previous provider's. Swap it for this
+				// provider's remembered/default one first - otherwise
+				// populateModelSelect below would not only list the old
+				// model but record it as this provider's "last used" one.
+				// A patch load sets provider and model together
+				// (changed.model is defined then) and keeps its own model.
+				if(changed.model === undefined) {
+					var remembered = this.model.get(LAST_MODEL_FIELD[changed.provider]);
+					if(remembered && !isPlausibleModelID(changed.provider, remembered)) { remembered = ''; }
+					this.model.set('model', remembered || DEFAULT_MODEL[changed.provider] || '');
+				}
 				this.resetModelList();
 				this.updateTempRange();
 				this.populateModelSelect();
@@ -849,7 +1030,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			}
 
 			// Auto-send on a new prompt (debounced, on by default).
-			if(changed.in !== undefined && this.model.get('autoSend')) {
+			if(changed.in !== undefined && this.model.get('autoSend') && !this._restoring) {
 				var self = this;
 				var delay = parseInt(this.model.get('autoSendDelay'), 10);
 				if(isNaN(delay) || delay < 0) { delay = 2000; }

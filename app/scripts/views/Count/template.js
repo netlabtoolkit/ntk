@@ -40,7 +40,7 @@
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
             <label>count val</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:output">
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/count/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/count/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

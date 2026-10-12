@@ -102,7 +102,7 @@
                 </tr>
             </table>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/gesture/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/gesture/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

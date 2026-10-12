@@ -74,7 +74,7 @@
                 <textarea class="database" rv-value="widget:text_comparison" rows="4" cols="70"></textarea>
             </div>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/ifthen/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/ifthen/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>

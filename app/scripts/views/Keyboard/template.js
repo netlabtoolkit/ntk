@@ -33,7 +33,7 @@
           </tr>
         </table>
         <hr>
-        <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/keyboard/" target="_blank">Widget help</a>
+        <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/keyboard/" target="_blank">Widget help</a>
         </div>
     </div>
 

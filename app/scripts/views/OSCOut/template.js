@@ -37,7 +37,7 @@
               <label class="narrowLabel">int</label> <input type="radio" value="int" rv-checked="widget:valueType">
 				</div>
             <hr>
-            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets-old/oscout/" target="_blank">Widget help</a>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/oscout/" target="_blank">Widget help</a>
     </div>
 
 </div>

@@ -221,6 +221,13 @@ The Apple Silicon modernization (2026-08, based on upstream `dev`, not
 and shipped. Its historical step-by-step plan is at
 `~/.claude/plans/glittery-drifting-plum.md` (outside the repo).
 
+## Website + docs
+
+- **[Website + widget docs](website-docs.md)** — keeping the WordPress
+  widget pages in sync with `docs/*.md` (docs site, push, or pull from
+  GitHub), plus ideas for faster doc drafting. Parked until more docs
+  are written.
+
 ## Other planned widgets
 
 - **[LLM widget](llm-widget.md)** — text prompt → LLM → text response,
