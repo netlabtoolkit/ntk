@@ -1789,6 +1789,16 @@ body.ntk-monitoring .monitorBlockOverlay {
         // outlines directly, independent of font-weight support.
         -webkit-text-stroke: 0.35px currentColor;
         margin-top: 2px;
+
+        // The response timer, on the same line as the status word but
+        // lighter, and with fixed-width digits so the line doesn't
+        // jitter as it counts up.
+        .llmElapsed {
+            font-weight: normal;
+            -webkit-text-stroke: 0;
+            text-transform: none;
+            font-variant-numeric: tabular-nums;
+        }
     }
     .llmPreview {
         font-size: 0.75em;
