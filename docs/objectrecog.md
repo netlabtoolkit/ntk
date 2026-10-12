@@ -12,8 +12,7 @@ ways at once:
   in view.
 
 Like FaceTrack and PoseRecog it runs entirely on-device (MediaPipe),
-needs the NTK **desktop app**, and the camera turns on only while the
-widget is active.
+and the camera turns on only while the widget is active.
 
 ## Outlets
 

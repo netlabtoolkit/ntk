@@ -48,8 +48,6 @@ In the "more" panel, under *Displayed Text*:
 - **export…** — save the current text to a file. The default name is
   `text.md`.
 
-Both need the NTK **desktop app** — they don't work in a plain browser.
-
 Below the buttons a small readout shows the **word count** and the **5
 most frequent words** (case-insensitive, punctuation stripped, common
 function words and one/two-letter words skipped). It updates live as the
