@@ -59,6 +59,8 @@
                 <canvas class="faceCanvas" width="190" height="143"></canvas>
                 <% } %>
             </div>
+            <hr>
+            <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/facetrack/" target="_blank">Widget help</a>
         </div>
     </div>
 </div>
