@@ -1,7 +1,8 @@
 # Website + widget docs
 
-**Status:** parked (2026-10-07). Discussion only, nothing built. Pick
-up when more of `docs/*.md` is written.
+**Status:** parked (2026-10-07). Sync mechanism: discussion only, nothing
+built. Pick up when more of `docs/*.md` is written. State of the site
+and links updated 2026-10-12.
 
 ## Context
 
@@ -23,15 +24,31 @@ Done on the site (2026-10-07, outside this repo):
 - Small "NTK Button Style" plugin adds an "NTK button" style to the core
   Button block (matches `.call-to-action-btn-2`, 15px radius).
 
+Done since (2026-10-12):
+
+- Widget pages moved from `/documentation/widgets-old/<widget>/` to
+  `/documentation/widgets/<widget>/`. All help links in
+  `app/scripts/views/*/template.js` updated to match, and FaceTrack
+  given the help link it was missing (41 widgets link to the site, all
+  return 200).
+- Display and NeoPixel documented: `docs/display.md`, `docs/neopixel.md`,
+  and a page for each on the site.
+- **Not done:** no redirect from the old URLs.
+  `/documentation/widgets-old/<widget>/` now returns 404, so old links,
+  bookmarks and released copies of the app (whose help links still point
+  there) break. Fix: 301 regex redirect from
+  `documentation/widgets-old/(.*)` to `documentation/widgets/$1`.
+
 ## The problem
 
 Widget docs live in two places that drift:
 
-- `docs/*.md` in this repo - current, detailed, but only ~13 of ~45
-  widgets.
-- WordPress pages under `/documentation/widgets-old/<widget>/`, each
-  with a header image from an ACF field. Every widget's `template.js`
-  help link points here.
+- `docs/*.md` in this repo - current, detailed, but only 14 of ~44
+  widgets (cloudin, cloudout, concat, display, grovein, ifthen, llm,
+  neopixel, objectrecog, oscin, oscout, speechin, speechout, text).
+- WordPress pages under `/documentation/widgets/<widget>/` (41 of
+  them), each with a header image from an ACF field. Every widget's
+  `template.js` help link points here.
 
 ## Options discussed
 
@@ -88,10 +105,9 @@ template.
   subtitle, ignore ACF, or (c) ACF excerpt, skip `.md` first paragraph?
 - Which ref should the site show: `dev` (ahead of the released app) or a
   release tag / `main` (docs fixes wait for a release)?
-- What is at `/documentation/widgets-old/` - is there a newer set?
-  (Plan: rename the parent slug to `widgets`, 301 regex redirect from
-  `widgets-old/(.*)`, then update the 40 help links in
-  `app/scripts/views/*/template.js`.)
+
+Resolved: the `widgets-old` parent slug is now `widgets` and the help
+links follow it (see "Done since" above; the redirect is still missing).
 
 ## Conventions to keep in the meantime
 
