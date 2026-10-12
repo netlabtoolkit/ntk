@@ -261,12 +261,12 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
             }
         },
 
-        // Word count + the 5 most frequent words (case-insensitive,
-        // punctuation stripped, common function words and 1-2 letter
-        // words skipped so the list is actually informative).
+        // Word count, the 5 most frequent words (case-insensitive,
+        // punctuation stripped, stop words and 1-2 letter words skipped
+        // so the list is actually informative) and the 5 top keywords
+        // (see topKeywords).
         updateStats: function() {
             if(app.server) { return; }
-            var STOP = ' the a an and or but if then else of to in on at by for with from as is are was were be been being it its this that these those i you he she we they them his her our your their not no do does did have has had will would can could should there here what which who whom ';
             var text = String(this.model.get('displayText') != null ? this.model.get('displayText') : '');
             var tokens = text.toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ').split(/\s+/);
             var words = 0, counts = {};
@@ -274,14 +274,94 @@ function(Backbone, rivets, WidgetView, Template, miniMarkdown){
                 var w = tokens[i].replace(/^['-]+|['-]+$/g, '');
                 if(!w) { continue; }
                 words++;
-                if(w.length < 3 || STOP.indexOf(' ' + w + ' ') !== -1) { continue; }
+                if(w.length < 3 || this.isStopWord(w)) { continue; }
                 counts[w] = (counts[w] || 0) + 1;
             }
             var top = _.first(_.sortBy(_.keys(counts), function(k) { return -counts[k]; }), 5);
+            var keywords = this.topKeywords(text, 5);
             this.$('.wordCount').text(words + (words === 1 ? ' word' : ' words'));
             this.$('.topWords').text(top.length
-                ? 'top: ' + _.map(top, function(k) { return k + ' (' + counts[k] + ')'; }).join(', ')
+                ? 'top words: ' + _.map(top, function(k) { return k + ' (' + counts[k] + ')'; }).join(', ')
                 : '');
+            this.$('.topKeywords').text(keywords.length ? 'keywords: ' + keywords.join(', ') : '');
+        },
+
+        STOP_WORDS: ' the a an and or but if then else of to in on at by for with from as is are was were be been being am'
+            + ' it its this that these those i me my you he him she we us they them his her our your their not no nor'
+            + ' do does did done doing have has had having will would can could should shall may might must'
+            + ' there here what which who whom whose when where why how so than too very just also only even still'
+            + ' more most much many some any all each every both few other another such same own'
+            + ' about into onto over under above below up down out off again once between through during before after'
+            + ' against without within because while until since although though whether'
+            + ' get gets got make makes made like now yes however therefore thus etc via per'
+            + " it's that's there's i'm i've i'll you're they're we're don't doesn't didn't isn't aren't wasn't can't won't ",
+
+        isStopWord: function(w) {
+            return this.STOP_WORDS.indexOf(' ' + w + ' ') !== -1;
+        },
+
+        // The text's key phrases, worked out from the text alone (RAKE -
+        // Rapid Automatic Keyword Extraction - no model, no word list
+        // beyond the stop words). A keyword is a run of up to 3 words
+        // with no stop word or punctuation inside it. Each word scores
+        // by how much company it keeps: the lengths of the phrases it
+        // appears in, over how often it appears - so a word that keeps
+        // turning up inside longer phrases outranks one that only ever
+        // stands alone. A phrase scores the sum of its words, times how
+        // often the whole phrase occurs, which is what separates this
+        // list from plain word frequency.
+        topKeywords: function(text, max) {
+            var self = this;
+            // Markdown/URL noise would otherwise become "keywords".
+            var cleaned = String(text || '').toLowerCase()
+                .replace(/https?:\/\/\S+/g, ' . ')
+                .replace(/[*_#>`~|]/g, ' ');
+            var fragments = cleaned.split(/[^a-z0-9'\s-]+|\s-+\s|\n/);
+            var phrases = [];
+            var current = [];
+            function flush() {
+                if(current.length && current.length <= 3) { phrases.push(current); }
+                current = [];
+            }
+            _.each(fragments, function(fragment) {
+                _.each(fragment.split(/\s+/), function(raw) {
+                    var w = raw.replace(/^['-]+|['-]+$/g, '');
+                    if(!w) { return; }
+                    if(w.length < 3 || self.isStopWord(w) || /^[0-9-]+$/.test(w)) { flush(); return; }
+                    current.push(w);
+                });
+                flush();
+            });
+
+            var freq = {}, degree = {}, phraseCount = {}, firstSeen = {};
+            _.each(phrases, function(words, index) {
+                var key = words.join(' ');
+                phraseCount[key] = (phraseCount[key] || 0) + 1;
+                if(firstSeen[key] === undefined) { firstSeen[key] = index; }
+                _.each(words, function(w) {
+                    freq[w] = (freq[w] || 0) + 1;
+                    degree[w] = (degree[w] || 0) + words.length;
+                });
+            });
+            var scored = _.map(_.keys(phraseCount), function(key) {
+                var score = 0;
+                _.each(key.split(' '), function(w) { score += degree[w] / freq[w]; });
+                return {phrase: key, score: score * phraseCount[key], first: firstSeen[key]};
+            });
+            // Best first; among equals, whichever the text reaches first.
+            scored.sort(function(a, b) { return (b.score - a.score) || (a.first - b.first); });
+
+            // Skip a phrase that only repeats part of one already picked
+            // ("solar panels" after "rooftop solar panels").
+            var picked = [];
+            for(var i = 0; i < scored.length && picked.length < max; i++) {
+                var candidate = ' ' + scored[i].phrase + ' ';
+                var overlaps = _.some(picked, function(p) {
+                    return (' ' + p + ' ').indexOf(candidate) !== -1 || candidate.indexOf(' ' + p + ' ') !== -1;
+                });
+                if(!overlaps) { picked.push(scored[i].phrase); }
+            }
+            return picked;
         },
 
         // Render displayText into the display box - as Markdown when the

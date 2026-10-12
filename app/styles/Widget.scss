@@ -2083,15 +2083,19 @@ body.ntk-monitoring .monitorBlockOverlay {
 }
 
 .text {
-    // Word count + top words readout in the "more" panel.
+    // Word count + top words + keywords readout in the "more" panel.
     .textStats {
         margin-top: 4px;
         font-size: 0.78em;
-        color: #666;
+        color: #000;
         line-height: 1.35;
+        font-weight: bold;
+        // Same reason as .llmStatus: with only a weight-400 font
+        // registered, bold alone can be hard to tell from normal at
+        // this size.
+        -webkit-text-stroke: 0.35px currentColor;
 
-        .wordCount { font-weight: bold; }
-        .topWords { display: block; }
+        .topWords, .topKeywords { display: block; }
     }
 
     .widgetBottom .content {
