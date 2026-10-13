@@ -374,6 +374,14 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 					this.model.set('out' + i, this.slotOutputValue(i, isOn));
 				}
 			}
+
+			// A loaded patch's saved slot and template reach the model only
+			// after the widget has rendered (see CLAUDE.md) - redraw the
+			// preview when they arrive, as PoseRecog does.
+			var selectedSlot = parseInt(this.model.get('recordSlot'), 10);
+			if(changed.recordSlot !== undefined || changed['template' + selectedSlot] !== undefined) {
+				this.onRecordSlotChange();
+			}
 		},
 
 		widgetEvents: {

@@ -497,6 +497,16 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 				this.switchTrackMode();
 			}
 
+			// A loaded patch's saved slot and examples reach the model
+			// only after the widget has rendered (see CLAUDE.md), so the
+			// draw in onRender sees an empty slot - redraw when they
+			// arrive, or the shape stays blank until a slot is picked.
+			var selectedSlot = parseInt(this.model.get('recordSlot'), 10);
+			if(changed.recordSlot !== undefined ||
+			   changed[this.getModeFieldKey('examples', selectedSlot)] !== undefined) {
+				this.onRecordSlotChange();
+			}
+
 			// Same "push it through now" treatment for the things the
 			// name output depends on: the checkbox itself, a slot being
 			// renamed while it's matched, and a switch of tracking mode
