@@ -861,6 +861,17 @@ body.ntk-monitoring .monitorBlockOverlay {
     .widgetBody {
         font-size: 0.8em;
         color: #000;
+        // Grows when a long slot name wraps onto more lines than the
+        // default 110px has room for (see .currentMatch below). The
+        // clearfix is needed because the left/right columns are floats.
+        height: auto;
+        min-height: 110px;
+
+        &:after {
+            content: '';
+            display: table;
+            clear: both;
+        }
 
         .trackModeSelect {
             // NOT width:100% - .widgetBodyLeft (see the shared,
@@ -1000,10 +1011,9 @@ body.ntk-monitoring .monitorBlockOverlay {
         // The single most useful live readout once a widget is trained
         // and actually in use (vs. .recognitionMeter/.exampleCount in the
         // "more" panel, which matter while training) - see PoseRecog.js's
-        // commitMatched. Bold/green to read at a glance; ellipsis rather
-        // than wrapping since .widgetBodyLeft is only ~58-64px wide and a
-        // long typed-in slot name would otherwise push .widgetBody past
-        // its 110px height.
+        // commitMatched. Bold/green to read at a glance. A long slot
+        // name wraps (breaking inside a word if it has to) so all of it
+        // shows; .widgetBody grows to fit when it runs past 110px.
         .currentMatch {
             margin-top: 3px;
             // Meant to be readable at a glance from across a room while
@@ -1014,9 +1024,7 @@ body.ntk-monitoring .monitorBlockOverlay {
             font-weight: bold;
             line-height: 1.1;
             color: #2e7d32;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            overflow-wrap: break-word;
             max-width: 64px;
         }
 
@@ -1137,6 +1145,16 @@ body.ntk-monitoring .monitorBlockOverlay {
     .widgetBody {
         font-size: 0.8em;
         color: #000;
+        // Grows when a long slot name wraps (see .currentMatch below);
+        // the clearfix is for the floated left/right columns.
+        height: auto;
+        min-height: 110px;
+
+        &:after {
+            content: '';
+            display: table;
+            clear: both;
+        }
 
         .transportControls {
             margin-top: 4px;
@@ -1230,9 +1248,8 @@ body.ntk-monitoring .monitorBlockOverlay {
             font-weight: bold;
             line-height: 1.1;
             color: #2e7d32;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            // Wraps so a long name shows in full - see PoseRecog's.
+            overflow-wrap: break-word;
             max-width: 64px;
         }
 
@@ -1451,9 +1468,8 @@ body.ntk-monitoring .monitorBlockOverlay {
             font-weight: bold;
             line-height: 1.1;
             color: #2e7d32;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            // Wraps so a long name shows in full - see PoseRecog's.
+            overflow-wrap: break-word;
             max-width: 58px;
         }
 
