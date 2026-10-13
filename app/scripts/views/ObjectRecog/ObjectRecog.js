@@ -108,6 +108,7 @@ function(Backbone, rivets, WidgetView, Template, MatchColor){
 			// synchronously (WidgetMulti bound onModelChange already), and
 			// the CLAUDE.md ordering gotcha applies.
 			this.trueTimers = [undefined, undefined, undefined, undefined];
+			this.shownMatchSlot = 0;
 			this.falseTimers = [undefined, undefined, undefined, undefined];
 			this.previousExamples = [[], [], [], []];
 			this.previousPreviews = ['', '', '', ''];
@@ -289,12 +290,19 @@ function(Backbone, rivets, WidgetView, Template, MatchColor){
 		// ---- record slot / name mirrors (static-keypath dance, same as
 		// PoseRecog's selectedExampleCount/selectedSlotName) ----
 
+		// The slot whose preview is shown in the "more" panel: whichever
+		// slot is currently recognized (see commitMatched), otherwise the
+		// one selected in the slot dropdown.
+		previewSlot: function() {
+			return this.shownMatchSlot || parseInt(this.model.get('recordSlot'), 10);
+		},
+
 		onRecordSlotChange: function() {
 			var slot = parseInt(this.model.get('recordSlot'), 10);
 			this.model.set({
 				selectedExampleCount: this.model.get('exampleCount' + slot),
 				selectedSlotName: this.model.get('slotName' + slot),
-				selectedPreview: this.model.get('preview' + slot),
+				selectedPreview: this.model.get('preview' + this.previewSlot()),
 			});
 		},
 
@@ -404,6 +412,8 @@ function(Backbone, rivets, WidgetView, Template, MatchColor){
 				trueUpdate['ifState' + slot] = 'trueOn';
 				// This is what the `match` outlet emits.
 				trueUpdate.currentMatchName = displayName;
+				this.shownMatchSlot = slot;
+				trueUpdate.selectedPreview = this.model.get('preview' + slot);
 				this.model.set(trueUpdate);
 
 				clearTimeout(this.falseTimers[slot - 1]);
@@ -420,6 +430,10 @@ function(Backbone, rivets, WidgetView, Template, MatchColor){
 				// showing - another slot may still be matched.
 				if(this.model.get('currentMatchName') === displayName) {
 					falseUpdate.currentMatchName = '';
+				}
+				if(this.shownMatchSlot === slot) {
+					this.shownMatchSlot = 0;
+					falseUpdate.selectedPreview = this.model.get('preview' + this.previewSlot());
 				}
 				this.model.set(falseUpdate);
 			}

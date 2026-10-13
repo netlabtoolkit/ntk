@@ -122,6 +122,7 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 			// to it), which reads these. Same ordering gotcha CLAUDE.md
 			// documents.
 			this.trueTimers = [undefined, undefined, undefined, undefined];
+			this.shownMatchSlot = 0;
 			this.falseTimers = [undefined, undefined, undefined, undefined];
 			this.previousExamples = [[], [], [], []];
 			this.recordingBuffer = [];
@@ -417,6 +418,13 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 			return prefix + entry.label + slot;
 		},
 
+		// The slot whose preview is shown in the "more" panel: whichever
+		// slot is currently recognized (see commitMatched), otherwise the
+		// one selected in the slot dropdown.
+		previewSlot: function() {
+			return this.shownMatchSlot || parseInt(this.model.get('recordSlot'), 10);
+		},
+
 		onRecordSlotChange: function() {
 			var slot = parseInt(this.model.get('recordSlot'), 10);
 			this.model.set({
@@ -534,6 +542,7 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 			this.loadingLandmarker = null;
 
 			this.model.set({statusMessage: '', distance: 0, matchLevel: 0, currentMatchName: ''});
+			this.shownMatchSlot = 0;
 
 			// Recomputes selectedExampleCount/selectedSlotName from the
 			// NEW mode's own data for whichever slot is currently
@@ -771,6 +780,8 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 				// (independent waitTimeFalse timers).
 				trueUpdate.currentMatchName = displayName;
 				this.model.set(trueUpdate);
+				this.shownMatchSlot = slot;
+				this.drawSlotPreview();
 
 				clearTimeout(this.falseTimers[slot - 1]);
 				var waitTimeFalse = parseInt(this.model.get('waitTimeFalse'), 10);
@@ -791,6 +802,10 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 					falseUpdate.currentMatchName = '';
 				}
 				this.model.set(falseUpdate);
+				if(this.shownMatchSlot === slot) {
+					this.shownMatchSlot = 0;
+					this.drawSlotPreview();
+				}
 			}
 		},
 
@@ -1077,7 +1092,7 @@ function(Backbone, rivets, WidgetView, Template, trackModeCatalog, MatchColor){
 			var w = this.slotPreviewEl.width, h = this.slotPreviewEl.height;
 			ctx.clearRect(0, 0, w, h);
 
-			var slot = parseInt(this.model.get('recordSlot'), 10);
+			var slot = this.previewSlot();
 			var examples = this.model.get(this.getModeFieldKey('examples', slot));
 			if(!examples || examples.length === 0) {
 				return;

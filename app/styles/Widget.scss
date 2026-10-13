@@ -1065,8 +1065,10 @@ body.ntk-monitoring .monitorBlockOverlay {
             border-radius: 4px;
         }
 
+        // Full panel width - the 125px .wide-label already pushes this
+        // onto its own line, so it can use all of it for longer names.
         .slotNameInput {
-            width: 100px;
+            width: 100%;
             box-sizing: border-box;
         }
 
@@ -1281,8 +1283,9 @@ body.ntk-monitoring .monitorBlockOverlay {
         }
         .slotPreview[src=""], .slotPreview:not([src]) { display: none; }
 
+        // Full panel width, as PoseRecog's.
         .slotNameInput {
-            width: 100px;
+            width: 100%;
             box-sizing: border-box;
         }
 
@@ -1559,8 +1562,10 @@ body.ntk-monitoring .monitorBlockOverlay {
             border-radius: 4px;
         }
 
+        // Full panel width, as PoseRecog's.
         .slotNameInput {
-            width: 100px;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .gestureOutputsTable {
