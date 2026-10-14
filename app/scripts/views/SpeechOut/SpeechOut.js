@@ -249,8 +249,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				}
 				this.model.set('lastIn', input);
 			}
-			if(changed.in2 !== undefined && this.model.get('autoPlay')) {
-				this.speak();
+			// speak() sets 'speaking' from inside this handler, and Backbone
+			// then fires 'change' a second time with in2 still listed as
+			// changed - so compare against the text last handled, or every
+			// new text is spoken twice.
+			var text = this.model.get('in2');
+			if(changed.in2 !== undefined && text !== this.lastText) {
+				this.lastText = text;
+				if(this.model.get('autoPlay')) { this.speak(); }
 			}
 		},
 

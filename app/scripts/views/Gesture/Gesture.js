@@ -130,6 +130,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 			this.stillSince = null;
 			this.playTimer = undefined;
 			this.slotPreviewEl = null;
+			this.shownMatchSlot = 0;
 
 			var defaults = {
 				title: 'Gesture',
@@ -373,6 +374,14 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 					this.model.set('out' + i, this.slotOutputValue(i, isOn));
 				}
 			}
+
+			// A loaded patch's saved slot and template reach the model only
+			// after the widget has rendered (see CLAUDE.md) - redraw the
+			// preview when they arrive, as PoseRecog does.
+			var selectedSlot = parseInt(this.model.get('recordSlot'), 10);
+			if(changed.recordSlot !== undefined || changed['template' + selectedSlot] !== undefined) {
+				this.onRecordSlotChange();
+			}
 		},
 
 		widgetEvents: {
@@ -380,6 +389,13 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 			'click .playIcon': 'togglePlay',
 			'change .recordSlot': 'onRecordSlotChange',
 			'change .slotNameInput': 'onSlotNameInputChange',
+		},
+
+		// The slot whose preview is shown in the "more" panel: whichever
+		// slot is currently recognized (see commitMatched), otherwise the
+		// one selected in the slot dropdown.
+		previewSlot: function() {
+			return this.shownMatchSlot || parseInt(this.model.get('recordSlot'), 10);
 		},
 
 		onRecordSlotChange: function() {
@@ -429,7 +445,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 			var w = this.slotPreviewEl.width, h = this.slotPreviewEl.height;
 			ctx.clearRect(0, 0, w, h);
 
-			var slot = parseInt(this.model.get('recordSlot'), 10);
+			var slot = this.previewSlot();
 			var template = this.model.get('template' + slot);
 			if(!template || template.length === 0) {
 				return;
@@ -599,6 +615,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 				// momentarily overlap (independent waitTimeFalse timers).
 				trueUpdate.currentMatchName = displayName;
 				this.model.set(trueUpdate);
+				this.shownMatchSlot = slot;
+				this.drawSlotPreview();
 
 				clearTimeout(this.falseTimers[slot - 1]);
 				var waitTimeFalse = parseInt(this.model.get('waitTimeFalse'), 10);
@@ -618,6 +636,10 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, MatchColor){
 					falseUpdate.currentMatchName = '';
 				}
 				this.model.set(falseUpdate);
+				if(this.shownMatchSlot === slot) {
+					this.shownMatchSlot = 0;
+					this.drawSlotPreview();
+				}
 			}
 		},
 
