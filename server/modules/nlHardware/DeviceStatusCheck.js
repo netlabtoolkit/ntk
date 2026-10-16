@@ -45,6 +45,9 @@ module.exports = function checkDeviceStatus(host, port, callback) {
 	// under this regardless, so there's no cost to a generous ceiling.
 	var TIMEOUT_MS = 8000;
 
+	// See NetworkModel.js - a stray space makes an IP a failed hostname.
+	if (typeof host === 'string') host = host.trim();
+
 	var socket = new net.Socket();
 	var rxBuffer = Buffer.alloc(0);
 	var done = false;

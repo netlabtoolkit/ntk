@@ -85,6 +85,17 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.model.set(options);
 			this.model.set('server', app.server);
 
+			// A space typed or pasted before/after the device address
+			// makes it a hostname to Node, so an IP fails with
+			// "getaddrinfo ENOTFOUND <ip>". Bound before the generic
+			// 'change' listeners: Backbone fires change:server first, and
+			// the nested set means they only ever see the trimmed value.
+			this.model.on('change:server', function(model, value) {
+				if(typeof value === 'string' && value.trim() !== value) {
+					model.set('server', value.trim());
+				}
+			}, this);
+
 			this.model.on('change', this.processSignalChain, this);
 			this.model.on('change', this.onModelChange, this);
 			this.model.on('change', this.checkOutputMappingUpdate, this);

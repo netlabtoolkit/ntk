@@ -25,7 +25,8 @@ module.exports = function(host, port) {
 	var StandaloneMonitor = function(host, port) {
 		events.EventEmitter.call(this);
 		var self = this;
-		this.host = host;
+		// See NetworkModel.js - a stray space makes an IP a failed hostname.
+		this.host = host = (typeof host === 'string' ? host.trim() : host);
 		this.port = port;
 		this.connected = false;
 		this._rxBuffer = Buffer.alloc(0);
