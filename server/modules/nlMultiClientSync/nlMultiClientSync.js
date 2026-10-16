@@ -7,6 +7,7 @@ module.exports = function(options) {
 		nlHardware = require('../nlHardware/Hardware'),
 		StandaloneMonitor = require('../nlHardware/StandaloneMonitor'),
 		checkDeviceStatus = require('../nlHardware/DeviceStatusCheck'),
+		pingHost = require('../nlHardware/HostPing'),
 		utils = require('../../utils')(),
 		self;
 
@@ -24,6 +25,11 @@ module.exports = function(options) {
 	// See bindModelToTransport's connectionLost/connectionFailed.
 	var recentConnectionLoss = {};
 	var CONNECTION_LOSS_QUIET_MS = 60000;
+	// See bindModelToTransport's noteNoAnswer: failed attempts in a row
+	// per device since one got no handshake, and whether the "in use"
+	// message went out for this streak. Both cleared when it connects.
+	var noHandshakeStreak = {};
+	var reportedInUse = {};
 	function stopMonitorFor(socketId) {
 		var existing = activeMonitors[socketId];
 		if (existing) {
@@ -325,7 +331,32 @@ module.exports = function(options) {
 			// has no per-socket ownership of a hardware model, and every
 			// connected browser client cares equally that this device
 			// isn't reachable.
+			// The device isn't answering because it's serving another
+			// client (NTK on another computer) - it serves one at a time.
+			// Seen as a connection that opens but gets no Firmata
+			// handshake (connectionLost's noHandshake), and on the retries
+			// after that, alternately as that again or as a connect that
+			// times out (the board leaves waiting connections queued, so
+			// a retry can't always get in). A single no-handshake is also
+			// what a board mid-reset can give, so tell the user on the
+			// second failure in a row, once per streak - the widgets keep
+			// retrying and connect as soon as the board is free.
+			var noteNoAnswer = function(info) {
+				var key = model.address;
+				noHandshakeStreak[key] = (noHandshakeStreak[key] || 0) + 1;
+				if (noHandshakeStreak[key] >= 2 && !reportedInUse[key]) {
+					reportedInUse[key] = true;
+					this.transport.emit('server:hardwareInUse', {modelType: key, host: info.host, port: info.port});
+				}
+			}.bind(this);
+
 			model.on('connectionFailed', function(info) {
+				// Part of an "in use" streak (see noteNoAnswer) - that
+				// message explains it, not "couldn't reach".
+				if (noHandshakeStreak[model.address]) {
+					noteNoAnswer(info);
+					return;
+				}
 				// A device that just dropped off is expected to be
 				// unreachable for a bit (it's most likely restarting) -
 				// the client reconnects by itself (see connectionLost
@@ -357,7 +388,16 @@ module.exports = function(options) {
 					model.close();
 				}
 				this.transport.emit('server:hardwareConnectionLost', {modelType: key, host: info.host, port: info.port});
+
+				if (info.noHandshake) {
+					noteNoAnswer(info);
+				}
 			}.bind(this));
+
+			model.on('connected', function() {
+				delete noHandshakeStreak[model.address];
+				delete reportedInUse[model.address];
+			});
 
 			// Generic status channel, separate from 'change' (reserved
 			// for actual field/value updates) - added for CloudModel.js's
@@ -831,6 +871,19 @@ module.exports = function(options) {
 				}
 
 				checkDeviceStatus(host, port, function(status, error) {
+					// A device serving another client (NTK on another
+					// computer - it serves one at a time) doesn't answer
+					// the probe either: it times out, same as a device
+					// that's off. If it still answers a ping, it's on the
+					// network and busy - 'in-use'. A refused connection
+					// is left alone: that's a device whose NTK firmware
+					// isn't running, not a busy one.
+					if (!status && /timed out|ETIMEDOUT/i.test(error || '')) {
+						pingHost(host, function(answered) {
+							socket.emit('server:deviceStatusResult', {host: host, port: port, status: answered ? 'in-use' : null, error: error});
+						});
+						return;
+					}
 					socket.emit('server:deviceStatusResult', {host: host, port: port, status: status, error: error});
 				});
 			});

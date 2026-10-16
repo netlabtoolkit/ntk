@@ -100,12 +100,17 @@ module.exports = function(attributes) {
 			// with a new one. A connection that never opens at all (bad
 			// address) is NOT this case - that stays with
 			// connectionFailed above and etherport-client's own retry.
+			// The same silence is what a board that's already serving
+			// another client gives (it only serves one at a time, and
+			// leaves the next connection waiting unanswered) - flagged
+			// noHandshake so nlMultiClientSync.js can tell the user when
+			// it keeps happening.
 			var handshakeTimer = null;
 			etherPortClient._tcp.once('connect', function() {
 				handshakeTimer = setTimeout(function() {
 					if (self._closing || self.connected) { return; }
 					console.log('No Firmata handshake from', networkHost, networkPort, 'after', HANDSHAKE_TIMEOUT_MS / 1000, 's - dropping the connection to retry');
-					self.emit('connectionLost', {host: networkHost, port: networkPort});
+					self.emit('connectionLost', {host: networkHost, port: networkPort, noHandshake: true});
 				}, HANDSHAKE_TIMEOUT_MS);
 			});
 			etherPortClient._tcp.on('timeout', function() {
@@ -183,6 +188,7 @@ module.exports = function(attributes) {
 				self.board.on("ready", function() {
 					self.connected = true;
 					self.addDefaultPins.call(self);
+					self.emit('connected', {host: networkHost, port: networkPort});
 
 					// The socket this session was established on closing
 					// by itself means the board went away (reset, power,

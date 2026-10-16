@@ -48,6 +48,7 @@ function( app, Backbone, Template, Widgets ) {
 			// truth both surfaces read from.
 			window.app.vent.on('monitorStatus', this.indicateMonitorActive, this);
 			window.app.vent.on('hardwareConnectionFailed', this.indicateHardwareConnectionFailed, this);
+			window.app.vent.on('hardwareInUse', this.indicateHardwareInUse, this);
 			window.app.vent.on('deviceStatusResult', this.onDeviceStatusResult, this);
 			// Otherwise the status bar keeps showing whatever it last
 			// polled (e.g. still "Controlled") for up to
@@ -435,7 +436,7 @@ function( app, Backbone, Template, Widgets ) {
 			},
 			'in-use': {
 				label: 'In use',
-				explanation: 'Something else is already connected to this device.',
+				explanation: 'In use by another user - NTK on another computer (or another program) is connected to this device.',
 			},
 			'unreachable': {
 				// No explanation text - unlike the other states, this is
@@ -708,12 +709,30 @@ function( app, Backbone, Template, Widgets ) {
 			// ntk_hardware_ip_edit_revert_open_bug memory. Left in place
 			// since it's still reasonable defensive practice on its own
 			// merits, not because it's confirmed to fix anything.
+			// A busy device (serving NTK on another computer) can also
+			// just time out, when other connections are already queued
+			// on it - see nlMultiClientSync.js's noteNoAnswer.
+			var timedOut = /timed out|ETIMEDOUT/i.test(info.error || '');
 			setTimeout(function() {
 				window.alert(
 					"NTK couldn't reach your device at " + info.host + ":" + info.port + ".\n\n" +
 					"Double-check the IP address in the Device picker (Settings drawer, or a widget's own \"more\" panel) - " +
 					"the device prints its current IP to its serial console (e.g. in Thonny) when it boots.\n\n" +
+					(timedOut ? "If the address is right and the device is on, it may be in use by NTK on another computer - a device can only be connected to one NTK at a time.\n\n" : "") +
 					"(" + info.error + ")"
+				);
+			}, 0);
+		},
+		// A device answers the connection but never talks back - a board
+		// serves one client at a time, so NTK on another computer (or
+		// another program) has it. Sent once per streak by the server
+		// (nlMultiClientSync.js's connectionLost); the widgets keep
+		// retrying meanwhile. Deferred for the same reason as above.
+		indicateHardwareInUse: function indicateHardwareInUse(info) {
+			setTimeout(function() {
+				window.alert(
+					"Your device at " + info.host + ":" + info.port + " isn't responding - it's probably in use by NTK on another computer, or another program.\n\n" +
+					"A device can only be connected to one NTK at a time. Disconnect it there, and NTK will connect here automatically."
 				);
 			}, 0);
 		},
