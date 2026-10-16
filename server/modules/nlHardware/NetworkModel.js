@@ -1,6 +1,10 @@
 
 module.exports = function(attributes) {
-	var argHostPort = [attributes.address, attributes.port];
+	// Trimmed: a stray space around an IP makes Node treat it as a
+	// hostname ("getaddrinfo ENOTFOUND 192.168.x.x"). The client trims
+	// too (WidgetMulti.js, ToolBar.js) - this covers patches saved
+	// before that.
+	var argHostPort = [typeof attributes.address === 'string' ? attributes.address.trim() : attributes.address, attributes.port];
 
 	var EtherPortClient = require("etherport-client").EtherPortClient;
 

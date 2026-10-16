@@ -276,7 +276,13 @@ function( app, Backbone, Template, Widgets ) {
 		// select (Serial mode) - like a widget's own Device panel, both
 		// write into the same underlying "server" field.
 		defaultDeviceServerChange: function(e) {
-			window.app.defaultDevice.server = $(e.currentTarget).val();
+			// Trimmed for the same reason as a widget's own server field
+			// (see WidgetMulti.js's change:server listener).
+			var server = $(e.currentTarget).val().trim();
+			if($(e.currentTarget).is('input')) {
+				$(e.currentTarget).val(server);
+			}
+			window.app.defaultDevice.server = server;
 			this.persistDefaultDevice();
 			this.pollDeviceStatus();
 		},
