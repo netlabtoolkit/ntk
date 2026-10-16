@@ -790,7 +790,14 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 				var inactiveModels = this.inactiveModelsExist();
 
-				if(inactiveModels && this.model.get('active') == true) {
+				// Also on the widget's own switch-on, not only when its
+				// device connection is inactive: when another widget (e.g.
+				// an AnalogIn) has already connected the same device, the
+				// shared connection is active, so switching GroveIn on
+				// never subscribed the sensor - it sat with no readings.
+				// Found 2026-10-16 (Clock picked, then switched on, with an
+				// AnalogIn already running).
+				if((inactiveModels || changed.active === true) && this.model.get('active') == true) {
 					this.remapSensor(this.model.get('sensor'));
 					this.enableDevice();
 				}

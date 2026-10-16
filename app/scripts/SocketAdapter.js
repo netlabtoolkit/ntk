@@ -88,6 +88,13 @@ function( Backbone ) {
 				window.app.vent.trigger('hardwareConnectionFailed', info);
 			});
 
+			// The device accepts the connection but never answers -
+			// almost always because it's serving another client (see
+			// nlMultiClientSync.js's connectionLost).
+			socket.on("server:hardwareInUse", function(info) {
+				window.app.vent.trigger('hardwareInUse', info);
+			});
+
 			// Generic hardware-model status channel (see
 			// nlMultiClientSync.js's bindModelToTransport) - currently
 			// only CloudModel.js emits this, for CloudIn/CloudOut's
