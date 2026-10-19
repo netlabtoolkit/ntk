@@ -246,7 +246,9 @@ and shipped. Its historical step-by-step plan is at
   still frames from the XIAO ESP32-S3 Sense's camera over the existing
   device connection and feed them to ObjectRecog through a new `image`
   inlet. Plan only; starts with a hardware check of `espcamera`.
-- **[DCC-EX widgets](dcc-ex-widgets.md)** — control a model railway's
-  DCC-EX command station: DCC Station (power, E-stop, raw command /
-  response), DCC Throttle, DCC Turnout and DCC Program, sharing one
-  connection, with a built-in simulated station. Plan only.
+- **[DCC widgets](dcc-ex-widgets.md)** — control a model railway's
+  command station: DCC Station (power, E-stop), DCC Throttle and DCC
+  Turnout over WiThrottle (DCC-EX, JMRI, ...), including driving
+  virtual turnouts' servos from an NTK board; then DCC Program
+  (programming track) over DCC-EX's native protocol. Built-in
+  simulated station. Plan only.
