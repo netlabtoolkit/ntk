@@ -246,3 +246,7 @@ and shipped. Its historical step-by-step plan is at
   still frames from the XIAO ESP32-S3 Sense's camera over the existing
   device connection and feed them to ObjectRecog through a new `image`
   inlet. Plan only; starts with a hardware check of `espcamera`.
+- **[DCC-EX widgets](dcc-ex-widgets.md)** — control a model railway's
+  DCC-EX command station: DCC Station (power, E-stop, raw command /
+  response), DCC Throttle, DCC Turnout and DCC Program, sharing one
+  connection, with a built-in simulated station. Plan only.
