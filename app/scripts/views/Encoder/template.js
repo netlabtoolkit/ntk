@@ -67,7 +67,7 @@
             <div class="encoderStatusText" rv-text="widget:statusTitle"></div>
             <hr>
             <label class="narrowLabel wordLabel">step</label> <input class="moreParam" type="text" pattern="[0-9.]*" title="How much each click of the encoder adds or subtracts" rv-value="widget:step"><br>
-            <label class="narrowLabel wordLabel">edges</label> <input class="moreParam" type="text" pattern="[0-9]*" title="Encoder signal edges per click: 4 for most encoders, 2 if the value only changes every other click" rv-value="widget:edgesPerClick"><br>
+            <label class="narrowLabel wordLabel">edges</label> <input class="moreParam" type="text" pattern="[0-9]*" title="Encoder counts per click. Start at 1; if one click moves the value more than one step, raise this to match" rv-value="widget:edgesPerClick"><br>
             <label class="narrowLabel wordLabel">ease</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:easingAmount">
             <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/encoder/" target="_blank">Widget help</a>

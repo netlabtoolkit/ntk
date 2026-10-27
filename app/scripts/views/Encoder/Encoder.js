@@ -85,9 +85,12 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				min: this.model.get('min') === undefined ? 0 : this.model.get('min'),
 				max: this.model.get('max') === undefined ? 1023 : this.model.get('max'),
 				step: this.model.get('step') === undefined ? 1 : this.model.get('step'),
-				// Quadrature edges per detent: 4 on most encoders, 2 on
-				// many KY-040 modules.
-				edgesPerClick: this.model.get('edgesPerClick') === undefined ? 4 : this.model.get('edgesPerClick'),
+				// Device counts per detent. It depends on the encoder AND
+				// the board's counter (a XIAO ESP32-S3 with a KY-040-style
+				// encoder reports 1 per click, measured 2026-10-27), so
+				// default to 1: it can never skip clicks, and if one click
+				// moves several steps the fix is obvious - raise this.
+				edgesPerClick: this.model.get('edgesPerClick') === undefined ? 1 : this.model.get('edgesPerClick'),
 				invert: !!this.model.get('invert'),
 				wrap: !!this.model.get('wrap'),
 				easing: !!this.model.get('easing'),
@@ -157,7 +160,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				var now = Date.now();
 				if(!deltaY || now - (self.lastWheelMs || 0) < 25) { return; }
 				self.lastWheelMs = now;
-				var direction = deltaY < 0 ? 1 : -1;
+				// Stands in for turning the encoder, so rev applies.
+				var direction = (deltaY > 0 ? 1 : -1) * (self.model.get('invert') ? -1 : 1);
 				self.setCount(toNumber(self.model.get('count'), 0) + direction * self.getStep());
 			});
 		},
@@ -241,7 +245,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 		getEdgesPerClick: function() {
 			var n = parseInt(this.model.get('edgesPerClick'), 10);
-			return n >= 1 ? n : 4;
+			return n >= 1 ? n : 1;
 		},
 
 		setStatus: function(status, detail) {
@@ -359,16 +363,21 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 
 			var server = this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 
+			// Patcher keeps only a widget's LAST hardware mapping in the
+			// saved patch (mapToModel drops the previous one), though the
+			// widget still listens to both. Position goes last so it's the
+			// one that's saved - the standalone interpreter and a patch
+			// reload both need it.
 			app.Patcher.Controller.mapToModel({
 				view: this,
 				modelType: this.getDeviceModelType(),
-				IOMapping: {sourceField: 'enc-' + encNum, destinationField: 'in'},
+				IOMapping: {sourceField: 'enc-' + encNum + '-error', destinationField: 'encoderError'},
 				server: server,
 			}, true);
 			app.Patcher.Controller.mapToModel({
 				view: this,
 				modelType: this.getDeviceModelType(),
-				IOMapping: {sourceField: 'enc-' + encNum + '-error', destinationField: 'encoderError'},
+				IOMapping: {sourceField: 'enc-' + encNum, destinationField: 'in'},
 				server: server,
 			}, true);
 
@@ -399,6 +408,15 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 		 * @return {void}
 		 */
 		attachEncoder: function() {
+			// Monitor mode owns the board's one connection - asking for
+			// a normal one (and re-asking every 6s) gets "can't reach
+			// your device" errors. Monitor's stop() nudges every widget
+			// to reconnect afterwards, which lands back here.
+			if(window.app.monitoring && window.app.monitoring.active) {
+				clearTimeout(this.reattachTimer);
+				return;
+			}
+
 			var hardwareSource = _.find(this.sources, function(source) {
 				return source.map.destinationField === 'in';
 			});
@@ -449,6 +467,14 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			// value over the saved count.
 			var fromSource = !!(options && options.updateNoTrigger);
 
+			// Monitor mode pushes the board's own count/out/set with the
+			// same flag - those are display only, the board already
+			// applied them.
+			var monitoring = window.app.monitoring;
+			if(monitoring && monitoring.active && monitoring.wids && monitoring.wids[this.model.get('wid')]) {
+				fromSource = false;
+			}
+
 			if(changed.server || changed.port) {
 				this.model.set('active', false);
 			}
@@ -490,7 +516,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			// Switched on, or the device connection behind it needs
 			// re-establishing - see GroveSensor's onModelChange for why
 			// both cases.
-			if((this.inactiveModelsExist() || changed.active === true) && this.model.get('active') == true) {
+			var monitoringNow = window.app.monitoring && window.app.monitoring.active;
+			if(!monitoringNow && (this.inactiveModelsExist() || changed.active === true) && this.model.get('active') == true) {
 				this.remapEncoder();
 				this.enableDevice();
 			}

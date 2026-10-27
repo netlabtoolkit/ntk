@@ -1101,7 +1101,10 @@ class FirmataServer:
         def fail(reason):
             print("Encoder", enc_num, "failed on pins", pin_a, pin_b, ":", reason)
             # Pins included so a repeat failure after a pin change still
-            # reads as a new message on the host side.
+            # reads as a new message on the host side. No host to tell
+            # when the standalone interpreter is the one attaching.
+            if self._send is None:
+                return
             self._send_string("ENCODER_ERROR %d D%d/D%d: %s" % (enc_num, pin_a, pin_b, reason))
 
         for p in (pin_a, pin_b):
@@ -1130,12 +1133,12 @@ class FirmataServer:
 
         try:
             import rotaryio
-            # divisor=1: report every quadrature edge, like
-            # ConfigurableFirmata does. Encoders differ in edges per
-            # click (4 on many, 2 on many KY-040s), so the widget groups
-            # edges into clicks with its own edges/click setting - a
-            # fixed divisor=4 here made 2-edge encoders count only every
-            # other click (found 2026-10-27).
+            # divisor=1: report every count, like ConfigurableFirmata
+            # does. Counts per click vary by encoder and board (a KY-040-
+            # style encoder on the XIAO ESP32-S3 gives 1 per click), so
+            # the widget groups counts into clicks with its own setting -
+            # a fixed divisor=4 here made that encoder need several
+            # clicks per count (found 2026-10-27).
             io = rotaryio.IncrementalEncoder(self.pins[pin_a].board_pin, self.pins[pin_b].board_pin, divisor=1)
         except Exception as e:
             for p in (pin_a, pin_b):

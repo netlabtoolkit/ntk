@@ -2521,6 +2521,12 @@ body.ntk-monitoring .monitorBlockOverlay {
 // AnalogIn, plus a connection status dot and pin A/B fields stacked in
 // the left column under the "set" inlet.
 .encoder {
+    // rev/wrap/eas when on - AnalogIn gets this from its own styles.scss.
+    li.active {
+        color: #fff;
+        background-color: #666;
+    }
+
     .widgetLeft .leftTab.pinTab {
         padding: 2px 0;
 
