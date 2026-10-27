@@ -56,6 +56,33 @@ EXTENDED_ANALOG = 0x6F
 SERVO_CONFIG = 0x70
 SAMPLING_INTERVAL = 0x7A
 QUERY_FIRMWARE = 0x79
+STRING_DATA = 0x71
+
+# Rotary encoders - the standard ConfigurableFirmata "EncoderFirmata"
+# extension, not a custom one, so an Arduino running ConfigurableFirmata
+# speaks the same protocol to NTK's Encoder widget. Counting happens
+# here on the device (rotaryio, a hardware pulse counter on ESP32) -
+# polling two digital pins over WiFi would miss most steps.
+#   attach:  F0 61 00 enc pinA pinB F7
+#   report:  F0 61 01 enc F7
+#   reset:   F0 61 03 enc F7
+#   auto:    F0 61 04 0|1 F7
+#   detach:  F0 61 05 enc F7
+#   reply:   F0 61 [enc | sign<<6] b0 b1 b2 b3 F7  (abs position, 7 bits per byte, LSB first)
+# Positions are raw quadrature edges (ConfigurableFirmata's convention
+# too) - the widget converts edges to clicks. One deliberate
+# difference: with auto-report on, ConfigurableFirmata
+# sends every encoder's position every sampling interval; this sends
+# one only when it changed (plus once on attach), to keep WiFi traffic
+# down. Errors (e.g. a pin pair rotaryio rejects) go out as a standard
+# STRING_DATA message "ENCODER_ERROR <enc> <reason>".
+ENCODER_DATA = 0x61
+ENCODER_ATTACH = 0x00
+ENCODER_REPORT_POSITION = 0x01
+ENCODER_REPORT_POSITIONS = 0x02
+ENCODER_RESET_POSITION = 0x03
+ENCODER_REPORT_AUTO = 0x04
+ENCODER_DETACH = 0x05
 
 # Custom sysex extension (not part of the Firmata spec) - from the
 # range Firmata reserves for user-defined commands (0x01-0x0F), since
@@ -166,6 +193,7 @@ OUTPUT = 0x01
 ANALOG = 0x02
 PWM = 0x03
 SERVO = 0x04
+ENCODER = 0x09
 PULLUP = 0x0B
 IGNORE = 0x7F
 
@@ -364,6 +392,11 @@ class FirmataServer:
         # and the actual neopixel_output.set_config() call happen in
         # ntk_firmata_main.py's run_server() loop).
         self.pending_neopixel_config = None
+        # Attached rotary encoders, keyed by the encoder number the host
+        # chose - {"io": rotaryio.IncrementalEncoder, "pins": (a, b),
+        # "last": last reported position or None}. See ENCODER_DATA.
+        self._encoders = {}
+        self._encoder_auto_report = True
 
         self._drive_unclaimed_pins_low()
 
@@ -501,6 +534,8 @@ class FirmataServer:
             self.sampling_interval_ms = max(1, interval)
         elif cmd == GROVE_SENSOR_REQUEST:
             self._handle_grove_sensor_request(payload[1:])
+        elif cmd == ENCODER_DATA:
+            self._handle_encoder_request(payload[1:])
         elif cmd == STANDALONE_MONITOR_REQUEST:
             self.monitor_requested = True
         elif cmd == PUSH_PATCH_REQUEST:
@@ -612,6 +647,26 @@ class FirmataServer:
             END_SYSEX,
         ]))
 
+    def _send_encoder_position(self, enc_num, position):
+        magnitude = abs(int(position))
+        self._send(bytes([
+            START_SYSEX, ENCODER_DATA,
+            (enc_num & 0x3F) | (0x40 if position < 0 else 0),
+            magnitude & 0x7F, (magnitude >> 7) & 0x7F,
+            (magnitude >> 14) & 0x7F, (magnitude >> 21) & 0x7F,
+            END_SYSEX,
+        ]))
+
+    def _send_string(self, text):
+        # Standard STRING_DATA: each character as two 7-bit bytes.
+        data = [START_SYSEX, STRING_DATA]
+        for ch in text:
+            code = ord(ch)
+            data.append(code & 0x7F)
+            data.append((code >> 7) & 0x7F)
+        data.append(END_SYSEX)
+        self._send(bytes(data))
+
     def send_push_patch_reply(self, ok, error_message=""):
         """Called by ntk_firmata_main.py's run_server() loop once it's
         actually tried to write pending_push_patch to disk. Public (no
@@ -679,6 +734,10 @@ class FirmataServer:
         for sensor_id in list(self._grove_subscriptions.keys()):
             self._unsubscribe_grove_sensor(sensor_id)
 
+        # Same for encoders - rotaryio holds both pins itself.
+        for enc_num in list(self._encoders.keys()):
+            self._detach_encoder(enc_num)
+
     def _drive_unclaimed_pins_low(self):
         """Called once, at the end of __init__ - every real (non-virtual)
         pin starts as a digital output driven LOW, rather than left
@@ -736,6 +795,16 @@ class FirmataServer:
         # next write.
         if mode == SERVO and pin.mode == SERVO and pin.io is not None:
             return
+        # A pin an encoder is using: ANALOG/IGNORE are what NTK sends
+        # for every analog-capable pin at connect whether the patch uses
+        # it or not, so those must not take the pin away. Any other mode
+        # is a widget actually asking for this pin - it wins, and the
+        # encoder is detached.
+        enc_num = self._encoder_owning(pin_index)
+        if enc_num is not None:
+            if mode in (ANALOG, IGNORE):
+                return
+            self._detach_encoder(enc_num)
         self._release_pin_io(pin)
         pin.mode = mode
         pin.report = False
@@ -836,6 +905,11 @@ class FirmataServer:
                 pin_index = i
                 break
         if pin_index is None:
+            return
+        if self._encoder_owning(pin_index) is not None:
+            # NTK asks for analog reports on every analog-capable pin at
+            # connect (see _apply_pin_mode's encoder comment) - leave an
+            # encoder's pin alone.
             return
         pin = self.pins[pin_index]
         print(("Client requested" if enabled else "Client stopped") + " analog readings from A" + str(channel))
@@ -991,6 +1065,106 @@ class FirmataServer:
                 pass
         return True
 
+    def _encoder_owning(self, pin_index):
+        for enc_num, encoder in self._encoders.items():
+            if pin_index in encoder["pins"]:
+                return enc_num
+        return None
+
+    def _handle_encoder_request(self, data):
+        if not data:
+            return
+        subcmd = data[0]
+
+        if subcmd == ENCODER_ATTACH:
+            if len(data) < 4:
+                return
+            enc_num, pin_a, pin_b = data[1], data[2], data[3]
+            self._attach_encoder(enc_num, pin_a, pin_b)
+        elif subcmd == ENCODER_REPORT_POSITION:
+            if len(data) >= 2 and data[1] in self._encoders:
+                self._send_encoder_position(data[1], self._encoders[data[1]]["io"].position)
+        elif subcmd == ENCODER_REPORT_POSITIONS:
+            for enc_num, encoder in self._encoders.items():
+                self._send_encoder_position(enc_num, encoder["io"].position)
+        elif subcmd == ENCODER_RESET_POSITION:
+            if len(data) >= 2 and data[1] in self._encoders:
+                self._encoders[data[1]]["io"].position = 0
+        elif subcmd == ENCODER_REPORT_AUTO:
+            if len(data) >= 2:
+                self._encoder_auto_report = bool(data[1])
+        elif subcmd == ENCODER_DETACH:
+            if len(data) >= 2 and self._detach_encoder(data[1]):
+                print("Client detached encoder", data[1])
+
+    def _attach_encoder(self, enc_num, pin_a, pin_b):
+        def fail(reason):
+            print("Encoder", enc_num, "failed on pins", pin_a, pin_b, ":", reason)
+            # Pins included so a repeat failure after a pin change still
+            # reads as a new message on the host side.
+            self._send_string("ENCODER_ERROR %d D%d/D%d: %s" % (enc_num, pin_a, pin_b, reason))
+
+        for p in (pin_a, pin_b):
+            if p >= len(self.pins) or self.pins[p].board_pin is None:
+                fail("pin %d is not a real pin on this board" % p)
+                return
+        if pin_a == pin_b:
+            fail("pin A and pin B are the same pin")
+            return
+
+        # Re-attaching (the widget asks again after a pin change or a
+        # lost request) starts clean - drop this encoder number's old
+        # claim, and any other encoder sitting on either pin.
+        self._detach_encoder(enc_num)
+        for p in (pin_a, pin_b):
+            other = self._encoder_owning(p)
+            if other is not None:
+                self._detach_encoder(other)
+
+        # Every pin starts claimed as a driven-low output (see
+        # _drive_unclaimed_pins_low), or as whatever a widget last put
+        # it in - rotaryio needs both released first.
+        for p in (pin_a, pin_b):
+            self._release_pin_io(self.pins[p])
+            self.pins[p].report = False
+
+        try:
+            import rotaryio
+            # divisor=1: report every quadrature edge, like
+            # ConfigurableFirmata does. Encoders differ in edges per
+            # click (4 on many, 2 on many KY-040s), so the widget groups
+            # edges into clicks with its own edges/click setting - a
+            # fixed divisor=4 here made 2-edge encoders count only every
+            # other click (found 2026-10-27).
+            io = rotaryio.IncrementalEncoder(self.pins[pin_a].board_pin, self.pins[pin_b].board_pin, divisor=1)
+        except Exception as e:
+            for p in (pin_a, pin_b):
+                self.pins[p].mode = None
+            fail(str(e))
+            return
+
+        for p in (pin_a, pin_b):
+            self.pins[p].mode = ENCODER
+        # last=None makes update() report the starting position on its
+        # very next pass, so the widget hears back right away.
+        self._encoders[enc_num] = {"io": io, "pins": (pin_a, pin_b), "last": None}
+        print("Client attached encoder", enc_num, "on pins", pin_a, pin_b)
+
+    def _detach_encoder(self, enc_num):
+        """Release enc_num's rotaryio object and its two pins. Returns
+        True if there was an encoder to remove."""
+        encoder = self._encoders.pop(enc_num, None)
+        if encoder is None:
+            return False
+        try:
+            encoder["io"].deinit()
+        except Exception:
+            pass
+        for p in encoder["pins"]:
+            self.pins[p].mode = None
+            self.pins[p].io = None
+        return True
+
     def _handle_servo_config(self, pin_index, min_us, max_us):
         if pin_index < 0 or pin_index >= len(self.pins):
             return
@@ -1000,6 +1174,8 @@ class FirmataServer:
         self._apply_pin_mode(pin_index, SERVO)
 
     def _handle_system_reset(self):
+        for enc_num in list(self._encoders.keys()):
+            self._detach_encoder(enc_num)
         for pin in self.pins:
             self._release_pin_io(pin)
             pin.mode = None
@@ -1086,3 +1262,10 @@ class FirmataServer:
                 print("Grove sensor", sensor_id, "read failed:", e)
                 self._send_grove_status(sensor_id, GROVE_STATUS_ERROR)
             subscription["last_ms"] = now_ms
+
+        if self._encoder_auto_report:
+            for enc_num, encoder in self._encoders.items():
+                position = encoder["io"].position
+                if position != encoder["last"]:
+                    encoder["last"] = position
+                    self._send_encoder_position(enc_num, position)

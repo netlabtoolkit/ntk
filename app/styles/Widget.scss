@@ -2516,3 +2516,59 @@ body.ntk-monitoring .monitorBlockOverlay {
         }
     }
 }
+
+// Rotary encoder (views/Encoder). Same dial/range/options layout as
+// AnalogIn, plus a connection status dot and pin A/B fields stacked in
+// the left column under the "set" inlet.
+.encoder {
+    .widgetLeft .leftTab.pinTab {
+        padding: 2px 0;
+
+        // Whole-box sizing so a three-character pin ("D10") fits the
+        // 25px column - same fix as AnalogIn's styles.scss pin field.
+        input {
+            box-sizing: border-box;
+            width: 23px;
+            margin: 0 0 0 1px;
+            padding-left: 0;
+            padding-right: 0;
+            font-size: 10px;
+            text-align: center;
+        }
+    }
+
+    .widgetLeft .inlets {
+        margin-bottom: 2px;
+    }
+
+    .dialwrapper .outvalue {
+        top: 26px;
+    }
+
+    // Blinks while waiting for the device's first position, so a
+    // pending attach doesn't look like nothing is happening.
+    .statusDot {
+        position: absolute;
+        top: 0;
+        left: -4px;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #ccc;
+        z-index: 1;
+
+        &.encidle { background-color: #ccc; }
+        &.encwaiting { background-color: #e0a030; animation: encoderWaitingBlink 1s ease-in-out infinite; }
+        &.encok { background-color: #4caf50; }
+        &.encerror { background-color: #e53935; }
+    }
+
+    .encoderStatusText {
+        margin-top: 2px;
+        word-wrap: break-word;
+    }
+}
+
+@keyframes encoderWaitingBlink {
+    50% { opacity: 0.3; }
+}

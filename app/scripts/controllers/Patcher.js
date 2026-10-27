@@ -458,6 +458,22 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 
 					return newWidget;
                 }
+                else if(widgetType === 'Encoder') {
+					// Same shape as GroveSensor above: the widget's own
+					// remapEncoder() makes its hardware mappings.
+					var newWidget = new Widgets['Encoder']({
+						model: newModel,
+					});
+
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
+					if(!addedFromLoader) {
+						this.applyDefaultDeviceToModel(newModel);
+						newWidget.remapEncoder();
+					}
+
+					return newWidget;
+                }
 				else {
 					var newWidget = new Widgets[widgetType]({
 						model: newModel,
