@@ -77,6 +77,20 @@ module.exports = function(options) {
 		delete oscSuspendedBy[socketId];
 	}
 
+	// The device being monitored, per client (':host:port', the same
+	// suffix match client:startMonitor uses). The board serves one
+	// connection at a time and Monitor holds it, so while it's watched
+	// nothing may open a NORMAL connection to it - a widget that
+	// writes to it (Display redrawing a monitored value, an output pin)
+	// otherwise gets "your device isn't responding / in use" (found
+	// 2026-10-27, Encoder -> Display in Monitor mode).
+	var monitoredBy = {};
+	function isMonitoredDevice(hardwareKey) {
+		return _.some(monitoredBy, function(suffix) {
+			return String(hardwareKey).slice(-suffix.length) === suffix;
+		});
+	}
+
 
 	var QueueHandler = utils.QueueHandler;
 
@@ -467,6 +481,7 @@ module.exports = function(options) {
 				// See oscSuspendedBy - would otherwise recreate the
 				// instance (reopening its port) and send.
 				if(isOSCKey(options.modelType) && oscSuspended()) { return; }
+				if(isMonitoredDevice(options.modelType)) { return; }
 
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
@@ -531,6 +546,7 @@ module.exports = function(options) {
 
 				// See oscSuspendedBy.
 				if(isOSCKey(modelType) && oscSuspended()) { return; }
+				if(isMonitoredDevice(modelType)) { return; }
 
 				if(options.port && options.mode) {
 					// A widget can ask to switch a pin's mode (e.g. DigitalIn
@@ -590,6 +606,7 @@ module.exports = function(options) {
 			// sendDisplayText). No reply expected.
 			socket.on('client:sendDisplayText', function(data) {
 				var options = JSON.parse(data);
+				if(isMonitoredDevice(options.hardwareKey)) { return; }
 				if(self.hardwareModels[options.hardwareKey] == undefined) {
 					var typeAddressPort = options.hardwareKey.split(':');
 					self.hardwareModels[options.hardwareKey] = new nlHardware({deviceType: options.hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
@@ -607,6 +624,7 @@ module.exports = function(options) {
 			// pipeline.
 			socket.on('client:sendNeoPixelConfig', function(data) {
 				var options = JSON.parse(data);
+				if(isMonitoredDevice(options.hardwareKey)) { return; }
 				if(self.hardwareModels[options.hardwareKey] == undefined) {
 					var typeAddressPort = options.hardwareKey.split(':');
 					self.hardwareModels[options.hardwareKey] = new nlHardware({deviceType: options.hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
@@ -724,6 +742,7 @@ module.exports = function(options) {
 
 				var host = options.host,
 					port = options.port;
+				monitoredBy[socket.id] = ':' + host + ':' + port;
 
 				// A monitor connection that fails or drops is retried
 				// until the client stops monitoring, rather than
@@ -820,6 +839,7 @@ module.exports = function(options) {
 
 			socket.on('client:stopMonitor', function() {
 				resumeOSC(socket.id);
+				delete monitoredBy[socket.id];
 				stopMonitorFor(socket.id);
 				// The monitor's own 'close' no longer reports a
 				// deliberate stop (see connectMonitor) - the toolbar's
@@ -921,6 +941,7 @@ module.exports = function(options) {
 
 			socket.on('disconnect', function() {
 				resumeOSC(socket.id);
+				delete monitoredBy[socket.id];
 				stopMonitorFor(socket.id);
 				self.emit('clientDisconnected');
 			});
