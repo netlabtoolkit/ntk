@@ -114,6 +114,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 			window.app.vent.on('pullPatchResult', this.onPullPatchResult, this);
 			window.app.vent.on('ToolBar:loadPatch', this.loadPatch, this);
 			window.app.vent.on('ToolBar:clearPatch', this.clearPatch, this);
+			this.trackUnsavedEdits();
 			window.app.vent.on('receivedDeviceModelUpdate', function(data) {
 				data = JSON.parse(data);
 
@@ -603,6 +604,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 			if(!addedFromLoader) {
 				this.placeNewWidget(view);
 				window.app.vent.trigger('addWidget', view.model);
+				window.app.patchDirty = true;
 			}
 			this.widgetModels.add(view.model);
 			this.bindModelToServer(view.model);
@@ -858,6 +860,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 
 			if(!calledFromLoader) {
 				window.app.vent.trigger('removeWidget', widgetView.model.get( 'wid' ));
+				window.app.patchDirty = true;
 			}
 		},
 		/**
@@ -1122,9 +1125,53 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 				this.loadingPatch = false;
 			}
 			window.app.vent.trigger('updateModelMappings', this.widgetMappings);
+			// A patch just loaded (startup, Pull, Import, Open Example,
+			// or the reload that follows a Save) - nothing unsaved yet.
+			window.app.patchDirty = false;
 		},
 		savePatch: function() {
 			window.app.vent.trigger('savePatchToServer', {collection: this.widgetModels, mappings: this.widgetMappings});
+		},
+		/**
+		 * trackUnsavedEdits - window.app.patchDirty is true once the user
+		 * has edited the patch since it was last saved or loaded. Quitting
+		 * asks "Save changes?" when it's set (electronApp.js). Edits
+		 * used to be lost silently on quit: only File > Save writes
+		 * currentPatch.ntk (2026-10-29).
+		 *
+		 * Set from what the USER does, not from model changes: a running
+		 * patch changes its models constantly (sensor values, counts,
+		 * status text), and in a saved patch settings and live values
+		 * look alike. Native events only, so jQuery's triggered 'change'
+		 * (e.g. Encoder's knob binder on every count) doesn't count:
+		 * typing / ticking / choosing in a widget, clicking its option
+		 * buttons, dragging a widget or a cable end. Adding and removing
+		 * widgets are marked in addWidgetToStage / removeWidget.
+		 * Cleared by a load (loadPatch) and by a confirmed save.
+		 *
+		 * @return {void}
+		 */
+		trackUnsavedEdits: function() {
+			window.app.patchDirty = false;
+			var markIfInWidget = function(e) {
+				if(e.target && e.target.closest && e.target.closest('.widget')) {
+					window.app.patchDirty = true;
+				}
+			};
+			document.addEventListener('input', markIfInWidget, true);
+			document.addEventListener('change', markIfInWidget, true);
+			document.addEventListener('click', function(e) {
+				if(e.target && e.target.closest && e.target.closest('.widget li')) {
+					window.app.patchDirty = true;
+				}
+			}, true);
+			// jQuery UI drags: a widget moved, or a cable wired/unwired
+			// (dragging an outlet onto an inlet, or an inlet off).
+			$(document).on('dragstop', function(e) {
+				if($(e.target).closest('.widget').length) {
+					window.app.patchDirty = true;
+				}
+			});
 		},
     // Filename matches STANDALONE_PATCH_PATH (ntk_firmata_main.py) so
     // an exported patch can be dropped straight onto CIRCUITPY with no

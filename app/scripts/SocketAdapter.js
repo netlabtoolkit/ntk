@@ -84,6 +84,33 @@ function( Backbone ) {
 				window.app.vent.trigger('hardwareConnectionLost', info);
 			});
 
+			// The server wrote currentPatch.ntk (File > Save).
+			socket.on("server:patchSaved", function(result) {
+				if(result && result.ok) {
+					window.app.patchDirty = false;
+				}
+			});
+
+			// For electronApp.js's "Save changes?" on quit: save, and
+			// resolve true once the server confirms the file is written
+			// (false if it fails or doesn't answer in 5s), so the window
+			// isn't closed before the save lands.
+			window.app.savePatchAndWait = function() {
+				return new Promise(function(resolve) {
+					var settled = false;
+					var finish = function(ok) {
+						if(settled) { return; }
+						settled = true;
+						resolve(ok);
+					};
+					socket.once("server:patchSaved", function(result) {
+						finish(!!(result && result.ok));
+					});
+					setTimeout(function() { finish(false); }, 5000);
+					window.app.vent.trigger('ToolBar:savePatch');
+				});
+			};
+
 			socket.on("server:hardwareConnectionFailed", function(info) {
 				window.app.vent.trigger('hardwareConnectionFailed', info);
 			});

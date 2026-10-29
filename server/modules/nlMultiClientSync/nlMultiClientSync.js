@@ -756,10 +756,13 @@ module.exports = function(options) {
 			// patches only came FROM the server, but a Pull loads one
 			// from the board: the server kept no widgets and only the
 			// mappings the client synced separately, and a reload then
-			// rebuilt the window from that and threw (2026-10-29). Store
-			// and save it; no broadcast back, since every client sends
-			// this for each patch it loads - including the ones the
-			// server sends it - so echoing would loop.
+			// rebuilt the window from that and threw (2026-10-29). Keep it
+			// as the working copy; no broadcast back, since every client
+			// sends this for each patch it loads - including the ones the
+			// server sends it - so echoing would loop. Not written to
+			// currentPatch.ntk: loading isn't saving (Open Example
+			// deliberately leaves the last save alone - see
+			// electronApp.js); File > Save writes it.
 			socket.on('loadPatchFile', function(data) {
 				var patch;
 				try {
@@ -769,7 +772,6 @@ module.exports = function(options) {
 					return;
 				}
 				self.masterPatch = patch;
-				self.writePatchFile(patch);
 				clearTimeout(self.pruneOrphansTimer);
 				self.pruneOrphansTimer = setTimeout(function() {
 					self.pruneOrphanedHardwareModels();
@@ -1055,6 +1057,10 @@ module.exports = function(options) {
 				else {
 					console.log('file saved');
 				}
+				// Lets the client clear its unsaved-edits flag, and lets
+				// "Save changes?" on quit wait for the file (see
+				// SocketAdapter.js's savePatchAndWait).
+				self.transport.sockets.emit('server:patchSaved', {ok: !err});
 			});
 		},
 		loadPatchFile: function(options) {
