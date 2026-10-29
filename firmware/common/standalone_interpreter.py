@@ -792,7 +792,7 @@ def _encoder_step(values):
 
 
 # Encoder.js's DELTA_HOLD_MS.
-ENCODER_DELTA_HOLD_S = 0.1
+ENCODER_DELTA_HOLD_S = 0.2
 
 
 def _eval_encoder(values, state, now):

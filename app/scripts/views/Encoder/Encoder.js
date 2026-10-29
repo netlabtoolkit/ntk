@@ -15,8 +15,9 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 	var REATTACH_AFTER_MS = 6000;
 
 	// How long the step outlet shows a turn before going back to 0 -
-	// long enough to see on a Text widget. Same in the interpreter.
-	var DELTA_HOLD_MS = 100;
+	// long enough to see on a Text widget or the OLED (was 100, then 150; Phil
+	// asked for a bit longer, 2026-10-29). Same in the interpreter.
+	var DELTA_HOLD_MS = 200;
 
 	// The two mappings this widget makes onto its device. Anything else
 	// in this.sources is a cable from another widget into the "set"

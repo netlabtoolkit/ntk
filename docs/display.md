@@ -43,12 +43,24 @@ Between the prepend and append fields the panel shows the line's current value, 
 
 ## The format field
 
-Each line also has an optional **format** field. When it is filled in, it replaces that line's prepend, value and append, and it can use any of the widget's three inputs, not only its own:
+Each line also has an optional **format** field. When it is filled in, it replaces that line's prepend, value and append, and it can use any of the widget's three inputs, not only its own.
 
-- `<1>`, `<2>`, `<3>` insert input 1, 2 or 3, formatted with that input's own **decimals** setting.
-- `<1:2>` does the same and pads a number with leading zeros to at least 2 digits, so `5` becomes `05`. The padding width is a single digit, 1 to 9. Text is never padded.
-- `<1+>` always shows a number with a sign: `+5`, `-5`, and a space in place of the sign for `0`. A value that swings between positive and negative, such as an Encoder's **step** outlet, then stays in place instead of shifting by one character. It combines with padding: `<1+:2>` gives `+05`, `-05` and ` 00`. Text is left as it is.
-- Everything else in the field is shown as typed.
+**The number in a placeholder is the input, not the line.** `<2>` always means "whatever is wired into the second inlet", whichever line's format field it is typed into. So line 1 can show input 3, and one line can show all three inputs.
+
+| Placeholder | Shows | Input 5 | Input -5 | Input 0 |
+|---|---|---|---|---|
+| `<1>` | Input 1, with input 1's **decimals** setting | `5` | `-5` | `0` |
+| `<1:2>` | The same, padded with leading zeros to at least 2 digits | `05` | `-05` | `00` |
+| `<1+>` | The same, always with a sign; zero gets a space where the sign goes | `+5` | `-5` | ` 0` |
+| `<1+:2>` | Sign and padding together | `+05` | `-05` | ` 00` |
+
+(The examples use **decimals** `0`; with `2` they would read `5.00`, `+5.00` and so on.)
+
+- The padding width is a single digit, 1 to 9.
+- Text values (not numbers) are never padded or signed; they are shown as they arrive.
+- Everything else in the field is shown as typed, so labels and units go around the placeholders: `Speed <1+>`, `<1:2>:<2:2>`.
+
+### Example: a clock on one line
 
 This is how several values share one line. To show hours, minutes and seconds as a clock:
 
@@ -58,6 +70,16 @@ This is how several values share one line. To show hours, minutes and seconds as
 4. Tick **blank** on lines 2 and 3, so minutes and seconds don't also appear on their own lines.
 
 Line 1 then shows `14:05:09`.
+
+### Example: a value that goes negative
+
+A number that swings between positive and negative jumps sideways on the screen: `-1` is one character wider than `1`, so the whole line shifts each time the sign changes. Adding `+` to the placeholder, as in `<2+>`, keeps it still. For an Encoder's **step** outlet, which sends `+1` or `-1` for a moment on each click and `0` in between:
+
+1. Wire the Encoder's **step** outlet into the Display's second inlet.
+2. Set line 2's **decimals** to `0`.
+3. Set line 2's **format** to `Step <2+>`.
+
+Line 2 then reads `Step  0`, and briefly `Step +1` or `Step -1` as the knob clicks, without moving. The OLED's characters are all the same width, so the space in front of the zero takes exactly the room a sign would.
 
 ## Settings ("more" panel)
 
@@ -75,6 +97,8 @@ Display works in a patch pushed to the board. The board fills in the three lines
 - **Nothing appears on the screen.** Check that the checkbox is ticked and that the board's own three status lines are showing. If those are blank too, the board isn't finding the OLED.
 - **A number shows too many or too few digits.** Change **decimals** for that line.
 - **A value appears twice.** It is on its own line and also inside another line's format. Tick **blank** on its own line.
+- **A format shows nothing, or the wrong value.** The number in `<1>`, `<2>`, `<3>` picks the inlet, not the line. Check which inlet the value is wired into.
+- **A line jumps sideways when its value goes negative.** Use `<1+>` (with that inlet's number) so the value always has a sign or a space in front of it.
 - **WiFi gets worse with the XIAO expansion board attached.** An OLED board stacked directly on the XIAO sits close to its antenna and can shorten its range. If the connection drops, move the board closer to the access point, or use a XIAO with an external antenna.
 
 ## Example patches
@@ -83,3 +107,4 @@ Display works in a patch pushed to the board. The board fills in the three lines
 - **GroveIn (Clock) → Display** — a clock on one line, using the format field as described above.
 - **AnalogIn → Display** — watch a sensor's live value on the board itself while you tune a patch.
 - **Count → Display** — a running total, with **decimals** set to `0`.
+- **Encoder → Display** — the knob's value on line 1 (from **out**) and each click on line 2 (from **step**, format `Step <2+>`), as described above.

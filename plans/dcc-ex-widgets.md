@@ -274,7 +274,7 @@ becomes the count) - no per-click `step` outlet.
 **`step` outlet - built 2026-10-29** (NTK widget, interpreter, docs;
 not yet hardware-tested or committed). Model field `delta` (the
 widget's `step` field is already the step size). Each turn sends
-clicks x step, `rev` applied, held for 100 ms (visible on a Text
+clicks x step, `rev` applied, held for 200 ms (visible on a Text
 widget), then 0 for at least one frame (live) / tick (board) before
 the next turn, so two equal clicks in a row are two changes to a
 receiver; turning during the hold is added up and sent together. Not limited by min / max / wrap; `set` sends nothing;
