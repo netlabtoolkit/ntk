@@ -2314,7 +2314,10 @@ body.ntk-monitoring .monitorBlockOverlay {
             font-size: 9px;
             line-height: 14px;
             color: #7CFC7C;
-            white-space: nowrap;
+            // pre, not nowrap: keeps leading/repeated spaces as the OLED
+            // shows them - e.g. the space <1+> puts in front of a zero,
+            // which nowrap collapsed, so the preview line still shifted.
+            white-space: pre;
             overflow: hidden;
             text-overflow: ellipsis;
         }

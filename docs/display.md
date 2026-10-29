@@ -47,6 +47,7 @@ Each line also has an optional **format** field. When it is filled in, it replac
 
 - `<1>`, `<2>`, `<3>` insert input 1, 2 or 3, formatted with that input's own **decimals** setting.
 - `<1:2>` does the same and pads a number with leading zeros to at least 2 digits, so `5` becomes `05`. The padding width is a single digit, 1 to 9. Text is never padded.
+- `<1+>` always shows a number with a sign: `+5`, `-5`, and a space in place of the sign for `0`. A value that swings between positive and negative, such as an Encoder's **step** outlet, then stays in place instead of shifting by one character. It combines with padding: `<1+:2>` gives `+05`, `-05` and ` 00`. Text is left as it is.
 - Everything else in the field is shown as typed.
 
 This is how several values share one line. To show hours, minutes and seconds as a clock:

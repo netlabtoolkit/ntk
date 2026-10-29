@@ -886,30 +886,51 @@ def _display_zero_pad(text, width):
     return ('-' if negative else '') + whole + rest
 
 
+def _display_with_sign(text):
+    # "5" -> "+5", "-5" unchanged, "0" -> " 0" - same as Display.js's
+    # withSign(), decided on the formatted text so "-0.00" shows as zero.
+    try:
+        n = float(text)
+    except ValueError:
+        return text
+    if n > 0:
+        return '+' + text
+    if n < 0:
+        return text
+    return ' ' + text.replace('-', '')
+
+
 def _display_format(fmt, values):
     """A line's format string with its placeholders filled in - ported
     from Display.js's composeFormat(): <1> <2> <3> insert the widget's
     three inputs, <2:2> pads a number's whole part with zeros to 2
-    digits (one digit of width). Anything else is kept as typed. Scanned
-    by hand rather than with `re`, which not every board's CircuitPython
-    build includes."""
+    digits (one digit of width), <2+> always gives a number a sign (a
+    space for zero), and <2+:2> does both. Anything else is kept as
+    typed. Scanned by hand rather than with `re`, which not every
+    board's CircuitPython build includes."""
     out = []
     i = 0
     length = len(fmt)
     while i < length:
         if fmt[i] == '<' and i + 2 < length and fmt[i + 1] in '123':
             n = int(fmt[i + 1])
+            j = i + 2
+            sign = fmt[j] == '+'
+            if sign:
+                j += 1
             end = -1
             pad = 0
-            if fmt[i + 2] == '>':
-                end = i + 2
-            elif fmt[i + 2] == ':' and i + 4 < length and fmt[i + 3] in '0123456789' and fmt[i + 4] == '>':
-                pad = int(fmt[i + 3])
-                end = i + 4
+            if j < length and fmt[j] == '>':
+                end = j
+            elif j + 2 < length and fmt[j] == ':' and fmt[j + 1] in '0123456789' and fmt[j + 2] == '>':
+                pad = int(fmt[j + 1])
+                end = j + 2
             if end >= 0:
                 text, is_number = _display_value_text(values, n)
                 if pad and is_number:
                     text = _display_zero_pad(text, pad)
+                if sign and is_number:
+                    text = _display_with_sign(text)
                 out.append(text)
                 i = end + 1
                 continue

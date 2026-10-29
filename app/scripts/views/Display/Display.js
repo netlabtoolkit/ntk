@@ -298,16 +298,32 @@ function(Backbone, rivets, WidgetView, Template){
 		//           zeros to at least 2 digits (5 -> "05") - what a time
 		//           readout needs. One digit, 1-9; text values are never
 		//           padded.
+		//   <2+>    a number always carries a sign, so a value that
+		//           changes sign doesn't shift the line: "+5", "-5",
+		//           and " 0" - a space where the sign goes - for zero
+		//           (the OLED font is fixed width). Combines with
+		//           padding: <2+:2> -> "+05".
 		// Anything else in the string is kept as typed. The standalone
 		// interpreter's _display_format mirrors this exactly.
 		composeFormat: function(format) {
 			var self = this;
-			return format.replace(/<([123])(?::(\d))?>/g, function(match, n, pad) {
+			return format.replace(/<([123])(\+)?(?::(\d))?>/g, function(match, n, sign, pad) {
 				var v = self.model.get('in' + n);
 				var text = self.formatValue(v, self.model.get('line' + n + 'Decimals'));
 				if(pad && typeof v === 'number') { text = self.zeroPad(text, parseInt(pad, 10)); }
+				if(sign && typeof v === 'number') { text = self.withSign(text); }
 				return text;
 			});
+		},
+
+		// "5" -> "+5", "-5" unchanged, "0" -> " 0". Decided on the
+		// formatted text, so a value that rounds to zero ("-0.00") is
+		// shown as zero, not as a negative.
+		withSign: function(text) {
+			var n = parseFloat(text);
+			if(n > 0) { return '+' + text; }
+			if(n < 0) { return text; }
+			return ' ' + text.replace('-', '');
 		},
 
 		// "5" -> "05", "5.25" -> "05.25", "-5" -> "-05" for width 2.
