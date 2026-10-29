@@ -147,6 +147,11 @@ a direction switch, a few function buttons, optionally the OLED.
   the speed by the Encoder's own `step` setting (e.g. 2 of 126). At 0
   it stops; it doesn't
   go through zero into reverse (possible later option).
+- **Fractional steps for fine control:** the Throttle keeps its speed
+  as a decimal and sends it rounded (DCC and WiThrottle only take
+  whole steps, 0-126), so an Encoder `step` of 0.5 takes two clicks per
+  speed step - finer feel for slow shunting - and 1.5 alternates one
+  and two. See "Fractional speed" below.
 - **Functions:** a button held down is right for a horn ("follow"), a
   headlight wants "toggle on press" - per function, in the more panel,
   so no Count / Boolean per button.
@@ -469,6 +474,26 @@ from that new speed. A wired `speed` inlet wins again on its next
 value. Changes the widget made itself come back too; they only update
 the display, never get sent again.
 
+**Fractional speed (decided 2026-10-29).** DCC itself has only whole
+speed steps (DCC-EX `<t>` 0-127 with 1 = E-stop, WiThrottle `V`
+0-126; decoders' own 28/14-step modes are coarser still), so the
+station never sees a decimal. DCC Throttle keeps the speed it is
+heading for as a decimal, `speedExact`, and sends `round(speedExact)`:
+- `step` adds to `speedExact`, then clamps it to 0-126.
+- Only a change in the *rounded* value is sent - a 0.5 click that
+  doesn't cross a whole step sends nothing (and nothing to rate-limit).
+- A remote change (another throttle) or a wired `speed` value sets
+  `speedExact` to that value outright, dropping any fraction, so the
+  next click starts from where the loco really is. The widget's own
+  echo doesn't reset it (it only updates the display, as above), or a
+  0.5 click would be lost on every round trip.
+- The dial and `speed` outlet show the rounded speed, the one the loco
+  is actually running at.
+- A wired `speed` inlet is rounded the same way (AnalogOut-style
+  rescaling often gives decimals).
+Tested 2026-10-29 with the Encoder alone: `step` 1.5 counts as
+expected; the Throttle side is still to build.
+
 ## Safety
 
 A train keeps running at its last speed when its throttle stops
@@ -585,6 +610,9 @@ station.
   Throttle owns the speed (kept current by the station's reports);
   the Encoder gets a new `step` outlet alongside its existing `out`,
   which stays as-is for ordinary knob uses. See Rotary encoder.
+- **Fractional speed:** the Throttle keeps a decimal speed and sends
+  it rounded, so a fractional Encoder `step` (0.5, 1.5) gives finer
+  control. See "Fractional speed" under Status updates.
 
 ## Later (not in this plan)
 
