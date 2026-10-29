@@ -789,11 +789,25 @@ def _encoder_step(values):
     return step if step > 0 else 1.0
 
 
+# Encoder.js's DELTA_HOLD_MS.
+ENCODER_DELTA_HOLD_S = 0.1
+
+
 def _eval_encoder(values, state, now):
     """Encoder.js's onEncoderPosition()/set inlet. 'in' is the raw
     quadrature edge count (fed by the enc_in step); only its change
     matters, grouped into clicks by edgesPerClick. The first reading
-    is just the baseline."""
+    is just the baseline.
+
+    'delta' is the step outlet, Encoder.js's emitDelta(): a turn
+    (clicks x step, rev applied) held for ENCODER_DELTA_HOLD_S, then 0
+    for at least one tick before the next, so a receiver sees two equal
+    turns in a row as two changes. Turning in the meantime adds up in
+    'pending_delta'."""
+    values.setdefault('delta', 0)  # patches saved before the step outlet
+    delta_was_sent = _num(values.get('delta'), 0.0) != 0
+    if delta_was_sent and now - state.get('delta_sent_at', 0) >= ENCODER_DELTA_HOLD_S:
+        values['delta'] = 0
     position = values.get('in')
     if isinstance(position, (int, float)):
         last = state.get('last_position')
@@ -807,7 +821,14 @@ def _eval_encoder(values, state, now):
             state['edge_accum'] = accum - clicks * edges_per_click
             if clicks:
                 direction = -1 if values.get('invert') else 1
-                _encoder_set_count(values, _num(values.get('count'), 0.0) + clicks * _encoder_step(values) * direction)
+                amount = clicks * _encoder_step(values) * direction
+                state['pending_delta'] = round((state.get('pending_delta', 0) + amount) * 1e6) / 1e6
+                _encoder_set_count(values, _num(values.get('count'), 0.0) + amount)
+
+    if not delta_was_sent and state.get('pending_delta'):
+        values['delta'] = state['pending_delta']
+        state['pending_delta'] = 0
+        state['delta_sent_at'] = now
 
     # "set" inlet: a new value arriving becomes the count. The value the
     # patch was saved with is only the baseline, same as the live
@@ -1228,7 +1249,9 @@ OUTS_BY_TYPE = {
     'OSCOut': [('in', 'out')],
     'CloudIn': [('in', 'out')],
     'CloudOut': [('in', 'out')],
-    'Encoder': [('count', 'out')],
+    # ('delta', 'delta'): the step outlet, set by _eval_encoder itself -
+    # listed so monitor_fields reports it, skipped by the chain below.
+    'Encoder': [('count', 'out'), ('delta', 'delta')],
 }
 
 
@@ -2463,6 +2486,8 @@ class StandaloneInterpreter:
         elif type_id in CHAIN_TYPES:
             chain = CHAIN_FUNCTIONS_BY_TYPE[type_id]
             for from_field, to_field in OUTS_BY_TYPE[type_id]:
+                if from_field == to_field:
+                    continue  # computed by the type's own eval (Encoder's delta)
                 values[to_field] = _run_chain(chain, _num(values.get(from_field), 0.0), values, state)
         elif type_id in OUTS_BY_TYPE:
             for from_field, to_field in OUTS_BY_TYPE[type_id]:

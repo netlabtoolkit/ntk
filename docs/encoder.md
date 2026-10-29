@@ -40,6 +40,7 @@ Many encoders also click down like a button. That push switch is a separate pin,
 
 - **Tick the checkbox** at the top of the left edge to connect to the board. The dot in the top-left corner of the dial shows the connection: grey when off, blinking amber while connecting, green when the board is counting, red if the board couldn't start the encoder (hover over the dot, or open the "more" panel, for the reason).
 - **Turn the knob.** Each click adds **step** to the value or subtracts it, depending on the direction. The value shows in the middle of the dial and comes out of the **out** outlet.
+- **Send each turn with the step outlet.** Each click also comes out of the **step** outlet as how far it moved: **step** for a click one way, minus **step** for a click the other way (so +1 and -1 with the default step of 1). It shows the turn and then goes back to 0, so two clicks in a row arrive as two separate changes. Clicks made faster than NTK can send them are added together and sent as one turn. **min**, **max** and **wrap** don't affect it, so it keeps sending even when the value is held at an end, and a value arriving at **set** doesn't send anything. Use it when another widget keeps the real value and only needs to hear "a bit more" or "a bit less", such as DCC Throttle's **step** inlet. For most uses, like volume or brightness, use **out**.
 - **Set the value from another widget.** Whatever arrives at the **set** inlet becomes the current value, and turning carries on from there. Use it to reset to a starting point, or to jump to a preset.
 - **Min and max** keep the value in range: by default it stops at the ends, 0 and 1023.
 - **The value is saved with the patch**, so reopening it carries on where you left off.
@@ -49,7 +50,7 @@ Many encoders also click down like a button. That push switch is a separate pin,
 You can build and check a whole patch with no hardware attached:
 
 - **Scroll the mouse wheel over the dial** to step the value up and down, as if you were turning the encoder. Each wheel notch is one click.
-- **Drag the dial** to jump straight to a value.
+- **Drag the dial** to jump straight to a value. The **step** outlet sends however far the dial moved.
 
 ## Buttons
 
@@ -93,7 +94,7 @@ The two pin fields on the left edge, under the **set** inlet, are pin A (top) an
 
 ## Standalone patches
 
-Encoder works in a patch pushed to the board. The board counts the clicks and applies step, edges, min, max, rev, wrap and easing itself, and a value wired into **set** still sets the count. In Monitor mode the widget shows the board's count as it changes.
+Encoder works in a patch pushed to the board. The board counts the clicks and applies step, edges, min, max, rev, wrap and easing itself, and a value wired into **set** still sets the count. The **step** outlet works the same way on the board. In Monitor mode the widget shows the board's count as it changes.
 
 ## Notes
 

@@ -14,6 +14,10 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 	// discards while a patch is loading).
 	var REATTACH_AFTER_MS = 6000;
 
+	// How long the step outlet shows a turn before going back to 0 -
+	// long enough to see on a Text widget. Same in the interpreter.
+	var DELTA_HOLD_MS = 100;
+
 	// The two mappings this widget makes onto its device. Anything else
 	// in this.sources is a cable from another widget into the "set"
 	// inlet, which the hardware bookkeeping below must leave alone -
@@ -46,6 +50,12 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 		],
 		outs: [
 			{title: 'out', from: 'count', to: 'out'},
+			// How far the encoder just turned: clicks x step (rev
+			// applied), for one frame, then back to 0 - so two clicks the
+			// same way still arrive as two changes. Not held at min/max,
+			// and the set inlet doesn't move it. Field is 'delta' since
+			// 'step' is already the step size.
+			{title: 'step', from: 'delta', to: 'delta'},
 		],
 		typeID: 'Encoder',
 		deviceMode: 'INPUT',
@@ -61,6 +71,9 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			this.lastIn = undefined;
 			this.edgeAccum = 0;
 			this.easingLast = this.model.get('count') || 0;
+			// Turning not yet sent out the step outlet - see emitDelta().
+			this.pendingDelta = 0;
+			this.deltaSentAt = 0;
 
 			this.model.set({
 				title: 'Encoder',
@@ -82,6 +95,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				// picks up where it left off.
 				count: this.model.get('count') === undefined ? 0 : this.model.get('count'),
 				out: this.model.get('count') || 0,
+				delta: 0,
 				min: this.model.get('min') === undefined ? 0 : this.model.get('min'),
 				max: this.model.get('max') === undefined ? 1023 : this.model.get('max'),
 				step: this.model.get('step') === undefined ? 1 : this.model.get('step'),
@@ -144,7 +158,12 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				'min': this.getMin(),
 				'max': this.getMax(),
 				'step': this.getStep(),
-				'change': function(v) { self.setCount(parseFloat(v)); },
+				'change': function(v) {
+					v = parseFloat(v);
+					if(isNaN(v)) { return; }
+					self.addDelta(v - toNumber(self.model.get('count'), 0));
+					self.setCount(v);
+				},
 			});
 
 			// jquery-knob's own wheel handler only moves its arc - it never
@@ -162,6 +181,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				self.lastWheelMs = now;
 				// Stands in for turning the encoder, so rev applies.
 				var direction = (deltaY > 0 ? 1 : -1) * (self.model.get('invert') ? -1 : 1);
+				self.addDelta(direction * self.getStep());
 				self.setCount(toNumber(self.model.get('count'), 0) + direction * self.getStep());
 			});
 		},
@@ -240,7 +260,47 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			this.edgeAccum -= clicks * edgesPerClick;
 
 			var direction = this.model.get('invert') ? -1 : 1;
+			this.addDelta(clicks * this.getStep() * direction);
 			this.setCount(toNumber(this.model.get('count'), 0) + clicks * this.getStep() * direction);
+		},
+
+		addDelta: function(amount) {
+			if(isNaN(amount) || amount === 0) { return; }
+			this.pendingDelta = Math.round((this.pendingDelta + amount) * 1e6) / 1e6;
+		},
+
+		/**
+		 * emitDelta - from the frame callback only. Not from
+		 * processSignalChain: that also runs on every model change,
+		 * including the delta set here, so it reset the turn to 0
+		 * before any receiver saw it.
+		 *
+		 * The step outlet shows a turn for DELTA_HOLD_MS, then goes back
+		 * to 0 for at least a frame before the next one, so a receiver
+		 * always sees each turn as a change - even two equal turns in a
+		 * row. Turning in the meantime is added up and sent together.
+		 * The board's interpreter does the same per tick.
+		 *
+		 * @return {void}
+		 */
+		emitDelta: function() {
+			if (window.app.monitoring && window.app.monitoring.active &&
+				window.app.monitoring.wids && window.app.monitoring.wids[this.model.get('wid')]) {
+				return;
+			}
+
+			var now = Date.now();
+			if(toNumber(this.model.get('delta'), 0) !== 0) {
+				if(now - this.deltaSentAt >= DELTA_HOLD_MS) {
+					this.model.set('delta', 0);
+				}
+			}
+			else if(this.pendingDelta !== 0) {
+				this.deltaSentAt = now;
+				var delta = this.pendingDelta;
+				this.pendingDelta = 0;
+				this.model.set('delta', delta);
+			}
 		},
 
 		getEdgesPerClick: function() {
@@ -280,6 +340,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 		},
 
 		timeKeeper: function(frameCount) {
+			this.emitDelta();
+
 			var target = toNumber(this.model.get('count'), 0);
 
 			if(this.model.get('easing')) {
