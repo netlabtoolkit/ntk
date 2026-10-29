@@ -183,8 +183,10 @@ def _hex_to_rgb(hex_str):
 _CLOUD_ECHO_GUARD_S = 2.0
 
 # Minimum time between OLED writes from a Display widget - matches
-# ntk_firmata_main.py's own _DISPLAY_MIN_INTERVAL_S (was 1.0s in both).
-_DISPLAY_MIN_INTERVAL_S = 0.3
+# ntk_firmata_main.py's own _DISPLAY_MIN_INTERVAL_S (was 1.0s, then
+# 0.3s, in both). 0.1s since 2026-10-29: at 0.3s an Encoder's value on
+# the OLED visibly lagged the knob; a write takes a few tens of ms.
+_DISPLAY_MIN_INTERVAL_S = 0.1
 
 
 # OSCOut targets that mean "this same device" - see
