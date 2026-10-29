@@ -247,8 +247,12 @@ and shipped. Its historical step-by-step plan is at
   device connection and feed them to ObjectRecog through a new `image`
   inlet. Plan only; starts with a hardware check of `espcamera`.
 - **[DCC widgets](dcc-ex-widgets.md)** — control a model railway's
-  command station: DCC Station (power, E-stop), DCC Throttle and DCC
-  Turnout over WiThrottle (DCC-EX, JMRI, ...), including driving
-  virtual turnouts' servos from an NTK board; then DCC Program
-  (programming track) over DCC-EX's native protocol. Built-in
-  simulated station. Plan only.
+  command station from standalone XIAO boards (a handheld throttle
+  with a rotary encoder, servo boards driving virtual turnouts,
+  animation boards): DCC Station, DCC Throttle and DCC Turnout over
+  WiThrottle (DCC-EX, JMRI, ...), run live in NTK while building and on
+  the board once deployed; DCC Route; a new Encoder widget (built
+  2026-10-27); a general Scene widget for story-like animations
+  (crossing, workers - design to refine); then DCC Program
+  (programming track, NTK only) over DCC-EX's native protocol. Plan
+  only.
