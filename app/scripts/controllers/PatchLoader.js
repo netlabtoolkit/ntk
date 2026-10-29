@@ -62,6 +62,16 @@ function(app){
 				var modelSourceView = _.find(widgetViews, function(view) {return mappings[i].modelWID == view.model.get('wid')} ),
 					widgetView = _.find(widgetViews, function(view) {return mappings[i].viewWID == view.model.get('wid')} )
 
+				// A mapping for a widget the patch doesn't have - skip it
+				// rather than let mapToModel throw on the missing view,
+				// which aborted the whole load (every mapping after it
+				// was never made). Seen 2026-10-29 in the server's copy
+				// after a Pull: mappings with no widgets at all.
+				if(!widgetView) {
+					console.warn('PatchLoader: skipping a mapping for widget', mappings[i].viewWID, '- not in this patch');
+					continue;
+				}
+
 				// If we have both it means that we are looking at a widget to widget mapping (not a device model)
 				if(modelSourceView && widgetView) {
 

@@ -14,6 +14,15 @@ module.exports = function(five) {
 	var GROVE_READINGS = 1;
 	var GROVE_STATUS = 2;
 
+	// Rotary encoders - the standard ConfigurableFirmata EncoderFirmata
+	// sysex (see firmata_server.py's ENCODER_DATA comment for the wire
+	// format). The Encoder widget uses its pin A index as the encoder
+	// number, so it's unique per device by construction, and its
+	// position lands on field "enc-<number>".
+	var ENCODER_DATA = 0x61;
+	var ENCODER_ATTACH = 0x00;
+	var ENCODER_REPORT_AUTO = 0x04;
+
 	// Push/pull the whole standalone patch over this same live connection
 	// (see plans/standalone-patch-export.md's "Push/Pull standalone
 	// patch" section) - byte-for-byte match to firmata_server.py's
@@ -255,6 +264,35 @@ module.exports = function(five) {
 					var field = "grove-" + sensorId + "-status";
 					boundModel.inputs[field] = {value: data[3]};
 					boundModel.emit('change', {field: field, value: data[3]});
+				}
+			});
+
+			// One or more 5-byte position groups per message (one per
+			// encoder when the device reports them all at once).
+			this.board.io.clearSysexResponse(ENCODER_DATA);
+			this.board.io.sysexResponse(ENCODER_DATA, function(data) {
+				for(var offset = 0; offset + 4 < data.length; offset += 5) {
+					var encNum = data[offset] & 0x3F;
+					var magnitude = (data[offset + 1] & 0x7F) | ((data[offset + 2] & 0x7F) << 7) |
+						((data[offset + 3] & 0x7F) << 14) | ((data[offset + 4] & 0x7F) << 21);
+					var position = (data[offset] & 0x40) ? -magnitude : magnitude;
+					var field = "enc-" + encNum;
+
+					boundModel.inputs[field] = {value: position};
+					boundModel.emit('change', {field: field, value: position});
+				}
+			});
+
+			// The firmware reports an encoder it couldn't start (e.g. a
+			// pin pair rotaryio rejects) as a standard STRING_DATA
+			// message - surfaced on "enc-<number>-error" so the widget
+			// can show it instead of sitting on "waiting".
+			this.board.io.on('string', function(text) {
+				var match = /^ENCODER_ERROR (\d+) ?(.*)$/.exec(text);
+				if(match) {
+					var field = "enc-" + match[1] + "-error";
+					boundModel.inputs[field] = {value: match[2] || 'error'};
+					boundModel.emit('change', {field: field, value: match[2] || 'error'});
 				}
 			});
 
@@ -817,6 +855,24 @@ module.exports = function(five) {
 				}
 
 				this.board.io.sysexCommand(message);
+				return;
+			}
+
+			if(mode === 'ENCODER') {
+				// "pin" is pin A ("D8"), extraOptions.pinB is pin B - both
+				// stripped to raw Firmata pin indexes, same as the
+				// GROVE_SENSOR needs_pin case above. Pin A's index doubles
+				// as the encoder number (see ENCODER_DATA's comment).
+				var pinA = parseInt(String(pin).replace(/^D/i, ''), 10);
+				var pinB = parseInt(String(extraOptions && extraOptions.pinB).replace(/^D/i, ''), 10);
+				if(isNaN(pinA) || isNaN(pinB) || pinA > 63) {
+					console.log('setIOMode: bad encoder pins', pin, extraOptions && extraOptions.pinB);
+					return;
+				}
+				this.board.io.sysexCommand([ENCODER_DATA, ENCODER_ATTACH, pinA, pinA, pinB]);
+				// Real ConfigurableFirmata only streams positions with
+				// auto-report on; NTK's firmware has it on already.
+				this.board.io.sysexCommand([ENCODER_DATA, ENCODER_REPORT_AUTO, 1]);
 				return;
 			}
 

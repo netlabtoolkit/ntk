@@ -283,6 +283,12 @@
 			background-color: #2e7d32;
 			color: #fff;
 		}
+		&.status-connecting {
+			// On the way to .status-controlled - a paler shade of its
+			// green.
+			background-color: #c8e6c9;
+			color: #1b5e20;
+		}
 		&.status-monitored {
 			// Matches #monitorModeBanner's own color exactly (see
 			// MonitorController.js's showBanner) - same concept

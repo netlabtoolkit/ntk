@@ -118,7 +118,7 @@ PORTABLE_TYPE_IDS = frozenset([
     'AnalogIn', 'AnalogOut', 'DigitalIn', 'DigitalOut', 'Servo', 'GroveSensor',
     'IfThen', 'Boolean', 'Gate', 'Mix', 'Splitter', 'Process', 'Count',
     'Concat', 'Pulse', 'Sequence', 'Tween', 'Data', 'OSCIn', 'OSCOut',
-    'CloudIn', 'CloudOut', 'Display', 'NeoPixel',
+    'CloudIn', 'CloudOut', 'Display', 'NeoPixel', 'Encoder',
 ])
 
 HARDWARE_INPUT_TYPES = frozenset(['AnalogIn', 'DigitalIn'])
@@ -138,7 +138,7 @@ HARDWARE_OUTPUT_TYPES = frozenset(['AnalogOut', 'DigitalOut', 'Servo'])
 # cloud_out steps instead (see there), since it only matters for what
 # actually goes out over the network, not the widget's own 'out' field
 # value.
-CHAIN_TYPES = frozenset(['AnalogIn', 'DigitalIn', 'AnalogOut', 'DigitalOut', 'Servo', 'Process', 'IfThen', 'OSCIn', 'CloudIn'])
+CHAIN_TYPES = frozenset(['AnalogIn', 'DigitalIn', 'AnalogOut', 'DigitalOut', 'Servo', 'Process', 'IfThen', 'OSCIn', 'CloudIn', 'Encoder'])
 
 
 def _num(v, default=None):
@@ -183,8 +183,10 @@ def _hex_to_rgb(hex_str):
 _CLOUD_ECHO_GUARD_S = 2.0
 
 # Minimum time between OLED writes from a Display widget - matches
-# ntk_firmata_main.py's own _DISPLAY_MIN_INTERVAL_S (was 1.0s in both).
-_DISPLAY_MIN_INTERVAL_S = 0.3
+# ntk_firmata_main.py's own _DISPLAY_MIN_INTERVAL_S (was 1.0s, then
+# 0.3s, in both). 0.1s since 2026-10-29: at 0.3s an Encoder's value on
+# the OLED visibly lagged the knob; a write takes a few tens of ms.
+_DISPLAY_MIN_INTERVAL_S = 0.1
 
 
 # OSCOut targets that mean "this same device" - see
@@ -633,6 +635,7 @@ CHAIN_FUNCTIONS_BY_TYPE = {
     'DigitalOut': ['threshold'],
     'OSCIn': ['scale'],
     'CloudIn': ['scale'],
+    'Encoder': ['easing'],
 }
 
 
@@ -765,6 +768,79 @@ def _eval_count(values, state, now):
         elif result < floor:
             result = ceiling
         values['output'] = result
+
+
+def _encoder_set_count(values, value):
+    """Encoder.js's setCount() - clamp to min..max, or wrap so one
+    step past max lands on min."""
+    if _is_nan(value):
+        return
+    lo = _num(values.get('min'), 0.0)
+    hi = _num(values.get('max'), 1023.0)
+    lo, hi = min(lo, hi), max(lo, hi)
+    if values.get('wrap'):
+        span = hi - lo + _encoder_step(values)
+        value = lo + ((value - lo) % span)
+    else:
+        value = max(lo, min(hi, value))
+    values['count'] = round(value * 1e6) / 1e6
+
+
+def _encoder_step(values):
+    step = abs(_num(values.get('step'), 1.0))
+    return step if step > 0 else 1.0
+
+
+# Encoder.js's DELTA_HOLD_MS.
+ENCODER_DELTA_HOLD_S = 0.1
+
+
+def _eval_encoder(values, state, now):
+    """Encoder.js's onEncoderPosition()/set inlet. 'in' is the raw
+    quadrature edge count (fed by the enc_in step); only its change
+    matters, grouped into clicks by edgesPerClick. The first reading
+    is just the baseline.
+
+    'delta' is the step outlet, Encoder.js's emitDelta(): a turn
+    (clicks x step, rev applied) held for ENCODER_DELTA_HOLD_S, then 0
+    for at least one tick before the next, so a receiver sees two equal
+    turns in a row as two changes. Turning in the meantime adds up in
+    'pending_delta'."""
+    values.setdefault('delta', 0)  # patches saved before the step outlet
+    delta_was_sent = _num(values.get('delta'), 0.0) != 0
+    if delta_was_sent and now - state.get('delta_sent_at', 0) >= ENCODER_DELTA_HOLD_S:
+        values['delta'] = 0
+    position = values.get('in')
+    if isinstance(position, (int, float)):
+        last = state.get('last_position')
+        state['last_position'] = position
+        if last is not None:
+            edges_per_click = int(_num(values.get('edgesPerClick'), 1.0))
+            if edges_per_click < 1:
+                edges_per_click = 1
+            accum = state.get('edge_accum', 0) + (position - last)
+            clicks = int(accum / edges_per_click)  # toward zero, same as Encoder.js
+            state['edge_accum'] = accum - clicks * edges_per_click
+            if clicks:
+                direction = -1 if values.get('invert') else 1
+                amount = clicks * _encoder_step(values) * direction
+                state['pending_delta'] = round((state.get('pending_delta', 0) + amount) * 1e6) / 1e6
+                _encoder_set_count(values, _num(values.get('count'), 0.0) + amount)
+
+    if not delta_was_sent and state.get('pending_delta'):
+        values['delta'] = state['pending_delta']
+        state['pending_delta'] = 0
+        state['delta_sent_at'] = now
+
+    # "set" inlet: a new value arriving becomes the count. The value the
+    # patch was saved with is only the baseline, same as the live
+    # widget ignoring it on patch load.
+    set_value = values.get('set')
+    if 'last_set' not in state:
+        state['last_set'] = set_value
+    elif set_value != state['last_set']:
+        state['last_set'] = set_value
+        _encoder_set_count(values, _num(set_value))
 
 
 def _eval_concat(values, state, now):
@@ -1148,6 +1224,7 @@ BESPOKE_EVAL = {
     'Sequence': _eval_sequence,
     'Data': _eval_data,
     'Display': _eval_display,
+    'Encoder': _eval_encoder,
 }
 
 # outs[].{from,to} per type - what field each type's real computed value
@@ -1174,6 +1251,9 @@ OUTS_BY_TYPE = {
     'OSCOut': [('in', 'out')],
     'CloudIn': [('in', 'out')],
     'CloudOut': [('in', 'out')],
+    # ('delta', 'delta'): the step outlet, set by _eval_encoder itself -
+    # listed so monitor_fields reports it, skipped by the chain below.
+    'Encoder': [('count', 'out'), ('delta', 'delta')],
 }
 
 
@@ -1305,6 +1385,9 @@ class StandaloneInterpreter:
                 hw_out_pin[step[1]] = step[2]
             elif kind == 'grove_in':
                 hw_in_pin[step[1]] = "Grove"
+            elif kind == 'enc_in':
+                values = self.widgets[step[1]]['values']
+                hw_in_pin[step[1]] = "%s/%s" % (values.get('pin'), values.get('pinB'))
             elif kind == 'osc_in':
                 hw_in_pin[step[1]] = "OSC"
             elif kind == 'osc_out':
@@ -1422,6 +1505,9 @@ class StandaloneInterpreter:
         osc_out_mappings = {}  # wid -> mapping (OSCOut)
         cloud_in_mappings = {}   # wid -> mapping (CloudIn) - just marks "actively mapped", see _claim_cloud
         cloud_out_mappings = {}  # wid -> mapping (CloudOut)
+        encoder_mappings = {}  # wid -> mapping (Encoder) - presence check;
+                               # the pins come from the widget's own
+                               # pin/pinB values, see claim_hardware()
 
         for m in mappings:
             model_wid, view_wid = m.get('modelWID'), m.get('viewWID')
@@ -1460,6 +1546,12 @@ class StandaloneInterpreter:
                     cloud_in_mappings[view_wid] = m
                 elif type_id == 'CloudOut':
                     cloud_out_mappings[view_wid] = m
+                elif type_id == 'Encoder':
+                    # Any hardware mapping means "connected" - pins come
+                    # from the widget's own values. Patches saved before
+                    # 2026-10-27 kept only the error mapping (Patcher
+                    # saves one hardware mapping per widget).
+                    encoder_mappings[view_wid] = m
 
         # Kahn's algorithm - widgets with no unresolved dependency go
         # first. A cycle (shouldn't happen in a normal patch) just gets
@@ -1504,6 +1596,8 @@ class StandaloneInterpreter:
                 steps.append(('cloud_in', wid))
             if wid in cloud_out_mappings:
                 steps.append(('cloud_out', wid))
+            if wid in encoder_mappings:
+                steps.append(('enc_in', wid))
             if wid in grove_mappings:
                 # sourceField is "grove-<sensorId>-<readingIndex>" (see
                 # GroveSensor.js's remapSensor()) - the index is what
@@ -1613,6 +1707,18 @@ class StandaloneInterpreter:
                     fs._apply_pin_mode(idx, firmata_server.OUTPUT)
             elif step[0] == 'grove_in':
                 self._subscribe_grove_sensor(step[1])
+            elif step[0] == 'enc_in':
+                # Same encoder number the live widget uses (pin A's
+                # index), counted by the same rotaryio code path.
+                w = self.widgets[step[1]]
+                pin_a = _pin_index_for_dpin(fs.pins, w['values'].get('pin'))
+                pin_b = _pin_index_for_dpin(fs.pins, w['values'].get('pinB'))
+                if pin_a is not None and pin_b is not None:
+                    fs._attach_encoder(pin_a, pin_a, pin_b)
+                # A fresh encoder starts at 0 - its first reading is the
+                # new baseline, not a jump from the old one.
+                w['state'].pop('last_position', None)
+                w['state']['edge_accum'] = 0
         self._claim_osc()
         self._claim_cloud()
 
@@ -2047,6 +2153,12 @@ class StandaloneInterpreter:
                     idx = _pin_index_for_dpin(fs.pins, pin_str)
                     if idx is not None and fs.pins[idx].io is not None:
                         w['values']['in'] = 1 if fs.pins[idx].io.value else 0
+            elif kind == 'enc_in':
+                w = self.widgets[step[1]]
+                pin_a = _pin_index_for_dpin(fs.pins, w['values'].get('pin'))
+                encoder = fs._encoders.get(pin_a)
+                if encoder is not None:
+                    w['values']['in'] = encoder['io'].position
             elif kind == 'grove_in':
                 _, wid, reading_map = step
                 sub = self._grove_subscriptions.get(wid)
@@ -2376,6 +2488,8 @@ class StandaloneInterpreter:
         elif type_id in CHAIN_TYPES:
             chain = CHAIN_FUNCTIONS_BY_TYPE[type_id]
             for from_field, to_field in OUTS_BY_TYPE[type_id]:
+                if from_field == to_field:
+                    continue  # computed by the type's own eval (Encoder's delta)
                 values[to_field] = _run_chain(chain, _num(values.get(from_field), 0.0), values, state)
         elif type_id in OUTS_BY_TYPE:
             for from_field, to_field in OUTS_BY_TYPE[type_id]:

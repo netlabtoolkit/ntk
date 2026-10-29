@@ -52,7 +52,10 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.$('.outlet').draggable({
 				revert: true,
 			}).data('model', this.model);
+			// Only an outlet can be dropped on an inlet - see
+			// WidgetMulti.js's makeDraggable.
 			this.$('.inlet').droppable({
+				accept: '.outlet',
 				hoverClass: 'hover',
 				drop: function(e, ui) {
 					self.onDrop($(ui.draggable).data('model'), ui, e);

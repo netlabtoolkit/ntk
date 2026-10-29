@@ -25,6 +25,9 @@ module.exports = function(options) {
 	// See bindModelToTransport's connectionLost/connectionFailed.
 	var recentConnectionLoss = {};
 	var CONNECTION_LOSS_QUIET_MS = 60000;
+	// See client:updateModelMappings - how long a hardware connection
+	// may go unreferenced before it's closed.
+	var ORPHAN_PRUNE_DELAY_MS = 2000;
 	// See bindModelToTransport's noteNoAnswer: failed attempts in a row
 	// per device since one got no handshake, and whether the "in use"
 	// message went out for this streak. Both cleared when it connects.
@@ -75,6 +78,20 @@ module.exports = function(options) {
 	}
 	function resumeOSC(socketId) {
 		delete oscSuspendedBy[socketId];
+	}
+
+	// The device being monitored, per client (':host:port', the same
+	// suffix match client:startMonitor uses). The board serves one
+	// connection at a time and Monitor holds it, so while it's watched
+	// nothing may open a NORMAL connection to it - a widget that
+	// writes to it (Display redrawing a monitored value, an output pin)
+	// otherwise gets "your device isn't responding / in use" (found
+	// 2026-10-27, Encoder -> Display in Monitor mode).
+	var monitoredBy = {};
+	function isMonitoredDevice(hardwareKey) {
+		return _.some(monitoredBy, function(suffix) {
+			return String(hardwareKey).slice(-suffix.length) === suffix;
+		});
 	}
 
 
@@ -214,6 +231,7 @@ module.exports = function(options) {
 			}, this);
 
 			if (!stillWanted) {
+				console.log('[Hardware] closing', hardwareKey, '- no active widget uses it');
 				if (hardwareKey.indexOf('Cloud:') === 0) {
 					console.log('[Cloud] pruneHardwareModelIfUnused deleting', hardwareKey, '- mappedWidgetIds:', mappedWidgetIds);
 				}
@@ -246,6 +264,7 @@ module.exports = function(options) {
 			var stillReferencedKeys = _.pluck(this.masterPatch.mappings, 'modelWID');
 			for(var key in this.hardwareModels) {
 				if(!_.contains(stillReferencedKeys, key)) {
+					console.log('[Hardware] closing', key, '- no longer in the patch');
 					if (key.indexOf('Cloud:') === 0) {
 						console.log('[Cloud] pruneOrphanedHardwareModels deleting', key, '- stillReferencedKeys:', stillReferencedKeys);
 					}
@@ -467,6 +486,7 @@ module.exports = function(options) {
 				// See oscSuspendedBy - would otherwise recreate the
 				// instance (reopening its port) and send.
 				if(isOSCKey(options.modelType) && oscSuspended()) { return; }
+				if(isMonitoredDevice(options.modelType)) { return; }
 
 				var typeAddressPort = options.modelType.split(':');
 				var modelType = typeAddressPort[0];
@@ -495,7 +515,7 @@ module.exports = function(options) {
 						//self.hardwareModels[modelType] = new nlHardware({deviceType: typeAddressPort[0], address: typeAddressPort[1], port: typeAddressPort[2] }).model;
 						self.hardwareModels[hardwareKey] = new nlHardware({deviceType: hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
 
-						console.log('MAKING NEW ', hardwareKey, self.hardwareModels[hardwareKey].type, self.hardwareModels);
+						console.log('[Hardware] opening', hardwareKey, '- widget value update');
 						self.bindModelToTransport(self.hardwareModels[hardwareKey]);
 						self.hardwareModels[hardwareKey].set(field, parseInt(options.model[field], 10), options.modeRequested);
 					}
@@ -531,6 +551,7 @@ module.exports = function(options) {
 
 				// See oscSuspendedBy.
 				if(isOSCKey(modelType) && oscSuspended()) { return; }
+				if(isMonitoredDevice(modelType)) { return; }
 
 				if(options.port && options.mode) {
 					// A widget can ask to switch a pin's mode (e.g. DigitalIn
@@ -542,6 +563,7 @@ module.exports = function(options) {
 					// silently no-op on that race.
 					if(self.hardwareModels[modelType] == undefined) {
 						var typeAddressPort = modelType.split(':');
+						console.log('[Hardware] opening', modelType, '- pin mode request');
 						self.hardwareModels[modelType] = new nlHardware({deviceType: modelType, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
 						self.bindModelToTransport(self.hardwareModels[modelType]);
 					}
@@ -571,6 +593,7 @@ module.exports = function(options) {
 				var options = JSON.parse(data);
 				if(self.hardwareModels[options.hardwareKey] == undefined) {
 					var typeAddressPort = options.hardwareKey.split(':');
+					console.log('[Hardware] opening', options.hardwareKey, '- pushPatchToDevice');
 					self.hardwareModels[options.hardwareKey] = new nlHardware({deviceType: options.hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
 					self.bindModelToTransport(self.hardwareModels[options.hardwareKey]);
 				}
@@ -590,8 +613,10 @@ module.exports = function(options) {
 			// sendDisplayText). No reply expected.
 			socket.on('client:sendDisplayText', function(data) {
 				var options = JSON.parse(data);
+				if(isMonitoredDevice(options.hardwareKey)) { return; }
 				if(self.hardwareModels[options.hardwareKey] == undefined) {
 					var typeAddressPort = options.hardwareKey.split(':');
+					console.log('[Hardware] opening', options.hardwareKey, '- sendDisplayText');
 					self.hardwareModels[options.hardwareKey] = new nlHardware({deviceType: options.hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
 					self.bindModelToTransport(self.hardwareModels[options.hardwareKey]);
 				}
@@ -607,8 +632,10 @@ module.exports = function(options) {
 			// pipeline.
 			socket.on('client:sendNeoPixelConfig', function(data) {
 				var options = JSON.parse(data);
+				if(isMonitoredDevice(options.hardwareKey)) { return; }
 				if(self.hardwareModels[options.hardwareKey] == undefined) {
 					var typeAddressPort = options.hardwareKey.split(':');
+					console.log('[Hardware] opening', options.hardwareKey, '- sendNeoPixelConfig');
 					self.hardwareModels[options.hardwareKey] = new nlHardware({deviceType: options.hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
 					self.bindModelToTransport(self.hardwareModels[options.hardwareKey]);
 				}
@@ -622,6 +649,7 @@ module.exports = function(options) {
 				var options = JSON.parse(data);
 				if(self.hardwareModels[options.hardwareKey] == undefined) {
 					var typeAddressPort = options.hardwareKey.split(':');
+					console.log('[Hardware] opening', options.hardwareKey, '- pullPatchFromDevice');
 					self.hardwareModels[options.hardwareKey] = new nlHardware({deviceType: options.hardwareKey, address: typeAddressPort[1], port: typeAddressPort[2] }).model;
 					self.bindModelToTransport(self.hardwareModels[options.hardwareKey]);
 				}
@@ -697,7 +725,22 @@ module.exports = function(options) {
 				// except its eventual connectionFailed report (see
 				// NetworkModel.js) could still arrive later and show the
 				// wrong (old) address. This part IS confirmed working.
-				self.pruneOrphanedHardwareModels();
+				//
+				// Not right away, though: Patcher's mapToModel replaces a
+				// widget's hardware mapping by removing the old one
+				// (sending the mappings without it) and then adding the
+				// new one. A widget alone on its device - e.g. an Encoder
+				// re-sending its pins when the board comes back - left
+				// the device unreferenced for that moment, so its
+				// connection was closed mid-handshake and a second one
+				// opened behind it, which the board (one connection at a
+				// time) left waiting; meanwhile the status bar read the
+				// board as "in use by another user" (2026-10-29). Prune
+				// once the mappings have settled instead.
+				clearTimeout(self.pruneOrphansTimer);
+				self.pruneOrphansTimer = setTimeout(function() {
+					self.pruneOrphanedHardwareModels();
+				}, ORPHAN_PRUNE_DELAY_MS);
 			});
 
 			socket.on('saveCurrentPatch', function(options) {
@@ -705,6 +748,32 @@ module.exports = function(options) {
 			});
 			socket.on('client:clearPatch', function(options) {
 				self.loadPatchFile(options);
+			});
+
+			// PatchLoader.loadJSON sends every patch it loads (as
+			// 'loadPatchFileToServer' -> 'loadPatchFile'), but nothing
+			// here listened for it, ever (since 2015). Unnoticed while
+			// patches only came FROM the server, but a Pull loads one
+			// from the board: the server kept no widgets and only the
+			// mappings the client synced separately, and a reload then
+			// rebuilt the window from that and threw (2026-10-29). Store
+			// and save it; no broadcast back, since every client sends
+			// this for each patch it loads - including the ones the
+			// server sends it - so echoing would loop.
+			socket.on('loadPatchFile', function(data) {
+				var patch;
+				try {
+					patch = JSON.parse(data.patch);
+				} catch (e) {
+					console.log('loadPatchFile: unreadable patch -', e.message);
+					return;
+				}
+				self.masterPatch = patch;
+				self.writePatchFile(patch);
+				clearTimeout(self.pruneOrphansTimer);
+				self.pruneOrphansTimer = setTimeout(function() {
+					self.pruneOrphanedHardwareModels();
+				}, ORPHAN_PRUNE_DELAY_MS);
 			});
 
 			socket.on('client:toggleServer', function() {
@@ -724,6 +793,7 @@ module.exports = function(options) {
 
 				var host = options.host,
 					port = options.port;
+				monitoredBy[socket.id] = ':' + host + ':' + port;
 
 				// A monitor connection that fails or drops is retried
 				// until the client stops monitoring, rather than
@@ -801,6 +871,7 @@ module.exports = function(options) {
 				});
 				var existingHardwareModel = existingKey && self.hardwareModels[existingKey];
 				if (existingHardwareModel) {
+					console.log('[Hardware] closing', existingKey, '- Monitor is taking over the board');
 					if (typeof existingHardwareModel.close === 'function') {
 						existingHardwareModel.close();
 					}
@@ -820,6 +891,7 @@ module.exports = function(options) {
 
 			socket.on('client:stopMonitor', function() {
 				resumeOSC(socket.id);
+				delete monitoredBy[socket.id];
 				stopMonitorFor(socket.id);
 				// The monitor's own 'close' no longer reports a
 				// deliberate stop (see connectMonitor) - the toolbar's
@@ -870,6 +942,22 @@ module.exports = function(options) {
 					return;
 				}
 
+				// NTK's own connection is still being made (or retried).
+				// Don't probe: the board serves one connection at a time,
+				// so the probe would wait behind ours, time out and read
+				// as "in use by another user" - and it could take the
+				// board's attention away from ours. Board answering a
+				// ping means it's there and we're getting through.
+				var connecting = _.some(_.keys(self.hardwareModels), function(key) {
+					return key.indexOf('network:') === 0 && key.slice(-suffix.length) === suffix;
+				});
+				if (connecting) {
+					pingHost(host, function(answered) {
+						socket.emit('server:deviceStatusResult', {host: host, port: port, status: answered ? 'connecting' : null});
+					});
+					return;
+				}
+
 				checkDeviceStatus(host, port, function(status, error) {
 					// A device serving another client (NTK on another
 					// computer - it serves one at a time) doesn't answer
@@ -911,6 +999,7 @@ module.exports = function(options) {
 					return key.slice(-suffix.length) === suffix;
 				});
 				if (existingKey) {
+					console.log('[Hardware] closing', existingKey, '- asked to by the client (erase)');
 					var model = self.hardwareModels[existingKey];
 					if (typeof model.close === 'function') {
 						model.close();
@@ -921,6 +1010,7 @@ module.exports = function(options) {
 
 			socket.on('disconnect', function() {
 				resumeOSC(socket.id);
+				delete monitoredBy[socket.id];
 				stopMonitorFor(socket.id);
 				self.emit('clientDisconnected');
 			});
@@ -955,15 +1045,15 @@ module.exports = function(options) {
 			var patchFileName = self.getPatchPath();
 
 			self.setMaster(patch);
-
-			fs.writeFile(patchFileName, JSON.stringify(patch), function(err) {
+			self.writePatchFile(patch);
+		},
+		writePatchFile: function(patch) {
+			fs.writeFile(self.getPatchPath(), JSON.stringify(patch), function(err) {
 				if(err) {
 					console.log(err);
 				}
 				else {
-					//self.setMaster(JSON.parse(patch));
 					console.log('file saved');
-
 				}
 			});
 		},

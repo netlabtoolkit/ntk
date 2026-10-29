@@ -160,7 +160,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				// Serial mode would block the field from ever showing
 				// again even after switching to Network. Add a widget's
 				// typeID here once it's been converted to that pattern.
-				var usesDeclarativeDeviceVisibility = ['AnalogIn', 'Servo', 'AnalogOut', 'DigitalOut', 'GroveSensor', 'Display'].indexOf(self.typeID) !== -1;
+				var usesDeclarativeDeviceVisibility = ['AnalogIn', 'Servo', 'AnalogOut', 'DigitalOut', 'GroveSensor', 'Display', 'Encoder'].indexOf(self.typeID) !== -1;
 				if (!usesDeclarativeDeviceVisibility) {
 					if (self.model.get("deviceType") == "network") {
 						self.$('.deviceIp').show();
@@ -344,7 +344,17 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				}).bind(this),
 			});
 
+			// Only an outlet can be dropped on an inlet. Inlets are
+			// draggable too (dragging one off unwires it), and jQuery UI's
+			// default accept:'*' took an inlet dragged off over its
+			// neighbour - e.g. in1 pulled down across in2 - as a drop
+			// there. onDrop then threw on the missing source model, inside
+			// jQuery UI's own drag-stop, so its cleanup never ran: the
+			// dragged inlet kept ui-draggable-dragging and ignored every
+			// later drag, and its cable couldn't be removed until a
+			// reload (2026-10-29).
 			this.$('.inlet').droppable({
+				accept: '.outlet',
 				hoverClass: 'hover',
 				drop: (function(e, ui) {
 					var droppedModel = $(ui.draggable).data('model');
@@ -457,6 +467,11 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		 * @return {void}
 		 */
 		onDrop: function(e, ui, model) {
+			// Not dropped from an outlet - see makeDraggable's accept.
+			if(!model) {
+				return;
+			}
+
 			// Wiring a new cable is a structural patch edit - blocked
 			// while monitoring (see MonitorController.js's blockAndWarn).
 			if (window.app.monitoring && window.app.monitoring.active) {

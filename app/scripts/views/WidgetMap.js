@@ -46,8 +46,9 @@ define([
     'views/DigitalOut/DigitalOut',
     'views/GroveSensor/GroveSensor',
     'views/NeoPixel/NeoPixel',
+    'views/Encoder/Encoder',
 ],
-function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Gesture, FaceTrack, PoseRecog, ObjectRecog, Mix, Splitter, Concat, Data, Tween, Sequence, SpeechIn, SpeechOut, LLM, Blank, Image, Audio, Video, Text, AnalogOut, Servo, Display, CloudOut, Webhook, OSCIn, OSCOut, DigitalIn, DigitalOut, GroveSensor, NeoPixel){
+function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Gesture, FaceTrack, PoseRecog, ObjectRecog, Mix, Splitter, Concat, Data, Tween, Sequence, SpeechIn, SpeechOut, LLM, Blank, Image, Audio, Video, Text, AnalogOut, Servo, Display, CloudOut, Webhook, OSCIn, OSCOut, DigitalIn, DigitalOut, GroveSensor, NeoPixel, Encoder){
     'use strict';
 
 	return {
@@ -100,6 +101,7 @@ function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, 
 		'DigitalOut': DigitalOut,
 		'GroveSensor': GroveSensor,
 		'NeoPixel': NeoPixel,
+		'Encoder': Encoder,
 
 	};
 });

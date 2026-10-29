@@ -785,9 +785,14 @@ _display_last_sent = 0.0
 # been written yet - see _flush_display_text().
 _display_wanted_lines = None
 # Minimum time between OLED writes for Display widget text (each one is
-# a real, blocking I2C write). Was 1.0s; standalone_interpreter.py's
+# a real, blocking I2C write). Was 1.0s, then 0.3s (an Encoder's value
+# visibly lagged the knob, 2026-10-29); standalone_interpreter.py's
 # display_out step uses the same value.
-_DISPLAY_MIN_INTERVAL_S = 0.3
+_DISPLAY_MIN_INTERVAL_S = 0.1
+
+# Standalone patches with any of these steps get extra ticks between
+# accept() polls - see run_server().
+_EXTRA_TICK_STEPS = ('neopixel_out', 'enc_in', 'display_out')
 
 
 def _handle_display_text_request(firmata):
@@ -1323,7 +1328,12 @@ def run_server():
                 # close to zero improvement. Spacing just past the
                 # throttle's own floor means every one of these calls
                 # should count.
-                if any(step[0] == 'neopixel_out' for step in _standalone.steps):
+                #
+                # Encoder and Display patches too, since 2026-10-29: at
+                # 10Hz a knob's value on the OLED visibly lagged the
+                # turning. The step outlet's 100ms hold also wants more
+                # than one tick to land in.
+                if any(step[0] in _EXTRA_TICK_STEPS for step in _standalone.steps):
                     for _ in range(3):
                         time.sleep(0.034)
                         _standalone.tick()

@@ -79,6 +79,7 @@ require([
 	'application',
 	'rivets',
 	'regionManager',
+	'utils/KnobWheelDirection',
 ],
 function (Backbone, App, rivets ) {
     'use strict';

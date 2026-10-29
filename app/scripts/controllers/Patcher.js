@@ -458,6 +458,22 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 
 					return newWidget;
                 }
+                else if(widgetType === 'Encoder') {
+					// Same shape as GroveSensor above: the widget's own
+					// remapEncoder() makes its hardware mappings.
+					var newWidget = new Widgets['Encoder']({
+						model: newModel,
+					});
+
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
+					if(!addedFromLoader) {
+						this.applyDefaultDeviceToModel(newModel);
+						newWidget.remapEncoder();
+					}
+
+					return newWidget;
+                }
 				else {
 					var newWidget = new Widgets[widgetType]({
 						model: newModel,
@@ -952,7 +968,16 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 
 				// render the view to reassociate bindings and update any changes
 				view.render();
-				if(!addedFromLoader) {
+				// Synced whenever a patch isn't loading - not just when
+				// !addedFromLoader. Widgets remap their own hardware with
+				// addedFromLoader=true (Encoder, GroveIn, Display, every
+				// output widget...), and the removal half of that remap
+				// (removeMapping) always synced, so the server saw the
+				// mapping go and never come back. It then closed the
+				// board's connection as unused, mid-handshake, and opened
+				// another behind it (2026-10-29). A loading patch syncs
+				// once at the end instead - see loadPatch.
+				if(!this.loadingPatch) {
 					window.app.vent.trigger('updateModelMappings', this.widgetMappings);
 				}
 			}
@@ -1007,7 +1032,9 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 		 */
 		removeMapping: function(mapping) {
 			this.widgetMappings.splice(this.widgetMappings.indexOf(mapping), 1);
-			window.app.vent.trigger('updateModelMappings', this.widgetMappings);
+			if(!this.loadingPatch) {
+				window.app.vent.trigger('updateModelMappings', this.widgetMappings);
+			}
 		},
 		/**
 		 * Get the singleton model:server instance and if it does not yet exist, create it and return it
@@ -1074,16 +1101,27 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 
 
 		loadPatch: function(JSONString, save) {
-			// Remove all previous mappings and widgets
-			this.widgetMappings.length = 0;
-			for(var i=this.widgets.length-1; i>=0; i--) {
-				// (event, calledFromLoader)
-				this.widgets[i].removeWidget(null, true);
-			}
-			this.widgets.length = 0;
+			// No mapping syncs while the patch is half torn down / half
+			// built - each would hand the server a partial list, and it
+			// closes any device connection the list doesn't mention. One
+			// sync of the finished list at the end instead.
+			this.loadingPatch = true;
+			try {
+				// Remove all previous mappings and widgets
+				this.widgetMappings.length = 0;
+				for(var i=this.widgets.length-1; i>=0; i--) {
+					// (event, calledFromLoader)
+					this.widgets[i].removeWidget(null, true);
+				}
+				this.widgets.length = 0;
 
-			// Call patchloader to handle creating new widgets/mappings
-			this.patchLoader.loadJSON(JSONString, save);
+				// Call patchloader to handle creating new widgets/mappings
+				this.patchLoader.loadJSON(JSONString, save);
+			}
+			finally {
+				this.loadingPatch = false;
+			}
+			window.app.vent.trigger('updateModelMappings', this.widgetMappings);
 		},
 		savePatch: function() {
 			window.app.vent.trigger('savePatchToServer', {collection: this.widgetModels, mappings: this.widgetMappings});

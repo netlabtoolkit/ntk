@@ -513,7 +513,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		 * @param {string} sensorId key into sensorCatalog
 		 * @return {void}
 		 */
-		remapSensor: function(sensorId) {
+		remapSensor: function(sensorId, loading) {
 			var catalogEntry = this.sensorCatalog[sensorId];
 
 			if(!catalogEntry) { return; }
@@ -620,6 +620,12 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 					server: server,
 				}, true);
 			}, this);
+
+			// Sent to the server - see Encoder.js's remapEncoder() for
+			// why (same bug: the connection got closed and reopened).
+			if(!loading) {
+				window.app.vent.trigger('updateModelMappings', window.app.Patcher.Controller.widgetMappings);
+			}
 
 			// subscribeSensor() is what actually tells the device to
 			// start reporting (Widget:hardwareSwitch) - THIS is what
@@ -832,7 +838,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		 */
 		setFromModel: function(model) {
 			WidgetView.prototype.setFromModel.call(this, model);
-			this.remapSensor(this.model.get('sensor'));
+			this.remapSensor(this.model.get('sensor'), true);
 			return this;
 		},
 

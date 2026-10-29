@@ -50,6 +50,11 @@ module.exports = function(attributes) {
 		// The handshake normally takes well under a second.
 		var HANDSHAKE_TIMEOUT_MS = 8000;
 
+		// Heartbeat for an established connection - see heartbeatTimer.
+		var HEARTBEAT_INTERVAL_MS = 5000;
+		var HEARTBEAT_TIMEOUT_MS = 15000;
+		var REPORT_VERSION = 0xF9;
+
 		console.log('Connecting to ...', networkHost, networkPort);
 		//var client = net.connect({host: networkHost, port: networkPort}, function() {
 			//var socketClient = this;
@@ -117,6 +122,25 @@ module.exports = function(attributes) {
 				reportConnectionFailureOnce(new Error('connection timed out'));
 			});
 
+			// A board that loses power or WiFi without closing the
+			// connection sends nothing, so the socket never closes and
+			// the 'close' listener in 'ready' below never fires:
+			// etherport-client turns the socket timeout off once
+			// connected, and nothing else checks. NTK kept that dead
+			// connection as live - the device status bar said
+			// "Controlled" for a board that was off (2026-10-29). OS TCP
+			// keepalive would take ~10 minutes on macOS to notice. So ask
+			// the board for its version (it answers at once, and so does
+			// Arduino Firmata) and give the connection up if nothing at
+			// all comes back for HEARTBEAT_TIMEOUT_MS - same as a dropped
+			// connection: nlMultiClientSync.js drops it and the widgets
+			// reconnect.
+			var heartbeatTimer = null;
+			var lastHeardAt = 0;
+			etherPortClient.on('data', function() {
+				lastHeardAt = Date.now();
+			});
+
 			// nlMultiClientSync.js calls this (if present) when no widget
 			// references this device any more. etherport-client exposes no
 			// public teardown of its own (see server/node_modules/
@@ -131,6 +155,7 @@ module.exports = function(attributes) {
 				self._closing = true;
 				self.connected = false;
 				clearTimeout(handshakeTimer);
+				clearInterval(heartbeatTimer);
 
 				// Stop the johnny-five Sensor poll timers that addDefaultPins()
 				// (in StandardFirmataModel.js) started for every analog pin.
@@ -206,6 +231,23 @@ module.exports = function(attributes) {
 							self.emit('connectionLost', {host: networkHost, port: networkPort});
 						});
 					}
+
+					lastHeardAt = Date.now();
+					clearInterval(heartbeatTimer);
+					heartbeatTimer = setInterval(function() {
+						if (self._closing || !self.connected) {
+							clearInterval(heartbeatTimer);
+							return;
+						}
+						if (Date.now() - lastHeardAt > HEARTBEAT_TIMEOUT_MS) {
+							clearInterval(heartbeatTimer);
+							console.log('No reply from', networkHost, networkPort, 'for', HEARTBEAT_TIMEOUT_MS / 1000, 's - treating the connection as lost');
+							self.connected = false;
+							self.emit('connectionLost', {host: networkHost, port: networkPort});
+							return;
+						}
+						etherPortClient.write(Buffer.from([REPORT_VERSION]));
+					}, HEARTBEAT_INTERVAL_MS);
 				});
 				self.board.on('error', function(err) {
 					console.log(err);

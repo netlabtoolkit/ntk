@@ -426,6 +426,10 @@ function( app, Backbone, Template, Widgets ) {
 				label: 'Waiting',
 				explanation: 'Idle, no standalone patch loaded.',
 			},
+			'connecting': {
+				label: 'Connecting...',
+				explanation: 'A widget in this patch is connecting to this device.',
+			},
 			'controlled': {
 				label: 'Controlled',
 				explanation: 'A widget in this patch is connected and driving this device live.',
