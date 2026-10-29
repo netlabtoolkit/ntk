@@ -414,7 +414,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 		 *
 		 * @return {void}
 		 */
-		remapEncoder: function() {
+		remapEncoder: function(loading) {
 			this.unMapHardwareInlets();
 
 			var encNum = pinIndex(this.model.get('pin'));
@@ -442,6 +442,18 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 				IOMapping: {sourceField: 'enc-' + encNum, destinationField: 'in'},
 				server: server,
 			}, true);
+			// mapToModel(..., true) doesn't send the mappings to the
+			// server, and the server closes any device connection its own
+			// copy of the mappings doesn't mention - which, unsynced, was
+			// this one, on the next mapping sync from anywhere. A widget
+			// alone on its board had its connection closed mid-handshake
+			// and reopened behind it, and the status bar read the board
+			// as "in use by another user" meanwhile (2026-10-29). Same
+			// fix as CloudIn's. Not while a patch loads: the mappings
+			// are then still partial, and the server has the saved ones.
+			if(!loading) {
+				window.app.vent.trigger('updateModelMappings', window.app.Patcher.Controller.widgetMappings);
+			}
 
 			if(this.model.get('active')) {
 				this.attachEncoder();
@@ -607,7 +619,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 		setFromModel: function(model) {
 			WidgetView.prototype.setFromModel.call(this, model);
 			this.easingLast = toNumber(this.model.get('count'), 0);
-			this.remapEncoder();
+			this.remapEncoder(true);
 			return this;
 		},
 
