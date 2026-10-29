@@ -750,6 +750,32 @@ module.exports = function(options) {
 				self.loadPatchFile(options);
 			});
 
+			// PatchLoader.loadJSON sends every patch it loads (as
+			// 'loadPatchFileToServer' -> 'loadPatchFile'), but nothing
+			// here listened for it, ever (since 2015). Unnoticed while
+			// patches only came FROM the server, but a Pull loads one
+			// from the board: the server kept no widgets and only the
+			// mappings the client synced separately, and a reload then
+			// rebuilt the window from that and threw (2026-10-29). Store
+			// and save it; no broadcast back, since every client sends
+			// this for each patch it loads - including the ones the
+			// server sends it - so echoing would loop.
+			socket.on('loadPatchFile', function(data) {
+				var patch;
+				try {
+					patch = JSON.parse(data.patch);
+				} catch (e) {
+					console.log('loadPatchFile: unreadable patch -', e.message);
+					return;
+				}
+				self.masterPatch = patch;
+				self.writePatchFile(patch);
+				clearTimeout(self.pruneOrphansTimer);
+				self.pruneOrphansTimer = setTimeout(function() {
+					self.pruneOrphanedHardwareModels();
+				}, ORPHAN_PRUNE_DELAY_MS);
+			});
+
 			socket.on('client:toggleServer', function() {
 				self.emit('toggleServer');
 			});
@@ -1019,15 +1045,15 @@ module.exports = function(options) {
 			var patchFileName = self.getPatchPath();
 
 			self.setMaster(patch);
-
-			fs.writeFile(patchFileName, JSON.stringify(patch), function(err) {
+			self.writePatchFile(patch);
+		},
+		writePatchFile: function(patch) {
+			fs.writeFile(self.getPatchPath(), JSON.stringify(patch), function(err) {
 				if(err) {
 					console.log(err);
 				}
 				else {
-					//self.setMaster(JSON.parse(patch));
 					console.log('file saved');
-
 				}
 			});
 		},
