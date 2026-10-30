@@ -1,0 +1,297 @@
+{
+  "about": "Shared test cases for the Scene widget's script (plans/scene-widget.md). Run by test/scene-test.js against app/scripts/utils/SceneScript.js, and later by the board interpreter's own test. Each case: script (lines), then either errors (exact 'line N: message' strings) or steps. A step at time t (ms): sets in1/in2 if given, does 'do' (play, stop, skipWait, applyIdle), ticks to t, then checks 'expect' (outlets by name or out1-out4, plus phase and cue). Every case starts with applyIdle at t=0 (the patch loading), threshold 512, in1/in2 unset. 'random' feeds 'after A..B' cues in order.",
+  "cases": [
+    {
+      "name": "crossing: gates down, wait for in1 low, gates up, end",
+      "script": [
+        "outs gate, left, right, running",
+        "cue gates down",
+        "  0s  blink left/right every 0.5s",
+        "  2s  gate to 90 in 3s",
+        "cue gates up when in1 low max 60s",
+        "  2s  gate to 0 in 3s",
+        "  5s  left = 0",
+        "  5s  right = 0",
+        "idle:",
+        "  gate = 0"
+      ],
+      "steps": [
+        {"t": 0, "in1": 1023, "do": "play", "expect": {"gate": 0, "left": 1, "right": 0, "running": 1, "phase": "playing", "cue": "gates down"}},
+        {"t": 1000, "expect": {"gate": 0, "left": 1, "right": 0}},
+        {"t": 1600, "expect": {"left": 0, "right": 1}},
+        {"t": 3500, "expect": {"gate": 45}},
+        {"t": 6000, "expect": {"gate": 90, "left": 1, "running": 1, "phase": "waiting", "cue": "gates up"}},
+        {"t": 7000, "in1": 0, "expect": {"phase": "playing", "cue": "gates up", "gate": 90}},
+        {"t": 10500, "expect": {"gate": 45}},
+        {"t": 12000, "expect": {"gate": 0, "left": 0, "right": 0, "running": 0, "phase": "ended"}}
+      ]
+    },
+    {
+      "name": "when is a level: already low when the cue before ends",
+      "script": [
+        "outs gate",
+        "cue down",
+        "  0s  gate to 90 in 2s",
+        "cue up when in1 low",
+        "  0s  gate to 0 in 2s"
+      ],
+      "steps": [
+        {"t": 0, "in1": 0, "do": "play"},
+        {"t": 2000, "expect": {"gate": 90, "phase": "playing", "cue": "up"}},
+        {"t": 3000, "expect": {"gate": 45}}
+      ]
+    },
+    {
+      "name": "when ... max: starts anyway when max runs out",
+      "script": [
+        "outs gate",
+        "cue down",
+        "  0s  gate = 90",
+        "cue up when in1 low max 10s",
+        "  0s  gate to 0 in 2s"
+      ],
+      "steps": [
+        {"t": 0, "in1": 1023, "do": "play"},
+        {"t": 9000, "expect": {"gate": 90, "phase": "waiting"}},
+        {"t": 11000, "expect": {"gate": 45, "phase": "playing"}}
+      ]
+    },
+    {
+      "name": "when with nothing wired in waits; skipWait starts it",
+      "script": [
+        "outs lamp",
+        "cue a",
+        "  0s  lamp = 1",
+        "cue b when in2 high",
+        "  0s  lamp = 2"
+      ],
+      "steps": [
+        {"t": 0, "do": "play"},
+        {"t": 5000, "expect": {"lamp": 1, "phase": "waiting", "cue": "b"}},
+        {"t": 6000, "do": "skipWait", "expect": {"lamp": 2, "phase": "ended"}}
+      ]
+    },
+    {
+      "name": "stop plays the idle lines, then idle",
+      "script": [
+        "outs gate, lamp",
+        "cue go",
+        "  0s  gate to 90 in 3s",
+        "  0s  blink lamp every 1s",
+        "idle:",
+        "  gate to 0 in 3s",
+        "  lamp = 0"
+      ],
+      "steps": [
+        {"t": 0, "do": "play"},
+        {"t": 1500, "do": "stop", "expect": {"gate": 45, "lamp": 0, "phase": "stopping"}},
+        {"t": 3000, "expect": {"gate": 22.5}},
+        {"t": 4500, "expect": {"gate": 0, "phase": "idle"}},
+        {"t": 5000, "do": "stop", "expect": {"phase": "idle"}}
+      ]
+    },
+    {
+      "name": "stop with no idle section freezes",
+      "script": [
+        "outs gate",
+        "cue go",
+        "  0s  gate to 90 in 3s"
+      ],
+      "steps": [
+        {"t": 0, "do": "play"},
+        {"t": 1500, "do": "stop", "expect": {"gate": 45, "phase": "idle"}},
+        {"t": 3000, "expect": {"gate": 45}}
+      ]
+    },
+    {
+      "name": "idle applied at once on load: ramps land, blinks start",
+      "script": [
+        "outs gate, lamp, beacon",
+        "cue go",
+        "  0s  gate = 1",
+        "idle:",
+        "  gate to 40 in 2s",
+        "  lamp = 7",
+        "  blink beacon every 1s between 0 and 255"
+      ],
+      "steps": [
+        {"t": 0, "expect": {"gate": 40, "lamp": 7, "beacon": 255, "phase": "idle"}},
+        {"t": 1500, "expect": {"beacon": 0}},
+        {"t": 2500, "expect": {"beacon": 255}}
+      ]
+    },
+    {
+      "name": "after A..B picks a random wait",
+      "random": [0.5, 0.25],
+      "script": [
+        "outs crew",
+        "cue walk",
+        "  0s  crew = 1",
+        "cue pause after 2s..6s",
+        "  0s  crew = 2",
+        "  1s  crew = 3",
+        "repeat from pause"
+      ],
+      "steps": [
+        {"t": 0, "do": "play", "expect": {"crew": 1, "phase": "waiting", "cue": "pause"}},
+        {"t": 3999, "expect": {"crew": 1}},
+        {"t": 4000, "expect": {"crew": 2, "phase": "playing"}},
+        {"t": 5000, "expect": {"crew": 3, "phase": "waiting"}},
+        {"t": 7999, "expect": {"crew": 3}},
+        {"t": 8000, "expect": {"crew": 2}}
+      ]
+    },
+    {
+      "name": "repeat goes back to the first cue",
+      "script": [
+        "outs n",
+        "cue one",
+        "  0s  n = 1",
+        "  1s  n = 2",
+        "cue two",
+        "  1s  n = 3",
+        "repeat"
+      ],
+      "steps": [
+        {"t": 0, "do": "play", "expect": {"n": 1}},
+        {"t": 1000, "expect": {"n": 2, "cue": "two"}},
+        {"t": 2000, "expect": {"n": 1, "cue": "one"}},
+        {"t": 3000, "expect": {"n": 2}},
+        {"t": 4000, "expect": {"n": 1}}
+      ]
+    },
+    {
+      "name": "easing: sine in-out is half way at half time",
+      "script": [
+        "outs arm",
+        "cue swing",
+        "  0s  arm to 100 in 2s ease sine",
+        "cue back",
+        "  0s  arm to 0 in 2s ease in quad"
+      ],
+      "steps": [
+        {"t": 0, "do": "play"},
+        {"t": 1000, "expect": {"arm": 50}},
+        {"t": 3000, "expect": {"arm": 75}},
+        {"t": 4000, "expect": {"arm": 0, "phase": "ended"}}
+      ]
+    },
+    {
+      "name": "blink for: stops by itself at the low value and counts in the cue's length",
+      "script": [
+        "outs weld, n",
+        "cue work",
+        "  0s  blink weld every 100ms for 1s",
+        "cue done",
+        "  0s  n = 1"
+      ],
+      "steps": [
+        {"t": 0, "do": "play", "expect": {"weld": 1}},
+        {"t": 150, "expect": {"weld": 0}},
+        {"t": 850, "expect": {"weld": 1, "n": 0}},
+        {"t": 1000, "expect": {"weld": 0, "n": 1, "phase": "ended"}}
+      ]
+    },
+    {
+      "name": "lines in any order; same time keeps the written order",
+      "script": [
+        "outs a",
+        "cue c",
+        "  2s  a = 3",
+        "  1s  a = 1",
+        "  1s  a = 2"
+      ],
+      "steps": [
+        {"t": 0, "do": "play", "expect": {"a": 0}},
+        {"t": 1000, "expect": {"a": 2}},
+        {"t": 2000, "expect": {"a": 3}}
+      ]
+    },
+    {
+      "name": "text values, unnamed cues, out1 names, time left out is 0s",
+      "script": [
+        "outs sign",
+        "cue",
+        "  sign = \"CLOSED\"",
+        "cue",
+        "  1s  out1 = \"OPEN\"  # a comment"
+      ],
+      "steps": [
+        {"t": 0, "do": "play", "expect": {"sign": "CLOSED", "cue": "cue 2"}},
+        {"t": 1000, "expect": {"out1": "OPEN"}}
+      ]
+    },
+    {
+      "name": "a set ends a blink and a ramp on the same outlet",
+      "script": [
+        "outs a, b",
+        "cue c",
+        "  0s  blink a every 100ms",
+        "  0s  b to 100 in 2s",
+        "  1s  a = 5",
+        "  1s  b = 7"
+      ],
+      "steps": [
+        {"t": 0, "do": "play"},
+        {"t": 1500, "expect": {"a": 5, "b": 7}}
+      ]
+    },
+    {
+      "name": "errors: times, outlets, placement",
+      "script": [
+        "outs gate, running",
+        "gate = 1",
+        "cue a",
+        "  2 gate = 1",
+        "  0s  gat = 1",
+        "  0s  running = 1",
+        "  0s  gate to 90 in 3",
+        "  0s  gate to 90 in 3s ease wobble",
+        "  0s  blink gate",
+        "cue a",
+        "repeat from nowhere"
+      ],
+      "errors": [
+        "line 2: put this under a cue (a line starting with \"cue\")",
+        "line 4: add \"s\" or \"ms\" to 2",
+        "line 5: no outlet called \"gat\" (outlets: gate, running)",
+        "line 6: \"running\" is set by the scene itself - it can't be changed",
+        "line 7: add \"s\" or \"ms\" to 3",
+        "line 8: no easing called \"wobble\" (easings: quad, cubic, quart, quint, sine, circ, expo, elastic, back, bounce)",
+        "line 9: blink needs \"every\" and a time, e.g. every 0.5s",
+        "line 10: there's already a cue called \"a\"",
+        "line 11: no cue called \"nowhere\""
+      ]
+    },
+    {
+      "name": "errors: cue triggers and outs",
+      "script": [
+        "outs a, cue",
+        "cue x when in3 high",
+        "cue y when in1 up",
+        "cue z after 6s..2s",
+        "idle:",
+        "cue w"
+      ],
+      "errors": [
+        "line 1: \"cue\" is a script word - pick another outlet name",
+        "line 2: \"when\" needs in1 or in2, e.g. when in1 high",
+        "line 3: \"when in1\" needs high or low after it",
+        "line 4: the shorter time goes first: 2s..6s",
+        "line 6: cues go before \"idle:\""
+      ]
+    },
+    {
+      "name": "errors: a repeat that takes no time",
+      "script": [
+        "outs a",
+        "cue x",
+        "  a = 1",
+        "repeat"
+      ],
+      "errors": [
+        "line 4: this repeat takes no time - give a cue a time, a wait or a \"when\""
+      ]
+    }
+  ]
+}

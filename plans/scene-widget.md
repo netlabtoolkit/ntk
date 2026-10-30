@@ -42,7 +42,7 @@ cue gates up when in1 low max 60s   # the train has cleared
   5s   bell = 0
 
 idle:                               # how the scene looks when idle
-  gate = 0
+  gate to 0 in 3s                   # up smoothly if stopped mid-scene
   left = 0
   right = 0
   bell = 0
@@ -328,6 +328,38 @@ To keep the two the same:
 
 Also later, if wanted: `repeat N times`; picking one of several cues
 at random; more than four outlets.
+
+### Later: convert Sequence to Scene scripting
+
+Phil, 2026-10-30: Sequence should eventually move to this way of
+scripting. It's already a text script (`start,end,duration` per line);
+Scene says the same with words, and there are no other users to keep a
+second format for.
+
+- **Maps directly:** each `start,end,duration` line is a set plus a
+  ramp at a time in a cue (`0s out1 = 0`, `0s out1 to 500 in 200ms`,
+  the next segment at `200ms` ...); **loop** is `repeat`; **return to
+  ... with a duration of ...** is an `idle:` section with a ramp;
+  **threshold** is the same. Timing moves off Velocity, so NTK and the
+  board finally behave the same.
+- **The gap:** Sequence has four inlets, each starting its own
+  sequence; Scene has one `start` that plays the cues in order. Needs
+  several entry points in Scene first - e.g. "in2 rising plays from
+  cue `wave`" - designed on its own, not bolted on.
+- **The other risk (Phil, 2026-10-30):** Sequence's `start,end,duration`
+  lines are the same format as sequences in Phil's
+  [VarSpeedPython](https://github.com/pvanallen/VarSpeedPython)
+  library, so a sequence can move between an NTK patch and a Python
+  project as it is. Retiring Sequence loses that. Whatever replaces it
+  should keep the path open - e.g. Scene reading a pasted VarSpeedPython
+  sequence (a `sequence` block, or a converter in the more panel) and
+  writing one back out - or Sequence stays alongside Scene.
+- **Route, to decide later:** retire Sequence - a saved patch's
+  Sequence widgets converted to Scene scripts on load - only once the
+  VarSpeedPython path above is covered; otherwise keep both. (Sequence
+  as a thin preset over Scene with its own editor is the third option,
+  more to maintain.) Not before Scene has shipped and been used for a
+  while.
 
 ## Decided
 

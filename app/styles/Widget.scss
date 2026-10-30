@@ -2581,3 +2581,128 @@ body.ntk-monitoring .monitorBlockOverlay {
 @keyframes encoderWaitingBlink {
     50% { opacity: 0.3; }
 }
+
+// Scene: a play/stop button, the current cue, a progress bar and a
+// status line on the left; each outlet's value beside its nub on the
+// right (name in the tooltip). Script editor in the more panel.
+.scene {
+    .widgetBody {
+        position: relative;
+    }
+
+    .sceneMain {
+        position: absolute;
+        left: 4px;
+        top: 4px;
+        width: 56px;
+    }
+
+    .scenePlay {
+        width: 30px;
+        height: 22px;
+        padding: 0;
+        border: 1px solid #98a6ac;
+        border-radius: 3px;
+        background-color: #fff;
+        font-size: 12px;
+        line-height: 20px;
+        cursor: pointer;
+
+        .sceneStopIcon { display: none; }
+
+        &.playing {
+            background-color: #E57373;
+            .scenePlayIcon { display: none; }
+            .sceneStopIcon { display: inline; }
+        }
+    }
+
+    .sceneCue {
+        margin-top: 4px;
+        height: 24px;
+        overflow: hidden;
+        font-size: 10px;
+        font-weight: bold;
+        line-height: 12px;
+        word-wrap: break-word;
+    }
+
+    .sceneProgress {
+        height: 4px;
+        margin-top: 2px;
+        background-color: #ddd;
+
+        .sceneProgressFill {
+            height: 100%;
+            width: 0;
+            background-color: #4DB6AC;
+        }
+    }
+
+    .sceneStatus {
+        margin-top: 4px;
+        height: 36px;
+        overflow: hidden;
+        font-size: 10px;
+        line-height: 12px;
+        word-wrap: break-word;
+
+        // Waiting for a "when" or an "after": flashes, and a click
+        // starts the cue - so a scene can be tried with no sensor.
+        &.waiting {
+            color: #b26a00;
+            cursor: pointer;
+            text-decoration: underline dotted;
+            animation: sceneWaitingBlink 1s ease-in-out infinite;
+        }
+
+        &.error {
+            color: #c62828;
+        }
+    }
+
+    .sceneValues {
+        position: absolute;
+        right: 2px;
+        top: 0;
+        width: 30px;
+        text-align: right;
+    }
+
+    // One row per outlet nub (24px + 2px margin), as Splitter's.
+    .sceneValue {
+        height: 22px;
+        margin-top: 4px;
+        overflow: hidden;
+        font-size: 10px;
+        line-height: 22px;
+        white-space: nowrap;
+    }
+
+    // Wider than the shared 190px, for script lines like
+    // "2s  blink left/right every 0.5s".
+    .widgetBottom .content {
+        width: 300px;
+
+        textarea.sceneScript {
+            width: 100%;
+            font-family: Menlo, Monaco, monospace;
+            font-size: 11px;
+            line-height: 1.35;
+            white-space: pre;
+            overflow-wrap: normal;
+            overflow-x: auto;
+        }
+
+        .sceneErrors {
+            margin: 4px 0;
+            padding-left: 14px;
+            color: #c62828;
+            font-size: 11px;
+        }
+    }
+}
+
+@keyframes sceneWaitingBlink {
+    50% { opacity: 0.35; }
+}
