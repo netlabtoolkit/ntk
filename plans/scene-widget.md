@@ -30,12 +30,12 @@ later (see [Timeline view](#timeline-view-later)).
 ```
 outs gate, left, right, bell        # names for out1-out4
 
-cue                                 # starts on play
+cue gates down                      # starts on play
   0s   blink left/right every 0.5s  # crossing lights, alternating
   0s   bell = 1
   2s   gate to 90 in 3s             # down by 5s
 
-cue when in1 low max 60s            # the train has cleared
+cue gates up when in1 low max 60s   # the train has cleared
   2s   gate to 0 in 3s
   5s   left = 0                     # stops the blink
   5s   right = 0
@@ -58,9 +58,14 @@ lights go off 5 s after it, when the 3 s ramp has finished.
 | `cue` | On play, if it's the first cue; otherwise as soon as the cue before it has finished. |
 | `cue after TIME` | TIME after the cue before it has finished. `cue after 2s..6s` picks a random time in that range each time - workers who don't move like clockwork. |
 | `cue when in1 high` / `cue when in1 low` | When the cue before it has finished **and** the inlet is above / below the threshold. A level, not an edge: if the train had already cleared while the gates were still coming down, the cue starts straight away instead of waiting for an event it missed. Optional `max TIME`: give up waiting and start anyway, so a sensor that fails can't hold the gates down forever. |
-| `cue NAME ...` | Any of the above with a name (`cue weld after 2s..6s`), for `repeat from NAME` and to show in the widget. |
+| `cue NAME ...` | Any of the above with a name: the words between `cue` and `when` / `after` (or the end of the line), spaces allowed - `cue gates up when in1 low`. Shown in the widget and on the timeline, and used by `repeat from NAME`. |
 | `repeat` / `repeat from NAME` | On its own line after the last cue: once the last cue has finished, go back to the first cue (or the named one). |
 
+- **Name every cue.** The name is optional to the parser, but the
+  starter script and every example in the docs name theirs: a name
+  says what the cue is for (`gates down`, `gates up`), which a number
+  doesn't, and it's the label of the cue's block on the timeline. Names
+  must be unique in a scene, and can't use the words `when` or `after`.
 - **A cue has finished** when its last line has happened and its last
   ramp has reached its end. A blink with no `for` doesn't count - it
   runs until something sets that outlet or the scene ends.
@@ -118,7 +123,7 @@ Sequence's "return to ... with a duration of ..." fields.
 ```
 outs arm, weld, crew
 
-cue
+cue walk over
   0s     crew to 30 in 2s ease sine     # a worker walks over
 
 cue work
@@ -126,7 +131,7 @@ cue work
   1s     blink weld every 80ms for 2s
   3s     arm to 40 in 1.5s
 
-cue after 2s..6s                        # a pause, different each time
+cue step back after 2s..6s              # a pause, different each time
   0s     crew to 10 in 1s
   1.5s   crew to 30 in 1s
 
@@ -145,7 +150,8 @@ idle:
 - **Play / stop button** - plays the scene with nothing wired in, so a
   whole scene can be tried before any sensor exists (CLAUDE.md
   principle).
-- **The current cue** - its name, or `cue 2` - and a progress bar
+- **The current cue** - its name (`cue 2` if it has none) - and a
+  progress bar
   through it.
 - **While a cue waits for its start**, what it's waiting for
   (`in1 low`, `2.4s`), flashing, like IfThen's pending blink - so a
@@ -190,6 +196,14 @@ start from blank.
 
 Not part of the first build, but the script format is chosen so it can
 be added without changing the format or the board.
+
+**Mockup (2026-10-30):**
+[Scene timeline mockup](https://claude.ai/artifact/ATQkpSj9D1r5QKWoa4qQKG)
+- a claude.ai canvas, private to Phil's account. Two boards: the road
+crossing playing (cue blocks, lanes, playhead, a selected ramp with
+its inspector, the script beside it with the same line highlighted),
+and the workers (a random gap drawn as its range, `repeat` as an arrow
+back). A rough sketch, not a final design.
 
 - **One lane per outlet**, time running left to right, like animation
   software. Each lane draws its outlet's value over time: a set is a
@@ -319,6 +333,9 @@ at random; more than four outlets.
   "pause" or "the rest of the scene").
 - **2026-10-30:** four outlets, the widget standard; `running` is any
   one of them, named so in the `outs` line - not a fifth outlet.
+- **2026-10-30:** cues have names (`cue gates up when in1 low`),
+  multi-word, used in every example; the parser still accepts an
+  unnamed `cue`, shown as `cue 2`.
 - **2026-10-30:** times always with a unit (`2s`, `500ms`); a bare
   number is an error. `cue when` is a level (starts if the inlet is
   *already* low), not an edge.
