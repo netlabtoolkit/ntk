@@ -7,17 +7,17 @@
 
     <div class="widgetLeft">
         <div class='inlets'>
-            <div rv-each-inlet="widget:ins" rv-alt="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
+            <div rv-each-inlet="widget:ins" rv-title="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
         </div>
     </div>
 
     <div class="widgetBody">
         <div class="sceneMain">
-            <button type="button" class="scenePlay" rv-class-playing="widget:scenePlaying" aria-label="Play or stop the scene">
+            <button type="button" class="scenePlay" rv-class-playing="widget:scenePlaying" aria-label="Play or stop the scene" title="Play the scene from its first cue, or stop it (plays the idle lines)">
                 <span class="scenePlayIcon">▶</span><span class="sceneStopIcon">■</span>
             </button>
             <div class="sceneCue" rv-text="widget:sceneCue"></div>
-            <div class="sceneProgress"><div class="sceneProgressFill" rv-sceneprogress="widget:sceneProgress"></div></div>
+            <div class="sceneProgress" title="How far through the current cue"><div class="sceneProgressFill" rv-sceneprogress="widget:sceneProgress"></div></div>
             <div class="sceneStatus" rv-class-waiting="widget:sceneWaiting" rv-class-error="widget:sceneHasError" rv-text="widget:sceneStatus" rv-title="widget:sceneStatusTitle"></div>
         </div>
         <div class="sceneValues">
@@ -30,7 +30,7 @@
 
     <div class="widgetRight">
         <div class='outlets'>
-            <div class="outlet" rv-each-outlet="widget:outs" rv-alt="outlet.title" rv-data-field="outlet.to">&middot;</div>
+            <div class="outlet" rv-each-outlet="widget:outs" rv-title="outlet.title" rv-data-field="outlet.to">&middot;</div>
         </div>
     </div>
 
@@ -38,7 +38,7 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label class="wide-label">script</label>
-            <textarea class="sceneScript" rows="18" spellcheck="false" rv-value="widget:script"></textarea>
+            <textarea class="sceneScript" title="The scene script - takes effect when you click out of the box" rows="18" spellcheck="false" rv-value="widget:script"></textarea>
             <ul class="sceneErrors">
                 <li rv-each-err="widget:sceneErrors" rv-text="err"></li>
             </ul>

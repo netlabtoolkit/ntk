@@ -128,6 +128,17 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			};
 
 			WidgetView.prototype.onRender.call(this);
+			this.nameOutlets();
+		},
+
+		// The script's outlet names ("gate (out1)") as the nubs' tooltips.
+		// Set on the elements directly: the outs list itself must stay
+		// as it is, since the cables hang on its rendered nubs.
+		nameOutlets: function() {
+			var nubs = this.$('.widgetRight .outlet');
+			for(var i = 0; i < nubs.length && i < 4; i++) {
+				nubs.eq(i).attr('title', this.model.get('n' + (i + 1)));
+			}
 		},
 
 		/**
@@ -156,6 +167,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 				names['n' + (i + 1)] = scene.outs[i] ? scene.outs[i] + ' (out' + (i + 1) + ')' : 'out' + (i + 1);
 			}
 			this.model.set(names);
+			this.nameOutlets();
 			this.pushOutputs();
 			this.updateDisplay(Date.now());
 		},
