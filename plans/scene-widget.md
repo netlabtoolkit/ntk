@@ -205,6 +205,10 @@ its inspector, the script beside it with the same line highlighted),
 and the workers (a random gap drawn as its range, `repeat` as an arrow
 back). A rough sketch, not a final design.
 
+![Timeline mockup: road crossing, playing](images/scene-timeline-crossing.png)
+
+![Timeline mockup: workers, random gap and repeat](images/scene-timeline-workers.png)
+
 - **One lane per outlet**, time running left to right, like animation
   software. Each lane draws its outlet's value over time: a set is a
   step, a ramp a slope (with its easing curve), a blink a striped band,
