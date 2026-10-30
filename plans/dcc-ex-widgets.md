@@ -541,6 +541,34 @@ talking.
    loco messages as listed above; a virtual turnout's changes being
    announced; `rotaryio` on the XIAO ESP32-C6. A short Python script
    from the computer covers the station checks.
+   **Mostly done 2026-10-29** with `test/dcc-spike.py` against Phil's
+   EX-CSB1 (DCC-EX v5.6.6, ESP32, on the home network):
+   - Session, power, acquire, speed, direction, F0, release and E-stop
+     all work as listed above. The station first announces a 2 s
+     heartbeat (`*2`), then `*10` once connected: the client should
+     follow the station's `*N`, not a fixed interval. It also sends
+     `HMConnecting..` / `HMConnected` messages.
+   - **At most 9 WiThrottle clients** (checked twice). The 10th TCP
+     connection is accepted but never answered - no error, just
+     silence - so a client must treat "no `VN` within a few seconds" as
+     "station full" and say so. Nine covers a handheld, a few servo
+     boards and NTK, but is tight once animation boards are added.
+   - **A decimal speed (`V7.5`) is accepted**: the loco crept forward,
+     nothing misread. The Throttle still sends whole numbers, as
+     planned, so this is only a safety check.
+   - Native `<s>`, `<JT>`, `<JA>`, `<#>` (120 loco slots) answer on
+     their own socket.
+   - **The heartbeat safety net works**: a loco whose client stopped
+     sending `*` (still connected) was stopped by the station after
+     about 20 s - twice the `*10` interval. So a board that hangs or
+     drops off WiFi leaves its train running for up to ~20 s.
+   - Acquiring a loco (`MT+S3<;>S3`) returns its full state at once:
+     all 32 functions (`F00`..`F031`, e.g. `F11` = F1 on), `s1`, speed
+     and direction. An E-stopped loco reports **`V-1`**, which the
+     Throttle must show as stopped, not as -1. Every `V` / `R` sent is
+     echoed straight back.
+   - Still to do: a virtual turnout's changes being announced (none
+     defined yet), and `rotaryio` on the XIAO ESP32-C6.
 1. `WiThrottleModel.js` + simulator + **DCC Station** in NTK.
 2. **DCC Turnout** in NTK - first of the widgets, since servo and
    animation boards both need it and it moves no trains.
