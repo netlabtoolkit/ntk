@@ -197,7 +197,7 @@ function(_){
 			else if(info.power === 0) {
 				// Connected and holding the loco - only power is missing.
 				// Not 'waiting': its pulse read as "still connecting".
-				s = {kind: 'power', text: 'power off · click to turn on', title: 'Connected, but track power is off - click to turn it on', powerOff: true};
+				s = {kind: 'power', text: 'power off', title: 'Connected, but track power is off - click to turn it on', powerOff: true};
 			}
 			else {
 				s = {kind: 'ok', text: loco + (info.simulated ? ' (sim)' : ''),

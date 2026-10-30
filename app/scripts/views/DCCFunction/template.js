@@ -26,7 +26,7 @@
             </button>
         </div>
 
-        <div class="dccStatus" rv-class-clickable="widget:powerOff" rv-class-error="widget:statusKind | isDccStatus error" rv-text="widget:statusText" rv-title="widget:statusTitle"></div>
+        <div class="dccStatus" rv-class-clickable="widget:powerOff" rv-class-error="widget:statusKind | isDccStatus error" rv-title="widget:statusTitle"><span rv-text="widget:statusText"></span><span class="dccPowerHint">click to turn on</span></div>
     </div>
 
     <div class="widgetRight">
