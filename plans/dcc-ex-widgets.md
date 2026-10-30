@@ -238,6 +238,9 @@ role meanwhile, since the station takes several clients.
 
 ## Scene widget (draft, needs refinement)
 
+**Superseded by [its own plan](scene-widget.md)** (2026-10-30); the
+draft below is kept for the record.
+
 A general NTK widget, not DCC-specific: a list of timed steps that
 plays out a story across several outputs. Today a multi-step story is
 a tangle of Pulse, Gate, IfThen and Sequence (which only has 4 ramps);
