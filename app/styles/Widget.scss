@@ -2722,6 +2722,7 @@ body.ntk-monitoring .monitorBlockOverlay {
 
         &.dccidle { background-color: #ccc; }
         &.dccwaiting { background-color: #e0a030; animation: encoderWaitingBlink 1s ease-in-out infinite; }
+        &.dccpower { background-color: #e0a030; }
         &.dccok { background-color: #4caf50; }
         &.dccerror { background-color: #e53935; }
     }

@@ -17,6 +17,7 @@
             <div class="statusDot" rv-title="widget:statusText"
                 rv-class-dccidle="widget:statusKind | isDccStatus idle"
                 rv-class-dccwaiting="widget:statusKind | isDccStatus waiting"
+                rv-class-dccpower="widget:statusKind | isDccStatus power"
                 rv-class-dccok="widget:statusKind | isDccStatus ok"
                 rv-class-dccerror="widget:statusKind | isDccStatus error"></div>
             <button type="button" class="dccFnButton" rv-class-on="widget:fnOn" title="Click to switch this function on or off">

@@ -17,6 +17,7 @@
             <div class="statusDot" rv-title="widget:statusText"
                 rv-class-dccidle="widget:statusKind | isDccStatus idle"
                 rv-class-dccwaiting="widget:statusKind | isDccStatus waiting"
+                rv-class-dccpower="widget:statusKind | isDccStatus power"
                 rv-class-dccok="widget:statusKind | isDccStatus ok"
                 rv-class-dccerror="widget:statusKind | isDccStatus error"></div>
             <div class="display outvalue" rv-text="widget:speed">0</div>
