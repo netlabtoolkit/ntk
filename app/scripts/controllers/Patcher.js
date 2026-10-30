@@ -459,6 +459,21 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 
 					return newWidget;
                 }
+                else if(widgetType === 'DCCThrottle' || widgetType === 'DCCFunction') {
+					// Same shape as Encoder below: the widget maps itself
+					// to its station's session (remapStation).
+					var newWidget = new Widgets[widgetType]({
+						model: newModel,
+					});
+
+					this.addWidgetToStage(newWidget, addedFromLoader);
+
+					if(!addedFromLoader) {
+						newWidget.remapStation();
+					}
+
+					return newWidget;
+                }
                 else if(widgetType === 'Encoder') {
 					// Same shape as GroveSensor above: the widget's own
 					// remapEncoder() makes its hardware mappings.

@@ -37,6 +37,10 @@ function( app, Backbone, Template, Widgets ) {
 		// the panel changes, nothing else reads this map.
 		WIDGET_DISPLAY_NAMES: {
 			'GroveSensor': 'GroveIn',
+			// The widgets' own title bars say DCC Throt / DCC Func -
+			// "DCC Throttle" doesn't fit beside the ×.
+			'DCCThrottle': 'DCC Throttle',
+			'DCCFunction': 'DCC Function',
 		},
 
 		initialize: function initialize() {

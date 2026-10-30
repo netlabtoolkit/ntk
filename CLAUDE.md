@@ -81,6 +81,15 @@
   `Date.now() + model.get('someMsField')` produces a garbage timestamp if
   that field came from a text input). `parseInt`/`parseFloat` at the
   point of arithmetic use.
+- **An `onModelChange` handler that sets the model runs again with the
+  same `changedAttributes()`.** Backbone 1.1.2 doesn't clear `changed`
+  during a nested `set()`, and re-fires `'change'` until nothing new is
+  set - so an inlet listed as changed is seen once per nested set.
+  Anything that *adds* (a step, a count) instead of setting a value
+  repeats: DCC Throttle's `step` inlet took one +1 straight to the 126
+  cap (2026-10-30). Act on an inlet only when its value differs from
+  the last one handled (or on an edge), not merely because it appears
+  in `changedAttributes()`.
 - A widget's own `initialize()` calling `this.model.set(defaults)`
   fires `onModelChange` synchronously (bound by the base class's
   `initialize`, which already ran). Any internal instance state that

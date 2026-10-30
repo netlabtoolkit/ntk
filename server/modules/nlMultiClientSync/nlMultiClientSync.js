@@ -554,6 +554,11 @@ module.exports = function(options) {
 				if(isMonitoredDevice(modelType)) { return; }
 
 				if(options.port && options.mode) {
+					// Letting go of a loco (DCC Throttle) needs no
+					// connection - one closed in the meantime mustn't be
+					// reopened just for that.
+					if(options.mode === 'release' && self.hardwareModels[modelType] == undefined) { return; }
+
 					// A widget can ask to switch a pin's mode (e.g. DigitalIn
 					// right after being created) before its own
 					// sendDeviceModelUpdate has round-tripped through
