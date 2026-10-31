@@ -1627,4 +1627,16 @@ def run(ap_started, firmata_port):
     if not ap_started:
         _use_existing_watchdog()
 
-    run_server()
+    try:
+        run_server()
+    except BaseException:
+        # Ctrl-C on the console, a reload after a file was saved, or a
+        # crash: a train the standalone patch is driving would otherwise
+        # keep running until the station's heartbeat stops it (~20 s).
+        # Stop and release it now, then exit as before.
+        if _standalone is not None:
+            try:
+                _standalone.release_dcc()
+            except Exception as e:
+                print("Couldn't stop the DCC locos:", e)
+        raise

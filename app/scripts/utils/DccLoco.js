@@ -161,8 +161,19 @@ function(_){
 			this.updateStatus();
 		},
 
+		/**
+		 * dccMonitored - Monitor mode is showing this widget's values
+		 * from a board running the patch. The board is driving the train
+		 * then; its values arrive like a cable's (updateNoTrigger), and
+		 * acting on them would send every step and stop a second time.
+		 */
+		dccMonitored: function() {
+			var monitoring = window.app.monitoring;
+			return !!(monitoring && monitoring.active && monitoring.wids && monitoring.wids[this.model.get('wid')]);
+		},
+
 		sendToLoco: function(what, value) {
-			if(!this.model.get('active') || !this.heldKey) { return; }
+			if(!this.model.get('active') || !this.heldKey || this.dccMonitored()) { return; }
 			var update = {};
 			update[this.heldKey + ':' + what] = value;
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: this.heldStation, model: update});

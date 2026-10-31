@@ -1,9 +1,11 @@
 # DCC widgets (WiThrottle, then DCC-EX)
 
-**Status:** building (2026-10-30). The WiThrottle session, a
-simulated station, DCC Throttle and DCC Function are built in NTK (not
-on the board yet); the Encoder widget is done (2026-10-27). Decisions
-from Phil are in "Decided" below.
+**Status:** building (2026-10-31). The WiThrottle session, a
+simulated station, DCC Throttle and DCC Function are built in NTK and
+tried on the real station; the board side of DCC Throttle and DCC
+Function is written and tested under CPython (2026-10-31), not yet on
+a board. The Encoder widget is done (2026-10-27). Decisions from Phil
+are in "Decided" below.
 
 Control a model railway's command station from NTK: track power, loco
 speed and direction, turnouts (points), and - on DCC-EX - the
@@ -596,6 +598,32 @@ talking.
    tried with the real encoder driving DCC Throttle's `step` on the
    EX-CSB1 2026-10-31.
 5. **DCC Throttle** in NTK, then on the board - the handheld.
+   **Board side written 2026-10-31**, DCC Function with it:
+   `firmware/common/withrottle.py` (protocol + session, ported from
+   `withrottle.js` / `WiThrottleModel.js`, shipped as `withrottle.mpy`)
+   and a `dcc` step in the interpreter; both widgets added to both
+   portable lists. Tested with `python3 -I test/withrottle_test.py`
+   (a fake station on a local TCP port; parse / command cases shared
+   with the JS test through `test/withrottle-cases.json`). As in NTK:
+   one session per station, one loco shared by the widgets on it, only
+   widgets saved switched on take part, inlets act only when wired and
+   on a new value. Connecting waits at most 1 s, then retries every
+   5 s while ticking. NTK taking over the board stops, releases and
+   quits; giving it back reconnects. Also fixed: Monitor mode pushed
+   the board's inlet values into NTK's own DCC widgets as if from a
+   cable, so an active Throttle in NTK would have sent every step a
+   second time - they now only show the values while monitored.
+   **On the board 2026-10-31:** Phil pushed the handheld patch and the
+   XIAO drove the train on its own, no NTK running. Exiting the
+   firmware (Ctrl-C, a reload after saving a file, a crash) now stops
+   and releases the board's locos first, instead of leaving them to
+   the station's ~20 s heartbeat - tried on the board, works. Display
+   lines with no cable are blank now (NTK and board), also tried.
+   Stop button (a DigitalIn into `stop`) works on the board too,
+   with DigitalIn's new pull-up option (on by default, button to GND).
+   Still to try: a function, a phone on the same loco, NTK
+   taking over and giving back, pulling the board's power (the
+   station's heartbeat should stop the train within ~20 s).
 6. **DCC Route** in NTK, then on the board.
 7. **Scene** - after refining the design with Phil; NTK, then the
    interpreter. Independent of the DCC phases (needs no station), so

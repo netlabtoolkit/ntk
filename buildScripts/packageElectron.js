@@ -40,7 +40,7 @@ const FIRMWARE_SRC_DIR = path.join(__dirname, '..', 'firmware', 'xiao-esp32-circ
 // firmware tree (confirmed via diff 2026-10-02, when it was split out of
 // what had been two hand-synced copies) - only the genuinely board-
 // specific files (code.py, ntk_firmata_main.py, pins.py, oled_display.py,
-// and the compiled standalone_interpreter.mpy) still live under
+// and the compiled standalone_interpreter.mpy / withrottle.mpy) still live under
 // FIRMWARE_SRC_DIR above.
 const COMMON_FIRMWARE_SRC_DIR = path.join(__dirname, '..', 'firmware', 'common');
 // standalone_interpreter.mpy, not the .py source (that source lives in
@@ -54,7 +54,7 @@ const COMMON_FIRMWARE_SRC_DIR = path.join(__dirname, '..', 'firmware', 'common')
 // imports whichever of pins_s3.py/pins_c6.py matches (see pins.py's
 // own docstring) - all three are bundled unchanged; nothing here picks
 // one on the dev machine's behalf.
-const FIRMWARE_FILES = ['code.py', 'ntk_firmata_main.py', 'oled_display.py', 'pins.py', 'pins_s3.py', 'pins_c6.py', 'standalone_interpreter.mpy'];
+const FIRMWARE_FILES = ['code.py', 'ntk_firmata_main.py', 'oled_display.py', 'pins.py', 'pins_s3.py', 'pins_c6.py', 'standalone_interpreter.mpy', 'withrottle.mpy'];
 const COMMON_FIRMWARE_FILES = ['boot.py', 'firmata_server.py', 'neopixel_output.py', 'settings-example.toml'];
 // Run-once utility scripts from firmware/test that a user of the
 // download needs, not just a developer with the repo - copied in beside

@@ -19,7 +19,8 @@ app/scripts/utils/StandaloneCompatibility.js's PORTABLE_TYPE_IDS; there's
 no shared source between JS and Python:
     AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, GroveSensor,
     IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse,
-    Sequence, Tween, Data, OSCIn, OSCOut, CloudIn, CloudOut
+    Sequence, Tween, Data, OSCIn, OSCOut, CloudIn, CloudOut, Display,
+    NeoPixel, Encoder, DCCThrottle, DCCFunction
 load() rejects anything outside this list the same way the JS checker
 does - clearly, not silently.
 
@@ -73,6 +74,20 @@ actual change only, same simplification OSCOut already makes for its
 own roundToInt-only chain handling; the full throttle/average/settle
 machinery is a possible future addition, not attempted in this pass.
 
+DCCThrottle/DCCFunction (added 2026-10-31) drive a train through the
+board's own WiThrottle session with the command station - withrottle.py
+(a port of NTK's withrottle.js / WiThrottleModel.js), imported only
+when a patch has a DCC widget. One session per station host:port,
+shared by every DCC widget pointed at it, and one loco shared by every
+widget on it - the same sharing WiThrottleModel.js does live. Only
+widgets saved switched on take part. Unlike Cloud, the session keeps
+reconnecting while ticking (every withrottle.RECONNECT_S): stations get
+switched off and on with the layout. release_hardware() (NTK taking
+over the board) stops and releases every loco and quits the session;
+the station's own heartbeat stops them if the board just dies. Inlets
+act only when wired and only on a new value, as the live widgets act
+only on values arriving through a cable.
+
 GroveSensor reuses the SAME `GROVE_SENSOR_CATALOG` (from pins.py)
 firmata_server.py's sysex handler reads from - subscribing calls a
 catalog entry's own `read`/`make_read` function directly, same
@@ -119,7 +134,11 @@ PORTABLE_TYPE_IDS = frozenset([
     'IfThen', 'Boolean', 'Gate', 'Mix', 'Splitter', 'Process', 'Count',
     'Concat', 'Pulse', 'Sequence', 'Tween', 'Data', 'OSCIn', 'OSCOut',
     'CloudIn', 'CloudOut', 'Display', 'NeoPixel', 'Encoder',
+    'DCCThrottle', 'DCCFunction',
 ])
+
+# Driven by the board's WiThrottle session, see the module docstring.
+DCC_TYPES = frozenset(['DCCThrottle', 'DCCFunction'])
 
 HARDWARE_INPUT_TYPES = frozenset(['AnalogIn', 'DigitalIn'])
 HARDWARE_OUTPUT_TYPES = frozenset(['AnalogOut', 'DigitalOut', 'Servo'])
@@ -1275,6 +1294,9 @@ OUTS_BY_TYPE = {
     # ('delta', 'delta'): the step outlet, set by _eval_encoder itself -
     # listed so monitor_fields reports it, skipped by the chain below.
     'Encoder': [('count', 'out'), ('delta', 'delta')],
+    # Set by the dcc step itself - listed for monitor_fields.
+    'DCCThrottle': [('speed', 'speed'), ('direction', 'direction'), ('address', 'address')],
+    'DCCFunction': [('state', 'state')],
 }
 
 
@@ -1354,6 +1376,13 @@ class StandaloneInterpreter:
         self._cloud_last_published = {}  # (group key, topic) -> (value_str, monotonic_time)
         self._cloud_last_received = {}  # (group key, topic) -> (value, monotonic_time) - feedback-loop guard, see the cloud_out step
         self._cloud_last_poll = 0.0      # shared gate so MQTT polling doesn't run every single tick
+        # DCC widgets (see module docstring) - withrottle is imported
+        # only if a loaded patch has one. _dcc_pool can be set before
+        # claim_hardware() to use another socket pool (tests use
+        # CPython's socket module).
+        self._withrottle = None
+        self._dcc_pool = None
+        self._dcc_connections = {}  # (host, port) -> withrottle.Connection
 
     def load(self, patch):
         widgets = (patch or {}).get('widgets', [])
@@ -1417,6 +1446,8 @@ class StandaloneInterpreter:
                 hw_in_pin[step[1]] = "Cloud"
             elif kind == 'cloud_out':
                 hw_out_pin[step[1]] = "Cloud"
+            elif kind == 'dcc':
+                hw_in_pin[step[1]] = "DCC"
             elif kind == 'map':
                 _, src_wid, src_field, dst_wid, _dst_field = step
                 outgoing.setdefault(src_wid, []).append((dst_wid, src_field))
@@ -1633,6 +1664,10 @@ class StandaloneInterpreter:
                     reading_map[index] = m['map']['destinationField']
                 steps.append(('grove_in', wid, reading_map))
             steps.append(('eval', wid))
+            if self.widgets[wid]['typeID'] in DCC_TYPES:
+                # The station address and loco are the widget's own
+                # values, so its WiThrottle mapping isn't needed here.
+                steps.append(('dcc', wid))
             if wid in hw_out_mappings:
                 steps.append(('hw_out', wid, hw_out_mappings[wid]['map']['destinationField']))
             if wid in display_mappings:
@@ -1742,6 +1777,7 @@ class StandaloneInterpreter:
                 w['state']['edge_accum'] = 0
         self._claim_osc()
         self._claim_cloud()
+        self._claim_dcc()
 
     def _claim_osc(self):
         """Set up MicroOSC receiving/sending for every osc_in/osc_out
@@ -1909,6 +1945,7 @@ class StandaloneInterpreter:
         self._grove_subscriptions = {}
         self._release_osc()
         self._release_cloud()
+        self.release_dcc()
 
     def _release_osc(self):
         """Closes the raw UDP sockets MicroOSC opened - it exposes no
@@ -2110,6 +2147,189 @@ class StandaloneInterpreter:
             except Exception:
                 pass
 
+    def _claim_dcc(self):
+        """Take each switched-on DCC widget's loco on its station's
+        session (see module docstring). The connection itself is made
+        from tick(), so a station that's down never holds up the rest
+        of claim_hardware()."""
+        dcc_wids = [step[1] for step in self.steps if step[0] == 'dcc']
+        if not dcc_wids:
+            return
+        if self._withrottle is None:
+            try:
+                import withrottle
+                self._withrottle = withrottle
+                if self._dcc_pool is None:
+                    import wifi
+                    import socketpool
+                    self._dcc_pool = socketpool.SocketPool(wifi.radio)
+            except Exception as e:
+                print("standalone_interpreter: DCC setup failed (withrottle/wifi/socketpool):", e)
+                self._withrottle = False  # sentinel: don't retry every claim_hardware() call
+                return
+        elif self._withrottle is False:
+            return
+        wt = self._withrottle
+
+        for wid in dcc_wids:
+            w = self.widgets[wid]
+            values, state = w['values'], w['state']
+            state.pop('dcc', None)
+            title = values.get('title') or w['typeID']
+            if not values.get('active'):
+                continue
+            key = wt.loco_key(values.get('loco'))
+            host = str(values.get('stationHost') or '').strip()
+            port = int(_num(values.get('stationPort'), 2560.0))
+            if key is None:
+                print("standalone_interpreter:", title, "- the loco address must be 1-10239, not", values.get('loco'))
+                continue
+            if not host or host.lower() == 'simulated':
+                print("standalone_interpreter:", title, "- the simulated station is only in NTK; set the station's address in its more panel")
+                continue
+            connection = self._dcc_connections.get((host, port))
+            if connection is None:
+                connection = wt.Connection(self._dcc_pool, host, port, wt.Session(*self._dcc_identity()))
+                self._dcc_connections[(host, port)] = connection
+            loco = connection.session.want(key, wid)
+            wired = set(step[4] for step in self.steps if step[0] == 'map' and step[3] == wid)
+            # Inlets start with nothing seen, so a wire's first value
+            # counts - as the live widget's first value from a cable.
+            state['dcc'] = {'connection': connection, 'key': key, 'wired': wired, 'last': {},
+                            'speed_exact': float(loco.speed), 'speed_seq': loco.speed_seq}
+            values['address'] = int(key[1:])
+
+    def _dcc_identity(self):
+        """(name, unique id) this board gives the station - HU is the
+        board's MAC, so the station can tell its throttles apart."""
+        uid = 'NTK-board'
+        try:
+            import wifi
+            uid = 'NTK-' + ''.join('%02x' % b for b in wifi.radio.mac_address)
+        except Exception:
+            pass
+        name = 'NTK board'
+        try:
+            import os
+            hostname = os.getenv('NTK_MDNS_HOSTNAME')
+            if hostname:
+                name = 'NTK ' + hostname
+        except Exception:
+            pass
+        return name, uid
+
+    def release_dcc(self):
+        """Stop and release every loco and quit each session - before NTK
+        takes over the board (NTK then drives with its own session), and
+        when the firmware exits (Ctrl-C, see ntk_firmata_main.run()).
+        Nothing to do when no session is open."""
+        for connection in self._dcc_connections.values():
+            try:
+                connection.close()
+            except Exception as e:
+                print("standalone_interpreter: DCC close failed:", e)
+        self._dcc_connections = {}
+        for w in self.widgets.values():
+            w['state'].pop('dcc', None)
+
+    def _dcc_inlet(self, dcc, values, field):
+        """A wired inlet's value when it's new since the last tick, else
+        None - the live widgets act on a value arriving through a cable,
+        not on the same value seen again."""
+        if field not in dcc['wired']:
+            return None
+        value = values.get(field)
+        last = dcc['last']
+        if field in last and last[field] == value:
+            return None
+        last[field] = value
+        return value
+
+    def _tick_dcc(self, wid, now):
+        w = self.widgets[wid]
+        dcc = w['state'].get('dcc')
+        if dcc is None:
+            return
+        values = w['values']
+        session = dcc['connection'].session
+        key = dcc['key']
+        loco = session.locos.get(key)
+        if loco is None:
+            return
+        if w['typeID'] == 'DCCThrottle':
+            self._tick_dcc_throttle(wid, values, dcc, session, key, loco, now)
+        else:
+            self._tick_dcc_function(values, dcc, session, key, loco, now)
+
+    def _tick_dcc_throttle(self, wid, values, dcc, session, key, loco, now):
+        """DCCThrottle.js's setSpeed()/onLocoReport()/onModelChange().
+        The speed is kept as a decimal (speed_exact) so a fractional
+        Encoder step (0.5) gives finer control; the station only takes
+        whole steps, so the rounded speed is what's sent and output."""
+        max_speed = self._withrottle.MAX_SPEED
+
+        def set_speed(value):
+            dcc['speed_exact'] = max(0.0, min(float(max_speed), value))
+            session.set_speed(key, dcc['speed_exact'], now, wid)
+
+        # Someone else's throttle (or another widget on this loco):
+        # follow it, dropping any fraction, so the next step starts from
+        # the real speed. This widget's own changes and their echoes
+        # don't reset the fraction.
+        if loco.speed_seq != dcc['speed_seq']:
+            dcc['speed_seq'] = loco.speed_seq
+            if loco.speed_by != wid:
+                dcc['speed_exact'] = float(loco.speed)
+
+        v = self._dcc_inlet(dcc, values, 'inSpeed')
+        if v is not None:
+            v = _num(v)
+            in_min, in_max = _num(values.get('inMin'), 0.0), _num(values.get('inMax'), float(max_speed))
+            if not _is_nan(v) and in_max != in_min:
+                set_speed((v - in_min) / (in_max - in_min) * max_speed)
+        # Only a new value is a step; an Encoder's step outlet goes back
+        # to 0 after each turn, so two turns the same way still count.
+        step = self._dcc_inlet(dcc, values, 'inStep')
+        if step is not None:
+            step = _num(step, 0.0)
+            if step and not _is_nan(step):
+                set_speed(dcc['speed_exact'] + step)
+        d = self._dcc_inlet(dcc, values, 'inDirection')
+        if d is not None:
+            d = _num(d)
+            if not _is_nan(d):
+                session.set_direction(key, d > 0.5, now, wid)
+        if 'inStop' in dcc['wired']:
+            stop = _num(values.get('inStop'), 0.0)
+            last_stop = dcc.get('last_stop', 0.0)
+            dcc['last_stop'] = stop
+            if stop > 0.5 and not last_stop > 0.5:
+                dcc['speed_exact'] = 0.0
+                session.estop(key, now, wid)
+
+        values['speed'] = loco.speed
+        values['direction'] = loco.direction
+
+    def _tick_dcc_function(self, values, dcc, session, key, loco, now):
+        """DCCFunction.js: follow (on while the inlet's high) or toggle
+        (each rising edge switches); the outlet is the state the station
+        reports."""
+        fn = _num(values.get('fn'), -1.0)
+        fn = int(fn) if 0 <= fn <= 68 and fn == int(fn) else None
+        if fn is None:
+            return
+        state = loco.fns.get(fn, 0)
+        if 'in' in dcc['wired']:
+            value = _num(values.get('in'), 0.0)
+            last = dcc.get('last_in', 0.0)
+            dcc['last_in'] = value
+            if values.get('toggle'):
+                if value > 0.5 and not last > 0.5:
+                    session.set_function(key, fn, not state, now)
+            elif (value > 0.5) != (last > 0.5):
+                session.set_function(key, fn, value > 0.5, now)
+        values['state'] = loco.fns.get(fn, 0)
+
     def tick(self):
         if not self.loaded:
             return
@@ -2154,6 +2374,9 @@ class StandaloneInterpreter:
                     broken_keys.append(key)
             for key in broken_keys:
                 self._drop_cloud_client(key)
+        # Station reports first, so the dcc steps below see them this tick.
+        for connection in self._dcc_connections.values():
+            connection.poll(now)
         for step in self.steps:
             kind = step[0]
             if kind == 'map':
@@ -2206,6 +2429,8 @@ class StandaloneInterpreter:
                 wid = step[1]
                 w = self.widgets[wid]
                 self._eval_widget(w, now)
+            elif kind == 'dcc':
+                self._tick_dcc(step[1], now)
             elif kind == 'hw_out':
                 _, wid, pin_str = step
                 w = self.widgets[wid]

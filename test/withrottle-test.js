@@ -52,6 +52,18 @@ check('commands', function() {
 	assert.strictEqual(wt.commands.release('T', 'S3'), 'MT-S3<;>r');
 });
 
+// The cases the board's withrottle.py is checked against too
+// (test/withrottle_test.py), so the two parse the same lines.
+check('shared cases (test/withrottle-cases.json)', function() {
+	var cases = require(path.join(__dirname, 'withrottle-cases.json'));
+	cases.locoKeys.forEach(function(c) { assert.strictEqual(wt.locoKey(c.address), c.key, String(c.address)); });
+	cases.parse.forEach(function(c) { assert.deepStrictEqual(wt.parseLine(c.line), c.events, c.line); });
+	cases.commands.forEach(function(c) {
+		var lines = wt.commands[c.name].apply(null, c.args);
+		assert.deepStrictEqual([].concat(lines), c.lines, c.name);
+	});
+});
+
 // ----- the simulated station, two clients -----
 
 check('simulator announces to every holder', function() {

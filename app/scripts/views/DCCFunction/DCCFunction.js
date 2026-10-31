@@ -117,7 +117,12 @@ function(Backbone, rivets, WidgetView, Template, DccLoco){
 			}
 
 			// See DCCThrottle.js - only values that arrive through a cable.
-			if(!(options && options.updateNoTrigger) || changed.in === undefined) { return; }
+			if(!(options && options.updateNoTrigger)) { return; }
+			if(this.dccMonitored()) {
+				if(changed.state !== undefined) { this.showState(Number(changed.state) === 1 ? 1 : 0); }
+				return;
+			}
+			if(changed.in === undefined) { return; }
 
 			var value = toNumber(changed.in, 0), last = this.lastIn;
 			this.lastIn = value;

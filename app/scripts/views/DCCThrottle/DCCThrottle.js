@@ -198,8 +198,13 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, DccLoco){
 
 			// Inlets only mean something when they arrive through a cable
 			// (WidgetMulti.syncWithSource marks those with updateNoTrigger),
-			// not when a patch loads them.
+			// not when a patch loads them - nor from Monitor mode, which
+			// only shows what the board is doing.
 			if(!(options && options.updateNoTrigger)) { return; }
+			if(this.dccMonitored()) {
+				if(changed.direction !== undefined) { this.model.set('reverse', changed.direction !== 1); }
+				return;
+			}
 
 			if(changed.inSpeed !== undefined) {
 				var v = toNumber(changed.inSpeed, NaN);
