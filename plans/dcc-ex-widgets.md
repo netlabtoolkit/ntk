@@ -592,8 +592,9 @@ talking.
    the interpreter, added to both portable lists
    (`StandaloneCompatibility.js`, `PORTABLE_TYPE_IDS`). A servo board
    following a virtual turnout is the first real standalone test.
-4. ~~**Encoder**~~ - done 2026-10-27; `step` outlet added 2026-10-29
-   (hardware test still to do).
+4. ~~**Encoder**~~ - done 2026-10-27; `step` outlet added 2026-10-29,
+   tried with the real encoder driving DCC Throttle's `step` on the
+   EX-CSB1 2026-10-31.
 5. **DCC Throttle** in NTK, then on the board - the handheld.
 6. **DCC Route** in NTK, then on the board.
 7. **Scene** - after refining the design with Phil; NTK, then the
