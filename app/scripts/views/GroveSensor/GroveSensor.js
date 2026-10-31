@@ -306,7 +306,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// whole story is in the tooltip.
 			var title = '';
 			if(this.model.get('sensorStatus') === 'error') {
-				text = 'Not on board - reset it?';
+				text = 'Connect sensor and reset board';
 				title = 'The board didn\'t find this sensor, or couldn\'t start it. It only looks for Grove sensors when it starts, so one plugged in afterwards isn\'t found - reset the board. This widget keeps asking, and shows readings once the board has the sensor.';
 			}
 			if(title !== this.model.get('readingTitle')) {
