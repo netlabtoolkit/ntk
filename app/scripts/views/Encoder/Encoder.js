@@ -13,6 +13,9 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 	// one-shot request can land on a connection the server then
 	// discards while a patch is loading).
 	var REATTACH_AFTER_MS = 6000;
+	// While the device connection behind the widget is down, try to
+	// re-establish it at most this often - see onModelChange.
+	var RECONNECT_GAP_MS = 2000;
 
 	// How long the step outlet shows a turn before going back to 0 -
 	// long enough to see on a Text widget or the OLED (was 100, then 150; Phil
@@ -71,6 +74,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			// exist first (see CLAUDE.md's Rivets/Backbone gotchas).
 			this.lastIn = undefined;
 			this.edgeAccum = 0;
+			this.lastReconnectAt = 0;
 			this.easingLast = this.model.get('count') || 0;
 			// Turning not yet sent out the step outlet - see emitDelta().
 			this.pendingDelta = 0;
@@ -591,10 +595,23 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			// Switched on, or the device connection behind it needs
 			// re-establishing - see GroveSensor's onModelChange for why
 			// both cases.
+			//
+			// While the connection is down, this used to run on EVERY
+			// change to this model - and the easing changes it on most
+			// frames - so a connection coming up got dozens of re-maps,
+			// each re-attaching the encoder and restarting the board's
+			// count, and each re-sending all the mappings to the server
+			// (found 2026-10-31: ~20 "Client attached encoder" in one
+			// session). Switching on goes straight through; retrying a
+			// connection that's down waits RECONNECT_GAP_MS between tries.
 			var monitoringNow = window.app.monitoring && window.app.monitoring.active;
 			if(!monitoringNow && (this.inactiveModelsExist() || changed.active === true) && this.model.get('active') == true) {
-				this.remapEncoder();
-				this.enableDevice();
+				var now = Date.now();
+				if(changed.active === true || now - this.lastReconnectAt >= RECONNECT_GAP_MS) {
+					this.lastReconnectAt = now;
+					this.remapEncoder();
+					this.enableDevice();
+				}
 			}
 		},
 
