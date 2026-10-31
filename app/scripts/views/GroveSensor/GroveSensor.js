@@ -16,6 +16,9 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 	// (DHT11, 1-2s) and than the ~5s a ".local" device address takes to
 	// resolve before the connection is even up.
 	var RESUBSCRIBE_AFTER_MS = 6000;
+	// While the device connection behind the widget is down, try to
+	// re-establish it at most this often - see onModelChange.
+	var RECONNECT_GAP_MS = 2000;
 
 	// Compact display of one scaled reading: whole number when it's
 	// effectively an integer (the usual 0-1023 case), one decimal
@@ -65,6 +68,9 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// callback reads must be set up before the triggering .set(),
 			// not after, or construction throws.
 			this.axisStates = {};
+			// See onModelChange's reconnect - read there, so also before
+			// the set().
+			this.lastReconnectAt = 0;
 
 			this.model.set({
 				// Kept short (matching AnalogIn/DigitalIn's length) so it
@@ -76,6 +82,12 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				sensor: firstSensorId,
 				active: false,
 				sensorStatus: 'idle',
+				// The board's answer to a subscribe, mapped from its
+				// grove-<id>-status field (see remapSensor): 2 = it doesn't
+				// have this sensor, or couldn't start it. 0 until then.
+				boardStatus: 0,
+				// Tooltip for readingReadout - the full "not on board" story.
+				readingTitle: '',
 				// Body line under the status dot - the reading labels
 				// ("X, Y, Z" / "Distance"), with the live scaled value
 				// appended to each once data is flowing (see
@@ -290,6 +302,16 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			}, this);
 
 			var text = parts.join(withValues ? '   ' : ', ');
+			// Two lines at most fit (see styles.scss's .outletLabels) - the
+			// whole story is in the tooltip.
+			var title = '';
+			if(this.model.get('sensorStatus') === 'error') {
+				text = 'Not on board - reset it?';
+				title = 'The board didn\'t find this sensor, or couldn\'t start it. It only looks for Grove sensors when it starts, so one plugged in afterwards isn\'t found - reset the board. This widget keeps asking, and shows readings once the board has the sensor.';
+			}
+			if(title !== this.model.get('readingTitle')) {
+				this.model.set('readingTitle', title);
+			}
 			if(text !== this.model.get('readingReadout')) {
 				this.model.set('readingReadout', text);
 			}
@@ -612,6 +634,17 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// trigger below is gated on active.
 			var server = this.getDeviceServerName() + ":" + this.getDeviceServerPort();
 
+			// The board's status for this sensor - before the readings, so
+			// a reading stays the last hardware mapping (see Encoder.js's
+			// remapEncoder on which one a saved patch keeps). The
+			// standalone interpreter skips it (not a reading index).
+			app.Patcher.Controller.mapToModel({
+				view: this,
+				modelType: this.getDeviceModelType(),
+				IOMapping: {sourceField: 'grove-' + sensorId + '-status', destinationField: 'boardStatus'},
+				server: server,
+			}, true);
+
 			_.each(catalogEntry.readings, function(reading, index) {
 				app.Patcher.Controller.mapToModel({
 					view: this,
@@ -691,7 +724,14 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				this.model.set('pin', 'D7');
 			}
 
-			this.model.set('sensorStatus', 'waiting');
+			// An error stays shown while asking again (see the retry
+			// below) - flipping to "waiting" every 6 s would just blink.
+			if(this.model.get('sensorStatus') !== 'error') {
+				this.model.set('sensorStatus', 'waiting');
+			}
+			// Each subscribe gets its own answer - the board repeats the
+			// same error status, which Backbone wouldn't see as a change.
+			this.model.set('boardStatus', 0, {silent: true});
 
 			// Ask again for as long as nothing has come back. The request
 			// is a one-shot message with no acknowledgement, and it can be
@@ -708,8 +748,23 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			clearTimeout(this.resubscribeTimer);
 			this.resubscribeTimer = setTimeout(function() {
 				if(self.removed || self.model.get('active') !== true) { return; }
-				if(self.model.get('sensorStatus') !== 'waiting') { return; }
+				// Also after the board said it doesn't have the sensor: a
+				// reset with it plugged in fixes that, and the new
+				// connection needs asking again (found 2026-10-31: it
+				// stayed "not on board" after the reset).
+				var status = self.model.get('sensorStatus');
+				if(status !== 'waiting' && status !== 'error') { return; }
 				if(String(self.model.get('sensor')) !== String(sensorId)) { return; }
+				// The board was reset or dropped off: its old connection
+				// is gone, and a subscribe would go nowhere. Reconnect
+				// (which subscribes) - the same as onModelChange does,
+				// but nothing changes on this widget to make that run.
+				if(self.inactiveModelsExist()) {
+					self.lastReconnectAt = Date.now();
+					self.remapSensor(sensorId);
+					self.enableDevice();
+					return;
+				}
 				self.subscribeSensor(sensorId);
 			}, RESUBSCRIBE_AFTER_MS);
 
@@ -784,8 +839,19 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				// by it) then sat frozen after leaving Monitor mode
 				// (found 2026-10-09).
 				var currentReadingKeys = _.pluck(this.model.get('outs') || [], 'from');
-				if(this.model.get('sensorStatus') === 'waiting' && _.some(currentReadingKeys, function(key) { return changed[key] !== undefined; })) {
+				var statusNow = this.model.get('sensorStatus');
+				if((statusNow === 'waiting' || statusNow === 'error') && _.some(currentReadingKeys, function(key) { return changed[key] !== undefined; })) {
 					this.model.set('sensorStatus', 'ok');
+				}
+
+				// The board doesn't have this sensor (or couldn't start
+				// it). It only looks for Grove sensors when it boots, so
+				// one plugged in afterwards is never found - this used to
+				// sit on "waiting" with no explanation (2026-10-31). Say so;
+				// see updateReadingReadout for the hint. subscribeSensor's
+				// retry keeps asking, so a reset board is picked up.
+				if(Number(changed.boardStatus) === 2 && this.model.get('active') === true) {
+					this.model.set('sensorStatus', 'error');
 				}
 
 				// Status flipped (-> ok shows values, -> anything else
@@ -803,9 +869,20 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				// never subscribed the sensor - it sat with no readings.
 				// Found 2026-10-16 (Clock picked, then switched on, with an
 				// AnalogIn already running).
+				//
+				// While the connection is down this ran on EVERY change to
+				// this model, re-subscribing the sensor each time - the
+				// same burst the Encoder had (found there 2026-10-31: ~20
+				// attaches in one session). Switching on goes straight
+				// through; a connection that's down is retried at most
+				// every RECONNECT_GAP_MS.
 				if((inactiveModels || changed.active === true) && this.model.get('active') == true) {
-					this.remapSensor(this.model.get('sensor'));
-					this.enableDevice();
+					var now = Date.now();
+					if(changed.active === true || now - this.lastReconnectAt >= RECONNECT_GAP_MS) {
+						this.lastReconnectAt = now;
+						this.remapSensor(this.model.get('sensor'));
+						this.enableDevice();
+					}
 				}
 			}
 		},

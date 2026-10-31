@@ -19,7 +19,7 @@
                 rv-class-groveerror="widget:sensorStatus | isGroveStatus error"></div>
             <span class="statusText" rv-text="widget:sensorStatus"></span>
         </div>
-        <div class="outletLabels" rv-text="widget:readingReadout"></div>
+        <div class="outletLabels" rv-text="widget:readingReadout" rv-title="widget:readingTitle"></div>
 
         <div class="options">
               <ul>
