@@ -853,6 +853,11 @@ def _reset_display_text_state():
     global _display_last_lines, _display_wanted_lines
     _display_last_lines = None
     _display_wanted_lines = None
+    # And blank them: whatever the standalone patch or the last session
+    # left there isn't this client's. A Display widget in the client's
+    # patch sends its own lines as soon as it connects; a patch without
+    # one now shows nothing rather than stale text.
+    oled_display.set_lines([])
 
 
 def _flush_display_text():
@@ -1571,6 +1576,9 @@ def run_server():
             # standalone patch, if one's loaded (see the claim_hardware()
             # call just below).
             oled_display.set_mode("standalone" if _standalone is not None else "waiting")
+            # The client's Display text is gone with it - the standalone
+            # patch's Display (if any) redraws on its first tick.
+            _reset_display_text_state()
             led_set_pattern(_LED_STANDALONE_RUNNING if _standalone is not None else _LED_WAITING)
             if _standalone is not None:
                 # Explicit handoff, the other direction - the client that

@@ -255,6 +255,36 @@ function(Backbone, rivets, WidgetView, Template){
 			}
 		},
 
+		// An input with no cable shows nothing. Its value is whatever was
+		// last wired in when the patch was saved (a stale 0 showed as
+		// "0.00" on the OLED, 2026-10-31); a line's prepend / append
+		// text still shows, so a fixed label needs no input.
+		inputValue: function(n) {
+			return this.isWired('in' + n) ? this.model.get('in' + n) : '';
+		},
+		isWired: function(destinationField) {
+			for(var i=0; i<this.sources.length; i++) {
+				if(this.sources[i].map.destinationField === destinationField) { return true; }
+			}
+			return false;
+		},
+
+		// A cable added or removed changes what's shown, even when the
+		// value itself doesn't change - so the lines are composed again
+		// (and sent, if active - see onModelChange).
+		addInputMap: function(map) {
+			WidgetView.prototype.addInputMap.apply(this, arguments);
+			this.rebuild();
+		},
+		unMapInlet: function() {
+			WidgetView.prototype.unMapInlet.apply(this, arguments);
+			this.rebuild();
+		},
+		removeMapping: function() {
+			WidgetView.prototype.removeMapping.apply(this, arguments);
+			this.rebuild();
+		},
+
 		// Composes each line as prepend + value + append and stores it
 		// on line1Text/line2Text/line3Text - both what the widget's own
 		// preview renders (rv-text in the template) and what
@@ -263,7 +293,7 @@ function(Backbone, rivets, WidgetView, Template){
 			for(var i = 1; i <= 3; i++) {
 				var prepend = this.model.get('line' + i + 'Prepend') || '';
 				var append = this.model.get('line' + i + 'Append') || '';
-				var v = this.model.get('in' + i);
+				var v = this.inputValue(i);
 				var vText = this.formatValue(v, this.model.get('line' + i + 'Decimals'));
 				// line<i>Value is the formatted value on its own - the
 				// more panel's preview between the prepend/append fields
@@ -308,7 +338,7 @@ function(Backbone, rivets, WidgetView, Template){
 		composeFormat: function(format) {
 			var self = this;
 			return format.replace(/<([123])(\+)?(?::(\d))?>/g, function(match, n, sign, pad) {
-				var v = self.model.get('in' + n);
+				var v = self.inputValue(n);
 				var text = self.formatValue(v, self.model.get('line' + n + 'Decimals'));
 				if(pad && typeof v === 'number') { text = self.zeroPad(text, parseInt(pad, 10)); }
 				if(sign && typeof v === 'number') { text = self.withSign(text); }

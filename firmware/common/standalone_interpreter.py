@@ -1677,6 +1677,16 @@ class StandaloneInterpreter:
 
         self.steps = steps
 
+        # A Display input with no cable shows nothing (Display.js's
+        # inputValue) - the saved value is just whatever was last wired
+        # in. Nothing can change an unwired input on the board, so
+        # emptying it once here is enough.
+        for wid, w in self.widgets.items():
+            if w['typeID'] == 'Display':
+                for field in ('in1', 'in2', 'in3'):
+                    if not self._is_wired(wid, field):
+                        w['values'][field] = ''
+
     def _is_wired(self, wid, field):
         """Is there a widget-to-widget wire actually feeding this
         field right now, as opposed to it just sitting at whatever
@@ -1775,6 +1785,12 @@ class StandaloneInterpreter:
                 # new baseline, not a jump from the old one.
                 w['state'].pop('last_position', None)
                 w['state']['edge_accum'] = 0
+        # The client that had the board may have changed the OLED lines,
+        # so a Display redraws on its first tick even if its text is the
+        # same as before.
+        for step in self.steps:
+            if step[0] == 'display_out':
+                self.widgets[step[1]]['state'].pop('display_last_lines', None)
         self._claim_osc()
         self._claim_cloud()
         self._claim_dcc()
