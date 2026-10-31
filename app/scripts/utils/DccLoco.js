@@ -151,6 +151,9 @@ function(_){
 				port: this.heldKey,
 				mode: 'release',
 				wid: this.model.get('wid'),
+				// A Throttle stops its train when it lets go, even if a
+				// DCC Function still holds the loco.
+				stop: !!this.stopOnRelease,
 			});
 			this.heldKey = null;
 			this.heldStation = null;

@@ -39,6 +39,10 @@ var THROTTLE_IDS = 'T0123456789ABCDEFGHIJ';
 // board, through a TCP listener) see the same trains.
 var simulatedStation = null;
 
+// Every session that's open, so quitting NTK can stop their locos - see
+// stopAll below.
+var openSessions = [];
+
 module.exports = function(attributes) {
 	var _ = require('underscore'),
 		events = require('events'),
@@ -109,7 +113,16 @@ module.exports = function(attributes) {
 					var l = this.locos[k];
 					if (!l.wids[wid]) { return; }
 					delete l.wids[wid];
-					if (_.isEmpty(l.wids)) { this._release(k); }
+					if (_.isEmpty(l.wids)) {
+						this._release(k);
+					}
+					// A Throttle switched off stops its train even while a
+					// DCC Function still holds the loco for its headlight -
+					// found on the real station 2026-10-31: the train kept
+					// running.
+					else if (options && options.stop) {
+						this._stop(k);
+					}
 				}, this);
 			}
 		},
@@ -165,6 +178,7 @@ module.exports = function(attributes) {
 
 		close: function() {
 			console.log('[DCC] closing session with', label);
+			openSessions = _.without(openSessions, this);
 			this.closed = true;
 			clearTimeout(this.reconnectTimer);
 			this.reconnectTimer = null;
@@ -416,6 +430,24 @@ module.exports = function(attributes) {
 			delete this.locos[key];
 		},
 
+		// A normal stop (speed 0), sent now rather than rate-limited.
+		_stop: function(key) {
+			var loco = this.locos[key];
+			if (!loco) { return; }
+			clearTimeout(loco.speedTimer);
+			loco.speedTimer = null;
+			if (loco.speed !== 0) {
+				loco.speed = 0;
+				this.emit('change', {field: key + ':speed', value: 0});
+			}
+			if (this._canDrive(loco) && loco.sentSpeed !== 0) {
+				loco.sentSpeed = 0;
+				loco.lastSpeedAt = Date.now();
+				this._expectEcho(loco, 'speed', 0);
+				this._write(wt.commands.speed(loco.throttle, key, 0));
+			}
+		},
+
 		_canDrive: function(loco) {
 			return this.connected && loco.acquired;
 		},
@@ -514,5 +546,23 @@ module.exports = function(attributes) {
 	events.EventEmitter.call(constructor.prototype);
 	_.extend(constructor.prototype, events.EventEmitter.prototype);
 
-	return new constructor();
+	var model = new constructor();
+	openSessions.push(model);
+	return model;
+};
+
+/**
+ * stopAll - quitting NTK: stop and release every loco NTK is driving and
+ * close each session. Without this the connection just dropped and the
+ * station kept the trains running (found on the real station
+ * 2026-10-31). Calls done() once the lines have had time to go out.
+ *
+ * @return {boolean} false when there was nothing to stop (done isn't called)
+ */
+module.exports.stopAll = function(done) {
+	var driving = openSessions.filter(function(m) { return Object.keys(m.locos).length > 0; });
+	openSessions.slice().forEach(function(m) { m.close(); });
+	if (!driving.length) { return false; }
+	setTimeout(done, 300);
+	return true;
 };

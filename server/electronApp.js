@@ -13,6 +13,7 @@ const { spawn } = require('child_process');
 // unlike @serialport/bindings), so it packages the same as everything else.
 const pdfParse = require('pdf-parse');
 const ntk = require('./netlabServer.js')();
+const WiThrottleModel = require('./modules/nlHardware/WiThrottleModel.js');
 
 // LLM widget proxy (Anthropic / Ollama). Registers ipcMain.handle('llm-*').
 require('./llmProxy.js')();
@@ -174,6 +175,18 @@ ipcMain.handle('tts-stop', function(event, opts) { tts.writeExisting(opts.wid, '
 ipcMain.handle('tts-quit', function(event, opts) { tts.quit(opts.wid); return true; });
 
 app.on('will-quit', function() { stt.quitAll(); tts.quitAll(); });
+
+// Stop the trains NTK is driving before quitting - a dropped connection
+// leaves them running on the command station. The quit waits a moment
+// for the stop / release lines to go out, then goes ahead.
+var dccStopped = false;
+app.on('before-quit', function(event) {
+	if (dccStopped) { return; }
+	dccStopped = true;
+	if (WiThrottleModel.stopAll(function() { app.quit(); })) {
+		event.preventDefault();
+	}
+});
 
 var pickFile = async function(dialogName, extensions) {
 	var result = await dialog.showOpenDialog(mainWindow, {

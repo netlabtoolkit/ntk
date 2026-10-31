@@ -46,6 +46,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, DccLoco){
 			{title: 'address', from: 'address', to: 'address'},
 		],
 		typeID: 'DCCThrottle',
+		// See DccLoco.releaseLoco.
+		stopOnRelease: true,
 		className: 'dccThrottle dccWidget',
 		categories: ['network'],
 		template: _.template(Template),

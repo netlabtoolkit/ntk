@@ -578,9 +578,14 @@ talking.
    **Session, simulator, DCC Throttle and DCC Function built in NTK
    2026-10-30** (`server/modules/nlHardware/WiThrottleModel.js`,
    `withrottle.js`, `test/withrottle-test.js`); DCC Station not yet.
-   Still to check on the real station: another client's speed change
-   reaching NTK, and what happens when two throttles take the same
-   loco.
+   **Tried on the EX-CSB1 2026-10-31:** STOP, F0 headlight and
+   phone <-> NTK on the same loco (both directions) all work - so the
+   station does pass one client's changes to the others. No momentary
+   function on that loco to try. Switching off didn't stop the train:
+   the loco stayed held by a DCC Function, and quitting NTK just
+   dropped the connection, which the station leaves running. Fixed:
+   a Throttle switched off stops its train even while a Function holds
+   the loco, and quitting NTK stops and releases every loco first.
 2. **DCC Turnout** in NTK - first of the widgets, since servo and
    animation boards both need it and it moves no trains.
 3. **On the board:** WiThrottle client + DCC Station and DCC Turnout in

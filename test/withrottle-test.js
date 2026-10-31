@@ -161,8 +161,42 @@ async function modelTests() {
 		assert.ok(!model.locos.S3);
 	});
 
-	model.close();
-	other.close();
+	// A Throttle switched off while a Function still holds the loco:
+	// the train stops, the loco stays held. (On the real station the
+	// train kept running, 2026-10-31.)
+	model.setIOMode('S4', 'acquire', {wid: 'throttle'});
+	model.setIOMode('S4', 'acquire', {wid: 'function'});
+	await wait(50);
+	model.set('S4:speed', 30);
+	await wait(150);
+	model.setIOMode('S4', 'release', {wid: 'throttle', stop: true});
+	await wait(50);
+	check('throttle off stops the train while a function holds it', function() {
+		assert.strictEqual(other.locos.S3 !== undefined, true);
+		assert.ok(model.locos.S4, 'released too early');
+		assert.strictEqual(model.locos.S4.speed, 0);
+	});
+	other.setIOMode('S4', 'acquire', {wid: 'w9'});
+	await wait(50);
+	check('the station has it stopped', function() {
+		assert.strictEqual(other.locos.S4.speed, 0);
+	});
+
+	// Quitting NTK: every loco stopped and released.
+	model.set('S4:speed', 25);
+	await wait(150);
+	var stopped = await new Promise(function(resolve) {
+		var any = WiThrottleModel.stopAll(function() { resolve(true); });
+		if (!any) { resolve(false); }
+	});
+	var watcher = new WiThrottleModel({address: 'simulated', port: 2560});
+	watcher.setIOMode('S4', 'acquire', {wid: 'w10'});
+	await wait(50);
+	check('quitting stops every loco', function() {
+		assert.ok(stopped, 'stopAll found nothing to stop');
+		assert.strictEqual(watcher.locos.S4.speed, 0);
+	});
+	watcher.close();
 	await wait(20);
 
 	// Nothing listening on this port - an error status, not a crash.
