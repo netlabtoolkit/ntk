@@ -926,12 +926,17 @@ module.exports = function(five) {
 						// also a better match for what "DigitalIn" means
 						// than Button's press/release-edge abstraction.
 						var digitalReadEvent = 'digital-read-' + hardwarePinNumber;
+						// DigitalIn's pull-up option: a button wired to GND
+						// reads low when pressed, so it's inverted here -
+						// pressed is high either way.
+						var pullup = !!(extraOptions && extraOptions.pullup);
 						boardIO.removeAllListeners(digitalReadEvent);
 						boardIO.on(digitalReadEvent, function(value) {
+							if(pullup) { value = !value; }
 							self.set(pin, value ? 1023 : 0);
 						});
 
-						boardIO.pinMode(hardwarePinNumber, this.PINMODES.INPUT);
+						boardIO.pinMode(hardwarePinNumber, pullup ? this.PINMODES.PULLUP : this.PINMODES.INPUT);
 						boardIO.reportDigitalPin(hardwarePinNumber, 1);
 
 						this.inputs[pin] = {

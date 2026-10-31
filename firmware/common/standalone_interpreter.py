@@ -1757,7 +1757,10 @@ class StandaloneInterpreter:
                 elif type_id == 'DigitalIn':
                     idx = _pin_index_for_dpin(fs.pins, pin_str)
                     if idx is not None:
-                        fs._apply_pin_mode(idx, firmata_server.INPUT)
+                        # DigitalIn's pull-up option, as live - see the
+                        # hw_in step for the inverted reading.
+                        mode = firmata_server.PULLUP if self.widgets[wid]['values'].get('pullup', True) is not False else firmata_server.INPUT
+                        fs._apply_pin_mode(idx, mode)
                         fs.pins[idx].report = True
             elif step[0] == 'hw_out':
                 _, wid, pin_str = step
@@ -2412,7 +2415,10 @@ class StandaloneInterpreter:
                 elif type_id == 'DigitalIn':
                     idx = _pin_index_for_dpin(fs.pins, pin_str)
                     if idx is not None and fs.pins[idx].io is not None:
-                        w['values']['in'] = 1 if fs.pins[idx].io.value else 0
+                        # A pull-up button reads low when pressed - inverted,
+                        # so pressed is high, as live.
+                        high = bool(fs.pins[idx].io.value) != (w['values'].get('pullup', True) is not False)
+                        w['values']['in'] = 1 if high else 0
             elif kind == 'enc_in':
                 w = self.widgets[step[1]]
                 pin_a = _pin_index_for_dpin(fs.pins, w['values'].get('pin'))
