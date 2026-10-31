@@ -1065,6 +1065,12 @@ def _check_keypress():
     elif key == "m":
         gc.collect()
         print("Free memory:", gc.mem_free(), "bytes")
+    elif key == "d" and _standalone is not None:
+        tracing = _standalone.toggle_dcc_trace()
+        if tracing is None:
+            print("No DCC widgets in this patch")
+        else:
+            print("DCC trace", "on - every line to (>) and from (<) the station" if tracing else "off")
 
 
 _MONITOR_REQUEST_BYTES = bytes([START_SYSEX, STANDALONE_MONITOR_REQUEST, END_SYSEX])
@@ -1275,11 +1281,11 @@ def run_server():
         _standalone.claim_hardware()
         oled_display.set_mode("standalone")
         print("Standalone interpreter running (no client connected)")
-        print("Press 'v' for live values, 't' for topology, 'r' for WiFi RSSI, 'm' for free memory, at any time on this console.")
+        print("Press 'v' for live values, 't' for topology, 'r' for WiFi RSSI, 'm' for free memory, 'd' to trace DCC lines, at any time on this console.")
         print("(Click in this pane, press the desired key, and hit Enter.)")
     else:
         oled_display.set_mode("waiting")
-        print("Press 'r' for WiFi RSSI, 'm' for free memory, at any time on this console.")
+        print("Press 'r' for WiFi RSSI, 'm' for free memory, 'd' to trace DCC lines, at any time on this console.")
         print("(Click in this pane, press the desired key, and hit Enter.)")
 
     # Steady-state post-init reading - WiFi up, server listening,

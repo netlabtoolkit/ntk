@@ -2218,6 +2218,14 @@ class StandaloneInterpreter:
                             'speed_exact': float(loco.speed), 'speed_seq': loco.speed_seq}
             values['address'] = int(key[1:])
 
+    def toggle_dcc_trace(self):
+        """Switch printing every line to and from the station on or off
+        ('d' on the console). None when the patch has no DCC widget."""
+        if not self._withrottle:
+            return None
+        self._withrottle.trace = not self._withrottle.trace
+        return self._withrottle.trace
+
     def _dcc_identity(self):
         """(name, unique id) this board gives the station - HU is the
         board's MAC, so the station can tell its throttles apart."""

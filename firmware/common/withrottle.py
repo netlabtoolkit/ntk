@@ -51,6 +51,11 @@ MAX_SPEED = 126
 # here needs them, and they'd only cost memory.
 MAX_LINE = 512
 
+# Print every line sent to and received from the station, except
+# heartbeats - switched with 'd' on the board's console (see
+# StandaloneInterpreter.toggle_dcc_trace).
+trace = False
+
 
 def loco_key(address):
     """Same rule as withrottle.js: S for 1-127, L above; None for
@@ -582,6 +587,8 @@ class Connection:
                 line = line.strip()
                 if line:
                     try:
+                        if trace and line != b'*10':
+                            print('DCC <', line.decode())
                         self.session.receive(line.decode(), now)
                     except UnicodeError:
                         pass
@@ -594,6 +601,10 @@ class Connection:
     def _write(self):
         session = self.session
         if session.out:
+            if trace:
+                for line in session.out:
+                    if line != '*':
+                        print('DCC >', line)
             self._tx += ('\n'.join(session.out) + '\n').encode()
             session.out = []
         while self._tx:
