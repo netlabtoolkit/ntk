@@ -231,7 +231,12 @@ function(_){
 
 			// A different station is a different session: switch off, so
 			// nothing reconnects while the address is still being typed.
-			if(changed.stationHost !== undefined || changed.stationPort !== undefined) {
+			// Not while a patch loads: the saved station and the saved
+			// "on" arrive together, replacing the defaults, and this
+			// switched every DCC widget off again on every load (found
+			// 2026-10-31: "every time I start NTK, I have to reconnect the
+			// DCC widgets"). PatchLoader's mapping restore connects them.
+			if((changed.stationHost !== undefined || changed.stationPort !== undefined) && !loading) {
 				if(this.heldKey) { this.releaseLoco(); }
 				this.lastStatusInfo = null;
 				if(this.model.get('active')) {
