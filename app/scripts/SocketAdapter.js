@@ -204,26 +204,20 @@ function( Backbone ) {
 					// Queue and package multiple messages
 					var field = _.keys(options.model);
 
-					var previouslyQueued = _.findWhere(sendQueue, function(queueItem) {
-						return queueItem.modelType == options.modelType && _.findWhere(queueItem.model[field] ) !== undefined;
+					// Replace an older queued value for the same pin ON THE
+					// SAME DEVICE only - without the modelType check, two
+					// boards each driving a pin with the same name dropped
+					// each other's pending update. The newer value goes to
+					// the end of the queue, after anything queued in between.
+					// (A "previouslyQueued" check before this called
+					// _.findWhere with a function, which underscore 1.4.4
+					// treats as no condition and answers null - it never did
+					// anything, so it's gone.)
+					sendQueue = _.reject(sendQueue, function(entry) {
+						return entry.modelType === options.modelType && entry.model[field] !== undefined;
 					});
 
-					if(previouslyQueued != undefined && previouslyQueued != null) {
-						sendQueue.push(options);
-					}
-					else {
-						// Clean sendQueue of any previously defined updated for this particular field
-						// Replace an older queued value for the same pin ON THE
-						// SAME DEVICE only - without the modelType check, two
-						// boards each driving a pin with the same name dropped
-						// each other's pending update.
-						sendQueue = _.reject(sendQueue, function(entry) {
-							return entry.modelType === options.modelType && entry.model[field] !== undefined;
-						});
-
-						sendQueue.push(options);
-						//previouslyQueued = options.model;
-					}
+					sendQueue.push(options);
 
 					// THROTTLE THESE
 					// A throttle, not a debounce: if a send is already
@@ -244,7 +238,12 @@ function( Backbone ) {
 					}
 
 					deviceUpdateThrottleID = setTimeout(function() {
-						for(var i=sendQueue.length-1; i >=0; i--) {
+						// In the order they happened. This loop used to run
+						// backwards, newest first: a DCC Throttle's speed and
+						// an emergency stop in the same 10ms reached the
+						// station as stop, then speed - and the train started
+						// again (found 2026-10-31).
+						for(var i=0; i<sendQueue.length; i++) {
 							socket.emit('sendModelUpdate', sendQueue[i]);
 						}
 
