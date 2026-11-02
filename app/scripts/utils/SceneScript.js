@@ -16,7 +16,7 @@
 	 */
 
 	var MAX_OUTS = 4;
-	var RESERVED = ['cue', 'idle', 'repeat', 'blink', 'outs', 'in1', 'in2', 'when', 'after', 'to', 'in', 'every', 'between', 'and', 'for', 'ease', 'from', 'max'];
+	var RESERVED = ['cue', 'idle', 'repeat', 'blink', 'outs', 'in1', 'in2', 'when', 'after', 'to', 'in', 'every', 'between', 'and', 'for', 'ease', 'from', 'max', 'then', 'loop', 'until', 'times', 'wait'];
 	// More cue changes than this in one tick means cues with no time in
 	// them going round and round - stop for this tick, carry on next.
 	var MAX_CUE_CHANGES_PER_TICK = 100;
@@ -138,14 +138,24 @@
 
 	// "[TIME] ACTION" -> {at, kind, ...}
 	function parseAction(scene, words, timed) {
-		var at = 0;
+		var at = 0, hasTime = false;
 		if(timed && words.length && /^[\d.]/.test(words[0].text) && !words[0].quoted) {
 			at = parseTime(words[0].text);
+			hasTime = true;
 			words = words.slice(1);
 		}
 		if(!words.length) { throw new ParseError('a time needs something to do after it'); }
 		var w = function(i) { return words[i] ? words[i].text : undefined; };
 		var lw = function(i) { return words[i] ? words[i].text.toLowerCase() : undefined; };
+
+		// "wait 1s": does nothing for that long - a pause a "then" line
+		// can follow, or rest at the end of a cue (between a loop's
+		// rounds, say).
+		if(lw(0) === 'wait') {
+			if(words.length < 2) { throw new ParseError('wait how long? e.g. wait 1s'); }
+			if(words.length > 2) { throw new ParseError('didn\'t expect "' + w(2) + '" after the wait'); }
+			return {at: at, kind: 'wait', duration: parseTime(w(1)), hasTime: hasTime, written: w(1)};
+		}
 
 		if(lw(0) === 'blink') {
 			if(words.length < 2) { throw new ParseError('blink what? e.g. blink lamp every 0.5s'); }
@@ -199,15 +209,37 @@
 		throw new ParseError('can\'t read "' + words.map(function(x) { return x.text; }).join(' ') + '"');
 	}
 
-	// "cue gates up when in1 low max 60s" -> {name, trigger}
+	// "loop" / "loop 3 times" / "loop until in1 high" -> {type, ...}
+	function parseLoop(rest) {
+		if(!rest.length) { return {type: 'forever'}; }
+		if(rest[0] === 'until') {
+			if(rest[1] !== 'in1' && rest[1] !== 'in2') { throw new ParseError('"loop until" needs in1 or in2, e.g. loop until in1 high'); }
+			if(rest[2] !== 'high' && rest[2] !== 'low') { throw new ParseError('"loop until ' + rest[1] + '" needs high or low after it'); }
+			if(rest.length > 3) { throw new ParseError('didn\'t expect "' + rest[3] + '" after "loop until ' + rest[1] + ' ' + rest[2] + '"'); }
+			return {type: 'until', inlet: rest[1], level: rest[2]};
+		}
+		if(rest.length === 2 && (rest[1] === 'times' || rest[1] === 'time')) {
+			if(!/^\d+$/.test(rest[0]) || parseInt(rest[0], 10) < 1) { throw new ParseError('"' + rest[0] + '" isn\'t a number of times - write it like: loop 3 times'); }
+			return {type: 'times', count: parseInt(rest[0], 10)};
+		}
+		throw new ParseError('write it like: loop, loop 3 times, or loop until in1 high');
+	}
+
+	// "cue gates up when in1 low max 60s loop 3 times" -> {name, trigger, loop}
 	function parseCue(words, index) {
 		var i = 1, nameWords = [];
-		while(i < words.length && ['when', 'after'].indexOf(words[i].text.toLowerCase()) === -1) {
+		while(i < words.length && ['when', 'after', 'loop'].indexOf(words[i].text.toLowerCase()) === -1) {
 			nameWords.push(words[i].text);
 			i++;
 		}
 		var cue = {name: nameWords.join(' ').toLowerCase(), label: nameWords.join(' ') || 'cue ' + (index + 1),
-			trigger: {type: 'next'}, lines: [], length: 0};
+			trigger: {type: 'next'}, loop: null, lines: [], length: 0};
+		var lower = words.map(function(x) { return x.text.toLowerCase(); });
+		var loopAt = lower.indexOf('loop', i);
+		if(loopAt !== -1) {
+			cue.loop = parseLoop(lower.slice(loopAt + 1));
+			words = words.slice(0, loopAt);
+		}
 		if(i >= words.length) { return cue; }
 		var kind = words[i].text.toLowerCase(), rest = words.slice(i + 1).map(function(x) { return x.text.toLowerCase(); });
 		if(kind === 'after') {
@@ -228,9 +260,67 @@
 	}
 
 	function lineLength(line) {
-		if(line.kind === 'ramp') { return line.at + line.duration; }
+		if(line.kind === 'ramp' || line.kind === 'wait') { return line.at + line.duration; }
 		if(line.kind === 'blink' && line.duration !== null) { return line.at + line.duration; }
 		return line.at;
+	}
+
+	function lineOuts(line) {
+		if(line.kind === 'wait') { return []; }
+		return line.kind === 'blink' ? line.outs : [line.out];
+	}
+
+	// Two lines on one outlet at the same time, the first a ramp or a
+	// blink: the second replaces it at once, so the first never shows -
+	// almost always meant to come after it. Lines in written order.
+	function checkOverlaps(scene, lines) {
+		lines.forEach(function(line, i) {
+			for(var j = 0; j < i; j++) {
+				var before = lines[j];
+				if(before.at !== line.at) { continue; }
+				if(!(before.kind === 'blink' || (before.kind === 'ramp' && before.duration > 0))) { continue; }
+				var shared = lineOuts(line).filter(function(o) { return lineOuts(before).indexOf(o) !== -1; });
+				if(!shared.length) { continue; }
+				var name = scene.outs[shared[0]] || 'out' + (shared[0] + 1);
+				scene.errors.push({line: line.line, message: '"' + name + '" already has a move at ' + (line.at / 1000) +
+					's (line ' + before.line + ') - this replaces it at once; use "then" to start it after'});
+				return;
+			}
+		});
+	}
+
+	// How long a set (or a ramp "in 0s") stays highlighted after it
+	// happens - display only, see activeLines.
+	var SET_SHOW_MS = 300;
+
+	// Script line numbers of the lines doing something `elapsed` ms
+	// into a cue (or the idle lines): a ramp, wait or blink while it
+	// runs, a set just after it happens - not a move a later line on
+	// the same outlet has already replaced. For the widget's highlight.
+	// left (optional): filled with line -> fraction of its time still to
+	// go (1 -> 0), for lines with a time of their own (a ramp, a wait,
+	// a blink with "for"); the widget draws it as a shrinking bar.
+	function activeLines(lines, elapsed, left) {
+		var active = [];
+		lines.forEach(function(l) {
+			if(elapsed < l.at) { return; }
+			var end;
+			if(l.kind === 'set' || (l.kind !== 'blink' && l.duration === 0)) { end = l.at + SET_SHOW_MS; }
+			else if(l.kind === 'blink') { end = l.duration === null ? Infinity : l.at + l.duration; }
+			else { end = l.at + l.duration; }
+			if(elapsed >= end) { return; }
+			var outs = lineOuts(l);
+			var replaced = outs.length && lines.some(function(o) {
+				return o !== l && o.at > l.at && o.at <= elapsed &&
+					lineOuts(o).some(function(x) { return outs.indexOf(x) !== -1; });
+			});
+			if(!replaced) {
+				active.push(l.line);
+				var timed = l.kind !== 'set' && l.duration !== null && l.duration > 0;
+				if(left && timed) { left[l.line] = Math.max(0, Math.min(1, (end - elapsed) / l.duration)); }
+			}
+		});
+		return active;
 	}
 
 	function sortLines(lines) {
@@ -304,10 +394,35 @@
 				}
 				if(section === 'top') { throw new ParseError('put this under a cue (a line starting with "cue")'); }
 				if(section === 'repeat') { throw new ParseError('nothing can follow "repeat" except "idle:"'); }
-				var action = parseAction(scene, words, true);
+				var target = section === 'idle' ? scene.idle : scene.cues[scene.cues.length - 1].lines;
+				var action;
+				if(first === 'then') {
+					// Starts when the line written above it ends (plus
+					// an optional gap): "then 0.5s lamp = 1". The first
+					// line of a cue counts from the cue's start.
+					if(words.length < 2) { throw new ParseError('then what? e.g. then lamp to 255 in 2s'); }
+					action = parseAction(scene, words.slice(1), true);
+					var prev = target[target.length - 1];
+					if(prev) {
+						if(prev.kind === 'blink' && prev.duration === null) {
+							throw new ParseError('"then" can\'t follow a blink with no "for" - that blink never ends');
+						}
+						action.at += lineLength(prev);
+					}
+					action.then = true;
+				}
+				else {
+					action = parseAction(scene, words, true);
+					// A wait with no time of its own starts with the cue,
+					// alongside the lines above it - written after them,
+					// it's nearly always meant to come after them.
+					if(action.kind === 'wait' && !action.hasTime && target.length) {
+						throw new ParseError('this wait starts with the cue, not after the line above - write "then wait ' +
+							action.written + '" (or give it a time, like "2s wait ' + action.written + '")');
+					}
+				}
 				action.line = lineNo;
-				if(section === 'idle') { scene.idle.push(action); }
-				else { scene.cues[scene.cues.length - 1].lines.push(action); }
+				target.push(action);
 			}
 			catch(e) {
 				if(!(e instanceof ParseError)) { throw e; }
@@ -322,9 +437,17 @@
 			else { scene.repeat = target; }
 		}
 
+		scene.cues.forEach(function(cue) { checkOverlaps(scene, cue.lines); });
+		checkOverlaps(scene, scene.idle);
+
 		scene.cues.forEach(function(cue) {
 			cue.lines = sortLines(cue.lines);
 			cue.length = cue.lines.reduce(function(m, l) { return Math.max(m, lineLength(l)); }, 0);
+		});
+		scene.cues.forEach(function(cue) {
+			if(cue.loop && cue.length === 0) {
+				scene.errors.push({line: cue.line, message: 'this cue takes no time, so its loop would go round instantly - give a ramp a time (in 0.5s) or add a wait'});
+			}
 		});
 		scene.idle = sortLines(scene.idle);
 		scene.idleLength = scene.idle.reduce(function(m, l) { return Math.max(m, lineLength(l)); }, 0);
@@ -367,6 +490,7 @@
 		};
 		var ramps = {}, blinks = {};   // by outlet index
 		var cueStart = 0, prevEnd = 0, waitUntil = null, fired = 0, current = null;
+		var round = 1;   // which time through a looping cue
 
 		function cancel(out) { delete ramps[out]; delete blinks[out]; }
 
@@ -430,6 +554,16 @@
 		function startCue(t) {
 			r.phase = 'playing';
 			cueStart = t;
+			round = 1;
+		}
+
+		// The current cue has just finished a round: play it again?
+		function loopsAgain(ins) {
+			var lp = current.loop;
+			if(!lp) { return false; }
+			if(lp.type === 'forever') { return true; }
+			if(lp.type === 'times') { return round < lp.count; }
+			return !levelMet(lp, ins);
 		}
 
 		function endScene(t) {
@@ -487,6 +621,7 @@
 				advanceTo(end);
 				changes++;
 				if(r.phase === 'stopping') { r.phase = 'idle'; r.cueIndex = -1; current = null; break; }
+				if(loopsAgain(ins)) { round++; cueStart = end; fired = 0; continue; }
 				if(r.cueIndex + 1 < scene.cues.length) { enterCue(r.cueIndex + 1, end); }
 				else if(scene.repeat !== null) { enterCue(scene.repeat, end); }
 				else { endScene(end); break; }
@@ -556,8 +691,17 @@
 
 		/** status - for the widget's display. */
 		r.status = function(now) {
-			var s = {phase: r.phase, cue: '', progress: 0, waitingFor: ''};
+			var s = {phase: r.phase, cue: '', progress: 0, waitingFor: '', loop: '', lines: [], linesLeft: {}};
+			if(r.phase === 'waiting') { s.lines = [current.line]; }
+			if(r.phase === 'playing') { s.lines = [current.line].concat(activeLines(current.lines, now - cueStart, s.linesLeft)); }
+			if(r.phase === 'stopping') { s.lines = activeLines(scene.idle, now - cueStart, s.linesLeft); }
 			if(r.phase === 'waiting' || r.phase === 'playing') { s.cue = current.label; }
+			if(r.phase === 'playing' && current.loop) {
+				var lp = current.loop;
+				if(lp.type === 'times') { s.loop = 'loop ' + round + ' of ' + lp.count; }
+				else if(lp.type === 'until') { s.loop = 'loop ' + round + ' until ' + lp.inlet + ' ' + lp.level; }
+				else { s.loop = 'loop ' + round; }
+			}
 			if(r.phase === 'stopping') { s.cue = 'idle'; }
 			if(r.phase === 'playing' || r.phase === 'stopping') {
 				var length = r.phase === 'stopping' ? scene.idleLength : current.length;

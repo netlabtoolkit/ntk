@@ -59,13 +59,22 @@ lights go off 5 s after it, when the 3 s ramp has finished.
 | `cue after TIME` | TIME after the cue before it has finished. `cue after 2s..6s` picks a random time in that range each time - workers who don't move like clockwork. |
 | `cue when in1 high` / `cue when in1 low` | When the cue before it has finished **and** the inlet is above / below the threshold. A level, not an edge: if the train had already cleared while the gates were still coming down, the cue starts straight away instead of waiting for an event it missed. Optional `max TIME`: give up waiting and start anyway, so a sensor that fails can't hold the gates down forever. |
 | `cue NAME ...` | Any of the above with a name: the words between `cue` and `when` / `after` (or the end of the line), spaces allowed - `cue gates up when in1 low`. Shown in the widget and on the timeline, and used by `repeat from NAME`. |
+| `cue NAME ... loop` | Plays the cue again as soon as it finishes, until the scene is stopped. Goes at the end of the cue line, after any `when` / `after` - which is waited for only before the first round. |
+| `cue NAME ... loop N times` | Plays the cue N times, then goes on to the next cue. |
+| `cue NAME ... loop until in1 high` | At the end of each round, goes on if the inlet is high (`low`: below the threshold); otherwise plays it again. The round in progress always finishes - a move isn't cut off half way. Checked when a round ends, like `when`: a level, not an edge. |
 | `repeat` / `repeat from NAME` | On its own line after the last cue: once the last cue has finished, go back to the first cue (or the named one). |
 
 - **Name every cue.** The name is optional to the parser, but the
   starter script and every example in the docs name theirs: a name
   says what the cue is for (`gates down`, `gates up`), which a number
   doesn't, and it's the label of the cue's block on the timeline. Names
-  must be unique in a scene, and can't use the words `when` or `after`.
+  must be unique in a scene, and can't use the words `when`, `after`
+  or `loop`.
+- **A looping cue needs time in it** (a ramp with a time, a `wait`, a
+  `for`, or a line at a later time), or it would go round in no time -
+  an error,
+  like a `repeat` that takes no time. The widget shows which round it's
+  on (`loop 2 of 3`).
 - **A cue has finished** when its last line has happened and its last
   ramp has reached its end. A blink with no `for` doesn't count - it
   runs until something sets that outlet or the scene ends.
@@ -78,10 +87,22 @@ lights go off 5 s after it, when the 3 s ramp has finished.
 
 Each line is `TIME  ACTION`. The time can be left out for `0s`.
 
+A line can instead start with `then` - `then ACTION` or
+`then GAP ACTION` - to start when the line written above it (in the
+same cue, or in `idle:`) ends: `then lamp to 255 in 2s`,
+`then 0.5s gate to 0 in 1s`. The parser turns it into an ordinary time
+(the line above's time plus its ramp or `for`, plus the gap), so
+everything else below still holds. The first line of a cue counts from
+the cue's start; a `then` after a blink with no `for` is an error, since
+that blink never ends. Lets a small move be added after another without
+working out its start time. On the timeline, a `then` line's mark hangs
+on the line above it: dragging that line moves it too.
+
 | Action | Does |
 |---|---|
 | `NAME = VALUE` | Sets an outlet. A number, or `"text"` in quotes (for a Display). |
 | `NAME to VALUE in TIME` | Ramps an outlet from where it is to VALUE over TIME. Optional `ease NAME` at the end, with Tween's easing names (`ease sine`, `ease bounce` ...). |
+| `wait TIME` | Does nothing for TIME. Usually `then wait TIME`: a bare `wait` written below other lines would start with the cue, alongside them, so that's an error (`wait` as a cue's first line, or with its own time, is fine). A `then` line after it starts when it ends (`then wait 1s`, a pause between two moves), and it makes the cue last at least that long - e.g. a rest at the end of a looping cue before its next round. |
 | `blink NAME every TIME` | Flips the outlet between 1 and 0 until something else sets it. `blink a/b every TIME` alternates two outlets (crossing lights). Optional `between LO and HI` (e.g. `between 0 and 255` for a LED), optional `for TIME` to stop by itself (back to LO). |
 
 - **Names:** `outs a, b, c, d` at the top names out1-out4; `out1` ...
@@ -95,9 +116,15 @@ Each line is `TIME  ACTION`. The time can be left out for `0s`.
   and lines with the same time in the order written. The timeline view
   will write them in time order.
 - **Two things on one outlet:** a new set, ramp or blink replaces
-  whatever was still running on that outlet.
+  whatever was still running on that outlet. Two at the *same* time, where the
+  first is a ramp or a blink, is an error ("... replaces it at once;
+  use "then" to start it after") - the first would never show, and it's
+  nearly always a move meant to follow the other. Two sets at once
+  stay legal.
 - Indenting the lines under their `cue` is for reading only; `#` starts
-  a comment.
+  a comment. The script box indents for you: Enter keeps the line's
+  indent (two spaces after `cue` / `idle:`, and a section line goes back
+  to the left edge), Tab / Shift-Tab indent / unindent.
 - **The scene ends** when its last cue has finished: outlets keep their
   last values, open blinks stop at their low value, `running` goes to 0.
 
@@ -238,8 +265,9 @@ anything but text, so the timeline needs no firmware change.
 **Rules the format keeps for this** (and that the parser enforces from
 the start, so no script written now breaks the timeline later):
 
-- every line's time is its own, counted from its cue's start - no
-  "after the line above";
+- every line's time is counted from its cue's start - a `then` line
+  (added 2026-11-02) is turned into such a time by the parser, and on
+  the timeline its mark hangs on the line above;
 - waits of unknown length (`cue when`) and random times (`cue after
   A..B`) only at cue starts;
 - outlet names declared once, at the top - they're the lane labels.
@@ -326,7 +354,8 @@ To keep the two the same:
    patch (crossing).
 5. Later: the **timeline view**.
 
-Also later, if wanted: `repeat N times`; picking one of several cues
+Also later, if wanted: `repeat N times` (a single cue already has
+`loop N times`); picking one of several cues
 at random; more than four outlets.
 
 ### Later: convert Sequence to Scene scripting

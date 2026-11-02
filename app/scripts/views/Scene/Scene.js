@@ -235,6 +235,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 				else if(s.phase === 'playing') {
 					var cue = this.scene.cues[this.runner.cueIndex];
 					d.sceneStatus = formatSeconds(s.progress * cue.length) + ' / ' + formatSeconds(cue.length);
+					if(s.loop) { d.sceneStatus += ' · ' + s.loop; }
 				}
 				else if(s.phase === 'stopping') {
 					d.sceneStatus = 'to idle';

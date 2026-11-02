@@ -47,6 +47,12 @@ function runSteps(c, scene, tickEvery) {
 			var want = step.expect[key], got;
 			if(key === 'phase') { got = status.phase; }
 			else if(key === 'cue') { got = status.cue; }
+			else if(key === 'loop') { got = status.loop; }
+			else if(key === 'lines') { got = JSON.stringify(status.lines); want = JSON.stringify(want); }
+			else if(key === 'linesLeft') {
+				got = JSON.stringify(Object.keys(status.linesLeft).map(function(k) { return [Number(k), Math.round(status.linesLeft[k] * 1000) / 1000]; }));
+				want = JSON.stringify(want);
+			}
 			else {
 				var index = outletIndex(scene, key);
 				if(index === -1) { fail(label, 'bad expect key ' + key); return; }

@@ -1,5 +1,5 @@
 {
-  "about": "Shared test cases for the Scene widget's script (plans/scene-widget.md). Run by test/scene-test.js against app/scripts/utils/SceneScript.js, and later by the board interpreter's own test. Each case: script (lines), then either errors (exact 'line N: message' strings) or steps. A step at time t (ms): sets in1/in2 if given, does 'do' (play, stop, skipWait, applyIdle), ticks to t, then checks 'expect' (outlets by name or out1-out4, plus phase and cue). Every case starts with applyIdle at t=0 (the patch loading), threshold 512, in1/in2 unset. 'random' feeds 'after A..B' cues in order.",
+  "about": "Shared test cases for the Scene widget's script (plans/scene-widget.md). Run by test/scene-test.js against app/scripts/utils/SceneScript.js, and later by the board interpreter's own test. Each case: script (lines), then either errors (exact 'line N: message' strings) or steps. A step at time t (ms): sets in1/in2 if given, does 'do' (play, stop, skipWait, applyIdle), ticks to t, then checks 'expect' (outlets by name or out1-out4, plus phase, cue, loop - the status's loop text, e.g. 'loop 2 of 3' - lines: the script lines highlighted as running, and linesLeft: [line, fraction of its time left] for the timed ones - both for NTK's display, the board can skip them). Every case starts with applyIdle at t=0 (the patch loading), threshold 512, in1/in2 unset. 'random' feeds 'after A..B' cues in order.",
   "cases": [
     {
       "name": "crossing: gates down, wait for in1 low, gates up, end",
@@ -237,6 +237,153 @@
       ]
     },
     {
+      "name": "then: a line starts when the line above it ends, plus a gap; plain times still count from the cue start",
+      "script": [
+        "outs gate, lamp",
+        "cue open",
+        "  gate to 90 in 3s",
+        "  then lamp to 200 in 2s",
+        "  then 0.5s gate to 0 in 1s",
+        "  1s lamp = 50"
+      ],
+      "steps": [
+        {"t": 0, "do": "play", "expect": {"gate": 0, "lamp": 0}},
+        {"t": 1500, "expect": {"gate": 45, "lamp": 50}},
+        {"t": 4000, "expect": {"gate": 90, "lamp": 125}},
+        {"t": 5000, "expect": {"gate": 90, "lamp": 200, "phase": "playing"}},
+        {"t": 6000, "expect": {"gate": 45}},
+        {"t": 6500, "expect": {"gate": 0, "phase": "ended"}}
+      ]
+    },
+    {
+      "name": "then: first line counts from the cue start, after a set adds nothing, after a blink with for waits for it; works in idle",
+      "script": [
+        "outs a, b",
+        "cue x",
+        "  then 1s a = 1",
+        "  then b = 1",
+        "  then blink a every 100ms for 500ms",
+        "  then a = 7",
+        "idle:",
+        "  a to 0 in 1s",
+        "  then b to 0 in 1s"
+      ],
+      "steps": [
+        {"t": 0, "do": "play"},
+        {"t": 500, "expect": {"a": 0, "b": 0}},
+        {"t": 1000, "expect": {"a": 1, "b": 1}},
+        {"t": 1150, "expect": {"a": 0}},
+        {"t": 1500, "expect": {"a": 7, "phase": "ended"}},
+        {"t": 2000, "do": "stop", "expect": {"a": 7, "b": 1, "phase": "stopping"}},
+        {"t": 2500, "expect": {"a": 3.5, "b": 1}},
+        {"t": 3500, "expect": {"a": 0, "b": 0.5}},
+        {"t": 4000, "expect": {"b": 0, "phase": "idle"}}
+      ]
+    },
+    {
+      "name": "loop N times, then on to the next cue",
+      "script": [
+        "outs n, running",
+        "cue wiggle loop 3 times",
+        "  n to 10 in 1s",
+        "  1s n = 0",
+        "cue done",
+        "  n = 99"
+      ],
+      "steps": [
+        {"t": 0, "do": "play", "expect": {"n": 0, "running": 1}},
+        {"t": 500, "expect": {"n": 5, "cue": "wiggle", "loop": "loop 1 of 3"}},
+        {"t": 1000, "expect": {"n": 0, "cue": "wiggle"}},
+        {"t": 1500, "expect": {"n": 5, "loop": "loop 2 of 3"}},
+        {"t": 2500, "expect": {"n": 5, "loop": "loop 3 of 3", "running": 1}},
+        {"t": 3000, "expect": {"n": 99, "phase": "ended", "running": 0}}
+      ]
+    },
+    {
+      "name": "loop until: the round in progress finishes before going on",
+      "script": [
+        "outs n",
+        "cue wait loop until in1 high",
+        "  n to 10 in 1s",
+        "  1s n = 0",
+        "cue go",
+        "  n = 50"
+      ],
+      "steps": [
+        {"t": 0, "in1": 0, "do": "play"},
+        {"t": 1500, "expect": {"n": 5, "cue": "wait", "loop": "loop 2 until in1 high"}},
+        {"t": 2000, "expect": {"n": 0, "loop": "loop 3 until in1 high"}},
+        {"t": 2500, "in1": 1023, "expect": {"n": 5, "cue": "wait", "phase": "playing"}},
+        {"t": 3000, "expect": {"n": 50, "phase": "ended"}}
+      ]
+    },
+    {
+      "name": "loop forever: the cue's own wait only comes before the first round; stop ends it",
+      "script": [
+        "outs n",
+        "cue spin after 1s loop",
+        "  n to 4 in 2s",
+        "  2s n = 0",
+        "idle:",
+        "  n = 0"
+      ],
+      "steps": [
+        {"t": 0, "do": "play", "expect": {"phase": "waiting"}},
+        {"t": 1000, "expect": {"n": 0, "phase": "playing", "loop": "loop 1"}},
+        {"t": 2000, "expect": {"n": 2}},
+        {"t": 4000, "expect": {"n": 2, "loop": "loop 2"}},
+        {"t": 8000, "expect": {"n": 2, "loop": "loop 4"}},
+        {"t": 8500, "do": "stop", "expect": {"n": 0, "phase": "idle"}}
+      ]
+    },
+    {
+      "name": "wait: a then line follows it, and it rests at the end of a looping cue",
+      "script": [
+        "outs gate",
+        "cue wiggle loop 2 times",
+        "  gate to 40 in 1s",
+        "  then wait 1s",
+        "  then gate to 90 in 1s",
+        "  then wait 1s",
+        "cue done",
+        "  gate = 0"
+      ],
+      "steps": [
+        {"t": 0, "do": "play", "expect": {"gate": 0, "loop": "loop 1 of 2"}},
+        {"t": 1500, "expect": {"gate": 40}},
+        {"t": 2500, "expect": {"gate": 65}},
+        {"t": 3500, "expect": {"gate": 90, "loop": "loop 1 of 2", "phase": "playing"}},
+        {"t": 4500, "expect": {"gate": 65, "loop": "loop 2 of 2"}},
+        {"t": 7500, "expect": {"gate": 90, "cue": "wiggle"}},
+        {"t": 8000, "expect": {"gate": 0, "phase": "ended"}}
+      ]
+    },
+    {
+      "name": "lines: the cue line, moves while they run, a set just after it - not a move already replaced",
+      "script": [
+        "outs gate, lamp",
+        "cue a",
+        "  gate to 90 in 2s",
+        "  1s lamp = 1",
+        "  1.5s gate = 10",
+        "  then wait 1s",
+        "cue b when in1 high",
+        "  blink lamp every 0.5s",
+        "  1s gate = 0",
+        "idle:",
+        "  gate to 0 in 1s"
+      ],
+      "steps": [
+        {"t": 0, "do": "play", "expect": {"lines": [2, 3]}},
+        {"t": 1100, "expect": {"lines": [2, 3, 4], "linesLeft": [[3, 0.45]]}},
+        {"t": 1600, "expect": {"lines": [2, 5, 6], "linesLeft": [[6, 0.9]]}},
+        {"t": 2600, "expect": {"phase": "waiting", "lines": [7]}},
+        {"t": 3000, "in1": 1023, "expect": {"phase": "playing", "lines": [7, 8], "linesLeft": []}},
+        {"t": 3600, "do": "stop", "expect": {"phase": "stopping", "lines": [11], "linesLeft": [[11, 1]]}},
+        {"t": 4700, "expect": {"phase": "idle", "lines": []}}
+      ]
+    },
+    {
       "name": "errors: times, outlets, placement",
       "script": [
         "outs gate, running",
@@ -291,6 +438,80 @@
       ],
       "errors": [
         "line 4: this repeat takes no time - give a cue a time, a wait or a \"when\""
+      ]
+    },
+    {
+      "name": "errors: then and loop",
+      "script": [
+        "outs a",
+        "cue x loop",
+        "  a = 1",
+        "cue u",
+        "  then",
+        "  blink a every 1s",
+        "  then a = 2",
+        "cue y loop 0 times",
+        "cue z loop until in3 high",
+        "cue w loop until in1 up",
+        "cue v loop 2 times please"
+      ],
+      "errors": [
+        "line 2: this cue takes no time, so its loop would go round instantly - give a ramp a time (in 0.5s) or add a wait",
+        "line 5: then what? e.g. then lamp to 255 in 2s",
+        "line 7: \"then\" can't follow a blink with no \"for\" - that blink never ends",
+        "line 8: \"0\" isn't a number of times - write it like: loop 3 times",
+        "line 9: \"loop until\" needs in1 or in2, e.g. loop until in1 high",
+        "line 10: \"loop until in1\" needs high or low after it",
+        "line 11: write it like: loop, loop 3 times, or loop until in1 high"
+      ]
+    },
+    {
+      "name": "errors: a second move on an outlet at the same time replaces a ramp or blink at once",
+      "script": [
+        "outs gate, lamp",
+        "cue wiggle loop 3 times",
+        "  gate to 45 in 0.5s",
+        "  gate to 90 in 0.5s",
+        "  lamp = 1",
+        "  lamp = 2",
+        "  1s blink lamp every 0.1s",
+        "  1s lamp = 0",
+        "  2s gate to 10 in 0s",
+        "  2s gate = 5",
+        "idle:",
+        "  1.5s gate to 0 in 1s",
+        "  1.5s gate = 0"
+      ],
+      "errors": [
+        "line 4: \"gate\" already has a move at 0s (line 3) - this replaces it at once; use \"then\" to start it after",
+        "line 8: \"lamp\" already has a move at 1s (line 7) - this replaces it at once; use \"then\" to start it after",
+        "line 13: \"gate\" already has a move at 1.5s (line 12) - this replaces it at once; use \"then\" to start it after"
+      ]
+    },
+    {
+      "name": "errors: wait",
+      "script": [
+        "outs gate, wait",
+        "outs gate",
+        "cue a",
+        "  wait",
+        "  wait 2",
+        "  wait 1s please",
+        "  gate to 90 in 1s",
+        "  wait 1s",
+        "cue b",
+        "  wait 1s",
+        "  2s wait 1s",
+        "  then wait 1s",
+        "  wait 500ms"
+      ],
+      "errors": [
+        "line 1: \"wait\" is a script word - pick another outlet name",
+        "line 4: wait how long? e.g. wait 1s",
+        "line 5: add \"s\" or \"ms\" to 2",
+        "line 6: didn't expect \"please\" after the wait",
+        "line 8: this wait starts with the cue, not after the line above - write \"then wait 1s\" (or give it a time, like \"2s wait 1s\")",
+        "line 13: this wait starts with the cue, not after the line above - write \"then wait 500ms\" (or give it a time, like \"2s wait 500ms\")"
       ]
     }
   ]
