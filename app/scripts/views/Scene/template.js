@@ -38,9 +38,13 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label class="wide-label">script</label>
-            <textarea class="sceneScript" title="The scene script - takes effect when you click out of the box" rows="18" spellcheck="false" rv-value="widget:script"></textarea>
+            <div class="sceneEditor">
+                <div class="sceneGutter" aria-hidden="true"></div>
+                <div class="sceneRunMarks" aria-hidden="true"><div class="sceneRunMarksInner"></div></div>
+                <textarea class="sceneScript" title="The scene script - takes effect when you click out of the box" rows="18" spellcheck="false" rv-value="widget:script"></textarea>
+            </div>
             <ul class="sceneErrors">
-                <li rv-each-err="widget:sceneErrors" rv-text="err"></li>
+                <li rv-each-err="widget:sceneErrors" rv-text="err" title="Click to go to this line"></li>
             </ul>
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
             <input type="checkbox" rv-checked="widget:restartOnStart"> start over if start arrives while playing

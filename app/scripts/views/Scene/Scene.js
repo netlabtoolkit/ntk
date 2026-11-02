@@ -57,6 +57,12 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			// Errors are listed as the script is typed; the script itself
 			// only takes effect on leaving the box (rv-value's 'change').
 			'input .sceneScript': 'checkScript',
+			'scroll .sceneScript': 'syncGutterScroll',
+			'keydown .sceneScript': 'editKey',
+			// mousedown, not click: a click would blur the box first,
+			// which applies the script and re-renders this list under
+			// the mouse before the click arrives.
+			'mousedown .sceneErrors li': 'jumpToError',
 		},
 		ins: [
 			// Plays from the first cue on rising above the threshold.
@@ -129,6 +135,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 
 			WidgetView.prototype.onRender.call(this);
 			this.nameOutlets();
+			this.updateGutter(this.model.get('script'), this.scene);
 		},
 
 		// The script's outlet names ("gate (out1)") as the nubs' tooltips.
@@ -151,7 +158,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 		 */
 		loadScript: function() {
 			var scene = SceneScript.parse(this.model.get('script'));
-			this.showErrors(scene);
+			this.showErrors(scene, this.model.get('script'));
 			if(!scene.ok) {
 				this.scene = scene;
 				this.runner = null;
@@ -172,7 +179,8 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			this.updateDisplay(Date.now());
 		},
 
-		showErrors: function(scene) {
+		showErrors: function(scene, text) {
+			this.updateGutter(text, scene);
 			this.model.set({
 				sceneErrors: scene.errors.map(function(e) { return 'line ' + e.line + ': ' + e.message; }),
 				sceneHasError: !scene.ok,
@@ -180,7 +188,157 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 		},
 
 		checkScript: function(e) {
-			this.showErrors(SceneScript.parse(e.target.value));
+			this.showErrors(SceneScript.parse(e.target.value), e.target.value);
+		},
+
+		// Line numbers beside the script box, lines with an error in
+		// red - the error list says "line 8", and a textarea has no
+		// numbers of its own. Imperative (not rivets), so it's also
+		// called from loadScript, which a loaded patch's script reaches
+		// through onModelChange (see CLAUDE.md on setFromModel).
+		updateGutter: function(text, scene) {
+			this.gutterText = text;
+			this.gutterErrors = scene ? scene.errors : [];
+			this.renderGutter();
+		},
+
+		// The lines the running scene is on (SceneScript's status
+		// lines) - only redrawn when they change, not every frame.
+		// left: line -> fraction of its time to go, for the timed lines
+		// - their band shrinks toward the left as that runs out, set
+		// each frame without redrawing the rest.
+		setRunLines: function(lines, left) {
+			this.runLinesLeft = left || {};
+			var key = lines.join(',');
+			if(key !== this.runLinesKey) {
+				this.runLinesKey = key;
+				this.runLines = lines;
+				this.renderGutter();
+			}
+			this.$('.sceneRunBand').each(function(i, band) {
+				var fraction = this.runLinesLeft[band.getAttribute('data-line')];
+				band.style.width = (fraction === undefined ? 100 : fraction * 100) + '%';
+			}.bind(this));
+		},
+
+		renderGutter: function() {
+			var $gutter = this.$('.sceneGutter');
+			if(!$gutter.length) { return; }
+			var count = String(this.gutterText || '').split('\n').length;
+			var bad = {}, running = {};
+			(this.gutterErrors || []).forEach(function(e) {
+				bad[e.line] = (bad[e.line] ? bad[e.line] + '\n' : '') + e.message;
+			});
+			(this.runLines || []).forEach(function(n) { running[n] = true; });
+			var html = [];
+			for(var n = 1; n <= count; n++) {
+				if(bad[n]) { html.push('<span class="error" title="' + _.escape(bad[n]) + '">' + n + '</span>'); }
+				else if(running[n]) { html.push('<span class="running">' + n + '</span>'); }
+				else { html.push(String(n)); }
+			}
+			// A few spare numbers, so the gutter doesn't end short of
+			// the box when the text is shorter than it.
+			for(var k = 0; k < 18; k++) { html.push(''); }
+			$gutter.html(html.join('\n'));
+
+			// A band behind each running line, across the box.
+			var textarea = this.$('.sceneScript')[0];
+			var lineHeight = textarea ? (parseFloat(window.getComputedStyle(textarea).lineHeight) || 15) : 15;
+			var bands = (this.runLines || []).filter(function(n) { return !bad[n] && n <= count; }).map(function(n) {
+				return '<div class="sceneRunBand" data-line="' + n + '" style="top:' + ((n - 1) * lineHeight) + 'px;height:' + lineHeight + 'px"></div>';
+			});
+			this.$('.sceneRunMarksInner').html(bands.join(''));
+			this.syncGutterScroll();
+		},
+
+		syncGutterScroll: function() {
+			var textarea = this.$('.sceneScript')[0];
+			if(!textarea) { return; }
+			this.$('.sceneGutter').scrollTop(textarea.scrollTop);
+			this.$('.sceneRunMarksInner').css('transform', 'translateY(' + (-textarea.scrollTop) + 'px)');
+		},
+
+		/**
+		 * editKey - indenting in the script box. Indents mean nothing
+		 * to the parser; they're for reading. Enter keeps the line's
+		 * indent (two more after a cue or idle: line, and a section
+		 * line - cue, idle:, repeat, outs - goes back to the left edge);
+		 * Tab / Shift-Tab indent / unindent the line(s) by two spaces
+		 * instead of leaving the box. Edits go through insertText so
+		 * Cmd+Z undoes them and the error list updates ('input').
+		 */
+		editKey: function(e) {
+			var ta = e.currentTarget;
+			if(e.metaKey || e.ctrlKey || e.altKey) { return; }
+			var value = ta.value, start = ta.selectionStart, end = ta.selectionEnd;
+			var lineStart = value.lastIndexOf('\n', start - 1) + 1;
+
+			if(e.key === 'Enter' && !e.shiftKey && start === end) {
+				var lineEnd = value.indexOf('\n', start);
+				if(lineEnd === -1) { lineEnd = value.length; }
+				var before = value.slice(lineStart, start);
+				var indent = /^[ \t]*/.exec(before)[0];
+				var word = before.trim().split(/\s+/)[0].toLowerCase();
+				var section = ['cue', 'idle:', 'idle', 'repeat', 'outs'].indexOf(word) !== -1;
+				e.preventDefault();
+				if(section && indent) {
+					// The section line goes to the left edge first.
+					ta.setSelectionRange(lineStart, lineStart + indent.length);
+					this.insertText(ta, '');
+					start -= indent.length;
+					ta.setSelectionRange(start, start);
+				}
+				var next = section ? (word === 'cue' || word.indexOf('idle') === 0 ? '  ' : '') : indent;
+				this.insertText(ta, '\n' + next);
+				return;
+			}
+
+			if(e.key === 'Tab') {
+				e.preventDefault();
+				var blockEnd = value.indexOf('\n', end > start && value[end - 1] === '\n' ? end - 1 : end);
+				if(blockEnd === -1) { blockEnd = value.length; }
+				var lines = value.slice(lineStart, blockEnd).split('\n');
+				if(!e.shiftKey && start === end) {
+					this.insertText(ta, '  ');
+					return;
+				}
+				var changed = lines.map(function(l) {
+					return e.shiftKey ? l.replace(/^( {1,2}|\t)/, '') : '  ' + l;
+				});
+				ta.setSelectionRange(lineStart, blockEnd);
+				this.insertText(ta, changed.join('\n'));
+				ta.setSelectionRange(lineStart, lineStart + changed.join('\n').length);
+			}
+		},
+
+		insertText: function(ta, text) {
+			// execCommand keeps the edit on the undo stack and fires
+			// 'input'; setRangeText is the fallback.
+			var done = false;
+			try {
+				done = text === '' ? document.execCommand('delete', false) : document.execCommand('insertText', false, text);
+			} catch(err) { done = false; }
+			if(!done) {
+				ta.setRangeText(text, ta.selectionStart, ta.selectionEnd, 'end');
+				$(ta).trigger('input');
+			}
+		},
+
+		// Click an error: select its line in the script box.
+		jumpToError: function(e) {
+			e.preventDefault();
+			var m = /^line (\d+):/.exec($(e.currentTarget).text());
+			var textarea = this.$('.sceneScript')[0];
+			if(!m || !textarea) { return; }
+			var lines = textarea.value.split('\n');
+			var line = Math.min(parseInt(m[1], 10), lines.length) - 1;
+			var start = 0;
+			for(var i = 0; i < line; i++) { start += lines[i].length + 1; }
+			textarea.focus();
+			textarea.setSelectionRange(start, start + lines[line].length);
+			var lineHeight = parseFloat(window.getComputedStyle(textarea).lineHeight) || 15;
+			textarea.scrollTop = Math.max(0, (line - 3) * lineHeight);
+			this.syncGutterScroll();
 		},
 
 		isMonitored: function() {
@@ -217,6 +375,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 		updateDisplay: function(now) {
 			var d = {sceneCue: '', sceneStatus: '', sceneStatusTitle: '', sceneProgress: 0,
 				scenePlaying: false, sceneWaiting: false};
+			var runLines = [], runLinesLeft = {};
 
 			if(this.scene && !this.scene.ok) {
 				d.sceneStatus = 'script error';
@@ -224,6 +383,8 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			}
 			else if(this.runner) {
 				var s = this.runner.status(now);
+				runLines = s.lines;
+				runLinesLeft = s.linesLeft;
 				d.sceneCue = s.cue;
 				d.sceneProgress = Math.round(s.progress * 100);
 				d.scenePlaying = s.phase === 'waiting' || s.phase === 'playing';
@@ -244,6 +405,8 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 					d.sceneStatus = s.phase;
 				}
 			}
+
+			this.setRunLines(runLines, runLinesLeft);
 
 			var changed = {};
 			_.each(d, function(value, key) {

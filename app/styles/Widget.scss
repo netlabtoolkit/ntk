@@ -2684,7 +2684,92 @@ body.ntk-monitoring .monitorBlockOverlay {
     .widgetBottom .content {
         width: 300px;
 
+        // Line numbers beside the script (Scene.js's updateGutter) -
+        // same font, line height and top padding as the textarea, so
+        // the numbers line up; scrolled along with it.
+        // The gutter is absolutely placed, so its spare numbers can't
+        // make the box taller - the textarea's rows set the height (as
+        // a flex item it grew the box and pushed the error list out of
+        // sight).
+        .sceneEditor {
+            position: relative;
+            padding-left: 28px;
+            background: #fff;
+        }
+        // Bands behind the lines the running scene is on (renderGutter),
+        // under a see-through textarea; inside its 1px border, and
+        // offset by its 2px top padding.
+        .sceneRunMarks {
+            position: absolute;
+            top: 1px;
+            bottom: 1px;
+            left: 29px;
+            right: 1px;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .sceneRunMarksInner {
+            position: absolute;
+            top: 2px;
+            left: 0;
+            right: 0;
+        }
+        // Full width, or for a line with a time of its own (ramp, wait,
+        // blink "for"), the time it has left - set per frame by
+        // setRunLines, so it shrinks toward the left.
+        .sceneRunBand {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            background: #ffe680;
+        }
+        .sceneGutter {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 28px;
+            box-sizing: border-box;
+            padding: 2px 4px 0 2px;   // + 1px border = the textarea's 3px
+            overflow: hidden;
+            white-space: pre;
+            text-align: right;
+            font-family: Menlo, Monaco, monospace;
+            font-size: 11px;
+            line-height: 1.35;
+            color: #999;
+            background: #f2f2f2;
+            border: 1px solid #ccc;
+            border-right: none;
+            user-select: none;
+
+            .error {
+                color: #fff;
+                background: #c62828;
+                border-radius: 2px;
+                padding: 0 2px;
+            }
+            .running {
+                color: #000;
+                background: #ffd84d;
+                border-radius: 2px;
+                padding: 0 2px;
+            }
+        }
+        .sceneErrors li {
+            cursor: pointer;
+        }
+
         textarea.sceneScript {
+            display: block;
+            position: relative;
+            z-index: 1;
+            background: transparent;
+            margin: 0;
+            padding: 2px 4px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
             width: 100%;
             font-family: Menlo, Monaco, monospace;
             font-size: 11px;
