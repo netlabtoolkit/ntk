@@ -47,7 +47,8 @@
                 <li rv-each-err="widget:sceneErrors" rv-text="err" title="Click to go to this line"></li>
             </ul>
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
-            <input type="checkbox" rv-checked="widget:restartOnStart"> start over if start arrives while playing
+            <input type="checkbox" rv-checked="widget:restartOnStart"> start over if start arrives while playing<br>
+            <input type="checkbox" rv-checked="widget:stopOnStartLow" title="Like the stop inlet: plays the idle lines when start drops - so the scene runs only while start is held high (e.g. a button held down)"> stop when start goes below the threshold
             <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/scene/" target="_blank">Widget help</a>
         </div>

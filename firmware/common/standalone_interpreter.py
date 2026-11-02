@@ -134,7 +134,7 @@ PORTABLE_TYPE_IDS = frozenset([
     'IfThen', 'Boolean', 'Gate', 'Mix', 'Splitter', 'Process', 'Count',
     'Concat', 'Pulse', 'Sequence', 'Tween', 'Data', 'OSCIn', 'OSCOut',
     'CloudIn', 'CloudOut', 'Display', 'NeoPixel', 'Encoder',
-    'DCCThrottle', 'DCCFunction',
+    'DCCThrottle', 'DCCFunction', 'Scene',
 ])
 
 # Driven by the board's WiThrottle session, see the module docstring.
@@ -352,6 +352,15 @@ _EASINGS = {
     'easeInBack': _ease_back_in, 'easeOutBack': _ease_back_out, 'easeInOutBack': _ease_back_in_out,
     'easeInBounce': _ease_bounce_in, 'easeOutBounce': _ease_bounce_out, 'easeInOutBounce': _ease_bounce_in_out,
 }
+_SCENE_EASE_SIDES = ('easeIn', 'easeOut', 'easeInOut')
+
+
+def scene_ease(curve, side, t):
+    """Scene's ease (scene_script.Runner): 'sine', side 2 (in-out) ->
+    _EASINGS['easeInOutSine'] - the same curves as Tween."""
+    return _EASINGS[_SCENE_EASE_SIDES[side] + curve[0].upper() + curve[1:]](t)
+
+
 _GAMMA_EASINGS = {
     'easeInGamma': _ease_gamma_in, 'easeOutGamma': _ease_gamma_out, 'easeInOutGamma': _ease_gamma_in_out,
 }
@@ -1256,6 +1265,65 @@ def _data_index_element(values, state, index):
             values['dataOut'] = elements[element_index]
 
 
+def _scene_now_ms():
+    # Whole ms from an integer clock: monotonic()'s float (32-bit on the
+    # board) loses ms precision after a few hours of uptime.
+    try:
+        return time.monotonic_ns() // 1000000
+    except AttributeError:
+        return int(time.monotonic() * 1000)
+
+
+def _eval_scene(values, state, now):
+    """Scene.js on the board: the script parsed by scene_script.py (a
+    port of NTK's SceneScript.js, both tested on test/scene-cases.json),
+    played from the start inlet's rising edge, idle lines from stop's."""
+    import scene_script
+    now_ms = _scene_now_ms()
+    script = values.get('script') or ''
+    threshold = _num(values.get('threshold'), 512.0)
+    if state.get('script') != script:
+        state['script'] = script
+        scene = scene_script.parse(script)
+        if not scene['ok']:
+            line, message = scene['errors'][0]
+            print("standalone_interpreter: Scene", values.get('wid'), "- script error, line %d: %s" % (line, message))
+            state['runner'] = None
+        else:
+            import random
+            runner = scene_script.Runner(scene, scene_ease, random.random)
+            runner.apply_idle(now_ms)
+            state['runner'] = runner
+        # The values the patch was saved with aren't an edge - as in
+        # NTK, a scene starts when start rises while it runs.
+        state['last_start'] = _num(values.get('start'))
+        state['last_stop'] = _num(values.get('stop'))
+    runner = state['runner']
+    if runner is None:
+        return
+
+    start = _num(values.get('start'))
+    if start >= threshold and not (state['last_start'] >= threshold):
+        busy = runner.phase in ('waiting', 'playing')
+        if not busy or values.get('restartOnStart'):
+            runner.play(now_ms)
+    elif start < threshold and state['last_start'] >= threshold and values.get('stopOnStartLow'):
+        # Scene.js's option: start dropping works like stop.
+        runner.stop(now_ms)
+    state['last_start'] = start
+    stop = _num(values.get('stop'))
+    if stop >= threshold and not (state['last_stop'] >= threshold):
+        runner.stop(now_ms)
+    state['last_stop'] = stop
+
+    runner.tick(now_ms, {'in1': values.get('in1'), 'in2': values.get('in2'), 'threshold': threshold})
+    outputs = runner.outputs
+    values['out1'] = outputs[0]
+    values['out2'] = outputs[1]
+    values['out3'] = outputs[2]
+    values['out4'] = outputs[3]
+
+
 BESPOKE_EVAL = {
     'Boolean': _eval_boolean,
     'Gate': _eval_gate,
@@ -1269,6 +1337,7 @@ BESPOKE_EVAL = {
     'Data': _eval_data,
     'Display': _eval_display,
     'Encoder': _eval_encoder,
+    'Scene': _eval_scene,
 }
 
 # outs[].{from,to} per type - what field each type's real computed value
@@ -1301,6 +1370,8 @@ OUTS_BY_TYPE = {
     # Set by the dcc step itself - listed for monitor_fields.
     'DCCThrottle': [('speed', 'speed'), ('direction', 'direction'), ('address', 'address')],
     'DCCFunction': [('state', 'state')],
+    # Written by _eval_scene itself.
+    'Scene': [('out1', 'out1'), ('out2', 'out2'), ('out3', 'out3'), ('out4', 'out4')],
 }
 
 

@@ -215,6 +215,9 @@ idle:
 - **Threshold** for `start`, `stop`, `in1`, `in2` (default 512, like
   Sequence / Pulse).
 - **If `start` arrives while playing:** ignore (default) or start over.
+- **Optional: stop when `start` goes below the threshold** (off by
+  default, added 2026-11-02): `start` falling works like `stop`, so the
+  scene runs only while `start` is held high - a button held down.
 
 A new Scene starts with the crossing script in it, to edit rather than
 start from blank.
@@ -282,7 +285,10 @@ the start, so no script written now breaks the timeline later):
   timing can't be reproduced on the board, and Scene must behave the
   same in both.
 - **On the board:** a `_eval_scene` step in the interpreter's
-  `BESPOKE_EVAL`, timed by `monotonic()` checks on each tick like
+  `BESPOKE_EVAL` (built 2026-11-02: the parser and runner are
+  `firmware/common/scene_script.py`, loaded only by a patch with a
+  Scene, shipped as `scene_script.mpy`; `python3 -I test/scene_test.py`
+  runs the shared cases against it), timed by `monotonic()` checks on each tick like
   `_eval_pulse` / `_eval_tween`. Nothing ever sleeps or blocks.
 - **Each tick:** if the current cue is waiting to start, check its
   trigger (time, inlet, `max`). Once it's running, do every line whose

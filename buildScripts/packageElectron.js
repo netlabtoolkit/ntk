@@ -54,7 +54,7 @@ const COMMON_FIRMWARE_SRC_DIR = path.join(__dirname, '..', 'firmware', 'common')
 // imports whichever of pins_s3.py/pins_c6.py matches (see pins.py's
 // own docstring) - all three are bundled unchanged; nothing here picks
 // one on the dev machine's behalf.
-const FIRMWARE_FILES = ['code.py', 'ntk_firmata_main.py', 'oled_display.py', 'pins.py', 'pins_s3.py', 'pins_c6.py', 'standalone_interpreter.mpy', 'withrottle.mpy'];
+const FIRMWARE_FILES = ['code.py', 'ntk_firmata_main.py', 'oled_display.py', 'pins.py', 'pins_s3.py', 'pins_c6.py', 'standalone_interpreter.mpy', 'withrottle.mpy', 'scene_script.mpy'];
 const COMMON_FIRMWARE_FILES = ['boot.py', 'firmata_server.py', 'neopixel_output.py', 'settings-example.toml'];
 // Run-once utility scripts from firmware/test that a user of the
 // download needs, not just a developer with the repo - copied in beside

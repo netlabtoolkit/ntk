@@ -98,6 +98,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 				script: this.model.get('script') === undefined ? STARTER_SCRIPT : this.model.get('script'),
 				threshold: this.model.get('threshold') === undefined ? 512 : this.model.get('threshold'),
 				restartOnStart: !!this.model.get('restartOnStart'),
+				stopOnStartLow: !!this.model.get('stopOnStartLow'),
 				// Inlets. Unwired, in1/in2 aren't high or low, so a "when"
 				// cue waits - click its status to start it by hand.
 				start: '--',
@@ -465,6 +466,9 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 					var busy = this.runner && (this.runner.phase === 'waiting' || this.runner.phase === 'playing');
 					if(!busy || this.model.get('restartOnStart')) { this.play(); }
 				}
+				// Optional: start falling below the threshold works like
+				// stop - run only while start is held high.
+				else if(start < threshold && this.lastStart >= threshold && this.model.get('stopOnStartLow')) { this.stop(); }
 				this.lastStart = start;
 			}
 
