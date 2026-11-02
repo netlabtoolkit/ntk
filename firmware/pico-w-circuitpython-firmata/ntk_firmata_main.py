@@ -1004,6 +1004,9 @@ def send_all(conn, data, on_wait=None):
                 # the watchdog fix above already stops it from crashing.
                 if on_wait is not None:
                     on_wait()
+                # Give the WiFi stack time to drain the buffer rather
+                # than spinning on send() (see the XIAO firmware's copy).
+                time.sleep(0.005)
                 continue
             # Anything else (e.g. ECONNRESET/EPIPE because the peer
             # closed the connection) is a real failure - let it

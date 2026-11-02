@@ -336,6 +336,8 @@ the same time - the ESP32-C6 has only 6. Trying to add one more than
 your board's limit will raise an error from `pwmio` - reduce
 simultaneous PWM/Servo widgets if you hit this.
 
+The ESP32-C6's WiFi also can't keep up with NTK's default 19ms reporting rate: the link stalls within seconds and doesn't recover without a reboot (NTK shows "couldn't reach your device" and the console prints `send_all() gave up after 5s of EAGAIN`). On the C6 the firmware therefore reports inputs at most every 50ms (20 times a second), whatever NTK asks for - hardware-verified stable 2026-11-02, while 19ms failed after ~25s. Set `NTK_MIN_SAMPLING_MS` in `settings.toml` to change this (e.g. `33` to try faster, `1` for no limit). The S3 has no limit by default.
+
 ## Troubleshooting
 
 - **NTK never shows "connected"**: check the IP printed on the serial

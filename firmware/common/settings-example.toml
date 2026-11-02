@@ -53,3 +53,9 @@ NTK_WIFI_PASSWORD="your-wifi-password"
 # Uncomment it, then a hard reset (not Ctrl-D) - see boot.py's own
 # comment for the full explanation, including how to undo it.
 # NTK_REMOUNT_FOR_CODE_WRITES = true
+
+# --- Optional: fastest-allowed input reporting rate (XIAO boards) ---
+# Shortest time in ms between input reports, whatever NTK asks for.
+# Defaults to 50 on a XIAO ESP32-C6 (its WiFi stalls at NTK's 19ms
+# default) and no limit elsewhere. 1 = no limit.
+# NTK_MIN_SAMPLING_MS = 50

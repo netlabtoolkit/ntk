@@ -939,6 +939,26 @@ CONNECTION_GRACE_PERIOD_S = 2
 SEND_RETRY_TIMEOUT_S = 5
 
 
+# Shortest analog/digital reporting interval a client may ask for.
+# The XIAO ESP32-C6's WiFi stalls (and doesn't recover without a
+# reboot) under NTK's default 19ms reporting - found 2026-11-02 - so
+# it gets a slower floor by default. Override with NTK_MIN_SAMPLING_MS
+# in settings.toml (1 = no floor).
+def _min_sampling_interval_ms():
+    import os
+    import board
+    value = os.getenv("NTK_MIN_SAMPLING_MS")
+    if value is not None:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            print("Ignoring NTK_MIN_SAMPLING_MS =", value, "(not a whole number)")
+    return 50 if "c6" in board.board_id.lower() else 1
+
+
+MIN_SAMPLING_INTERVAL_MS = _min_sampling_interval_ms()
+
+
 def send_all(conn, data, on_wait=None):
     # socket.send() returns the number of bytes actually accepted, same
     # as POSIX send() - it can legitimately send fewer than requested
@@ -988,6 +1008,12 @@ def send_all(conn, data, on_wait=None):
                 # the watchdog fix above already stops it from crashing.
                 if on_wait is not None:
                     on_wait()
+                # Give the WiFi stack time to drain the buffer rather
+                # than spinning on send() - on the ESP32-C6 (WiFi and
+                # CircuitPython share its one 160MHz high-performance core;
+                # the low-power core runs neither) the busy loop competes
+                # with the radio for the CPU.
+                time.sleep(0.005)
                 continue
             # Anything else (e.g. ECONNRESET/EPIPE because the peer
             # closed the connection) is a real failure - let it
@@ -1439,6 +1465,7 @@ def run_server():
         # goes back to floating even momentarily.
         _release_boot_default_pins()
         firmata = FirmataServer(PIN_TABLE, GROVE_SENSOR_CATALOG)
+        firmata.set_min_sampling_interval(MIN_SAMPLING_INTERVAL_MS)
         # on_connect() just registers the send callback - it deliberately
         # sends nothing itself (see the comment on FirmataServer.on_connect
         # in firmata_server.py for why: NTK's host-side firmata-io library

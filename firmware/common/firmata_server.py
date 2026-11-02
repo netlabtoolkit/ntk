@@ -366,6 +366,10 @@ class FirmataServer:
         num_ports = (len(self.pins) + 7) // 8
         self.port_state = [0] * num_ports
         self.sampling_interval_ms = DEFAULT_SAMPLING_INTERVAL_MS
+        # Floor for client-requested sampling intervals - set by the
+        # board firmware (see set_min_sampling_interval) on boards whose
+        # WiFi can't keep up with NTK's 19ms default.
+        self.min_sampling_interval_ms = 1
         self._last_report_ms = 0
         self._send = None
         self._rx_buffer = bytearray()
@@ -445,6 +449,10 @@ class FirmataServer:
         handler in _feed_byte and QUERY_FIRMWARE sysex handler in
         _dispatch_sysex already answer correctly."""
         self._send = send
+
+    def set_min_sampling_interval(self, ms):
+        self.min_sampling_interval_ms = max(1, ms)
+        self.sampling_interval_ms = max(self.sampling_interval_ms, self.min_sampling_interval_ms)
 
     # ---------------- incoming byte stream ----------------
 
@@ -553,7 +561,7 @@ class FirmataServer:
             self._handle_analog_write(pin_index, value)
         elif cmd == SAMPLING_INTERVAL:
             interval = payload[1] | (payload[2] << 7)
-            self.sampling_interval_ms = max(1, interval)
+            self.sampling_interval_ms = max(self.min_sampling_interval_ms, interval)
         elif cmd == GROVE_SENSOR_REQUEST:
             self._handle_grove_sensor_request(payload[1:])
         elif cmd == ENCODER_DATA:
@@ -1223,6 +1231,23 @@ class FirmataServer:
             return
         self._last_report_ms = now_ms
 
+        # Collect this tick's reports into one buffer and send it once,
+        # instead of one socket send (one tiny TCP packet) per pin.
+        # Found 2026-11-02 on a XIAO ESP32-C6: per-pin sends at NTK's
+        # 19ms default (~50 packets/s per pin) stalled its WiFi link
+        # within seconds, and it never recovered without a reboot. The
+        # S3 copes with the same traffic.
+        real_send = self._send
+        batch = bytearray()
+        self._send = batch.extend
+        try:
+            self._collect_reports(now_ms)
+        finally:
+            self._send = real_send
+        if batch and real_send is not None:
+            real_send(bytes(batch))
+
+    def _collect_reports(self, now_ms):
         for i, pin in enumerate(self.pins):
             if pin.mode == ANALOG and pin.report and pin.io is not None:
                 try:
