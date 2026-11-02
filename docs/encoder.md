@@ -34,7 +34,7 @@ Power a module from **3V3, never 5V**: its built-in resistors connect to whateve
 
 It doesn't matter which signal pin goes to D1 and which to D2. If the value goes the wrong way when you turn, swap the two wires or turn on **rev**.
 
-Many encoders also click down like a button. That push switch is a separate pin, read with its own **DigitalIn** widget.
+Many encoders also click down like a button. That push switch is a separate pin, read with its own **DigitalIn** widget. The switch connects that pin to GND when pressed, so leave the DigitalIn's **pull-up** option on (the default) and pressing reads as on.
 
 ## How it works
 
