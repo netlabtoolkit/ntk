@@ -17,6 +17,7 @@ module.exports = function(options) {
 			ArduinoUno: './ArduinoModel',
 			OSC: './OSC',
 			Cloud: './CloudModel',
+			WiThrottle: './WiThrottleModel',
 			network: './NetworkModel',
 		};
 		var sensors = [],

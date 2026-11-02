@@ -323,7 +323,19 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 				handle: '.dragHandle',
 				drag: (updateCables).bind(this),
 				start: (function() { this.$el.css('z-index', 20); }).bind(this),
-				stop: (function() { this.restoreStack(); }).bind(this),
+				// jQuery UI 1.11's drag start (_normalizeRightBottom) pins
+				// the widget's width and height inline whenever css('right')
+				// isn't "auto" - and Chromium reports a computed px value
+				// for every absolutely placed element, so every drag froze
+				// the widget's box. A widget dragged with its "more" panel
+				// open kept that open size after the panel closed: an
+				// invisible box over the widgets below it, stealing their
+				// clicks (found 2026-11-02 on Scene, whose panel is the
+				// biggest). Let the box size itself again.
+				stop: (function() {
+					this.$el.css({width: '', height: ''});
+					this.restoreStack();
+				}).bind(this),
 			});
 
 			this.$el.css({position: 'absolute'});

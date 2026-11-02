@@ -52,21 +52,21 @@
               <input class="linePrepend" type="text" placeholder="prepend" rv-value="widget:line1Prepend">
               <span class="lineValue" rv-text="widget:line1Value"></span>
               <input class="lineAppend" type="text" placeholder="append" rv-value="widget:line1Append">
-              <br><input class="lineFormat" type="text" placeholder="or format: &lt;1:2&gt;:&lt;2:2&gt;:&lt;3:2&gt;" title="Optional. Replaces prepend/value/append for this line. &lt;1&gt; &lt;2&gt; &lt;3&gt; insert the three inputs; &lt;1:2&gt; pads a number with zeros to 2 digits." rv-value="widget:line1Format">
+              <br><input class="lineFormat" type="text" placeholder="or format: &lt;1:2&gt;:&lt;2:2&gt;:&lt;3:2&gt;" title="Optional. Replaces prepend/value/append for this line. &lt;1&gt; &lt;2&gt; &lt;3&gt; insert the three inputs; &lt;1:2&gt; pads a number with zeros to 2 digits; &lt;1+&gt; always shows a sign (+5, -5, and a space for 0)." rv-value="widget:line1Format">
             </div>
             <div class="lineConfig">
               <label class="narrowLabel">line 2</label> <span class="lineDecimals">decimals <input type="text" pattern="[0-9]*" rv-value="widget:line2Decimals"></span> <span class="lineBlank" title="Show nothing on this line, whatever is wired into its inlet"><input type="checkbox" rv-checked="widget:line2Blank"> blank</span><br>
               <input class="linePrepend" type="text" placeholder="prepend" rv-value="widget:line2Prepend">
               <span class="lineValue" rv-text="widget:line2Value"></span>
               <input class="lineAppend" type="text" placeholder="append" rv-value="widget:line2Append">
-              <br><input class="lineFormat" type="text" placeholder="or format: &lt;1:2&gt;:&lt;2:2&gt;:&lt;3:2&gt;" title="Optional. Replaces prepend/value/append for this line. &lt;1&gt; &lt;2&gt; &lt;3&gt; insert the three inputs; &lt;1:2&gt; pads a number with zeros to 2 digits." rv-value="widget:line2Format">
+              <br><input class="lineFormat" type="text" placeholder="or format: &lt;1:2&gt;:&lt;2:2&gt;:&lt;3:2&gt;" title="Optional. Replaces prepend/value/append for this line. &lt;1&gt; &lt;2&gt; &lt;3&gt; insert the three inputs; &lt;1:2&gt; pads a number with zeros to 2 digits; &lt;1+&gt; always shows a sign (+5, -5, and a space for 0)." rv-value="widget:line2Format">
             </div>
             <div class="lineConfig">
               <label class="narrowLabel">line 3</label> <span class="lineDecimals">decimals <input type="text" pattern="[0-9]*" rv-value="widget:line3Decimals"></span> <span class="lineBlank" title="Show nothing on this line, whatever is wired into its inlet"><input type="checkbox" rv-checked="widget:line3Blank"> blank</span><br>
               <input class="linePrepend" type="text" placeholder="prepend" rv-value="widget:line3Prepend">
               <span class="lineValue" rv-text="widget:line3Value"></span>
               <input class="lineAppend" type="text" placeholder="append" rv-value="widget:line3Append">
-              <br><input class="lineFormat" type="text" placeholder="or format: &lt;1:2&gt;:&lt;2:2&gt;:&lt;3:2&gt;" title="Optional. Replaces prepend/value/append for this line. &lt;1&gt; &lt;2&gt; &lt;3&gt; insert the three inputs; &lt;1:2&gt; pads a number with zeros to 2 digits." rv-value="widget:line3Format">
+              <br><input class="lineFormat" type="text" placeholder="or format: &lt;1:2&gt;:&lt;2:2&gt;:&lt;3:2&gt;" title="Optional. Replaces prepend/value/append for this line. &lt;1&gt; &lt;2&gt; &lt;3&gt; insert the three inputs; &lt;1:2&gt; pads a number with zeros to 2 digits; &lt;1+&gt; always shows a sign (+5, -5, and a space for 0)." rv-value="widget:line3Format">
             </div>
             <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/display/" target="_blank">Widget help</a>

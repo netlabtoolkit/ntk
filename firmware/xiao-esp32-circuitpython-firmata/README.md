@@ -305,7 +305,7 @@ Normally every bit of patch logic runs on the host (NTK itself) - this firmware 
 Setup:
 
 1. In NTK, build your patch and click **Export** (in the Settings drawer) - it downloads `standalone_patch.json` directly, ready to drop onto the board's drive with no rename needed. Export itself doesn't check widget compatibility (it's also just the general "save a copy of this patch" action) - Push to Device does check, and tells you exactly which widget is unsupported if any are, before sending.
-2. Copy the downloaded `standalone_patch.json`, plus this folder's `standalone_interpreter.mpy`, onto the board via Thonny alongside everything from the Setup section above. **Must be the compiled `.mpy`, never the `.py` source** (`../common/standalone_interpreter.py` is the source, kept for reference/recompiling only) - running it as raw source fragments the heap enough to degrade WiFi reliability, and CircuitPython's import resolution between a same-named `.py`/`.mpy` pair in one directory isn't something to rely on, so never let both exist on the board at once.
+2. Copy the downloaded `standalone_patch.json`, plus this folder's `standalone_interpreter.mpy` (and `withrottle.mpy`, for a patch with DCC Throttle / DCC Function widgets; `scene_script.mpy`, for one with a Scene), onto the board via Thonny alongside everything from the Setup section above. **Must be the compiled `.mpy`, never the `.py` source** (`../common/standalone_interpreter.py` is the source, kept for reference/recompiling only) - running it as raw source fragments the heap enough to degrade WiFi reliability, and CircuitPython's import resolution between a same-named `.py`/`.mpy` pair in one directory isn't something to rely on, so never let both exist on the board at once.
 3. Reboot the board. The serial console prints `Standalone patch loaded and compatible: standalone_patch.json`, and the board starts running the patch on its own - watch for `Standalone interpreter running (no client connected)`. If the patch used an unsupported widget, it instead prints exactly which one and the interpreter doesn't start.
 
 Supported widgets: AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, GroveSensor, Display, and all the pure logic/generator widgets (IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse, Sequence, Tween, Data) - the same widgets a `.ntk` patch already saves, no special "standalone" version needed. Not supported: Gesture (an open on-device performance question, not yet resolved) and anything that needs a browser (camera/AI widgets, Text/Image/Button, etc.).
@@ -335,6 +335,8 @@ total, so at most 8 pins can be configured as PWM or Servo outputs at
 the same time - the ESP32-C6 has only 6. Trying to add one more than
 your board's limit will raise an error from `pwmio` - reduce
 simultaneous PWM/Servo widgets if you hit this.
+
+The ESP32-C6's WiFi also can't keep up with NTK's default 19ms reporting rate: the link stalls within seconds and doesn't recover without a reboot (NTK shows "couldn't reach your device" and the console prints `send_all() gave up after 5s of EAGAIN`). On the C6 the firmware therefore reports inputs at most every 50ms (20 times a second), whatever NTK asks for - hardware-verified stable 2026-11-02, while 19ms failed after ~25s. Set `NTK_MIN_SAMPLING_MS` in `settings.toml` to change this (e.g. `33` to try faster, `1` for no limit). The S3 has no limit by default.
 
 ## Troubleshooting
 

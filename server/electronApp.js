@@ -13,6 +13,7 @@ const { spawn } = require('child_process');
 // unlike @serialport/bindings), so it packages the same as everything else.
 const pdfParse = require('pdf-parse');
 const ntk = require('./netlabServer.js')();
+const WiThrottleModel = require('./modules/nlHardware/WiThrottleModel.js');
 
 // LLM widget proxy (Anthropic / Ollama). Registers ipcMain.handle('llm-*').
 require('./llmProxy.js')();
@@ -174,6 +175,18 @@ ipcMain.handle('tts-stop', function(event, opts) { tts.writeExisting(opts.wid, '
 ipcMain.handle('tts-quit', function(event, opts) { tts.quit(opts.wid); return true; });
 
 app.on('will-quit', function() { stt.quitAll(); tts.quitAll(); });
+
+// Stop the trains NTK is driving before quitting - a dropped connection
+// leaves them running on the command station. The quit waits a moment
+// for the stop / release lines to go out, then goes ahead.
+var dccStopped = false;
+app.on('before-quit', function(event) {
+	if (dccStopped) { return; }
+	dccStopped = true;
+	if (WiThrottleModel.stopAll(function() { app.quit(); })) {
+		event.preventDefault();
+	}
+});
 
 var pickFile = async function(dialogName, extensions) {
 	var result = await dialog.showOpenDialog(mainWindow, {
@@ -374,6 +387,74 @@ app.on('ready', function() {
   mainWindow.webContents.setWindowOpenHandler(function(details) {
 	  shell.openExternal(details.url);
 	  return {action: 'deny'};
+  });
+
+  // "Save changes?" when the window closes (Cmd+Q or the close button)
+  // with edits since the last save - they used to be lost silently,
+  // since only File > Save writes currentPatch.ntk (2026-10-29). The
+  // page keeps window.app.patchDirty (Patcher.js's trackUnsavedEdits).
+  // A page that doesn't answer within 2s - hung, crashed, still
+  // loading - lets the window close rather than trapping the user.
+  var closeConfirmed = false;
+  var asking = false;
+  var askAboutUnsavedEdits = async function() {
+	  var withTimeout = function(promise, ms, fallback) {
+		  return Promise.race([promise, new Promise(function(resolve) { setTimeout(function() { resolve(fallback); }, ms); })]);
+	  };
+	  var dirty = await withTimeout(
+		  mainWindow.webContents.executeJavaScript('!!(window.app && window.app.patchDirty)').catch(function() { return false; }),
+		  2000, false);
+	  if(!dirty) {
+		  return true;
+	  }
+	  var choice = await dialog.showMessageBox(mainWindow, {
+		  type: 'question',
+		  buttons: ['Save', "Don't Save", 'Cancel'],
+		  defaultId: 0,
+		  cancelId: 2,
+		  message: 'Save changes to your patch before quitting?',
+		  detail: "If you don't save, the changes you made since your last save will be lost.",
+	  });
+	  if(choice.response === 2) {
+		  return false;
+	  }
+	  if(choice.response === 1) {
+		  return true;
+	  }
+	  var saved = await withTimeout(
+		  mainWindow.webContents.executeJavaScript('window.app.savePatchAndWait ? window.app.savePatchAndWait() : false').catch(function() { return false; }),
+		  7000, false);
+	  if(saved) {
+		  return true;
+	  }
+	  var retry = await dialog.showMessageBox(mainWindow, {
+		  type: 'warning',
+		  buttons: ['Quit Anyway', 'Cancel'],
+		  defaultId: 1,
+		  cancelId: 1,
+		  message: "Your patch couldn't be saved.",
+		  detail: 'Choose Cancel to keep NTK open, then try File > Save or Export.',
+	  });
+	  return retry.response === 0;
+  };
+  mainWindow.on('close', function(e) {
+	  if(closeConfirmed) {
+		  return;
+	  }
+	  // Decided asynchronously; preventing the close also cancels a
+	  // Cmd+Q quit in progress, which is re-issued below if confirmed.
+	  e.preventDefault();
+	  if(asking) {
+		  return;
+	  }
+	  asking = true;
+	  askAboutUnsavedEdits().then(function(ok) {
+		  asking = false;
+		  if(ok && mainWindow) {
+			  closeConfirmed = true;
+			  mainWindow.close();
+		  }
+	  });
   });
 
   // Emitted when the window is closed.

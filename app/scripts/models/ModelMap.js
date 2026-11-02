@@ -3,8 +3,9 @@ define([
 	'models/Network',
 	'models/OSC',
 	'models/Cloud',
+	'models/WiThrottle',
 ],
-function( ArduinoUnoModel, NetworkModel, OSCModel, CloudModel ) {
+function( ArduinoUnoModel, NetworkModel, OSCModel, CloudModel, WiThrottleModel ) {
     'use strict';
 
 	return {
@@ -12,5 +13,6 @@ function( ArduinoUnoModel, NetworkModel, OSCModel, CloudModel ) {
 		network: NetworkModel,
 		OSC: OSCModel,
 		Cloud: CloudModel,
+		WiThrottle: WiThrottleModel,
 	};
 });

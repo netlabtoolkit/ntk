@@ -926,12 +926,17 @@ module.exports = function(five) {
 						// also a better match for what "DigitalIn" means
 						// than Button's press/release-edge abstraction.
 						var digitalReadEvent = 'digital-read-' + hardwarePinNumber;
+						// DigitalIn's pull-up option: a button wired to GND
+						// reads low when pressed, so it's inverted here -
+						// pressed is high either way.
+						var pullup = !!(extraOptions && extraOptions.pullup);
 						boardIO.removeAllListeners(digitalReadEvent);
 						boardIO.on(digitalReadEvent, function(value) {
+							if(pullup) { value = !value; }
 							self.set(pin, value ? 1023 : 0);
 						});
 
-						boardIO.pinMode(hardwarePinNumber, this.PINMODES.INPUT);
+						boardIO.pinMode(hardwarePinNumber, pullup ? this.PINMODES.PULLUP : this.PINMODES.INPUT);
 						boardIO.reportDigitalPin(hardwarePinNumber, 1);
 
 						this.inputs[pin] = {
@@ -1015,6 +1020,34 @@ module.exports = function(five) {
 					// signal was being rebuilt dozens of times a second and
 					// it could barely move (found 2026-10-05: "it still
 					// doesn't follow a drag of the dial").
+					// The pulse widths for 0 and 180 degrees, from the Servo
+					// widget's "more" panel (its hardwareSwitch carries
+					// them; the mode switch on every write doesn't, so
+					// keep the last one asked for). johnny-five sends
+					// them to the board as a servo config, which also
+					// sets the range the firmware clamps pulses to.
+					var requestedRange = extraOptions && extraOptions.pwmRange;
+					if(pinExists && Array.isArray(requestedRange) && requestedRange.length === 2) {
+						var lo = parseInt(requestedRange[0], 10), hi = parseInt(requestedRange[1], 10);
+						if(lo >= 300 && hi <= 3000 && lo < hi) { this.outputs[pin].servoPwmRange = [lo, hi]; }
+					}
+					var pwmRange = (pinExists && this.outputs[pin].servoPwmRange) || [600, 2400];
+
+					// Already a servo, with a new range: tell the board,
+					// then send the same angle again with the new range.
+					if(pinExists && this.outputs[pin].pin instanceof five.Servo) {
+						var servo = this.outputs[pin].pin;
+						if(servo.pwmRange[0] !== pwmRange[0] || servo.pwmRange[1] !== pwmRange[1]) {
+							servo.pwmRange = pwmRange.slice();
+							this.board.io.servoConfig(servo.pin, pwmRange[0], pwmRange[1]);
+							var last = servo.last;
+							if(last && typeof last.target === 'number') {
+								last.degrees = undefined;   // or update() skips it as "same angle"
+								servo.to(last.target);
+							}
+						}
+					}
+
 					if(pinExists && !(this.outputs[pin].pin instanceof five.Servo)) {
 						var hardwarePin = parseInt(pin.substr(1),10);
 
@@ -1029,6 +1062,7 @@ module.exports = function(five) {
 						var outputPin = new five.Servo({
 							pin: hardwarePin,
 							range: [0,180],
+							pwmRange: pwmRange.slice(),
 							board: this.board,
 						});
 

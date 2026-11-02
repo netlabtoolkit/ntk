@@ -13,6 +13,35 @@ define([
 function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalChainClasses, jqueryknob){
     'use strict';
 
+	// Servo calibration and limits (the "more" panel). Fields are
+	// strings from text inputs; a blank or bad one means its default.
+	// The board's interpreter (standalone_interpreter.py's
+	// _servo_settings) reads the same fields the same way.
+	var PULSE_DEFAULT = [600, 2400];   // johnny-five's own default pwmRange
+	var PULSE_BOUNDS = [300, 3000];
+
+	function fieldNumber(value, fallback) {
+		var n = parseFloat(value);
+		return isNaN(n) ? fallback : n;
+	}
+
+	function servoSettings(attrs) {
+		var lo = Math.max(0, Math.min(180, fieldNumber(attrs.servoAngleMin, 0)));
+		var hi = Math.max(0, Math.min(180, fieldNumber(attrs.servoAngleMax, 180)));
+		if(lo > hi) { var t = lo; lo = hi; hi = t; }
+		var pulseMin = Math.round(fieldNumber(attrs.servoPulseMin, PULSE_DEFAULT[0]));
+		var pulseMax = Math.round(fieldNumber(attrs.servoPulseMax, PULSE_DEFAULT[1]));
+		var pulseOk = pulseMin >= PULSE_BOUNDS[0] && pulseMax <= PULSE_BOUNDS[1] && pulseMin < pulseMax;
+		var speed = fieldNumber(attrs.servoMaxSpeed, 0);
+		return {
+			angleMin: lo,
+			angleMax: hi,
+			pulse: pulseOk ? [pulseMin, pulseMax] : PULSE_DEFAULT.slice(),
+			pulseOk: pulseOk,
+			maxSpeed: speed > 0 ? speed : 0,   // degrees/s, 0 = no limit
+		};
+	}
+
 	return WidgetView.extend({
 		// Define the inlets
 		ins: [
@@ -38,12 +67,29 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		template: _.template(Template),
 
 		initialize: function(options) {
+			// Where the servo is heading and where it's been sent so far -
+			// they differ only while a max speed is catching it up. Set
+			// before the model.set below, which runs the signal chain.
+			this.motion = {target: undefined, position: undefined, lastFrame: undefined};
+			this.lastPulseSent = undefined;
+
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
 
             // Call any custom DOM events here
 
+			var keep = function(field, fallback) {
+				var v = this.model.get(field);
+				return v === undefined ? fallback : v;
+			}.bind(this);
+
             this.model.set({
+				servoAngleMin: keep('servoAngleMin', 0),
+				servoAngleMax: keep('servoAngleMax', 180),
+				servoMaxSpeed: keep('servoMaxSpeed', ''),
+				servoPulseMin: keep('servoPulseMin', PULSE_DEFAULT[0]),
+				servoPulseMax: keep('servoPulseMax', PULSE_DEFAULT[1]),
+				servoPulseError: false,
 				title: 'Servo',
 				outputMapping: options.outputMapping,
                 activeOut: false,
@@ -52,6 +98,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
             // If you want to register your own signal processing function, push them to signalChainFunctions
 			this.signalChainFunctions.push(this.limitRange);
+			this.signalChainFunctions.push(this.limitSpeed);
+
+			// Moves the servo on toward its target, at the max speed.
+			this.motionFrameFunc = this.motionFrame.bind(this);
+			window.app.timingController.registerFrameCallback(this.motionFrameFunc, this);
 
 			// Likewise, if you need to register an instance-based processor
 			//this.smoother = new SignalChainClasses.Smoother({tolerance: 50});
@@ -100,6 +151,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
 		onRemove: function() {
 			window.app.vent.off('serialPortList', this.onSerialPortList);
+			window.app.timingController.removeFrameCallback(this.motionFrameFunc, this);
 		},
 
 		onModelChange: function(model) {
@@ -130,6 +182,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 					if(!app.server && changed.deviceType !== "network") {
 						this.requestSerialPorts();
 					}
+				}
+
+				if(changed.servoPulseMin !== undefined || changed.servoPulseMax !== undefined) {
+					var pulseOk = servoSettings(this.model.attributes).pulseOk;
+					if(pulseOk === this.model.get('servoPulseError')) { this.model.set('servoPulseError', !pulseOk); }
+					// A new range for a servo that's already running -
+					// sendPulseRange only sends it if it really changed.
+					if(this.model.get('activeOut') == true) { this.sendPulseRange(); }
 				}
 
 				var inactiveModels = this.inactiveModelsExist();
@@ -313,24 +373,76 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes, modeRequested: 4});
 			var hasInput = (this.deviceMode == 'in');
 
+			var pwmRange = servoSettings(this.model.attributes).pulse;
+			this.lastPulseSent = pwmRange.join('-') + '@' + this.model.get('outputMapping');
 			window.app.vent.trigger('Widget:hardwareSwitch', {
 				deviceType: this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),
 				port: this.model.get("outputMapping"),
 				mode: this.deviceMode,
-				hasInput: hasInput
+				hasInput: hasInput,
+				// The pulse widths (us) for 0 and 180 degrees - see
+				// StandardFirmataModel.js's SERVO case.
+				pwmRange: pwmRange,
 			});
 
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel, modeRequested: 4});
 		},
 
+		// The pulse range again, for a servo already running - only if
+		// it changed (onModelChange can see the same change more than
+		// once, see CLAUDE.md).
+		sendPulseRange: function() {
+			var pwmRange = servoSettings(this.model.attributes).pulse;
+			var key = pwmRange.join('-') + '@' + this.model.get('outputMapping');
+			if(key === this.lastPulseSent) { return; }
+			this.lastPulseSent = key;
+			window.app.vent.trigger('Widget:hardwareSwitch', {
+				deviceType: this.getDeviceModelType() + ":" + this.getDeviceServerName() + ":" + this.getDeviceServerPort(),
+				port: this.model.get("outputMapping"),
+				mode: this.deviceMode,
+				hasInput: false,
+				pwmRange: pwmRange,
+			});
+		},
+
 
 		// Any custom function can be attached to the widget like this "limitRange" function
 		// and can be accessed via this.limitRange();
-        limitRange: function(input) {
-            var output = input;
-            output = Math.max(output, 0);
-            output = Math.min(output, 180);
-            return Number(output);
+        // 0-180, then the "more" panel's angle limits.
+        limitRange: function(input, attrs) {
+            var settings = servoSettings(attrs || this.model.attributes);
+            var output = Number(input);
+            output = Math.max(output, settings.angleMin);
+            output = Math.min(output, settings.angleMax);
+            return output;
+        },
+
+        // With a max speed: out is where the servo has got to, which
+        // motionFrame moves toward the target each frame. Without one
+        // (or before there's any position yet): straight to the target.
+        limitSpeed: function(input, attrs) {
+            if(isNaN(input)) { return input; }
+            var m = this.motion;
+            m.target = input;
+            if(!servoSettings(attrs || this.model.attributes).maxSpeed || m.position === undefined || isNaN(m.position)) {
+                m.position = input;
+            }
+            return m.position;
+        },
+
+        motionFrame: function() {
+            var now = Date.now();
+            var m = this.motion;
+            var dt = m.lastFrame === undefined ? 0 : Math.min(250, now - m.lastFrame) / 1000;
+            m.lastFrame = now;
+            if(m.target === undefined || m.position === undefined || m.position === m.target) { return; }
+            var speed = servoSettings(this.model.attributes).maxSpeed;
+            if(!speed) { m.position = m.target; }
+            else {
+                var step = speed * dt;
+                m.position = m.target > m.position ? Math.min(m.target, m.position + step) : Math.max(m.target, m.position - step);
+            }
+            this.processSignalChain();
         },
 
 	});

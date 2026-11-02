@@ -49,6 +49,18 @@
               </select>
             </div>
             <hr>
+            <div class="servoLimits">
+              <label class="servoLabel" title="Keep the servo between these angles - e.g. to stop a gate before it hits its end stops">angle</label>
+              <input class="servoField" type="text" rv-value="widget:servoAngleMin" title="Lowest angle the servo is sent (0-180)"> to
+              <input class="servoField" type="text" rv-value="widget:servoAngleMax" title="Highest angle the servo is sent (0-180)"><br>
+              <label class="servoLabel" title="How fast the servo may turn. Faster moves are slowed to this speed, so a jump becomes a smooth move. Blank: no limit">max speed</label>
+              <input class="servoField" type="text" rv-value="widget:servoMaxSpeed" title="Degrees per second - blank for no limit"> &deg;/s<br>
+              <label class="servoLabel" title="The control pulse for 0 and 180 degrees, in microseconds. Widen it (e.g. 500 to 2500) if the servo doesn't turn a full 180; narrow it (e.g. 1000 to 2000) if it buzzes at the ends">pulse</label>
+              <input class="servoField" type="text" rv-value="widget:servoPulseMin" rv-class-error="widget:servoPulseError" title="Pulse width for 0 degrees, microseconds (default 600)"> to
+              <input class="servoField" type="text" rv-value="widget:servoPulseMax" rv-class-error="widget:servoPulseError" title="Pulse width for 180 degrees, microseconds (default 2400)"> &micro;s
+              <div class="servoPulseNote" rv-show="widget:servoPulseError">needs 300-3000, low first - using 600-2400</div>
+            </div>
+            <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/servo/" target="_blank">Widget help</a>
         </div>
     </div>

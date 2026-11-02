@@ -1,8 +1,11 @@
 # DCC widgets (WiThrottle, then DCC-EX)
 
-**Status:** plan only (2026-10-19, updated 2026-10-28). No DCC widget
-built yet; the Encoder widget it needs is done (2026-10-27). Decisions
-from Phil are in "Decided" below.
+**Status:** building (2026-10-31). The WiThrottle session, a
+simulated station, DCC Throttle and DCC Function are built in NTK and
+tried on the real station; the board side of DCC Throttle and DCC
+Function is written and tested under CPython (2026-10-31), not yet on
+a board. The Encoder widget is done (2026-10-27). Decisions from Phil
+are in "Decided" below.
 
 Control a model railway's command station from NTK: track power, loco
 speed and direction, turnouts (points), and - on DCC-EX - the
@@ -61,7 +64,8 @@ one broker connection.
 | Widget | Protocol | On a board | Job | Main body | Inlets | Outlets |
 |---|---|---|---|---|---|---|
 | **DCC Station** | WiThrottle | yes | Track power, emergency stop, connection status | Power on/off button, E-stop button, connected / power status | `power` (on when > 0.5), `stop` (rising edge = E-stop) | `power` (1/0), `connected` (1/0) |
-| **DCC Throttle** | WiThrottle | yes | One loco: speed, direction, a few functions | Speed dial (like AnalogOut's), direction toggle, stop button | `speed` (0-126), `step` (+/- change, for an encoder), `direction` (fwd when > 0.5), `address` (switch loco), `fn1`-`fn4` | `speed`, `direction`, `address`, `fn1`-`fn4` (as the station reports them, so another throttle's changes show up) |
+| **DCC Throttle** (built in NTK 2026-10-30) | WiThrottle | yes | One loco: speed and direction | Speed dial (drag / scroll), fwd / rev button, STOP (E-stop, this loco), status line | `speed` (0-126, rescaled from the more panel's range), `step` (+/- change, for an encoder), `direction` (fwd when > 0.5), `stop` (rising = E-stop) | `speed`, `direction` (as the station reports them, so another throttle's changes show up), `address` |
+| **DCC Function** (built in NTK 2026-10-30) | WiThrottle | yes | One function of one loco (headlight, horn, a sound) - one widget per button | Big on / off button, status line | `in` (follow: on while > 0.5; toggle: rising edge switches) | `state` (1 / 0, as the station reports it) |
 | **DCC Turnout** | WiThrottle | yes | One turnout: throw / close, or follow it | Big toggle showing thrown / closed | `in` (thrown when > 0.5) | `state` (1 thrown / 0 closed, as reported), `value` (the "closed" or "thrown" value, e.g. a servo angle) |
 | **DCC Program** | DCC-EX | no | Programming track: read / write CVs and loco address | Read and Write buttons, CV and value fields, result readout | `read` (rising edge), `write` (rising edge), `cv`, `value` | `result` (value read, or -1 on failure), `done` (pulse) |
 | **DCC Route** | WiThrottle | yes | Set an EX-RAIL / JMRI route (e.g. "yard ladder") | Set button, route name, status | `in` (rising edge = set) | `state` (1 when set / active, as reported) |
@@ -69,10 +73,9 @@ one broker connection.
 | **Scene** (new, general NTK, not DCC-only) | - | yes | Plays a timed story - steps, waits, ramps - across several outputs | Play / stop, current step, progress | see [Scene widget](#scene-widget-draft-needs-refinement) | see there |
 
 "More" panels hold the settings: the station's address (see Network),
-and per widget the loco address (Throttle), which
-function numbers `fn1`-`fn4` drive and whether each follows its inlet
-or toggles on each press (Throttle, default F0 headlight, F1, F2, F3,
-following), the turnout and its closed / thrown values (Turnout),
+and per widget the loco address (Throttle, Function), the function
+number and whether it follows its inlet or toggles on each press
+(Function, default F0, following), the turnout and its closed / thrown values (Turnout),
 pins A / B and limits (Encoder), program-on-main mode (Program).
 
 ## Turnout terms
@@ -134,7 +137,7 @@ a direction switch, a few function buttons, optionally the OLED.
 
     Encoder --step--> DCC Throttle <--direction-- DigitalIn (switch)
     DigitalIn (stop button) --stop--> DCC Throttle
-    DigitalIn (buttons) --fn1..fn4--> DCC Throttle
+    DigitalIn (buttons) --in--> DCC Function (one per button)
     DCC Throttle --speed / address--> Display (OLED)
 
 - **Stop is its own button**, not a press on the encoder: a stop should
@@ -147,13 +150,19 @@ a direction switch, a few function buttons, optionally the OLED.
   the speed by the Encoder's own `step` setting (e.g. 2 of 126). At 0
   it stops; it doesn't
   go through zero into reverse (possible later option).
-- **Functions:** a button held down is right for a horn ("follow"), a
-  headlight wants "toggle on press" - per function, in the more panel,
-  so no Count / Boolean per button.
-- **Picking the loco:** the `address` inlet switches locos - the old
-  one is stopped and released first. E.g. a few buttons each sending a
-  fixed address through Data, or the encoder in a "select" mode built
-  with Gate. `address` outlet so the OLED can show it.
+- **Fractional steps for fine control:** the Throttle keeps its speed
+  as a decimal and sends it rounded (DCC and WiThrottle only take
+  whole steps, 0-126), so an Encoder `step` of 0.5 takes two clicks per
+  speed step - finer feel for slow shunting - and 1.5 alternates one
+  and two. See "Fractional speed" below.
+- **Functions:** one DCC Function widget per button. A button held
+  down is right for a horn ("follow"), a headlight wants "toggle on
+  press" - set per widget in the more panel, so no Count / Boolean per
+  button.
+- **Picking the loco:** the loco address is set in the more panel for
+  now; an `address` inlet to switch locos from the box is Later (it
+  was cut to keep the Throttle at four inlets). `address` outlet so
+  the OLED can show it.
 - **The OLED** (Display widget, already portable) shows address and
   speed - a handheld with no display is hard to use.
 
@@ -233,6 +242,9 @@ role meanwhile, since the station takes several clients.
 
 ## Scene widget (draft, needs refinement)
 
+**Superseded by [its own plan](scene-widget.md)** (2026-10-30); the
+draft below is kept for the record.
+
 A general NTK widget, not DCC-specific: a list of timed steps that
 plays out a story across several outputs. Today a multi-step story is
 a tangle of Pulse, Gate, IfThen and Sequence (which only has 4 ramps);
@@ -274,7 +286,7 @@ becomes the count) - no per-click `step` outlet.
 **`step` outlet - built 2026-10-29** (NTK widget, interpreter, docs;
 not yet hardware-tested or committed). Model field `delta` (the
 widget's `step` field is already the step size). Each turn sends
-clicks x step, `rev` applied, held for 100 ms (visible on a Text
+clicks x step, `rev` applied, held for 200 ms (visible on a Text
 widget), then 0 for at least one frame (live) / tick (board) before
 the next turn, so two equal clicks in a row are two changes to a
 receiver; turning during the hold is added up and sent together. Not limited by min / max / wrap; `set` sends nothing;
@@ -469,6 +481,26 @@ from that new speed. A wired `speed` inlet wins again on its next
 value. Changes the widget made itself come back too; they only update
 the display, never get sent again.
 
+**Fractional speed (decided 2026-10-29).** DCC itself has only whole
+speed steps (DCC-EX `<t>` 0-127 with 1 = E-stop, WiThrottle `V`
+0-126; decoders' own 28/14-step modes are coarser still), so the
+station never sees a decimal. DCC Throttle keeps the speed it is
+heading for as a decimal, `speedExact`, and sends `round(speedExact)`:
+- `step` adds to `speedExact`, then clamps it to 0-126.
+- Only a change in the *rounded* value is sent - a 0.5 click that
+  doesn't cross a whole step sends nothing (and nothing to rate-limit).
+- A remote change (another throttle) or a wired `speed` value sets
+  `speedExact` to that value outright, dropping any fraction, so the
+  next click starts from where the loco really is. The widget's own
+  echo doesn't reset it (it only updates the display, as above), or a
+  0.5 click would be lost on every round trip.
+- The dial and `speed` outlet show the rounded speed, the one the loco
+  is actually running at.
+- A wired `speed` inlet is rounded the same way (AnalogOut-style
+  rescaling often gives decimals).
+Tested 2026-10-29 with the Encoder alone: `step` 1.5 counts as
+expected; the Throttle side is still to build.
+
 ## Safety
 
 A train keeps running at its last speed when its throttle stops
@@ -516,16 +548,82 @@ talking.
    loco messages as listed above; a virtual turnout's changes being
    announced; `rotaryio` on the XIAO ESP32-C6. A short Python script
    from the computer covers the station checks.
+   **Mostly done 2026-10-29** with `test/dcc-spike.py` against Phil's
+   EX-CSB1 (DCC-EX v5.6.6, ESP32, on the home network):
+   - Session, power, acquire, speed, direction, F0, release and E-stop
+     all work as listed above. The station first announces a 2 s
+     heartbeat (`*2`), then `*10` once connected: the client should
+     follow the station's `*N`, not a fixed interval. It also sends
+     `HMConnecting..` / `HMConnected` messages.
+   - **At most 9 WiThrottle clients** (checked twice). The 10th TCP
+     connection is accepted but never answered - no error, just
+     silence - so a client must treat "no `VN` within a few seconds" as
+     "station full" and say so. Nine covers a handheld, a few servo
+     boards and NTK, but is tight once animation boards are added.
+   - **A decimal speed (`V7.5`) is accepted**: the loco crept forward,
+     nothing misread. The Throttle still sends whole numbers, as
+     planned, so this is only a safety check.
+   - Native `<s>`, `<JT>`, `<JA>`, `<#>` (120 loco slots) answer on
+     their own socket.
+   - **The heartbeat safety net works**: a loco whose client stopped
+     sending `*` (still connected) was stopped by the station after
+     about 20 s - twice the `*10` interval. So a board that hangs or
+     drops off WiFi leaves its train running for up to ~20 s.
+   - Acquiring a loco (`MT+S3<;>S3`) returns its full state at once:
+     all 32 functions (`F00`..`F031`, e.g. `F11` = F1 on), `s1`, speed
+     and direction. An E-stopped loco reports **`V-1`**, which the
+     Throttle must show as stopped, not as -1. Every `V` / `R` sent is
+     echoed straight back.
+   - Still to do: a virtual turnout's changes being announced (none
+     defined yet), and `rotaryio` on the XIAO ESP32-C6.
 1. `WiThrottleModel.js` + simulator + **DCC Station** in NTK.
+   **Session, simulator, DCC Throttle and DCC Function built in NTK
+   2026-10-30** (`server/modules/nlHardware/WiThrottleModel.js`,
+   `withrottle.js`, `test/withrottle-test.js`); DCC Station not yet.
+   **Tried on the EX-CSB1 2026-10-31:** STOP, F0 headlight and
+   phone <-> NTK on the same loco (both directions) all work - so the
+   station does pass one client's changes to the others. No momentary
+   function on that loco to try. Switching off didn't stop the train:
+   the loco stayed held by a DCC Function, and quitting NTK just
+   dropped the connection, which the station leaves running. Fixed:
+   a Throttle switched off stops its train even while a Function holds
+   the loco, and quitting NTK stops and releases every loco first.
 2. **DCC Turnout** in NTK - first of the widgets, since servo and
    animation boards both need it and it moves no trains.
 3. **On the board:** WiThrottle client + DCC Station and DCC Turnout in
    the interpreter, added to both portable lists
    (`StandaloneCompatibility.js`, `PORTABLE_TYPE_IDS`). A servo board
    following a virtual turnout is the first real standalone test.
-4. ~~**Encoder**~~ - done 2026-10-27; `step` outlet added 2026-10-29
-   (hardware test still to do).
+4. ~~**Encoder**~~ - done 2026-10-27; `step` outlet added 2026-10-29,
+   tried with the real encoder driving DCC Throttle's `step` on the
+   EX-CSB1 2026-10-31.
 5. **DCC Throttle** in NTK, then on the board - the handheld.
+   **Board side written 2026-10-31**, DCC Function with it:
+   `firmware/common/withrottle.py` (protocol + session, ported from
+   `withrottle.js` / `WiThrottleModel.js`, shipped as `withrottle.mpy`)
+   and a `dcc` step in the interpreter; both widgets added to both
+   portable lists. Tested with `python3 -I test/withrottle_test.py`
+   (a fake station on a local TCP port; parse / command cases shared
+   with the JS test through `test/withrottle-cases.json`). As in NTK:
+   one session per station, one loco shared by the widgets on it, only
+   widgets saved switched on take part, inlets act only when wired and
+   on a new value. Connecting waits at most 1 s, then retries every
+   5 s while ticking. NTK taking over the board stops, releases and
+   quits; giving it back reconnects. Also fixed: Monitor mode pushed
+   the board's inlet values into NTK's own DCC widgets as if from a
+   cable, so an active Throttle in NTK would have sent every step a
+   second time - they now only show the values while monitored.
+   **On the board 2026-10-31:** Phil pushed the handheld patch and the
+   XIAO drove the train on its own, no NTK running. Exiting the
+   firmware (Ctrl-C, a reload after saving a file, a crash) now stops
+   and releases the board's locos first, instead of leaving them to
+   the station's ~20 s heartbeat - tried on the board, works. Display
+   lines with no cable are blank now (NTK and board), also tried.
+   Stop button (a DigitalIn into `stop`) works on the board too,
+   with DigitalIn's new pull-up option (on by default, button to GND).
+   Still to try: a function, a phone on the same loco, NTK
+   taking over and giving back, pulling the board's power (the
+   station's heartbeat should stop the train within ~20 s).
 6. **DCC Route** in NTK, then on the board.
 7. **Scene** - after refining the design with Phil; NTK, then the
    interpreter. Independent of the DCC phases (needs no station), so
@@ -559,8 +657,8 @@ station.
   the more panel's dropdown reads e.g. "12 - Yard entry". Until the
   station is connected it shows the saved turnout only, so a loaded
   patch still works; the simulated station lists its own turnouts.
-- **Throttle has 4 function inlets**, `fn1`-`fn4`, each mapped to a
-  function number in the more panel (default F0-F3).
+- ~~**Throttle has 4 function inlets**~~ - replaced 2026-10-30 by
+  separate DCC Function widgets (see Decided 2026-10-30).
 - **Boards drive virtual turnouts' points** (DCC Turnout's `value` into
   a Servo).
 - **Master control with a touch screen** is a wildcard, not planned.
@@ -585,8 +683,36 @@ station.
   Throttle owns the speed (kept current by the station's reports);
   the Encoder gets a new `step` outlet alongside its existing `out`,
   which stays as-is for ordinary knob uses. See Rotary encoder.
+- **Fractional speed:** the Throttle keeps a decimal speed and sends
+  it rounded, so a fractional Encoder `step` (0.5, 1.5) gives finer
+  control. See "Fractional speed" under Status updates.
+
+## Decided (2026-10-30)
+
+- **Throttle split:** nine inlets and seven outlets made the Throttle
+  tall and messy (and the more panel covered an outlet). The Throttle
+  keeps `speed`, `step`, `direction`, `stop` in and `speed`,
+  `direction`, `address` out; functions moved to a new **DCC
+  Function** widget, one per function, sharing the loco and the
+  station session with the Throttle. The `address` inlet moved to
+  Later.
+- **Functions are set by toggling:** DCC-EX's WiThrottle only offers a
+  press, which toggles. To set a function on or off, NTK presses only
+  when the station's reported state differs, and waits for the
+  report before pressing again. A function the station treats as
+  momentary may not stay on - to check on the real station.
+- **Switching a Throttle / Function off** stops the loco normally
+  (speed 0, not an E-stop) and releases it, once no widget in NTK
+  still uses it.
+- **Power from the Throttle:** until DCC Station exists, the status
+  line reads "power off" when track power is off, and clicking it
+  turns power on.
 
 ## Later (not in this plan)
+
+- **Throttle `address` inlet** - switch locos from the patch (e.g. a
+  few buttons each sending a fixed address through Data); the old loco
+  is stopped and released first.
 
 - **Raw command / response** on DCC Station - send any `<...>` text,
   get every reply back as text (DCC-EX native, NTK only).

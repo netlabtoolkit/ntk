@@ -255,4 +255,10 @@ and shipped. Its historical step-by-step plan is at
   2026-10-27); a general Scene widget for story-like animations
   (crossing, workers - design to refine); then DCC Program
   (programming track, NTK only) over DCC-EX's native protocol. Plan
+  only; station spike done 2026-10-29.
+- **[Scene widget](scene-widget.md)** — a short text script of cues
+  (each started by play, a sensor or a time; lines inside timed from
+  the cue's start) that plays a little story across four outlets, with
+  an `idle:` section for how it looks when idle; same script runs in NTK
+  and on the board, and a visual timeline can go on top later. Plan
   only.

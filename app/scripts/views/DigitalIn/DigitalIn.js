@@ -47,7 +47,12 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				smoothingAmount: 250,
 				active: false,
 				port: this.model.get('port') || 3030,
-
+				// On (the default, 2026-10-31): the pin's pull-up resistor,
+				// for a button wired to GND - read inverted, so pressed is
+				// still high. Off: its pull-down, for a button wired to
+				// 3.3V. A patch saved before the option existed gets the
+				// default too.
+				pullup: this.model.get('pullup') !== false,
 			});
 
 			this.easingLast = 0;
@@ -130,6 +135,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				port: this.sources[0].map.sourceField,
 				mode: 'INPUT',
 				hasInput: true,
+				pullup: this.model.get('pullup') !== false,
 			});
 		},
 		requestSerialPorts: function() {
@@ -162,6 +168,9 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				}
 				if(changed.port) {
 					this.model.set({port: changed.port, active: false});
+				}
+				if(changed.pullup !== undefined) {
+					this.switchToInputMode();
 				}
 
 				if(changed.deviceType) {

@@ -340,7 +340,11 @@ from firmata_server import (
     DEVICE_STATUS_STANDALONE,
     encode_device_status_reply,
 )
-from pins import PIN_TABLE, GROVE_SENSOR_CATALOG
+from pins import PIN_TABLE, GROVE_SENSOR_CATALOG, scan_grove_sensors
+import firmata_server
+# A Grove sensor plugged in after boot is found when something asks for
+# it - see firmata_server.grove_rescan.
+firmata_server.grove_rescan = scan_grove_sensors
 
 # Boot-time default: every digital-capable pin driven LOW rather than
 # left floating, for the window before ANYTHING has claimed the board
@@ -837,6 +841,11 @@ def _reset_display_text_state():
     global _display_last_lines, _display_wanted_lines
     _display_last_lines = None
     _display_wanted_lines = None
+    # And blank them: whatever the standalone patch or the last session
+    # left there isn't this client's. A Display widget in the client's
+    # patch sends its own lines as soon as it connects; a patch without
+    # one now shows nothing rather than stale text.
+    oled_display.set_lines([])
 
 
 def _flush_display_text():
@@ -930,6 +939,26 @@ CONNECTION_GRACE_PERIOD_S = 2
 SEND_RETRY_TIMEOUT_S = 5
 
 
+# Shortest analog/digital reporting interval a client may ask for.
+# The XIAO ESP32-C6's WiFi stalls (and doesn't recover without a
+# reboot) under NTK's default 19ms reporting - found 2026-11-02 - so
+# it gets a slower floor by default. Override with NTK_MIN_SAMPLING_MS
+# in settings.toml (1 = no floor).
+def _min_sampling_interval_ms():
+    import os
+    import board
+    value = os.getenv("NTK_MIN_SAMPLING_MS")
+    if value is not None:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            print("Ignoring NTK_MIN_SAMPLING_MS =", value, "(not a whole number)")
+    return 50 if "c6" in board.board_id.lower() else 1
+
+
+MIN_SAMPLING_INTERVAL_MS = _min_sampling_interval_ms()
+
+
 def send_all(conn, data, on_wait=None):
     # socket.send() returns the number of bytes actually accepted, same
     # as POSIX send() - it can legitimately send fewer than requested
@@ -979,6 +1008,12 @@ def send_all(conn, data, on_wait=None):
                 # the watchdog fix above already stops it from crashing.
                 if on_wait is not None:
                     on_wait()
+                # Give the WiFi stack time to drain the buffer rather
+                # than spinning on send() - on the ESP32-C6 (WiFi and
+                # CircuitPython share its one 160MHz high-performance core;
+                # the low-power core runs neither) the busy loop competes
+                # with the radio for the CPU.
+                time.sleep(0.005)
                 continue
             # Anything else (e.g. ECONNRESET/EPIPE because the peer
             # closed the connection) is a real failure - let it
@@ -1039,6 +1074,20 @@ def _check_keypress():
     elif key == "m":
         gc.collect()
         print("Free memory:", gc.mem_free(), "bytes")
+    elif key == "g":
+        # Look for Grove sensors plugged in since boot, then start any
+        # the standalone patch was waiting for.
+        found = firmata_server.rescan_grove_sensors()
+        if not found:
+            print("Grove rescan: nothing new")
+        if _standalone is not None:
+            _standalone.retry_grove_sensors()
+    elif key == "d" and _standalone is not None:
+        tracing = _standalone.toggle_dcc_trace()
+        if tracing is None:
+            print("No DCC widgets in this patch")
+        else:
+            print("DCC trace", "on - every line to (>) and from (<) the station" if tracing else "off")
 
 
 _MONITOR_REQUEST_BYTES = bytes([START_SYSEX, STANDALONE_MONITOR_REQUEST, END_SYSEX])
@@ -1249,11 +1298,11 @@ def run_server():
         _standalone.claim_hardware()
         oled_display.set_mode("standalone")
         print("Standalone interpreter running (no client connected)")
-        print("Press 'v' for live values, 't' for topology, 'r' for WiFi RSSI, 'm' for free memory, at any time on this console.")
+        print("Press 'v' for live values, 't' for topology, 'r' for WiFi RSSI, 'm' for free memory, 'g' to look for Grove sensors, 'd' to trace DCC lines, at any time on this console.")
         print("(Click in this pane, press the desired key, and hit Enter.)")
     else:
         oled_display.set_mode("waiting")
-        print("Press 'r' for WiFi RSSI, 'm' for free memory, at any time on this console.")
+        print("Press 'r' for WiFi RSSI, 'm' for free memory, 'g' to look for Grove sensors, 'd' to trace DCC lines, at any time on this console.")
         print("(Click in this pane, press the desired key, and hit Enter.)")
 
     # Steady-state post-init reading - WiFi up, server listening,
@@ -1416,6 +1465,7 @@ def run_server():
         # goes back to floating even momentarily.
         _release_boot_default_pins()
         firmata = FirmataServer(PIN_TABLE, GROVE_SENSOR_CATALOG)
+        firmata.set_min_sampling_interval(MIN_SAMPLING_INTERVAL_MS)
         # on_connect() just registers the send callback - it deliberately
         # sends nothing itself (see the comment on FirmataServer.on_connect
         # in firmata_server.py for why: NTK's host-side firmata-io library
@@ -1554,6 +1604,9 @@ def run_server():
             # standalone patch, if one's loaded (see the claim_hardware()
             # call just below).
             oled_display.set_mode("standalone" if _standalone is not None else "waiting")
+            # The client's Display text is gone with it - the standalone
+            # patch's Display (if any) redraws on its first tick.
+            _reset_display_text_state()
             led_set_pattern(_LED_STANDALONE_RUNNING if _standalone is not None else _LED_WAITING)
             if _standalone is not None:
                 # Explicit handoff, the other direction - the client that
@@ -1610,4 +1663,16 @@ def run(ap_started, firmata_port):
     if not ap_started:
         _use_existing_watchdog()
 
-    run_server()
+    try:
+        run_server()
+    except BaseException:
+        # Ctrl-C on the console, a reload after a file was saved, or a
+        # crash: a train the standalone patch is driving would otherwise
+        # keep running until the station's heartbeat stops it (~20 s).
+        # Stop and release it now, then exit as before.
+        if _standalone is not None:
+            try:
+                _standalone.release_dcc()
+            except Exception as e:
+                print("Couldn't stop the DCC locos:", e)
+        raise

@@ -1,0 +1,370 @@
+{
+	"about": "WiThrottle lines and commands, checked by both test/withrottle-test.js (NTK) and test/withrottle_test.py (the board). Generated from withrottle.js; edit both sides if a case changes.",
+	"locoKeys": [
+		{
+			"address": 3,
+			"key": "S3"
+		},
+		{
+			"address": "127",
+			"key": "S127"
+		},
+		{
+			"address": 128,
+			"key": "L128"
+		},
+		{
+			"address": 10239,
+			"key": "L10239"
+		},
+		{
+			"address": 10240,
+			"key": null
+		},
+		{
+			"address": 0,
+			"key": null
+		},
+		{
+			"address": 2.5,
+			"key": null
+		},
+		{
+			"address": "x",
+			"key": null
+		}
+	],
+	"parse": [
+		{
+			"line": "VN2.0",
+			"events": [
+				{
+					"type": "version",
+					"value": "2.0"
+				}
+			]
+		},
+		{
+			"line": "*10",
+			"events": [
+				{
+					"type": "heartbeat",
+					"seconds": 10
+				}
+			]
+		},
+		{
+			"line": "*2",
+			"events": [
+				{
+					"type": "heartbeat",
+					"seconds": 2
+				}
+			]
+		},
+		{
+			"line": "PPA1",
+			"events": [
+				{
+					"type": "power",
+					"value": 1
+				}
+			]
+		},
+		{
+			"line": "PPA0",
+			"events": [
+				{
+					"type": "power",
+					"value": 0
+				}
+			]
+		},
+		{
+			"line": "PPA2",
+			"events": [
+				{
+					"type": "power",
+					"value": null
+				}
+			]
+		},
+		{
+			"line": "HMConnected",
+			"events": [
+				{
+					"type": "message",
+					"text": "Connected"
+				}
+			]
+		},
+		{
+			"line": "HmConnecting..",
+			"events": [
+				{
+					"type": "message",
+					"text": "Connecting.."
+				}
+			]
+		},
+		{
+			"line": "RL0",
+			"events": []
+		},
+		{
+			"line": "PTL",
+			"events": []
+		},
+		{
+			"line": "MT+S3<;>",
+			"events": [
+				{
+					"type": "acquired",
+					"throttle": "T",
+					"key": "S3"
+				}
+			]
+		},
+		{
+			"line": "MT-S3<;>",
+			"events": [
+				{
+					"type": "released",
+					"throttle": "T",
+					"key": "S3"
+				}
+			]
+		},
+		{
+			"line": "M0-L1234<;>",
+			"events": [
+				{
+					"type": "released",
+					"throttle": "0",
+					"key": "L1234"
+				}
+			]
+		},
+		{
+			"line": "MTAS3<;>V50",
+			"events": [
+				{
+					"type": "speed",
+					"throttle": "T",
+					"key": "S3",
+					"value": 50,
+					"estop": false
+				}
+			]
+		},
+		{
+			"line": "MTAS3<;>V-1",
+			"events": [
+				{
+					"type": "speed",
+					"throttle": "T",
+					"key": "S3",
+					"value": 0,
+					"estop": true
+				}
+			]
+		},
+		{
+			"line": "MTAS3<;>V7.5",
+			"events": [
+				{
+					"type": "speed",
+					"throttle": "T",
+					"key": "S3",
+					"value": 7.5,
+					"estop": false
+				}
+			]
+		},
+		{
+			"line": "MTAS3<;>R0",
+			"events": [
+				{
+					"type": "direction",
+					"throttle": "T",
+					"key": "S3",
+					"value": 0
+				}
+			]
+		},
+		{
+			"line": "MTAS3<;>R1",
+			"events": [
+				{
+					"type": "direction",
+					"throttle": "T",
+					"key": "S3",
+					"value": 1
+				}
+			]
+		},
+		{
+			"line": "MTAS3<;>F112",
+			"events": [
+				{
+					"type": "function",
+					"throttle": "T",
+					"key": "S3",
+					"fn": 12,
+					"value": 1
+				}
+			]
+		},
+		{
+			"line": "MTAS3<;>F00",
+			"events": [
+				{
+					"type": "function",
+					"throttle": "T",
+					"key": "S3",
+					"fn": 0,
+					"value": 0
+				}
+			]
+		},
+		{
+			"line": "MTAS3<;>s1",
+			"events": []
+		},
+		{
+			"line": "MTA*<;>V0",
+			"events": [
+				{
+					"type": "speed",
+					"throttle": "T",
+					"key": "*",
+					"value": 0,
+					"estop": false
+				}
+			]
+		},
+		{
+			"line": "MTAS3<;>Vx",
+			"events": []
+		},
+		{
+			"line": "MTAx3<;>V5",
+			"events": []
+		},
+		{
+			"line": "  MTAS3<;>V5  ",
+			"events": [
+				{
+					"type": "speed",
+					"throttle": "T",
+					"key": "S3",
+					"value": 5,
+					"estop": false
+				}
+			]
+		},
+		{
+			"line": "garbage",
+			"events": []
+		},
+		{
+			"line": "",
+			"events": []
+		}
+	],
+	"commands": [
+		{
+			"name": "hello",
+			"args": [
+				"NTK board",
+				"NTK-ab12"
+			],
+			"lines": [
+				"NNTK board",
+				"HUNTK-ab12"
+			]
+		},
+		{
+			"name": "power",
+			"args": [
+				1
+			],
+			"lines": [
+				"PPA1"
+			]
+		},
+		{
+			"name": "power",
+			"args": [
+				0
+			],
+			"lines": [
+				"PPA0"
+			]
+		},
+		{
+			"name": "acquire",
+			"args": [
+				"T",
+				"S3"
+			],
+			"lines": [
+				"MT+S3<;>S3"
+			]
+		},
+		{
+			"name": "release",
+			"args": [
+				"T",
+				"S3"
+			],
+			"lines": [
+				"MT-S3<;>r"
+			]
+		},
+		{
+			"name": "speed",
+			"args": [
+				"T",
+				"S3",
+				40
+			],
+			"lines": [
+				"MTAS3<;>V40"
+			]
+		},
+		{
+			"name": "estop",
+			"args": [
+				"0",
+				"L1234"
+			],
+			"lines": [
+				"M0AL1234<;>X"
+			]
+		},
+		{
+			"name": "direction",
+			"args": [
+				"T",
+				"S3",
+				0
+			],
+			"lines": [
+				"MTAS3<;>R0"
+			]
+		},
+		{
+			"name": "toggleFunction",
+			"args": [
+				"T",
+				"S3",
+				12
+			],
+			"lines": [
+				"MTAS3<;>F112",
+				"MTAS3<;>F012"
+			]
+		}
+	]
+}

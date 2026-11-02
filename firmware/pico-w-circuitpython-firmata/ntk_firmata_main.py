@@ -357,7 +357,11 @@ from firmata_server import (
     DEVICE_STATUS_STANDALONE,
     encode_device_status_reply,
 )
-from pins import PIN_TABLE, GROVE_SENSOR_CATALOG
+from pins import PIN_TABLE, GROVE_SENSOR_CATALOG, scan_grove_sensors
+import firmata_server
+# A Grove sensor plugged in after boot is found when something asks for
+# it - see firmata_server.grove_rescan.
+firmata_server.grove_rescan = scan_grove_sensors
 
 # Boot-time default: every digital-capable pin driven LOW rather than
 # left floating, for the window before ANYTHING has claimed the board
@@ -853,6 +857,11 @@ def _reset_display_text_state():
     global _display_last_lines, _display_wanted_lines
     _display_last_lines = None
     _display_wanted_lines = None
+    # And blank them: whatever the standalone patch or the last session
+    # left there isn't this client's. A Display widget in the client's
+    # patch sends its own lines as soon as it connects; a patch without
+    # one now shows nothing rather than stale text.
+    oled_display.set_lines([])
 
 
 def _flush_display_text():
@@ -995,6 +1004,9 @@ def send_all(conn, data, on_wait=None):
                 # the watchdog fix above already stops it from crashing.
                 if on_wait is not None:
                     on_wait()
+                # Give the WiFi stack time to drain the buffer rather
+                # than spinning on send() (see the XIAO firmware's copy).
+                time.sleep(0.005)
                 continue
             # Anything else (e.g. ECONNRESET/EPIPE because the peer
             # closed the connection) is a real failure - let it
@@ -1060,6 +1072,20 @@ def _check_keypress():
     elif key == "m":
         gc.collect()
         print("Free memory:", gc.mem_free(), "bytes")
+    elif key == "g":
+        # Look for Grove sensors plugged in since boot, then start any
+        # the standalone patch was waiting for.
+        found = firmata_server.rescan_grove_sensors()
+        if not found:
+            print("Grove rescan: nothing new")
+        if _standalone is not None:
+            _standalone.retry_grove_sensors()
+    elif key == "d" and _standalone is not None:
+        tracing = _standalone.toggle_dcc_trace()
+        if tracing is None:
+            print("No DCC widgets in this patch")
+        else:
+            print("DCC trace", "on - every line to (>) and from (<) the station" if tracing else "off")
 
 
 _MONITOR_REQUEST_BYTES = bytes([START_SYSEX, STANDALONE_MONITOR_REQUEST, END_SYSEX])
@@ -1270,11 +1296,11 @@ def run_server():
         _standalone.claim_hardware()
         oled_display.set_mode("standalone")
         print("Standalone interpreter running (no client connected)")
-        print("Press 'v' for live values, 't' for topology, 'r' for WiFi RSSI, 'm' for free memory, at any time on this console.")
+        print("Press 'v' for live values, 't' for topology, 'r' for WiFi RSSI, 'm' for free memory, 'g' to look for Grove sensors, 'd' to trace DCC lines, at any time on this console.")
         print("(Click in this pane, press the desired key, and hit Enter.)")
     else:
         oled_display.set_mode("waiting")
-        print("Press 'r' for WiFi RSSI, 'm' for free memory, at any time on this console.")
+        print("Press 'r' for WiFi RSSI, 'm' for free memory, 'g' to look for Grove sensors, 'd' to trace DCC lines, at any time on this console.")
         print("(Click in this pane, press the desired key, and hit Enter.)")
 
     # Steady-state post-init reading - WiFi up, server listening,
@@ -1571,6 +1597,9 @@ def run_server():
             # standalone patch, if one's loaded (see the claim_hardware()
             # call just below).
             oled_display.set_mode("standalone" if _standalone is not None else "waiting")
+            # The client's Display text is gone with it - the standalone
+            # patch's Display (if any) redraws on its first tick.
+            _reset_display_text_state()
             led_set_pattern(_LED_STANDALONE_RUNNING if _standalone is not None else _LED_WAITING)
             if _standalone is not None:
                 # Explicit handoff, the other direction - the client that
@@ -1627,4 +1656,16 @@ def run(ap_started, firmata_port):
     if not ap_started:
         _use_existing_watchdog()
 
-    run_server()
+    try:
+        run_server()
+    except BaseException:
+        # Ctrl-C on the console, a reload after a file was saved, or a
+        # crash: a train the standalone patch is driving would otherwise
+        # keep running until the station's heartbeat stops it (~20 s).
+        # Stop and release it now, then exit as before.
+        if _standalone is not None:
+            try:
+                _standalone.release_dcc()
+            except Exception as e:
+                print("Couldn't stop the DCC locos:", e)
+        raise

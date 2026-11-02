@@ -19,7 +19,8 @@ app/scripts/utils/StandaloneCompatibility.js's PORTABLE_TYPE_IDS; there's
 no shared source between JS and Python:
     AnalogIn, AnalogOut, DigitalIn, DigitalOut, Servo, GroveSensor,
     IfThen, Boolean, Gate, Mix, Splitter, Process, Count, Concat, Pulse,
-    Sequence, Tween, Data, OSCIn, OSCOut, CloudIn, CloudOut
+    Sequence, Tween, Data, OSCIn, OSCOut, CloudIn, CloudOut, Display,
+    NeoPixel, Encoder, DCCThrottle, DCCFunction
 load() rejects anything outside this list the same way the JS checker
 does - clearly, not silently.
 
@@ -73,6 +74,20 @@ actual change only, same simplification OSCOut already makes for its
 own roundToInt-only chain handling; the full throttle/average/settle
 machinery is a possible future addition, not attempted in this pass.
 
+DCCThrottle/DCCFunction (added 2026-10-31) drive a train through the
+board's own WiThrottle session with the command station - withrottle.py
+(a port of NTK's withrottle.js / WiThrottleModel.js), imported only
+when a patch has a DCC widget. One session per station host:port,
+shared by every DCC widget pointed at it, and one loco shared by every
+widget on it - the same sharing WiThrottleModel.js does live. Only
+widgets saved switched on take part. Unlike Cloud, the session keeps
+reconnecting while ticking (every withrottle.RECONNECT_S): stations get
+switched off and on with the layout. release_hardware() (NTK taking
+over the board) stops and releases every loco and quits the session;
+the station's own heartbeat stops them if the board just dies. Inlets
+act only when wired and only on a new value, as the live widgets act
+only on values arriving through a cable.
+
 GroveSensor reuses the SAME `GROVE_SENSOR_CATALOG` (from pins.py)
 firmata_server.py's sysex handler reads from - subscribing calls a
 catalog entry's own `read`/`make_read` function directly, same
@@ -119,7 +134,15 @@ PORTABLE_TYPE_IDS = frozenset([
     'IfThen', 'Boolean', 'Gate', 'Mix', 'Splitter', 'Process', 'Count',
     'Concat', 'Pulse', 'Sequence', 'Tween', 'Data', 'OSCIn', 'OSCOut',
     'CloudIn', 'CloudOut', 'Display', 'NeoPixel', 'Encoder',
+    'DCCThrottle', 'DCCFunction', 'Scene',
 ])
+
+# Driven by the board's WiThrottle session, see the module docstring.
+DCC_TYPES = frozenset(['DCCThrottle', 'DCCFunction'])
+
+# How often a GroveSensor whose sensor is missing is looked for again -
+# GroveSensor.js's RESUBSCRIBE_AFTER_MS.
+GROVE_RETRY_S = 6.0
 
 HARDWARE_INPUT_TYPES = frozenset(['AnalogIn', 'DigitalIn'])
 HARDWARE_OUTPUT_TYPES = frozenset(['AnalogOut', 'DigitalOut', 'Servo'])
@@ -329,6 +352,15 @@ _EASINGS = {
     'easeInBack': _ease_back_in, 'easeOutBack': _ease_back_out, 'easeInOutBack': _ease_back_in_out,
     'easeInBounce': _ease_bounce_in, 'easeOutBounce': _ease_bounce_out, 'easeInOutBounce': _ease_bounce_in_out,
 }
+_SCENE_EASE_SIDES = ('easeIn', 'easeOut', 'easeInOut')
+
+
+def scene_ease(curve, side, t):
+    """Scene's ease (scene_script.Runner): 'sine', side 2 (in-out) ->
+    _EASINGS['easeInOutSine'] - the same curves as Tween."""
+    return _EASINGS[_SCENE_EASE_SIDES[side] + curve[0].upper() + curve[1:]](t)
+
+
 _GAMMA_EASINGS = {
     'easeInGamma': _ease_gamma_in, 'easeOutGamma': _ease_gamma_out, 'easeInOutGamma': _ease_gamma_in_out,
 }
@@ -487,6 +519,57 @@ def _sc_limit_180(value, values):
     return max(0.0, min(180.0, value))
 
 
+# Servo calibration and limits from the widget's "more" panel - the same
+# fields and defaults as Servo.js's servoSettings(). Fields are text
+# inputs' strings; blank or bad means the default.
+SERVO_PULSE_DEFAULT = (600, 2400)   # johnny-five's pwmRange on a live connection
+SERVO_PULSE_BOUNDS = (300, 3000)
+
+
+def _servo_settings(values):
+    lo = max(0.0, min(180.0, _num(values.get('servoAngleMin'), 0.0)))
+    hi = max(0.0, min(180.0, _num(values.get('servoAngleMax'), 180.0)))
+    if _is_nan(lo):
+        lo = 0.0
+    if _is_nan(hi):
+        hi = 180.0
+    if lo > hi:
+        lo, hi = hi, lo
+    pmin = _num(values.get('servoPulseMin'), SERVO_PULSE_DEFAULT[0])
+    pmax = _num(values.get('servoPulseMax'), SERVO_PULSE_DEFAULT[1])
+    pulse = SERVO_PULSE_DEFAULT
+    if not _is_nan(pmin) and not _is_nan(pmax):
+        pmin, pmax = int(round(pmin)), int(round(pmax))
+        if pmin >= SERVO_PULSE_BOUNDS[0] and pmax <= SERVO_PULSE_BOUNDS[1] and pmin < pmax:
+            pulse = (pmin, pmax)
+    speed = _num(values.get('servoMaxSpeed'), 0.0)
+    if _is_nan(speed) or speed <= 0:
+        speed = 0.0
+    return lo, hi, pulse, speed
+
+
+def _chain_servo_motion(value, values, state):
+    # Servo.js's limitRange (angle limits) + limitSpeed/motionFrame (max
+    # speed, degrees/s): the output moves toward the target no faster
+    # than that, time-based like the live widget's frame callback.
+    lo, hi, _, speed = _servo_settings(values)
+    value = max(lo, min(hi, value))
+    now = state['now']
+    position = state.get('servo_position')
+    last = state.get('servo_last_time', now)
+    state['servo_last_time'] = now
+    if not speed or position is None:
+        position = value
+    else:
+        step = speed * min(0.25, max(0.0, now - last))
+        if value > position:
+            position = min(value, position + step)
+        else:
+            position = max(value, position - step)
+    state['servo_position'] = position
+    return position
+
+
 def _sc_apply_threshold(value, values):
     threshold = _num(values.get('threshold'), 512.0)
     return 1023.0 if value >= threshold else 0.0
@@ -618,6 +701,8 @@ def _run_chain(fn_names, value, values, state):
             value = _sc_gamma_correct(value, values)
         elif name == 'limit180':
             value = _sc_limit_180(value, values)
+        elif name == 'servoMotion':
+            value = _chain_servo_motion(value, values, state)
         elif name == 'threshold':
             value = _sc_apply_threshold(value, values)
         elif name == 'ifTest':
@@ -631,7 +716,7 @@ CHAIN_FUNCTIONS_BY_TYPE = {
     'Process': ['math', 'scale', 'invert', 'easing', 'smoother'],
     'IfThen': ['ifTest'],
     'AnalogOut': ['limit255', 'gammaCorrect'],
-    'Servo': ['limit180'],
+    'Servo': ['limit180', 'servoMotion'],
     'DigitalOut': ['threshold'],
     'OSCIn': ['scale'],
     'CloudIn': ['scale'],
@@ -792,7 +877,7 @@ def _encoder_step(values):
 
 
 # Encoder.js's DELTA_HOLD_MS.
-ENCODER_DELTA_HOLD_S = 0.1
+ENCODER_DELTA_HOLD_S = 0.2
 
 
 def _eval_encoder(values, state, now):
@@ -886,30 +971,51 @@ def _display_zero_pad(text, width):
     return ('-' if negative else '') + whole + rest
 
 
+def _display_with_sign(text):
+    # "5" -> "+5", "-5" unchanged, "0" -> " 0" - same as Display.js's
+    # withSign(), decided on the formatted text so "-0.00" shows as zero.
+    try:
+        n = float(text)
+    except ValueError:
+        return text
+    if n > 0:
+        return '+' + text
+    if n < 0:
+        return text
+    return ' ' + text.replace('-', '')
+
+
 def _display_format(fmt, values):
     """A line's format string with its placeholders filled in - ported
     from Display.js's composeFormat(): <1> <2> <3> insert the widget's
     three inputs, <2:2> pads a number's whole part with zeros to 2
-    digits (one digit of width). Anything else is kept as typed. Scanned
-    by hand rather than with `re`, which not every board's CircuitPython
-    build includes."""
+    digits (one digit of width), <2+> always gives a number a sign (a
+    space for zero), and <2+:2> does both. Anything else is kept as
+    typed. Scanned by hand rather than with `re`, which not every
+    board's CircuitPython build includes."""
     out = []
     i = 0
     length = len(fmt)
     while i < length:
         if fmt[i] == '<' and i + 2 < length and fmt[i + 1] in '123':
             n = int(fmt[i + 1])
+            j = i + 2
+            sign = fmt[j] == '+'
+            if sign:
+                j += 1
             end = -1
             pad = 0
-            if fmt[i + 2] == '>':
-                end = i + 2
-            elif fmt[i + 2] == ':' and i + 4 < length and fmt[i + 3] in '0123456789' and fmt[i + 4] == '>':
-                pad = int(fmt[i + 3])
-                end = i + 4
+            if j < length and fmt[j] == '>':
+                end = j
+            elif j + 2 < length and fmt[j] == ':' and fmt[j + 1] in '0123456789' and fmt[j + 2] == '>':
+                pad = int(fmt[j + 1])
+                end = j + 2
             if end >= 0:
                 text, is_number = _display_value_text(values, n)
                 if pad and is_number:
                     text = _display_zero_pad(text, pad)
+                if sign and is_number:
+                    text = _display_with_sign(text)
                 out.append(text)
                 i = end + 1
                 continue
@@ -1212,6 +1318,65 @@ def _data_index_element(values, state, index):
             values['dataOut'] = elements[element_index]
 
 
+def _scene_now_ms():
+    # Whole ms from an integer clock: monotonic()'s float (32-bit on the
+    # board) loses ms precision after a few hours of uptime.
+    try:
+        return time.monotonic_ns() // 1000000
+    except AttributeError:
+        return int(time.monotonic() * 1000)
+
+
+def _eval_scene(values, state, now):
+    """Scene.js on the board: the script parsed by scene_script.py (a
+    port of NTK's SceneScript.js, both tested on test/scene-cases.json),
+    played from the start inlet's rising edge, idle lines from stop's."""
+    import scene_script
+    now_ms = _scene_now_ms()
+    script = values.get('script') or ''
+    threshold = _num(values.get('threshold'), 512.0)
+    if state.get('script') != script:
+        state['script'] = script
+        scene = scene_script.parse(script)
+        if not scene['ok']:
+            line, message = scene['errors'][0]
+            print("standalone_interpreter: Scene", values.get('wid'), "- script error, line %d: %s" % (line, message))
+            state['runner'] = None
+        else:
+            import random
+            runner = scene_script.Runner(scene, scene_ease, random.random)
+            runner.apply_idle(now_ms)
+            state['runner'] = runner
+        # The values the patch was saved with aren't an edge - as in
+        # NTK, a scene starts when start rises while it runs.
+        state['last_start'] = _num(values.get('start'))
+        state['last_stop'] = _num(values.get('stop'))
+    runner = state['runner']
+    if runner is None:
+        return
+
+    start = _num(values.get('start'))
+    if start >= threshold and not (state['last_start'] >= threshold):
+        busy = runner.phase in ('waiting', 'playing')
+        if not busy or values.get('restartOnStart'):
+            runner.play(now_ms)
+    elif start < threshold and state['last_start'] >= threshold and values.get('stopOnStartLow'):
+        # Scene.js's option: start dropping works like stop.
+        runner.stop(now_ms)
+    state['last_start'] = start
+    stop = _num(values.get('stop'))
+    if stop >= threshold and not (state['last_stop'] >= threshold):
+        runner.stop(now_ms)
+    state['last_stop'] = stop
+
+    runner.tick(now_ms, {'in1': values.get('in1'), 'in2': values.get('in2'), 'threshold': threshold})
+    outputs = runner.outputs
+    values['out1'] = outputs[0]
+    values['out2'] = outputs[1]
+    values['out3'] = outputs[2]
+    values['out4'] = outputs[3]
+
+
 BESPOKE_EVAL = {
     'Boolean': _eval_boolean,
     'Gate': _eval_gate,
@@ -1225,6 +1390,7 @@ BESPOKE_EVAL = {
     'Data': _eval_data,
     'Display': _eval_display,
     'Encoder': _eval_encoder,
+    'Scene': _eval_scene,
 }
 
 # outs[].{from,to} per type - what field each type's real computed value
@@ -1254,6 +1420,11 @@ OUTS_BY_TYPE = {
     # ('delta', 'delta'): the step outlet, set by _eval_encoder itself -
     # listed so monitor_fields reports it, skipped by the chain below.
     'Encoder': [('count', 'out'), ('delta', 'delta')],
+    # Set by the dcc step itself - listed for monitor_fields.
+    'DCCThrottle': [('speed', 'speed'), ('direction', 'direction'), ('address', 'address')],
+    'DCCFunction': [('state', 'state')],
+    # Written by _eval_scene itself.
+    'Scene': [('out1', 'out1'), ('out2', 'out2'), ('out3', 'out3'), ('out4', 'out4')],
 }
 
 
@@ -1299,8 +1470,16 @@ class StandaloneInterpreter:
         # called before a real client connects, so its pin claims don't
         # collide with the per-connection FirmataServer's own.
         self._fs = firmata_server.FirmataServer(pin_table)
-        self._grove_catalog = grove_sensor_catalog or {}
+        # The same dict as pins.py's, never a copy - and not `or {}`,
+        # which swapped an empty one (no sensors at boot) for a new dict:
+        # sensors found later by a rescan never showed up here.
+        self._grove_catalog = grove_sensor_catalog if grove_sensor_catalog is not None else {}
         self._grove_subscriptions = {}  # wid -> {read, cleanup, min_interval_ms, last_ms}
+        # GroveSensor widgets whose sensor the board doesn't have (yet) -
+        # tick() asks again every GROVE_RETRY_S, so one plugged in later
+        # starts reading without a reset.
+        self._grove_missing = set()
+        self._grove_retry_at = 0.0
         self.widgets = {}      # wid -> {typeID, values, state}
         self.steps = []        # ordered (kind, ...) tuples - see _build_steps()
         self.loaded = False
@@ -1333,6 +1512,13 @@ class StandaloneInterpreter:
         self._cloud_last_published = {}  # (group key, topic) -> (value_str, monotonic_time)
         self._cloud_last_received = {}  # (group key, topic) -> (value, monotonic_time) - feedback-loop guard, see the cloud_out step
         self._cloud_last_poll = 0.0      # shared gate so MQTT polling doesn't run every single tick
+        # DCC widgets (see module docstring) - withrottle is imported
+        # only if a loaded patch has one. _dcc_pool can be set before
+        # claim_hardware() to use another socket pool (tests use
+        # CPython's socket module).
+        self._withrottle = None
+        self._dcc_pool = None
+        self._dcc_connections = {}  # (host, port) -> withrottle.Connection
 
     def load(self, patch):
         widgets = (patch or {}).get('widgets', [])
@@ -1396,6 +1582,8 @@ class StandaloneInterpreter:
                 hw_in_pin[step[1]] = "Cloud"
             elif kind == 'cloud_out':
                 hw_out_pin[step[1]] = "Cloud"
+            elif kind == 'dcc':
+                hw_in_pin[step[1]] = "DCC"
             elif kind == 'map':
                 _, src_wid, src_field, dst_wid, _dst_field = step
                 outgoing.setdefault(src_wid, []).append((dst_wid, src_field))
@@ -1612,6 +1800,10 @@ class StandaloneInterpreter:
                     reading_map[index] = m['map']['destinationField']
                 steps.append(('grove_in', wid, reading_map))
             steps.append(('eval', wid))
+            if self.widgets[wid]['typeID'] in DCC_TYPES:
+                # The station address and loco are the widget's own
+                # values, so its WiThrottle mapping isn't needed here.
+                steps.append(('dcc', wid))
             if wid in hw_out_mappings:
                 steps.append(('hw_out', wid, hw_out_mappings[wid]['map']['destinationField']))
             if wid in display_mappings:
@@ -1620,6 +1812,16 @@ class StandaloneInterpreter:
                 steps.append(('neopixel_out', wid))
 
         self.steps = steps
+
+        # A Display input with no cable shows nothing (Display.js's
+        # inputValue) - the saved value is just whatever was last wired
+        # in. Nothing can change an unwired input on the board, so
+        # emptying it once here is enough.
+        for wid, w in self.widgets.items():
+            if w['typeID'] == 'Display':
+                for field in ('in1', 'in2', 'in3'):
+                    if not self._is_wired(wid, field):
+                        w['values'][field] = ''
 
     def _is_wired(self, wid, field):
         """Is there a widget-to-widget wire actually feeding this
@@ -1691,7 +1893,10 @@ class StandaloneInterpreter:
                 elif type_id == 'DigitalIn':
                     idx = _pin_index_for_dpin(fs.pins, pin_str)
                     if idx is not None:
-                        fs._apply_pin_mode(idx, firmata_server.INPUT)
+                        # DigitalIn's pull-up option, as live - see the
+                        # hw_in step for the inverted reading.
+                        mode = firmata_server.PULLUP if self.widgets[wid]['values'].get('pullup', True) is not False else firmata_server.INPUT
+                        fs._apply_pin_mode(idx, mode)
                         fs.pins[idx].report = True
             elif step[0] == 'hw_out':
                 _, wid, pin_str = step
@@ -1700,7 +1905,10 @@ class StandaloneInterpreter:
                 if idx is None:
                     continue
                 if type_id == 'Servo':
-                    fs._handle_servo_config(idx, firmata_server.SERVO_MIN_PULSE_US_DEFAULT, firmata_server.SERVO_MAX_PULSE_US_DEFAULT)
+                    # The widget's pulse range - also what the firmware
+                    # clamps every pulse to, so 2500us needs it here.
+                    pulse = _servo_settings(self.widgets[wid]['values'])[2]
+                    fs._handle_servo_config(idx, pulse[0], pulse[1])
                 elif type_id == 'AnalogOut':
                     fs._apply_pin_mode(idx, firmata_server.PWM)
                 elif type_id == 'DigitalOut':
@@ -1719,8 +1927,15 @@ class StandaloneInterpreter:
                 # new baseline, not a jump from the old one.
                 w['state'].pop('last_position', None)
                 w['state']['edge_accum'] = 0
+        # The client that had the board may have changed the OLED lines,
+        # so a Display redraws on its first tick even if its text is the
+        # same as before.
+        for step in self.steps:
+            if step[0] == 'display_out':
+                self.widgets[step[1]]['state'].pop('display_last_lines', None)
         self._claim_osc()
         self._claim_cloud()
+        self._claim_dcc()
 
     def _claim_osc(self):
         """Set up MicroOSC receiving/sending for every osc_in/osc_out
@@ -1838,9 +2053,16 @@ class StandaloneInterpreter:
         except (TypeError, ValueError):
             sensor_id = -1
         entry = self._grove_catalog.get(sensor_id)
+        if entry is None and firmata_server.rescan_grove_sensors():
+            entry = self._grove_catalog.get(sensor_id)
         if entry is None:
-            print("standalone_interpreter: GroveSensor", wid, "- sensor", sensor_id, "not available on this board")
+            # Asked again every GROVE_RETRY_S from tick() - see there.
+            # Said once, not every retry.
+            if wid not in self._grove_missing:
+                print("standalone_interpreter: GroveSensor", wid, "- sensor", sensor_id, "not on this board; connect it - it's looked for every few seconds")
+            self._grove_missing.add(wid)
             return
+        self._grove_missing.discard(wid)
         try:
             if entry.get('needs_pin'):
                 pin_str = values.get('pin', '')
@@ -1872,6 +2094,12 @@ class StandaloneInterpreter:
             'last_ms': 0,
         }
 
+    def retry_grove_sensors(self):
+        """Subscribe every GroveSensor whose sensor was missing - after a
+        rescan found it ('g' on the console, or tick()'s retry)."""
+        for wid in list(self._grove_missing):
+            self._subscribe_grove_sensor(wid)
+
     def release_hardware(self):
         """Call right before a real Firmata client connects, so its own
         fresh FirmataServer instance can claim the same physical pins
@@ -1886,8 +2114,10 @@ class StandaloneInterpreter:
                 except Exception:
                     pass
         self._grove_subscriptions = {}
+        self._grove_missing = set()
         self._release_osc()
         self._release_cloud()
+        self.release_dcc()
 
     def _release_osc(self):
         """Closes the raw UDP sockets MicroOSC opened - it exposes no
@@ -2089,6 +2319,197 @@ class StandaloneInterpreter:
             except Exception:
                 pass
 
+    def _claim_dcc(self):
+        """Take each switched-on DCC widget's loco on its station's
+        session (see module docstring). The connection itself is made
+        from tick(), so a station that's down never holds up the rest
+        of claim_hardware()."""
+        dcc_wids = [step[1] for step in self.steps if step[0] == 'dcc']
+        if not dcc_wids:
+            return
+        if self._withrottle is None:
+            try:
+                import withrottle
+                self._withrottle = withrottle
+                if self._dcc_pool is None:
+                    import wifi
+                    import socketpool
+                    self._dcc_pool = socketpool.SocketPool(wifi.radio)
+            except Exception as e:
+                print("standalone_interpreter: DCC setup failed (withrottle/wifi/socketpool):", e)
+                self._withrottle = False  # sentinel: don't retry every claim_hardware() call
+                return
+        elif self._withrottle is False:
+            return
+        wt = self._withrottle
+
+        for wid in dcc_wids:
+            w = self.widgets[wid]
+            values, state = w['values'], w['state']
+            state.pop('dcc', None)
+            title = values.get('title') or w['typeID']
+            if not values.get('active'):
+                continue
+            key = wt.loco_key(values.get('loco'))
+            host = str(values.get('stationHost') or '').strip()
+            port = int(_num(values.get('stationPort'), 2560.0))
+            if key is None:
+                print("standalone_interpreter:", title, "- the loco address must be 1-10239, not", values.get('loco'))
+                continue
+            if not host or host.lower() == 'simulated':
+                print("standalone_interpreter:", title, "- the simulated station is only in NTK; set the station's address in its more panel")
+                continue
+            connection = self._dcc_connections.get((host, port))
+            if connection is None:
+                connection = wt.Connection(self._dcc_pool, host, port, wt.Session(*self._dcc_identity()))
+                self._dcc_connections[(host, port)] = connection
+            loco = connection.session.want(key, wid)
+            wired = set(step[4] for step in self.steps if step[0] == 'map' and step[3] == wid)
+            # Inlets start with nothing seen, so a wire's first value
+            # counts - as the live widget's first value from a cable.
+            state['dcc'] = {'connection': connection, 'key': key, 'wired': wired, 'last': {},
+                            'speed_exact': float(loco.speed), 'speed_seq': loco.speed_seq}
+            values['address'] = int(key[1:])
+
+    def toggle_dcc_trace(self):
+        """Switch printing every line to and from the station on or off
+        ('d' on the console). None when the patch has no DCC widget."""
+        if not self._withrottle:
+            return None
+        self._withrottle.trace = not self._withrottle.trace
+        return self._withrottle.trace
+
+    def _dcc_identity(self):
+        """(name, unique id) this board gives the station - HU is the
+        board's MAC, so the station can tell its throttles apart."""
+        uid = 'NTK-board'
+        try:
+            import wifi
+            uid = 'NTK-' + ''.join('%02x' % b for b in wifi.radio.mac_address)
+        except Exception:
+            pass
+        name = 'NTK board'
+        try:
+            import os
+            hostname = os.getenv('NTK_MDNS_HOSTNAME')
+            if hostname:
+                name = 'NTK ' + hostname
+        except Exception:
+            pass
+        return name, uid
+
+    def release_dcc(self):
+        """Stop and release every loco and quit each session - before NTK
+        takes over the board (NTK then drives with its own session), and
+        when the firmware exits (Ctrl-C, see ntk_firmata_main.run()).
+        Nothing to do when no session is open."""
+        for connection in self._dcc_connections.values():
+            try:
+                connection.close()
+            except Exception as e:
+                print("standalone_interpreter: DCC close failed:", e)
+        self._dcc_connections = {}
+        for w in self.widgets.values():
+            w['state'].pop('dcc', None)
+
+    def _dcc_inlet(self, dcc, values, field):
+        """A wired inlet's value when it's new since the last tick, else
+        None - the live widgets act on a value arriving through a cable,
+        not on the same value seen again."""
+        if field not in dcc['wired']:
+            return None
+        value = values.get(field)
+        last = dcc['last']
+        if field in last and last[field] == value:
+            return None
+        last[field] = value
+        return value
+
+    def _tick_dcc(self, wid, now):
+        w = self.widgets[wid]
+        dcc = w['state'].get('dcc')
+        if dcc is None:
+            return
+        values = w['values']
+        session = dcc['connection'].session
+        key = dcc['key']
+        loco = session.locos.get(key)
+        if loco is None:
+            return
+        if w['typeID'] == 'DCCThrottle':
+            self._tick_dcc_throttle(wid, values, dcc, session, key, loco, now)
+        else:
+            self._tick_dcc_function(values, dcc, session, key, loco, now)
+
+    def _tick_dcc_throttle(self, wid, values, dcc, session, key, loco, now):
+        """DCCThrottle.js's setSpeed()/onLocoReport()/onModelChange().
+        The speed is kept as a decimal (speed_exact) so a fractional
+        Encoder step (0.5) gives finer control; the station only takes
+        whole steps, so the rounded speed is what's sent and output."""
+        max_speed = self._withrottle.MAX_SPEED
+
+        def set_speed(value):
+            dcc['speed_exact'] = max(0.0, min(float(max_speed), value))
+            session.set_speed(key, dcc['speed_exact'], now, wid)
+
+        # Someone else's throttle (or another widget on this loco):
+        # follow it, dropping any fraction, so the next step starts from
+        # the real speed. This widget's own changes and their echoes
+        # don't reset the fraction.
+        if loco.speed_seq != dcc['speed_seq']:
+            dcc['speed_seq'] = loco.speed_seq
+            if loco.speed_by != wid:
+                dcc['speed_exact'] = float(loco.speed)
+
+        v = self._dcc_inlet(dcc, values, 'inSpeed')
+        if v is not None:
+            v = _num(v)
+            in_min, in_max = _num(values.get('inMin'), 0.0), _num(values.get('inMax'), float(max_speed))
+            if not _is_nan(v) and in_max != in_min:
+                set_speed((v - in_min) / (in_max - in_min) * max_speed)
+        # Only a new value is a step; an Encoder's step outlet goes back
+        # to 0 after each turn, so two turns the same way still count.
+        step = self._dcc_inlet(dcc, values, 'inStep')
+        if step is not None:
+            step = _num(step, 0.0)
+            if step and not _is_nan(step):
+                set_speed(dcc['speed_exact'] + step)
+        d = self._dcc_inlet(dcc, values, 'inDirection')
+        if d is not None:
+            d = _num(d)
+            if not _is_nan(d):
+                session.set_direction(key, d > 0.5, now, wid)
+        if 'inStop' in dcc['wired']:
+            stop = _num(values.get('inStop'), 0.0)
+            last_stop = dcc.get('last_stop', 0.0)
+            dcc['last_stop'] = stop
+            if stop > 0.5 and not last_stop > 0.5:
+                dcc['speed_exact'] = 0.0
+                session.estop(key, now, wid)
+
+        values['speed'] = loco.speed
+        values['direction'] = loco.direction
+
+    def _tick_dcc_function(self, values, dcc, session, key, loco, now):
+        """DCCFunction.js: follow (on while the inlet's high) or toggle
+        (each rising edge switches); the outlet is the state the station
+        reports."""
+        fn = _num(values.get('fn'), -1.0)
+        fn = int(fn) if 0 <= fn <= 68 and fn == int(fn) else None
+        if fn is None:
+            return
+        state = loco.fns.get(fn, 0)
+        if 'in' in dcc['wired']:
+            value = _num(values.get('in'), 0.0)
+            last = dcc.get('last_in', 0.0)
+            dcc['last_in'] = value
+            if values.get('toggle'):
+                if value > 0.5 and not last > 0.5:
+                    session.set_function(key, fn, not state, now)
+            elif (value > 0.5) != (last > 0.5):
+                session.set_function(key, fn, value > 0.5, now)
+        values['state'] = loco.fns.get(fn, 0)
+
     def tick(self):
         if not self.loaded:
             return
@@ -2133,6 +2554,14 @@ class StandaloneInterpreter:
                     broken_keys.append(key)
             for key in broken_keys:
                 self._drop_cloud_client(key)
+        # A GroveSensor whose sensor wasn't there: look again now and then,
+        # the same pace as the live widget's own re-asking.
+        if self._grove_missing and now - self._grove_retry_at >= GROVE_RETRY_S:
+            self._grove_retry_at = now
+            self.retry_grove_sensors()
+        # Station reports first, so the dcc steps below see them this tick.
+        for connection in self._dcc_connections.values():
+            connection.poll(now)
         for step in self.steps:
             kind = step[0]
             if kind == 'map':
@@ -2152,7 +2581,10 @@ class StandaloneInterpreter:
                 elif type_id == 'DigitalIn':
                     idx = _pin_index_for_dpin(fs.pins, pin_str)
                     if idx is not None and fs.pins[idx].io is not None:
-                        w['values']['in'] = 1 if fs.pins[idx].io.value else 0
+                        # A pull-up button reads low when pressed - inverted,
+                        # so pressed is high, as live.
+                        high = bool(fs.pins[idx].io.value) != (w['values'].get('pullup', True) is not False)
+                        w['values']['in'] = 1 if high else 0
             elif kind == 'enc_in':
                 w = self.widgets[step[1]]
                 pin_a = _pin_index_for_dpin(fs.pins, w['values'].get('pin'))
@@ -2185,6 +2617,8 @@ class StandaloneInterpreter:
                 wid = step[1]
                 w = self.widgets[wid]
                 self._eval_widget(w, now)
+            elif kind == 'dcc':
+                self._tick_dcc(step[1], now)
             elif kind == 'hw_out':
                 _, wid, pin_str = step
                 w = self.widgets[wid]
@@ -2212,7 +2646,8 @@ class StandaloneInterpreter:
                         # never moves - which is exactly the historical bug
                         # that comment describes.
                         degrees = max(0.0, min(180.0, _num(out_value, 0.0)))
-                        pulse_us = int(degrees * (2400.0 - 600.0) / 180.0 + 600.0)
+                        pmin, pmax = _servo_settings(w['values'])[2]
+                        pulse_us = int(degrees * (pmax - pmin) / 180.0 + pmin)
                         fs._handle_analog_write(idx, pulse_us)
                     else:
                         fs._handle_analog_write(idx, out_value)
