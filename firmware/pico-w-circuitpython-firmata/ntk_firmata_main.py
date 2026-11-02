@@ -357,7 +357,11 @@ from firmata_server import (
     DEVICE_STATUS_STANDALONE,
     encode_device_status_reply,
 )
-from pins import PIN_TABLE, GROVE_SENSOR_CATALOG
+from pins import PIN_TABLE, GROVE_SENSOR_CATALOG, scan_grove_sensors
+import firmata_server
+# A Grove sensor plugged in after boot is found when something asks for
+# it - see firmata_server.grove_rescan.
+firmata_server.grove_rescan = scan_grove_sensors
 
 # Boot-time default: every digital-capable pin driven LOW rather than
 # left floating, for the window before ANYTHING has claimed the board
@@ -1065,6 +1069,14 @@ def _check_keypress():
     elif key == "m":
         gc.collect()
         print("Free memory:", gc.mem_free(), "bytes")
+    elif key == "g":
+        # Look for Grove sensors plugged in since boot, then start any
+        # the standalone patch was waiting for.
+        found = firmata_server.rescan_grove_sensors()
+        if not found:
+            print("Grove rescan: nothing new")
+        if _standalone is not None:
+            _standalone.retry_grove_sensors()
     elif key == "d" and _standalone is not None:
         tracing = _standalone.toggle_dcc_trace()
         if tracing is None:
@@ -1281,11 +1293,11 @@ def run_server():
         _standalone.claim_hardware()
         oled_display.set_mode("standalone")
         print("Standalone interpreter running (no client connected)")
-        print("Press 'v' for live values, 't' for topology, 'r' for WiFi RSSI, 'm' for free memory, 'd' to trace DCC lines, at any time on this console.")
+        print("Press 'v' for live values, 't' for topology, 'r' for WiFi RSSI, 'm' for free memory, 'g' to look for Grove sensors, 'd' to trace DCC lines, at any time on this console.")
         print("(Click in this pane, press the desired key, and hit Enter.)")
     else:
         oled_display.set_mode("waiting")
-        print("Press 'r' for WiFi RSSI, 'm' for free memory, 'd' to trace DCC lines, at any time on this console.")
+        print("Press 'r' for WiFi RSSI, 'm' for free memory, 'g' to look for Grove sensors, 'd' to trace DCC lines, at any time on this console.")
         print("(Click in this pane, press the desired key, and hit Enter.)")
 
     # Steady-state post-init reading - WiFi up, server listening,

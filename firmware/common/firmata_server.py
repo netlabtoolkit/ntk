@@ -102,6 +102,25 @@ GROVE_STATUS = 2
 GROVE_STATUS_OK = 1
 GROVE_STATUS_ERROR = 2
 
+# Looks for Grove sensors plugged in after boot - pins.py's
+# scan_grove_sensors(), set by ntk_firmata_main.py (None: nothing to
+# look for). Called when a client, or the standalone interpreter, asks
+# for a sensor the board hasn't found; it adds what it finds to the
+# same GROVE_SENSOR_CATALOG dict every FirmataServer holds. A GroveIn
+# asks again every 6 s while its sensor is missing, so that's how often
+# this runs then. Returns the names it found.
+grove_rescan = None
+
+
+def rescan_grove_sensors():
+    """Run grove_rescan, if there is one, and say what it found."""
+    if grove_rescan is None:
+        return []
+    found = grove_rescan()
+    if found:
+        print("Grove sensor plugged in:", ", ".join(found))
+    return found
+
 # Custom sysex extension for standalone-interpreter monitoring (see
 # plans/standalone-patch-export.md) - lets a client watch a running
 # standalone patch's live widget values without taking over from it
@@ -351,7 +370,10 @@ class FirmataServer:
         self._send = None
         self._rx_buffer = bytearray()
         self._in_sysex = False
-        self.grove_sensor_catalog = grove_sensor_catalog or {}
+        # The same dict as pins.py's, never a copy - and not `or {}`,
+        # which swapped an empty one (no sensors at boot) for a new dict:
+        # sensors found later by a rescan never showed up here.
+        self.grove_sensor_catalog = grove_sensor_catalog if grove_sensor_catalog is not None else {}
         # Grove sensor ids a client has subscribed to, each mapped to
         # when it was last reported so update() can honor that sensor's
         # own min_interval_ms.
@@ -980,6 +1002,8 @@ class FirmataServer:
 
         if subcmd == GROVE_SUBSCRIBE:
             entry = self.grove_sensor_catalog.get(sensor_id)
+            if entry is None and rescan_grove_sensors():
+                entry = self.grove_sensor_catalog.get(sensor_id)
             if entry is None:
                 print("Client subscribed to unknown Grove sensor", sensor_id)
                 self._send_grove_status(sensor_id, GROVE_STATUS_ERROR)

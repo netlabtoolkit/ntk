@@ -49,13 +49,12 @@ import time
 # as everything else in this file.
 GROVE_SENSOR_CATALOG = {}
 
-# Names of Grove sensors actually detected below, printed as one summary
-# line once all the optional probes below have run (see the bottom of
-# this file) - each probe fails silently (bare `except Exception: pass`)
-# on its own, since "sensor not attached" is the everyday case, not a
-# real error worth a scary-looking traceback-adjacent print every single
-# boot; this list is what tells you what WAS found instead.
-_found_sensors = []
+# The I2C sensors below are each found by a _probe_*() function, run by
+# scan_grove_sensors() (bottom of this file): once at boot, and again
+# whenever a client asks for a sensor the board hasn't found, or 'g' is
+# pressed on the console - so a sensor plugged in after boot is found
+# without resetting the board. A probe raises when its sensor isn't
+# there, which is the everyday case, not an error worth printing.
 
 PIN_TABLE = [
     (board.D0, 0, None),
@@ -83,7 +82,7 @@ PIN_TABLE = [
 # Entirely optional and silently skipped if the sensor isn't attached
 # or the bus lacks pull-ups - PIN_TABLE just ends up three entries
 # shorter, same as if this whole block were never here.
-try:
+def _probe_accelerometer(at_boot):
     import adafruit_lis3dh
 
     _accel_i2c = board.I2C()
@@ -107,9 +106,12 @@ try:
             return int(min(max(raw16, 0), 65535))
         return read
 
-    PIN_TABLE.append((None, 6, _make_accel_axis_reader(0)))  # A6 = accel X
-    PIN_TABLE.append((None, 7, _make_accel_axis_reader(1)))  # A7 = accel Y
-    PIN_TABLE.append((None, 8, _make_accel_axis_reader(2)))  # A8 = accel Z
+    # Boot only: PIN_TABLE is fixed once the board is running,
+    # so a rescan adds the GroveSensor entry below and not these.
+    if at_boot:
+        PIN_TABLE.append((None, 6, _make_accel_axis_reader(0)))  # A6 = accel X
+        PIN_TABLE.append((None, 7, _make_accel_axis_reader(1)))  # A7 = accel Y
+        PIN_TABLE.append((None, 8, _make_accel_axis_reader(2)))  # A8 = accel Z
 
     # Also reachable as GroveSensor catalog entry 0 - same underlying
     # sensor object, just real m/s^2 units instead of squeezed into
@@ -121,9 +123,7 @@ try:
         "read": lambda: list(_accelerometer.acceleration),
         "min_interval_ms": 20,
     }
-    _found_sensors.append("LIS3DHTR accelerometer")
-except Exception:
-    pass
+    return "LIS3DHTR accelerometer"
 
 # Optional: Grove - Time of Flight Distance Sensor (VL53L0X), I2C, fixed
 # address 0x29 (41 decimal) - no address-pin strap to try alternates,
@@ -171,7 +171,7 @@ _VL53L0X_OFFSET_MM = 50
 # distance", which is the conventional way ToF sensors handle this case.
 _VL53L0X_MAX_RANGE_MM = 1200  # matches sensorCatalog.js's declared ceiling
 
-try:
+def _probe_distance(at_boot):
     import adafruit_vl53l0x
 
     _tof_i2c = board.I2C()
@@ -184,9 +184,7 @@ try:
         # same stale reading.
         "min_interval_ms": 50,
     }
-    _found_sensors.append("VL53L0X distance sensor")
-except Exception:
-    pass
+    return "VL53L0X distance sensor"
 
 # Optional: Grove - Temperature & Humidity Sensor (DHT11), single-wire
 # digital - NOT I2C, so unlike every entry above it isn't on the shared
@@ -288,7 +286,7 @@ _TSL2561_MODE_INFRARED = 2
 # touch every other Grove sensor's encoding, not just this one.
 _TSL2561_WIRE_MAX = 10000
 
-try:
+def _probe_light(at_boot):
     import adafruit_tsl2561
 
     _light_i2c = board.I2C()
@@ -329,9 +327,7 @@ try:
         # VL53L0X's min_interval_ms above.
         "min_interval_ms": 500,
     }
-    _found_sensors.append("TSL2561 light sensor")
-except Exception:
-    pass
+    return "TSL2561 light sensor"
 
 # Optional: Grove - Ultrasonic Ranger, single-wire digital (one SIG pin
 # doing double duty as trigger output AND echo input) - NOT I2C, same
@@ -492,7 +488,7 @@ GROVE_SENSOR_CATALOG[4] = {
 # tried on a C6.
 _PCF8563_ADDRESS = 0x51
 
-try:
+def _probe_clock(at_boot):
     _clock_i2c = board.I2C()
     while not _clock_i2c.try_lock():
         pass
@@ -530,8 +526,34 @@ try:
         # spending bus time on re-reading the same value.
         "min_interval_ms": 250,
     }
-    _found_sensors.append("PCF8563 clock")
-except Exception:
-    pass
+    return "PCF8563 clock"
 
-print("Grove sensors found:", ", ".join(_found_sensors) if _found_sensors else "none")
+# Every I2C sensor above that can be looked for - DHT11 and the
+# Ultrasonic Ranger are always registered, since neither can be found
+# until a widget names its pin.
+_GROVE_PROBES = (
+    (0, _probe_accelerometer),
+    (1, _probe_distance),
+    (3, _probe_light),
+    (5, _probe_clock),
+)
+
+
+def scan_grove_sensors(at_boot=False):
+    """Look for every I2C sensor not found yet and add the ones that
+    answer to GROVE_SENSOR_CATALOG, in place - FirmataServer and the
+    standalone interpreter hold this same dict, so a new sensor works
+    at once. Returns the names found this time. A few ms per missing
+    sensor (each probe is one failed I2C transaction or two)."""
+    found = []
+    for sensor_id, probe in _GROVE_PROBES:
+        if sensor_id in GROVE_SENSOR_CATALOG:
+            continue
+        try:
+            found.append(probe(at_boot))
+        except Exception:
+            pass
+    return found
+
+
+print("Grove sensors found:", ", ".join(scan_grove_sensors(at_boot=True)) or "none")

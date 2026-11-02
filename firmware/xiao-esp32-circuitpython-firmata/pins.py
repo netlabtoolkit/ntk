@@ -45,6 +45,6 @@ def _s3_analog_pins_present():
 
 
 if _s3_analog_pins_present():
-    from pins_s3 import PIN_TABLE, GROVE_SENSOR_CATALOG
+    from pins_s3 import PIN_TABLE, GROVE_SENSOR_CATALOG, scan_grove_sensors
 else:
-    from pins_c6 import PIN_TABLE, GROVE_SENSOR_CATALOG
+    from pins_c6 import PIN_TABLE, GROVE_SENSOR_CATALOG, scan_grove_sensors

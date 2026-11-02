@@ -53,6 +53,12 @@ import board
 
 GROVE_SENSOR_CATALOG = {}
 
+
+def scan_grove_sensors(at_boot=False):
+    """Nothing to look for on this board - see the XIAO's pins_s3.py,
+    which ntk_firmata_main.py calls the same way."""
+    return []
+
 _found_sensors = []
 
 PIN_TABLE = [

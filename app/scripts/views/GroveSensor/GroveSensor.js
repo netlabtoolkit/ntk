@@ -306,8 +306,8 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// whole story is in the tooltip.
 			var title = '';
 			if(this.model.get('sensorStatus') === 'error') {
-				text = 'Connect sensor and reset board';
-				title = 'The board didn\'t find this sensor, or couldn\'t start it. It only looks for Grove sensors when it starts, so one plugged in afterwards isn\'t found - reset the board. This widget keeps asking, and shows readings once the board has the sensor.';
+				text = 'Connect sensor';
+				title = 'The board doesn\'t have this sensor, or couldn\'t start it. Plug it in: the board looks for it again every few seconds, and readings start once it\'s found. If they don\'t, check the cable, or reset the board (older firmware only looks for sensors when it starts).';
 			}
 			if(title !== this.model.get('readingTitle')) {
 				this.model.set('readingTitle', title);
@@ -845,11 +845,11 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				}
 
 				// The board doesn't have this sensor (or couldn't start
-				// it). It only looks for Grove sensors when it boots, so
-				// one plugged in afterwards is never found - this used to
-				// sit on "waiting" with no explanation (2026-10-31). Say so;
-				// see updateReadingReadout for the hint. subscribeSensor's
-				// retry keeps asking, so a reset board is picked up.
+				// it) - this used to sit on "waiting" with no explanation
+				// (2026-10-31). Say so; see updateReadingReadout for the
+				// hint. subscribeSensor's retry keeps asking, and the board
+				// looks for the sensor again each time (firmata_server.py's
+				// grove_rescan), so plugging it in is enough.
 				if(Number(changed.boardStatus) === 2 && this.model.get('active') === true) {
 					this.model.set('sensorStatus', 'error');
 				}

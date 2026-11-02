@@ -140,6 +140,10 @@ PORTABLE_TYPE_IDS = frozenset([
 # Driven by the board's WiThrottle session, see the module docstring.
 DCC_TYPES = frozenset(['DCCThrottle', 'DCCFunction'])
 
+# How often a GroveSensor whose sensor is missing is looked for again -
+# GroveSensor.js's RESUBSCRIBE_AFTER_MS.
+GROVE_RETRY_S = 6.0
+
 HARDWARE_INPUT_TYPES = frozenset(['AnalogIn', 'DigitalIn'])
 HARDWARE_OUTPUT_TYPES = frozenset(['AnalogOut', 'DigitalOut', 'Servo'])
 # Display is deliberately NOT in HARDWARE_OUTPUT_TYPES above - it has no
@@ -1342,8 +1346,16 @@ class StandaloneInterpreter:
         # called before a real client connects, so its pin claims don't
         # collide with the per-connection FirmataServer's own.
         self._fs = firmata_server.FirmataServer(pin_table)
-        self._grove_catalog = grove_sensor_catalog or {}
+        # The same dict as pins.py's, never a copy - and not `or {}`,
+        # which swapped an empty one (no sensors at boot) for a new dict:
+        # sensors found later by a rescan never showed up here.
+        self._grove_catalog = grove_sensor_catalog if grove_sensor_catalog is not None else {}
         self._grove_subscriptions = {}  # wid -> {read, cleanup, min_interval_ms, last_ms}
+        # GroveSensor widgets whose sensor the board doesn't have (yet) -
+        # tick() asks again every GROVE_RETRY_S, so one plugged in later
+        # starts reading without a reset.
+        self._grove_missing = set()
+        self._grove_retry_at = 0.0
         self.widgets = {}      # wid -> {typeID, values, state}
         self.steps = []        # ordered (kind, ...) tuples - see _build_steps()
         self.loaded = False
@@ -1914,9 +1926,16 @@ class StandaloneInterpreter:
         except (TypeError, ValueError):
             sensor_id = -1
         entry = self._grove_catalog.get(sensor_id)
+        if entry is None and firmata_server.rescan_grove_sensors():
+            entry = self._grove_catalog.get(sensor_id)
         if entry is None:
-            print("standalone_interpreter: GroveSensor", wid, "- sensor", sensor_id, "not available on this board")
+            # Asked again every GROVE_RETRY_S from tick() - see there.
+            # Said once, not every retry.
+            if wid not in self._grove_missing:
+                print("standalone_interpreter: GroveSensor", wid, "- sensor", sensor_id, "not on this board; connect it - it's looked for every few seconds")
+            self._grove_missing.add(wid)
             return
+        self._grove_missing.discard(wid)
         try:
             if entry.get('needs_pin'):
                 pin_str = values.get('pin', '')
@@ -1948,6 +1967,12 @@ class StandaloneInterpreter:
             'last_ms': 0,
         }
 
+    def retry_grove_sensors(self):
+        """Subscribe every GroveSensor whose sensor was missing - after a
+        rescan found it ('g' on the console, or tick()'s retry)."""
+        for wid in list(self._grove_missing):
+            self._subscribe_grove_sensor(wid)
+
     def release_hardware(self):
         """Call right before a real Firmata client connects, so its own
         fresh FirmataServer instance can claim the same physical pins
@@ -1962,6 +1987,7 @@ class StandaloneInterpreter:
                 except Exception:
                     pass
         self._grove_subscriptions = {}
+        self._grove_missing = set()
         self._release_osc()
         self._release_cloud()
         self.release_dcc()
@@ -2401,6 +2427,11 @@ class StandaloneInterpreter:
                     broken_keys.append(key)
             for key in broken_keys:
                 self._drop_cloud_client(key)
+        # A GroveSensor whose sensor wasn't there: look again now and then,
+        # the same pace as the live widget's own re-asking.
+        if self._grove_missing and now - self._grove_retry_at >= GROVE_RETRY_S:
+            self._grove_retry_at = now
+            self.retry_grove_sensors()
         # Station reports first, so the dcc steps below see them this tick.
         for connection in self._dcc_connections.values():
             connection.poll(now)
