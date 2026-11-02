@@ -519,6 +519,57 @@ def _sc_limit_180(value, values):
     return max(0.0, min(180.0, value))
 
 
+# Servo calibration and limits from the widget's "more" panel - the same
+# fields and defaults as Servo.js's servoSettings(). Fields are text
+# inputs' strings; blank or bad means the default.
+SERVO_PULSE_DEFAULT = (600, 2400)   # johnny-five's pwmRange on a live connection
+SERVO_PULSE_BOUNDS = (300, 3000)
+
+
+def _servo_settings(values):
+    lo = max(0.0, min(180.0, _num(values.get('servoAngleMin'), 0.0)))
+    hi = max(0.0, min(180.0, _num(values.get('servoAngleMax'), 180.0)))
+    if _is_nan(lo):
+        lo = 0.0
+    if _is_nan(hi):
+        hi = 180.0
+    if lo > hi:
+        lo, hi = hi, lo
+    pmin = _num(values.get('servoPulseMin'), SERVO_PULSE_DEFAULT[0])
+    pmax = _num(values.get('servoPulseMax'), SERVO_PULSE_DEFAULT[1])
+    pulse = SERVO_PULSE_DEFAULT
+    if not _is_nan(pmin) and not _is_nan(pmax):
+        pmin, pmax = int(round(pmin)), int(round(pmax))
+        if pmin >= SERVO_PULSE_BOUNDS[0] and pmax <= SERVO_PULSE_BOUNDS[1] and pmin < pmax:
+            pulse = (pmin, pmax)
+    speed = _num(values.get('servoMaxSpeed'), 0.0)
+    if _is_nan(speed) or speed <= 0:
+        speed = 0.0
+    return lo, hi, pulse, speed
+
+
+def _chain_servo_motion(value, values, state):
+    # Servo.js's limitRange (angle limits) + limitSpeed/motionFrame (max
+    # speed, degrees/s): the output moves toward the target no faster
+    # than that, time-based like the live widget's frame callback.
+    lo, hi, _, speed = _servo_settings(values)
+    value = max(lo, min(hi, value))
+    now = state['now']
+    position = state.get('servo_position')
+    last = state.get('servo_last_time', now)
+    state['servo_last_time'] = now
+    if not speed or position is None:
+        position = value
+    else:
+        step = speed * min(0.25, max(0.0, now - last))
+        if value > position:
+            position = min(value, position + step)
+        else:
+            position = max(value, position - step)
+    state['servo_position'] = position
+    return position
+
+
 def _sc_apply_threshold(value, values):
     threshold = _num(values.get('threshold'), 512.0)
     return 1023.0 if value >= threshold else 0.0
@@ -650,6 +701,8 @@ def _run_chain(fn_names, value, values, state):
             value = _sc_gamma_correct(value, values)
         elif name == 'limit180':
             value = _sc_limit_180(value, values)
+        elif name == 'servoMotion':
+            value = _chain_servo_motion(value, values, state)
         elif name == 'threshold':
             value = _sc_apply_threshold(value, values)
         elif name == 'ifTest':
@@ -663,7 +716,7 @@ CHAIN_FUNCTIONS_BY_TYPE = {
     'Process': ['math', 'scale', 'invert', 'easing', 'smoother'],
     'IfThen': ['ifTest'],
     'AnalogOut': ['limit255', 'gammaCorrect'],
-    'Servo': ['limit180'],
+    'Servo': ['limit180', 'servoMotion'],
     'DigitalOut': ['threshold'],
     'OSCIn': ['scale'],
     'CloudIn': ['scale'],
@@ -1852,7 +1905,10 @@ class StandaloneInterpreter:
                 if idx is None:
                     continue
                 if type_id == 'Servo':
-                    fs._handle_servo_config(idx, firmata_server.SERVO_MIN_PULSE_US_DEFAULT, firmata_server.SERVO_MAX_PULSE_US_DEFAULT)
+                    # The widget's pulse range - also what the firmware
+                    # clamps every pulse to, so 2500us needs it here.
+                    pulse = _servo_settings(self.widgets[wid]['values'])[2]
+                    fs._handle_servo_config(idx, pulse[0], pulse[1])
                 elif type_id == 'AnalogOut':
                     fs._apply_pin_mode(idx, firmata_server.PWM)
                 elif type_id == 'DigitalOut':
@@ -2590,7 +2646,8 @@ class StandaloneInterpreter:
                         # never moves - which is exactly the historical bug
                         # that comment describes.
                         degrees = max(0.0, min(180.0, _num(out_value, 0.0)))
-                        pulse_us = int(degrees * (2400.0 - 600.0) / 180.0 + 600.0)
+                        pmin, pmax = _servo_settings(w['values'])[2]
+                        pulse_us = int(degrees * (pmax - pmin) / 180.0 + pmin)
                         fs._handle_analog_write(idx, pulse_us)
                     else:
                         fs._handle_analog_write(idx, out_value)

@@ -1,7 +1,29 @@
 .widget.servo {
 
 	.title {
-		
+
+	}
+
+	// Angle limits / max speed / pulse range in the more panel.
+	.servoLimits {
+		font-size: 11px;
+		line-height: 22px;
+
+		.servoLabel {
+			display: inline-block;
+			width: 58px;
+		}
+		.servoField {
+			width: 34px;
+		}
+		.servoField.error {
+			background: #fdd;
+		}
+		.servoPulseNote {
+			color: #b00;
+			font-size: 10px;
+			line-height: 12px;
+		}
 	}
 
 }
