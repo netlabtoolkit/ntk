@@ -619,7 +619,6 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 			if(!addedFromLoader) {
 				this.placeNewWidget(view);
 				window.app.vent.trigger('addWidget', view.model);
-				window.app.patchDirty = true;
 			}
 			this.widgetModels.add(view.model);
 			this.bindModelToServer(view.model);
@@ -875,7 +874,6 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 
 			if(!calledFromLoader) {
 				window.app.vent.trigger('removeWidget', widgetView.model.get( 'wid' ));
-				window.app.patchDirty = true;
 			}
 		},
 		/**
@@ -1160,32 +1158,88 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 		 * look alike. Native events only, so jQuery's triggered 'change'
 		 * (e.g. Encoder's knob binder on every count) doesn't count:
 		 * typing / ticking / choosing in a widget, clicking its option
-		 * buttons, dragging a widget or a cable end. Adding and removing
-		 * widgets are marked in addWidgetToStage / removeWidget.
-		 * Cleared by a load (loadPatch) and by a confirmed save.
+		 * buttons, dragging a widget or a cable end.
+		 *
+		 * A getter, not a stored flag: dirty when the set of widgets or
+		 * cables differs from the last load/save, or a widget that's
+		 * still there was edited. So adding widgets and deleting them
+		 * again - or editing a widget that's since been deleted - leaves
+		 * the patch clean (2026-11-02; it used to ask "Save changes?"
+		 * after any add or remove). Setting it false (a load, a confirmed
+		 * save) takes a new snapshot; setting it true forces dirty.
 		 *
 		 * @return {void}
 		 */
 		trackUnsavedEdits: function() {
-			window.app.patchDirty = false;
-			var markIfInWidget = function(e) {
-				if(e.target && e.target.closest && e.target.closest('.widget')) {
-					window.app.patchDirty = true;
+			var self = this;
+			var cleanKey = '';
+			var editedWids = {};
+			var forcedDirty = false;
+			var structureKey = function() {
+				var wids = _.map(self.widgets, function(view) {
+					return view.model.get('wid');
+				}).sort();
+				var cables = _.map(self.widgetMappings, function(m) {
+					return m.viewWID + '|' + m.modelWID + '|' + JSON.stringify(m.map);
+				}).sort();
+				return JSON.stringify([wids, cables]);
+			};
+			var isDirty = function() {
+				if(forcedDirty || structureKey() !== cleanKey) {
+					return true;
 				}
+				return _.some(self.widgets, function(view) {
+					return editedWids[view.model.get('wid')];
+				});
+			};
+			var markClean = function() {
+				cleanKey = structureKey();
+				editedWids = {};
+				forcedDirty = false;
+			};
+			Object.defineProperty(window.app, 'patchDirty', {
+				configurable: true,
+				get: isDirty,
+				set: function(value) {
+					if(value) {
+						forcedDirty = true;
+					}
+					else {
+						markClean();
+					}
+				},
+			});
+			markClean();
+
+			var markEdited = function(target) {
+				var el = target && target.closest && target.closest('.widget');
+				if(!el) {
+					return;
+				}
+				var view = _.find(self.widgets, function(v) {
+					return v.el === el;
+				});
+				if(view) {
+					editedWids[view.model.get('wid')] = true;
+				}
+				else {
+					forcedDirty = true;
+				}
+			};
+			var markIfInWidget = function(e) {
+				markEdited(e.target);
 			};
 			document.addEventListener('input', markIfInWidget, true);
 			document.addEventListener('change', markIfInWidget, true);
 			document.addEventListener('click', function(e) {
 				if(e.target && e.target.closest && e.target.closest('.widget li')) {
-					window.app.patchDirty = true;
+					markEdited(e.target);
 				}
 			}, true);
 			// jQuery UI drags: a widget moved, or a cable wired/unwired
 			// (dragging an outlet onto an inlet, or an inlet off).
 			$(document).on('dragstop', function(e) {
-				if($(e.target).closest('.widget').length) {
-					window.app.patchDirty = true;
-				}
+				markEdited(e.target);
 			});
 		},
     // Filename matches STANDALONE_PATCH_PATH (ntk_firmata_main.py) so
