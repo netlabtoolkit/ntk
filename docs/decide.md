@@ -42,7 +42,7 @@ Each question starts with a name and a colon, then one of three types:
 
 For choice and score, the question itself goes on the next line, indented. Lines starting with `#` are notes and are ignored.
 
-Mistakes are listed under the box as you type, with the line number marked in red; click one to go to that line. The questions take effect when you click out of the box.
+Mistakes are listed under the box as you type, with the line number marked in red; click one to go to that line. Changes apply on their own as soon as you stop typing. While there's a mistake, the widget keeps using the last questions that worked.
 
 **Tips for good questions**
 
@@ -50,6 +50,19 @@ Mistakes are listed under the box as you type, with the line number marked in re
 - **Prefer choice and yes/no.** They're the most reliable. Use a score only for a real "how much" or "how strongly", with 3 or 4 levels, and make the lowest level cover "doesn't apply" (`none < some < very`).
 - **Write the question plainly**, as you'd ask a person.
 - **Test with real phrases**, including indirect ones ("make it cozy") and off-topic ones ("what time is it?"), and see what comes out.
+
+## Letting an AI write the questions
+
+Writing good questions is the hard part, so Decide can do it for you. At the top of the **more** panel, describe in plain words what the widget should decide — for example *A doorbell that sorts visitors: a delivery, a friend, a salesperson or someone unknown, and flags if they sound urgent* — and click **generate**.
+
+An AI model writes the questions, plus a handful of **test phrases**: examples of what someone might say, with the answers it intends for each. This happens only while you're building the patch; the patch itself runs on the fast decision model alone.
+
+- **Which AI writes them:** pick it next to the generate button. **Anthropic** is the default if you've set up an API key (the same key as the LLM widget; it wrote the best questions in testing, in about 3 seconds). **Ollama** uses a chat model on your own computer, such as `gemma4:12b` (about 8 seconds); decision models can't write, so they aren't listed. **GreenPT** needs its own key. If a key is missing, **set up key** opens the file to paste it into.
+- **Nothing changes until you say so.** The new questions appear in a yellow box, with a note of what each outlet will carry instead (`out1: lights → visitor`) — a cable on out1 will now carry the new answer. Click **use this** to take them, or **keep mine**.
+- **Then it tests them.** After **use this**, Decide runs every test phrase through the decision model (the outlets don't change) and marks each one ✓ if it came out as intended, ✗ if not. Hover over a phrase to see what was meant and what came out. A ✗ usually means a question needs rewording: edit it in the questions box, and click **test all** again.
+- **Click a test phrase** to send it through the widget like real input, outlets included — a quick way to try the rest of your patch.
+
+You can always edit the questions by hand afterwards, or write them yourself from the start.
 
 ## Outlets
 
@@ -85,7 +98,9 @@ The first decision after a model loads takes a few seconds. To avoid that wait, 
 
 ## Settings (more panel)
 
+- **describe it** and **generate** — see "Letting an AI write the questions".
 - **questions** — the questions, as above.
+- **test phrases** and **test all** — see "Letting an AI write the questions".
 - **model** — the Ollama decision model. Click the box to pick from the decision models installed.
 - **address** — where Ollama runs: this computer (`http://localhost:11434`) or another computer on the network.
 - **confidence** — see above.

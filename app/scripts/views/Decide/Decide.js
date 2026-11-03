@@ -28,6 +28,20 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 	// Text the warm-up decides on: anything short does.
 	var WARM_TEXT = 'hello';
 
+	// Generate: which model writes the questions, before one is picked.
+	// A model picked in this or any Decide widget is remembered per
+	// provider; failing that, the LLM widget's last pick; then these.
+	var GEN_DEFAULT_MODEL = {anthropic: 'claude-sonnet-5', greenpt: 'green-l', ollama: ''};
+	function storedGenModel(provider) {
+		try {
+			return localStorage.getItem('ntk.decide.genModel.' + provider) ||
+				localStorage.getItem('ntk.llm.lastModel.' + provider) || GEN_DEFAULT_MODEL[provider] || '';
+		} catch(e) { return GEN_DEFAULT_MODEL[provider] || ''; }
+	}
+	function rememberGenModel(provider, model) {
+		try { if(model) { localStorage.setItem('ntk.decide.genModel.' + provider, model); } } catch(e) { /* not fatal */ }
+	}
+
 	function toNumber(value, fallback) {
 		var n = parseFloat(value);
 		return isNaN(n) ? fallback : n;
@@ -45,6 +59,14 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 			'scroll .decideScript': 'syncGutterScroll',
 			'mousedown .decideErrors li': 'jumpToError',
 			'focus .decideModel': 'fetchModels',
+			'click .decideGenerate': 'generate',
+			'click .decideUse': 'usePreview',
+			'click .decideKeep': 'keepMine',
+			'click .decideSetupKey': 'setupKey',
+			'change .decideGenProvider': 'onGenProviderChange',
+			'focus .decideGenModel': 'fetchGenModels',
+			'click .decideTests li': 'runTestPhrase',
+			'click .decideTestAll': 'testAll',
 		},
 		ins: [
 			{title: 'text', to: 'in'},
@@ -76,6 +98,11 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 			this._warmTimer = null;
 			this._warmedKey = '';
 			this._lastText = undefined;
+			this._genCallID = null;
+			this._genTimer = null;
+			this._applyTimer = null;
+			this._testResults = {};
+			this._testing = false;
 
 			var get = function(field, fallback) {
 				var v = this.model.get(field);
@@ -110,9 +137,29 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 				statusTitle: '',
 				hasError: false,
 				busy: false,
+
+				// Generate: a plain description -> an LLM writes the script
+				// and test phrases (only while building, never at run time).
+				request: get('request', ''),
+				genProvider: get('genProvider', ''),
+				genModel: get('genModel', ''),
+				testPhrases: get('testPhrases', []),
+				genStatus: '',
+				genError: false,
+				genNeedsKey: false,
+				genBusy: false,
+				hasPreview: false,
+				previewScript: '',
+				previewTests: [],
+				previewNotes: [],
+				tests: [],
+				hasTests: false,
+				testSummary: '',
+				testing: false,
 			});
 
 			this.loadScript();
+			this.renderTests();
 		},
 
 		onRender: function() {
@@ -127,6 +174,8 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 			var listID = 'decideModels-' + this.cid;
 			this.$('.decideModelList').attr('id', listID);
 			this.$('.decideModel').attr('list', listID);
+			this.$('.decideGenModelList').attr('id', listID + '-gen');
+			this.$('.decideGenModel').attr('list', listID + '-gen');
 			this.nameOutlets();
 			this.renderGutter();
 			if(!window.ntkElectron || !window.ntkElectron.decide) {
@@ -134,11 +183,14 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 				return;
 			}
 			this.fetchModels();
+			this.pickGenProvider();
 		},
 
 		onRemove: function() {
 			if(this._pauseTimer) { clearTimeout(this._pauseTimer); }
 			if(this._warmTimer) { clearTimeout(this._warmTimer); }
+			if(this._genTimer) { clearInterval(this._genTimer); }
+			if(this._applyTimer) { clearTimeout(this._applyTimer); }
 			this.cancelCall();
 		},
 
@@ -199,9 +251,22 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 			this.renderGutter();
 		},
 
+		// Errors are listed as you type, and the questions apply on their
+		// own once typing pauses - if they read. Applying only on leaving
+		// the box (rv-value's 'change') caught Phil out: he added an
+		// option, tried it, and got answers from the old questions.
+		// With mistakes, the last good questions stay in use.
 		checkScript: function(e) {
-			this.gutterText = e.target.value;
-			this.showErrors(DecideScript.parse(e.target.value));
+			var text = e.target.value;
+			var parsed = DecideScript.parse(text);
+			this.gutterText = text;
+			this.showErrors(parsed);
+			if(this._applyTimer) { clearTimeout(this._applyTimer); }
+			if(!parsed.ok) { return; }
+			this._applyTimer = setTimeout(function() {
+				this._applyTimer = null;
+				if(text !== this.model.get('script')) { this.model.set('script', text); }
+			}.bind(this), 600);
 		},
 
 		// Line numbers beside the script box, lines with an error in red
@@ -335,6 +400,7 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 						return;
 					}
 					this.applyAnswers(parsed, res.answers);
+					this.markTest(text, parsed, res.answers);
 					this.setStatus(res.ms + ' ms', 'How long the decision took', false);
 				}
 				var again = this._pending && this.currentText() !== this._sentText;
@@ -470,6 +536,249 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 			}.bind(this));
 		},
 
+		// ---- Generate: an LLM writes the questions ----
+
+		// A new widget's generator: Anthropic if a key is set up (it wrote
+		// the best questions in the spike, in ~3 s), else a local Ollama
+		// chat model.
+		pickGenProvider: function() {
+			if(this.model.get('genProvider')) { this.fetchGenModels(); return; }
+			var choose = function(provider) {
+				this.model.set({genProvider: provider, genModel: storedGenModel(provider)});
+				this.fetchGenModels();
+			}.bind(this);
+			if(!window.ntkElectron || !window.ntkElectron.llmKeyStatus) { choose('ollama'); return; }
+			window.ntkElectron.llmKeyStatus('anthropic').then(function(k) {
+				choose(k && k.hasKey ? 'anthropic' : 'ollama');
+			});
+		},
+
+		onGenProviderChange: function() {
+			var provider = this.$('.decideGenProvider').val();
+			this.model.set({genProvider: provider, genModel: storedGenModel(provider),
+				genStatus: '', genError: false, genNeedsKey: false});
+			this.fetchGenModels();
+		},
+
+		// The provider's models for the picker. For Ollama, only chat
+		// models: a decision model can't write.
+		fetchGenModels: function() {
+			var api = window.ntkElectron;
+			if(!api || !api.llmModels) { return; }
+			var provider = this.model.get('genProvider');
+			if(!provider) { return; }
+			var baseURL = provider === 'ollama' ? (String(this.model.get('baseURL') || '').trim() || undefined) : undefined;
+			var decisionModels = provider === 'ollama' && api.decideModels ? api.decideModels({baseURL: baseURL}) : Promise.resolve({models: []});
+			Promise.all([api.llmModels({provider: provider, baseURL: baseURL}), decisionModels]).then(function(r) {
+				if(this.model.get('genProvider') !== provider) { return; }
+				var exclude = (r[1] && r[1].models) || [];
+				var models = ((r[0] && r[0].models) || []).filter(function(m) { return exclude.indexOf(m) === -1; });
+				var list = this.$('.decideGenModelList').empty();
+				models.forEach(function(m) { list.append($('<option>').attr('value', m)); });
+				if(!this.model.get('genModel') && models.length) { this.model.set('genModel', models[0]); }
+			}.bind(this));
+		},
+
+		setupKey: function(e) {
+			e.preventDefault();
+			if(window.ntkElectron && window.ntkElectron.llmOpenKeysFile) {
+				window.ntkElectron.llmOpenKeysFile().then(function() {
+					this.model.set({genStatus: 'paste the key into ai-keys.toml, save it, then generate again', genError: false, genNeedsKey: false});
+				}.bind(this));
+			}
+		},
+
+		setGenStatus: function(text, isError, needsKey) {
+			this.model.set({genStatus: text, genError: !!isError, genNeedsKey: !!needsKey});
+		},
+
+		generate: function(e) {
+			if(e) { e.preventDefault(); }
+			var api = window.ntkElectron;
+			if(!api || !api.llmComplete) { this.setGenStatus('needs the desktop app', true); return; }
+			if(this._genCallID) { return; }
+			// The request box publishes on blur; read it directly too, so
+			// a click straight after typing sends what was typed.
+			var request = String(this.$('.decideRequest').val() || this.model.get('request') || '').trim();
+			this.model.set('request', request);
+			if(!request) { this.setGenStatus('describe what the widget should decide first', true); return; }
+			var provider = this.model.get('genProvider') || 'ollama';
+			var model = String(this.model.get('genModel') || '').trim();
+			if(!model) { this.setGenStatus(provider === 'ollama' ? 'pick an Ollama chat model (ollama pull gemma4:12b)' : 'pick a model', true); return; }
+			rememberGenModel(provider, model);
+
+			var callID = this._genCallID = this.cid + '-gen-' + Date.now();
+			var started = Date.now();
+			this.model.set({genBusy: true, hasPreview: false});
+			var tick = function() { this.setGenStatus('writing the questions… ' + Math.round((Date.now() - started) / 1000) + ' s', false); }.bind(this);
+			tick();
+			this._genTimer = setInterval(tick, 500);
+
+			api.llmComplete({
+				requestID: callID,
+				provider: provider,
+				model: model,
+				baseURL: provider === 'ollama' ? (String(this.model.get('baseURL') || '').trim() || undefined) : undefined,
+				system: DecideScript.GENERATOR_PROMPT,
+				user: request,
+				maxTokens: 1500,
+				// Ollama: a thinking model would think first, slowly.
+				think: false,
+			}).then(function(res) {
+				if(callID !== this._genCallID) { return; }
+				this._genCallID = null;
+				clearInterval(this._genTimer);
+				this._genTimer = null;
+				this.model.set('genBusy', false);
+				var took = ((Date.now() - started) / 1000).toFixed(1) + ' s';
+				if(!res || res.canceled) { this.setGenStatus('', false); return; }
+				if(res.error) { this.setGenStatus(res.error, true, res.code === 'no-key'); return; }
+				this.showPreview(DecideScript.splitGenerated(res.text), took);
+			}.bind(this));
+		},
+
+		// The new questions, next to the current ones, before anything
+		// changes: what each outlet will carry, and any mistakes.
+		showPreview: function(generated, took) {
+			var next = DecideScript.parse(generated.script);
+			// Nothing to look at: say so, and offer nothing to apply.
+			if(!next.questions.length) {
+				this.model.set({hasPreview: false});
+				this.setGenStatus('took ' + took + ', but no questions came back - try again, or another model', true);
+				return;
+			}
+			var notes = [];
+			for(var i = 0; i < 4; i++) {
+				var o = this.parsed.questions[i], n = next.questions[i];
+				if(o && n && o.name === n.name) { continue; }
+				if(o && n) { notes.push('out' + (i + 1) + ': ' + o.name + ' → ' + n.name); }
+				else if(n) { notes.push('out' + (i + 1) + ': new, ' + n.name); }
+				else if(o) { notes.push('out' + (i + 1) + ': ' + o.name + ' goes (no question)'); }
+			}
+			if(!notes.length && next.questions.length) { notes.push('each outlet keeps its question name'); }
+			next.errors.forEach(function(e) { notes.push('line ' + e.line + ': ' + e.message); });
+			if(!generated.tests.length) { notes.push('no test phrases came back'); }
+			this.model.set({
+				previewScript: generated.script,
+				previewTests: generated.tests,
+				previewNotes: notes,
+				hasPreview: true,
+			});
+			this.setGenStatus('took ' + took + (next.ok ? ' - check the new questions below' : ' - the new questions have mistakes, see below'), !next.ok);
+		},
+
+		usePreview: function(e) {
+			if(e) { e.preventDefault(); }
+			var script = this.model.get('previewScript');
+			if(!this.model.get('hasPreview') || !DecideScript.parse(script).questions.length) { return; }
+			this.model.set({
+				script: script,
+				testPhrases: this.model.get('previewTests') || [],
+				hasPreview: false,
+			});
+			this.setGenStatus('', false);
+			// The box keeps its scroll position otherwise - lines showed
+			// from the middle, as if cut off.
+			this.$('.decideScript').scrollLeft(0).scrollTop(0);
+			this.syncGutterScroll();
+			// Show straight away how well the new questions work.
+			if(this.parsed.ok && (this.model.get('testPhrases') || []).length) { this.testAll(); }
+		},
+
+		keepMine: function(e) {
+			if(e) { e.preventDefault(); }
+			this.model.set({hasPreview: false});
+			this.setGenStatus('', false);
+		},
+
+		// ---- test phrases ----
+
+		renderTests: function() {
+			var phrases = this.model.get('testPhrases') || [];
+			var results = this._testResults || {};
+			var right = 0, checked = 0;
+			var tests = phrases.map(function(t, i) {
+				var r = results[i];
+				var want = _.map(t.expect || {}, function(v, k) { return k + '=' + v; }).join(', ');
+				var detail = 'Click to try it.' + (want ? ' Meant: ' + want + '.' : '');
+				if(r) {
+					checked++;
+					if(r.ok) { right++; }
+					detail += ' Got: ' + r.results.map(function(x) { return x.name + '=' + x.got + (x.ok === false ? ' ✗' : ''); }).join(', ') + '.';
+				}
+				return {index: i, phrase: t.phrase, mark: r ? (r.ok ? '✓' : '✗') : '·', pass: !!(r && r.ok), fail: !!(r && !r.ok), detail: detail};
+			});
+			this.model.set({
+				tests: tests,
+				hasTests: tests.length > 0,
+				testSummary: checked ? right + ' of ' + checked + ' as intended' : '',
+			});
+		},
+
+		// After any decision: if the text was one of the test phrases,
+		// mark whether it came out as intended.
+		markTest: function(text, parsed, answers) {
+			var phrases = this.model.get('testPhrases') || [];
+			var key = String(text).trim().toLowerCase();
+			for(var i = 0; i < phrases.length; i++) {
+				if(String(phrases[i].phrase).trim().toLowerCase() === key) {
+					this._testResults[i] = DecideScript.checkTest(parsed.questions, answers, phrases[i].expect, {binary: !!this.model.get('binary')});
+					this.renderTests();
+					return;
+				}
+			}
+		},
+
+		// Clicking a test phrase feeds it through the widget like real
+		// input - outlets included, so the rest of the patch can be tried.
+		runTestPhrase: function(e) {
+			var i = parseInt($(e.currentTarget).attr('data-index'), 10);
+			var t = (this.model.get('testPhrases') || [])[i];
+			if(!t) { return; }
+			this.model.set('in', t.phrase);
+			this.decide(false);
+		},
+
+		// Every phrase, one after another, without touching the outlets.
+		testAll: function(e) {
+			if(e) { e.preventDefault(); }
+			var api = window.ntkElectron;
+			var phrases = this.model.get('testPhrases') || [];
+			if(this._testing || !api || !api.decide || !phrases.length) { return; }
+			if(!this.parsed.ok) { this.model.set('testSummary', 'fix the questions first'); return; }
+			var parsed = this.parsed;
+			var model = String(this.model.get('model') || '').trim();
+			var baseURL = String(this.model.get('baseURL') || '').trim() || undefined;
+			var binary = !!this.model.get('binary');
+			this._testing = true;
+			this._testResults = {};
+			this.renderTests();
+			this.model.set({testing: true, testSummary: 'testing…'});
+			var next = function(i) {
+				if(i >= phrases.length || parsed !== this.parsed) {
+					this._testing = false;
+					this.model.set('testing', false);
+					this.renderTests();
+					return;
+				}
+				api.decide({model: model, baseURL: baseURL, state: phrases[i].phrase,
+					questions: DecideScript.request(parsed.questions)}).then(function(res) {
+					if(res && res.error) {
+						this._testing = false;
+						this.model.set({testing: false, testSummary: res.error});
+						return;
+					}
+					if(res && res.answers) {
+						this._testResults[i] = DecideScript.checkTest(parsed.questions, res.answers, phrases[i].expect, {binary: binary});
+						this.renderTests();
+						this.model.set('testSummary', 'testing… ' + (i + 1) + ' of ' + phrases.length);
+					}
+					next(i + 1);
+				}.bind(this));
+			}.bind(this);
+			next(0);
+		},
+
 		// ---- model changes ----
 
 		onModelChange: function(model) {
@@ -479,6 +788,13 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 			if(changed.script !== undefined) {
 				this.loadScript();
 				this.scheduleWarm();
+				// Marks from the old questions no longer say anything.
+				this._testResults = {};
+				this.renderTests();
+			}
+			if(changed.testPhrases !== undefined) {
+				this._testResults = {};
+				this.renderTests();
 			}
 			if(changed.model !== undefined || changed.baseURL !== undefined) {
 				this.scheduleWarm();

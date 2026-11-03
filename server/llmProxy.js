@@ -238,14 +238,35 @@ async function ollamaComplete(opts) {
 
 	const body = { model: opts.model, messages: messages, stream: false, keep_alive: OLLAMA_KEEP_ALIVE };
 	if (Object.keys(options).length) body.options = options;
+	// opts.think === false: answer without a thinking phase. Decide's
+	// question writer needs this - a thinking model (gemma4, qwen3.6,
+	// deepseek-r1) otherwise spent its whole token budget thinking and
+	// sent back an empty answer after 45 s.
+	if (opts.think === false) body.think = false;
 
 	try {
-		const res = await fetch(base + '/api/chat', {
+		let res = await fetch(base + '/api/chat', {
 			method: 'POST',
 			signal: opts.signal,
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify(body),
 		});
+		// An Ollama or model that doesn't take the think setting: ask
+		// again without it.
+		if (!res.ok && body.think === false && res.status === 400) {
+			const t = await res.text();
+			if (/think/i.test(t)) {
+				delete body.think;
+				res = await fetch(base + '/api/chat', {
+					method: 'POST',
+					signal: opts.signal,
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify(body),
+				});
+			} else {
+				return { error: 'Ollama error 400: ' + t.slice(0, 200), code: '400' };
+			}
+		}
 		if (!res.ok) {
 			const t = await res.text();
 			if (res.status === 404) return { error: 'Ollama: model "' + opts.model + '" not pulled. Run: ollama pull ' + opts.model, code: '404' };

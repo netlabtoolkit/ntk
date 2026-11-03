@@ -3096,5 +3096,101 @@ body.ntk-monitoring .monitorBlockOverlay {
             code { font-family: Menlo, Monaco, monospace; font-size: 10px; }
         }
         .decideModel, .decideBaseURL { width: 170px; }
+
+        // Generate: describe it, an LLM writes the questions.
+        // Headings as plain blocks - the shared label rule fixes labels'
+        // width, which wrapped these onto two lines.
+        .decideHeading {
+            margin: 2px 0;
+            font-size: 12px;
+        }
+        textarea.decideRequest {
+            display: block;
+            box-sizing: border-box;
+            width: 100%;
+            font-size: 11px;
+        }
+        .decideGenRow {
+            margin-top: 3px;
+            white-space: nowrap;
+
+            select { font-size: 10px; max-width: 82px; }
+            input.decideGenModel { width: 120px; font-size: 10px; }
+        }
+        .decideGenerate, .decideUse, .decideKeep, .decideTestAll {
+            padding: 1px 6px;
+            border: 1px solid #98a6ac;
+            border-radius: 3px;
+            background-color: #fff;
+            font-size: 10px;
+            cursor: pointer;
+
+            &.busy {
+                background-color: #c5cae9;
+                animation: decideBusy 0.8s ease-in-out infinite;
+            }
+        }
+        .decideUse { background-color: #c8e6c9; }
+        .decideGenStatus {
+            min-height: 13px;
+            margin: 2px 0;
+            font-size: 10px;
+            color: #555;
+
+            &.error { color: #c62828; }
+        }
+        .decidePreview {
+            margin: 4px 0;
+            padding: 4px;
+            background: #fffbe6;
+            border: 1px solid #e6d58a;
+            border-radius: 3px;
+
+            pre.decidePreviewScript {
+                margin: 2px 0;
+                max-height: 140px;
+                overflow: auto;
+                font-family: Menlo, Monaco, monospace;
+                font-size: 10px;
+                line-height: 1.35;
+                // Wrapped, so the whole of each line can be read.
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+            .decidePreviewNotes {
+                margin: 2px 0 4px;
+                padding-left: 14px;
+                font-size: 10px;
+                color: #6d4c00;
+            }
+        }
+        .decideTests {
+            margin-top: 4px;
+
+            .decideTestSummary { font-size: 10px; color: #555; margin-left: 4px; }
+            ul {
+                margin: 3px 0;
+                padding: 0;
+                list-style: none;
+            }
+            li {
+                font-size: 11px;
+                line-height: 15px;
+                cursor: pointer;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+
+                &:hover { background: #f0f0f0; }
+                &.pass .decideMark { color: #2e7d32; }
+                &.fail .decideMark { color: #c62828; }
+            }
+            .decideMark {
+                display: inline-block;
+                width: 14px;
+                font-weight: bold;
+                color: #999;
+            }
+        }
     }
 }

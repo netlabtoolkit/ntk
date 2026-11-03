@@ -96,5 +96,45 @@ test('answers become outlet values', () => {
 	assert.strictEqual(DecideScript.answer(qs[2], {type: 'score', score: 0.4, confidence: 0.6}).text, 'calm');
 });
 
+test('a generated reply splits into script and test phrases', () => {
+	const g = DecideScript.splitGenerated([
+		"Here's a script for you:",
+		'```',
+		'lamp: choice on | off | none=Not about the lamp',
+		'      What should the lamp do?',
+		'annoyed: yes/no Does the speaker sound annoyed?',
+		'```',
+		'**TEST PHRASES**',
+		'1. "turn the lamp on" => lamp=on, annoyed=no',
+		'- why is it so dark, seriously => lamp=on, annoyed=yes',
+		'what is for dinner? => lamp=none, annoyed=no',
+		'not a test line',
+	].join('\n'));
+	assert.strictEqual(g.script, 'lamp: choice on | off | none=Not about the lamp\n      What should the lamp do?\nannoyed: yes/no Does the speaker sound annoyed?');
+	assert.ok(DecideScript.parse(g.script).ok);
+	assert.deepStrictEqual(g.tests, [
+		{phrase: 'turn the lamp on', expect: {lamp: 'on', annoyed: 'no'}},
+		{phrase: 'why is it so dark, seriously', expect: {lamp: 'on', annoyed: 'yes'}},
+		{phrase: 'what is for dinner?', expect: {lamp: 'none', annoyed: 'no'}},
+	]);
+});
+
+test('a reply with no test phrases still gives the script', () => {
+	const g = DecideScript.splitGenerated('<think>hmm</think>\nlamp: yes/no Is it about the lamp?');
+	assert.strictEqual(g.script, 'lamp: yes/no Is it about the lamp?');
+	assert.deepStrictEqual(g.tests, []);
+});
+
+test('test phrases are checked against the answers', () => {
+	const qs = DecideScript.parse('lamp: choice on | off\n  ?\nannoyed: yes/no Annoyed?\nlevel: score none < some < very\n  ?').questions;
+	const answers = {lamp: {type: 'choice', choice: 'on', confidence: 0.9}, annoyed: {type: 'noul', noul: 0.8},
+		level: {type: 'score', score: 1.2, legend: {0: 'none', 1: 'some', 2: 'very'}, confidence: 0.5}};
+	const r = DecideScript.checkTest(qs, answers, {lamp: 'On', annoyed: 'no', gone: 'x'});
+	assert.strictEqual(r.ok, false);
+	assert.strictEqual(r.checked, 2);
+	assert.deepStrictEqual(r.results.map(x => x.ok), [true, false, null]);
+	assert.strictEqual(DecideScript.checkTest(qs, answers, {lamp: 'on', annoyed: 'yes', level: 'some'}).ok, true);
+});
+
 if(failed) { console.log(failed + ' failed'); process.exit(1); }
 console.log('all passed');

@@ -34,10 +34,32 @@
     <div class="widgetBottom">
         <div class="tab"><p>more</p></div>
         <div class="content">
+            <div class="decideHeading">describe it, and an AI writes the questions</div>
+            <textarea class="decideRequest" rows="3" rv-value="widget:request" placeholder="e.g. Turn the lamp on when someone asks for light, dim it if they want to relax, and tell me if they sound annoyed."></textarea>
+            <div class="decideGenRow">
+                <button type="button" class="decideGenerate" rv-class-busy="widget:genBusy" title="Ask an AI model to write the questions and some test phrases from your description. You'll see them before they replace anything.">generate</button>
+                <select class="decideGenProvider" rv-value="widget:genProvider" title="Which AI writes the questions - only while you build the patch, never while it runs">
+                    <option value="anthropic">Anthropic</option>
+                    <option value="greenpt">GreenPT</option>
+                    <option value="ollama">Ollama</option>
+                </select>
+                <input class="decideGenModel" type="text" spellcheck="false" rv-value="widget:genModel" title="The model that writes the questions"><datalist class="decideGenModelList"></datalist>
+            </div>
+            <div class="decideGenStatus" rv-class-error="widget:genError"><span rv-text="widget:genStatus"></span> <a class="decideSetupKey" href="#" rv-show="widget:genNeedsKey">set up key</a></div>
+            <div class="decidePreview" rv-show="widget:hasPreview">
+                <div class="decideHeading">new questions</div>
+                <pre class="decidePreviewScript" rv-text="widget:previewScript"></pre>
+                <ul class="decidePreviewNotes">
+                    <li rv-each-note="widget:previewNotes" rv-text="note"></li>
+                </ul>
+                <button type="button" class="decideUse" title="Replace the questions and test phrases with these">use this</button>
+                <button type="button" class="decideKeep" title="Keep the questions you have">keep mine</button>
+            </div>
+            <hr>
             <label class="wide-label">questions</label>
             <div class="decideEditor">
                 <div class="decideGutter" aria-hidden="true"></div>
-                <textarea class="decideScript" rows="9" spellcheck="false" rv-value="widget:script" title="One question per outlet, in order. Takes effect when you click out of the box."></textarea>
+                <textarea class="decideScript" rows="9" spellcheck="false" rv-value="widget:script" title="One question per outlet, in order. Changes apply as soon as you stop typing, once there are no mistakes."></textarea>
             </div>
             <ul class="decideErrors">
                 <li rv-each-err="widget:scriptErrors" rv-text="err" title="Click to go to this line"></li>
@@ -47,6 +69,14 @@
                 <code>name: yes/no The question?</code><br>
                 <code>name: score low &lt; mid &lt; high</code><br>
                 then the question on an indented line
+            </div>
+            <div class="decideTests" rv-show="widget:hasTests">
+                <span class="decideHeading">test phrases</span>
+                <button type="button" class="decideTestAll" rv-class-busy="widget:testing" title="Decide on every phrase (the outlets don't change) and mark each one that comes out as intended">test all</button>
+                <span class="decideTestSummary" rv-text="widget:testSummary"></span>
+                <ul>
+                    <li rv-each-test="widget:tests" rv-data-index="test.index" rv-class-pass="test.pass" rv-class-fail="test.fail" rv-title="test.detail"><span class="decideMark" rv-text="test.mark"></span><span rv-text="test.phrase"></span></li>
+                </ul>
             </div>
             <hr>
             <label>model</label> <input class="decideModel" type="text" list="" spellcheck="false" rv-value="widget:model" title="An Ollama decision model. tev1:4b is quick and fits a 16 GB Mac; nimble is more accurate but needs about 18 GB of memory; kev:4b-mlx-bf16 is faster but weaker on score questions."><datalist class="decideModelList"></datalist><br>
