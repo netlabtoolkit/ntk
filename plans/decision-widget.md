@@ -245,6 +245,30 @@ Five plain-language requests per model. Every reply came back in the script form
 - The generated questions were sensible. Anthropic's were the best, e.g. a houseplant `watering: watered | forgot | question | none` instead of a one-option choice.
 - The test phrases earned their place: they made every weak question obvious straight away (e.g. gemma's plant `care` score answered "okay" for everything).
 
+### 6b. Second run: generator prompt v2
+
+`GEN_PROMPT=v2` (now the default; `v1` reruns the first prompt) adds to the rules:
+
+- prefer choice and yes/no; use a score only for a real "how much / how strongly";
+- scores get 3 or 4 levels, clearly different, and the lowest level also covers input the question doesn't apply to ("none", "not at all");
+- every extra question makes the widget slower, so one or two is often enough.
+
+The worked example's score became `none < some < very`. Same five requests; each script was checked with both decision models (`DECIDE_MODELS=nimble,tev1:4b`).
+
+| test phrases as intended | v1 -> Nimble | v2 -> Nimble | v2 -> tev1:4b |
+|---|---|---|---|
+| Anthropic | 49/61 (80%) | **54/62 (87%)** | 53/62 (85%) |
+| gemma4:12b | 42/58 (72%) | 43/55 (78%) | 42/55 (76%) |
+| qwen3.6:27b | 44/60 (73%) | 40/59 (68%) | 37/59 (63%) |
+
+- **It helped where it was meant to.** Scores dropped from 6 of 15 scripts to 3. Anthropic's toy script (`strength: score none < mild < medium < strong`) got every praise and scold phrase right, against 1 of 8 in v1. gemma folded its mood light into one question.
+- **qwen got worse.** One of its scripts wrote `score none < low | med | high`, which the parser wrongly accepted as two levels; it now rejects `|` in a score and `<` in a choice. Its other misses are question wording, not format.
+- **tev1:4b is only 1-2 points behind Nimble on generated scripts**, closer than on the hand-written phrase set. That supports it as the default.
+- **The main remaining error: off-topic text still moves yes/no and score questions.** "What time is it?" comes out `urgent: yes`, `caring: yes`, `strength: medium`, even when the first choice question correctly says `none`. The prompt can't fix this: a yes/no question can't answer "doesn't apply". With Nimble, 10 of the v2 misses were on phrases where the first choice correctly said `none`; tev1:4b leans towards no/lowest on off-topic text, so only 2 of its misses were.
+- Generation times were the same as the first run (Anthropic ~3 s, gemma ~6 s, qwen ~14 s).
+
+**Design consequence: a "gate" rule.** When the first question is a choice and it answers `none` (above the threshold), the other outlets hold their values. Make this the default, shown in the more panel, and tell the generator about it, so it puts the on-topic choice first. Counting those Nimble misses as held, v2 -> Nimble would reach about 84% across all three generators, against 78% now.
+
 ### 7. Other models
 
 `tev1:4b` and `tev1:0.8b` are compared in the tables above. `nimble-v3` wasn't tried.
@@ -254,7 +278,7 @@ Five plain-language requests per model. Every reply came back in the script form
 1. **Auto-send must not fire on every partial transcript.** At 0.3-1.2 s a request, send only the final transcript (SpeechIn's end of speech) or after a longer pause (~400 ms), with at most one request in flight; text arriving meanwhile replaces whatever is waiting. The status line's ms readout becomes important.
 2. **Fewer questions is faster.** Each question adds ~170 ms (Nimble). The generator prompt should say so, and the widget could show the expected time.
 3. **Default model: tev1:4b** (Phil, 2026-11-03). It's twice as fast as Nimble, fits a 16 GB Mac and got every off-topic phrase right, but misses more on score questions and messy speech. Nimble (most accurate, ~18 GB) is the documented upgrade.
-4. **Steer the generator towards choice and yes/no**, with at most 3-4 score levels. A score outlet doesn't change while a choice question in the same script answers `none` (or offer that as an option), so off-topic talk doesn't move a score.
+4. **Steer the generator towards choice and yes/no**, with 3-4 score levels whose lowest covers "doesn't apply" (prompt v2, tested in 6b). **Gate rule:** when the first question is a choice answering `none`, the other outlets hold, so off-topic talk doesn't move a yes/no or score; on by default, and the generator puts the on-topic choice first.
 5. **Warm-up matters:** the first request is 3-7 s. Load the model when the widget is activated (as the LLM widget does), with `keep_alive`.
 6. Model picker: filter `/api/tags` on `capabilities` containing `decision`.
 

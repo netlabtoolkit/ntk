@@ -4,7 +4,8 @@
 //   node test/decide-spike.mjs [shape] [latency] [accuracy] [context] [generate] [compare]
 //
 // No arguments runs everything except `compare`. Env:
-//   OLLAMA=http://localhost:11434   DECIDE_MODEL=nimble   GEN_MODELS=gemma4:12b,qwen3.6:27b,anthropic
+//   OLLAMA=http://localhost:11434   DECIDE_MODEL=tev1:4b (the widget's default; nimble is more accurate)   GEN_MODELS=gemma4:12b,qwen3.6:27b,anthropic
+//   GEN_PROMPT=v2 (generator system prompt; v1 = the first spike run's)
 // The Anthropic key is read the way NTK reads it: ANTHROPIC_API_KEY, else
 // ~/Library/Application Support/netlab-server/ai-keys.toml [anthropic] api_key.
 
@@ -13,7 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 const OLLAMA = (process.env.OLLAMA || 'http://localhost:11434').replace(/\/+$/, '');
-const MODEL = process.env.DECIDE_MODEL || 'nimble';
+const MODEL = process.env.DECIDE_MODEL || 'tev1:4b';
 const GEN_MODELS = (process.env.GEN_MODELS || 'gemma4:12b,qwen3.6:27b,anthropic').split(',');
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
 
@@ -42,6 +43,7 @@ export function parseScript(text) {
 			if (type === 'yes/no') {
 				q = { type: 'noul', instructions: rest };
 			} else if (type === 'choice') {
+				if (rest.includes('<')) errors.push(`line ${i + 1}: choice options are separated by |, not <`);
 				const criteria = {};
 				rest.split('|').map(s => s.trim()).filter(Boolean).forEach(opt => {
 					const eq = opt.indexOf('=');
@@ -53,6 +55,7 @@ export function parseScript(text) {
 				if (!('none' in criteria)) criteria.none = 'None of these';
 				q = { type: 'choice', instructions: '', criteria };
 			} else {
+				if (rest.includes('|')) errors.push(`line ${i + 1}: score levels are separated by <, not |`);
 				const levels = rest.split('<').map(s => s.trim()).filter(Boolean);
 				if (levels.length < 2 || levels.length > 10) errors.push(`line ${i + 1}: score needs 2-10 levels (has ${levels.length})`);
 				q = { type: 'score', instructions: '', criteria: levels };
@@ -258,7 +261,7 @@ async function context() {
 
 // ---------- 6. generating the script with an LLM ----------
 
-const GEN_SYSTEM = `You write question scripts for "Decide", a widget in a prototyping tool. Decide sends some text (usually what a person said, from speech recognition) to a fast decision model that can only answer multiple-choice style questions: it picks options, it never writes text.
+const GEN_SYSTEM_V1 = `You write question scripts for "Decide", a widget in a prototyping tool. Decide sends some text (usually what a person said, from speech recognition) to a fast decision model that can only answer multiple-choice style questions: it picks options, it never writes text.
 
 Write the script in exactly this format:
 
@@ -305,6 +308,23 @@ I got the job! => face=happy, excitement=thrilled
 my cat died yesterday => face=sad, excitement=calm
 wait, you can talk?! => face=surprised, excitement=excited
 the bus comes at nine => face=none, excitement=calm`;
+
+// v2 (after the first run): steer away from score questions, which came out
+// weakest - off by a level, and no "none" for off-topic text.
+const GEN_SYSTEM_V2 = GEN_SYSTEM_V1
+	.replace('- score: 2 to 10 levels separated by <, lowest first.',
+		`- Prefer choice and yes/no questions: the decision model answers them most reliably. Use a score only when the request really asks "how much" or "how strongly".
+- score: 3 or 4 levels separated by <, lowest first. The lowest level must also cover input the question doesn't apply to (for example "none" or "not at all"), because a score has no separate "none" answer. Give each level a name that is clearly different from its neighbours.
+- If one choice question already decides whether the input is on-topic, a yes/no or score question can assume it is.`)
+	.replace('- Ask only what the person\'s request needs. Prefer fewer, clearer questions.',
+		'- Ask only what the person\'s request needs. Every extra question makes the widget slower (each one takes a fraction of a second), so prefer fewer, clearer questions; one or two is often enough.')
+	.replace('excitement: score calm < interested < excited < thrilled', 'excitement: score none < some < very')
+	.replace('How enthusiastic is the speaker?', 'How enthusiastic is the speaker? none if they show no enthusiasm at all.')
+	.replace('excitement=thrilled', 'excitement=very')
+	.replace('my cat died yesterday => face=sad, excitement=calm', 'my cat died yesterday => face=sad, excitement=none')
+	.replace('wait, you can talk?! => face=surprised, excitement=excited', 'wait, you can talk?! => face=surprised, excitement=some')
+	.replace('the bus comes at nine => face=none, excitement=calm', 'the bus comes at nine => face=none, excitement=none');
+const GEN_SYSTEM = (process.env.GEN_PROMPT || 'v2') === 'v1' ? GEN_SYSTEM_V1 : GEN_SYSTEM_V2;
 
 const GEN_REQUESTS = [
 	'A desk lamp that turns on, off or dims when you ask it to.',
@@ -371,7 +391,7 @@ function matches(a, want) {
 }
 
 async function generate() {
-	console.log('\n== 6. LLM writes the question script ==');
+	console.log(`\n== 6. LLM writes the question script (prompt ${process.env.GEN_PROMPT || 'v2'}, decided by ${MODEL}) ==`);
 	// All LLM calls first, then all decisions: on a 24 GB Mac, Nimble (18 GB loaded)
 	// and a chat model don't fit together, so interleaving reloads both every time.
 	const replies = [];
@@ -380,9 +400,10 @@ async function generate() {
 		replies.push({ gm, req, r: await llm(gm, req) });
 	}
 	const stats = {};
-	for (const { gm, req, r } of replies) {
-		const st = (stats[gm] ||= { parsed: 0, n: 0, ok: 0, tn: 0, ms: [] });
-		console.log(`\n--- ${gm}: ${req}`);
+	// DECIDE_MODELS=nimble,tev1:4b runs every generated script through each.
+	for (const dm of (process.env.DECIDE_MODELS || MODEL).split(',')) for (const { gm, req, r } of replies) {
+		const st = (stats[gm + ' -> ' + dm] ||= { parsed: 0, n: 0, ok: 0, tn: 0, ms: [] });
+		console.log(`\n--- ${gm} -> ${dm}: ${req}`);
 		if (r.error) { console.log('ERROR', r.error); continue; }
 		st.n++; st.ms.push(r.ms);
 		const { script, tests } = splitReply(r.text);
@@ -392,7 +413,7 @@ async function generate() {
 		if (p.errors.length) continue;
 		st.parsed++;
 		for (const t of tests) {
-			const d = await decide(t.phrase, p.questions);
+			const d = await decide(t.phrase, p.questions, dm);
 			if (d.status !== 200) { console.log('  decide HTTP', d.status, JSON.stringify(d.body).slice(0, 160)); continue; }
 			const parts = p.order.map(q => {
 				const a = d.body.answers[q]; const want = t.exp[q];
@@ -406,7 +427,7 @@ async function generate() {
 	}
 	console.log('\nGenerator summary:');
 	for (const [gm, st] of Object.entries(stats))
-		console.log('  ' + `${pad(gm, 14)} parsed ${st.parsed}/${st.n}  test answers as intended ${st.ok}/${st.tn}  median ${st.ms.length ? f0(median(st.ms)) : '-'} ms per script`);
+		console.log('  ' + `${pad(gm, 26)} parsed ${st.parsed}/${st.n}  test answers as intended ${st.ok}/${st.tn}  median ${st.ms.length ? f0(median(st.ms)) : '-'} ms per script`);
 }
 
 // ---------- 7. other decision models ----------
