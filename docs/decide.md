@@ -20,6 +20,10 @@ Decide runs the model on your own computer with [Ollama](https://ollama.com), so
 
 Type in the text box at the top of the widget — for example *turn the lights off please* — and the answers appear underneath after a moment. Each line shows a question and its answer, with a green bar for how sure the model is. Press Enter or click **decide** to decide straight away.
 
+<img src="images/decide-body.png" width="156" alt="The Decide widget: the test text 'make it cozy', the answers lights: dim (grey, below the confidence), upset: no and mood: neutral with green confidence bars, and the decide button with the time the decision took">
+
+*"make it cozy": `lights: dim` is grey — the model was only 39% sure, so its outlet didn't change. The green bars show how sure each answer is; the time is how long the decision took.*
+
 This works with nothing wired in, so you can check your questions before connecting a microphone or any hardware.
 
 ## The questions
@@ -44,6 +48,8 @@ For choice and score, the question itself goes on the next line, indented. Lines
 
 Mistakes are listed under the box as you type, with the line number marked in red; click one to go to that line. Changes apply on their own as soon as you stop typing. While there's a mistake, the widget keeps using the last questions that worked.
 
+<img src="images/decide-questions.png" width="300" alt="The questions box with line numbers; line 4 'mood: score calm | upset' is marked in red, and the errors below say score levels are separated by <, not |">
+
 **Tips for good questions**
 
 - **Fewer is faster.** Each question adds a little time (about a tenth of a second or more). One or two questions often do the job.
@@ -57,10 +63,16 @@ Writing good questions is the hard part, so Decide can do it for you. At the top
 
 An AI model writes the questions, plus a handful of **test phrases**: examples of what someone might say, with the answers it intends for each. This happens only while you're building the patch; the patch itself runs on the fast decision model alone.
 
+<img src="images/decide-generate.png" width="300" alt="The describe box with a doorbell request, the generate button with Anthropic and claude-sonnet-5, and a yellow preview of the new questions with notes out1: lights → visitor, out2: upset → urgent, and use this / keep mine buttons">
+
 - **Which AI writes them:** pick it next to the generate button. **Anthropic** is the default if you've set up an API key (the same key as the LLM widget; it wrote the best questions in testing, in about 3 seconds). **Ollama** uses a chat model on your own computer, such as `gemma4:12b` (about 8 seconds); decision models can't write, so they aren't listed. **GreenPT** needs its own key. If a key is missing, **set up key** opens the file to paste it into.
 - **Nothing changes until you say so.** The new questions appear in a yellow box, with a note of what each outlet will carry instead (`out1: lights → visitor`) — a cable on out1 will now carry the new answer. Click **use this** to take them, or **keep mine**.
 - **Then it tests them.** After **use this**, Decide runs every test phrase through the decision model (the outlets don't change) and marks each one ✓ if it came out as intended, ✗ if not. Hover over a phrase to see what was meant and what came out. A ✗ usually means a question needs rewording: edit it in the questions box, and click **test all** again.
 - **Click a test phrase** to send it through the widget like real input, outlets included — a quick way to try the rest of your patch.
+
+<img src="images/decide-tests.png" width="300" alt="Test phrases after test all: 5 of 8 as intended, each phrase with a green check or red cross and its intended answers in brackets, e.g. I have a package for you (delivery, no)">
+
+*Each phrase is followed by the answers it's meant to give. Here "hey it's me, open up!" was meant as a friend but didn't come out that way — a sign the question could be clearer.*
 
 You can always edit the questions by hand afterwards, or write them yourself from the start.
 
@@ -100,6 +112,8 @@ The status line next to the **decide** button shows `deciding…` while it works
 The first decision after a model loads takes a few seconds. To avoid that wait, Decide loads the model when a saved patch containing it opens, or when you click into its text box. The status shows `loading…` then `ready`. The model stays loaded for 30 minutes after its last use.
 
 ## Settings (more panel)
+
+<img src="images/decide-settings.png" width="300" alt="The settings: model tev1:4b, address http://localhost:11434, confidence 0.5, when unsure: keep the last answer, and checkboxes for hold the others when the first answers none, decide when the text changes (pause 400 ms) and yes/no outlets send 0 or 1023">
 
 - **describe it** and **generate** — see "Letting an AI write the questions".
 - **questions** — the questions, as above.

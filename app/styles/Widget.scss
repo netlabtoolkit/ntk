@@ -3096,6 +3096,8 @@ body.ntk-monitoring .monitorBlockOverlay {
             code { font-family: Menlo, Monaco, monospace; font-size: 10px; }
         }
         .decideModel, .decideBaseURL { width: 170px; }
+        // The shared label width (60px) wrapped "when unsure" in two.
+        label.decideUnsureLabel { width: auto; margin-right: 4px; }
 
         // Generate: describe it, an LLM writes the questions.
         // Headings as plain blocks - the shared label rule fixes labels'
@@ -3173,13 +3175,14 @@ body.ntk-monitoring .monitorBlockOverlay {
                 padding: 0;
                 list-style: none;
             }
+            // Long phrases wrap (with the mark hanging out to the left),
+            // so the intended answers at the end are never cut off.
             li {
                 font-size: 11px;
                 line-height: 15px;
                 cursor: pointer;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                padding-left: 14px;
+                text-indent: -14px;
 
                 &:hover { background: #f0f0f0; }
                 &.pass .decideMark { color: #2e7d32; }
@@ -3188,6 +3191,8 @@ body.ntk-monitoring .monitorBlockOverlay {
             // What the phrase is meant to give, after it.
             .decideIntended { color: #888; }
             .decideMark {
+                // Not the li's hanging indent, or the mark slides out of view.
+                text-indent: 0;
                 display: inline-block;
                 width: 14px;
                 font-weight: bold;
