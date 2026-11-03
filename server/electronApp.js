@@ -398,6 +398,11 @@ app.on('ready', function() {
   var closeConfirmed = false;
   var asking = false;
   var askAboutUnsavedEdits = async function() {
+	  // A test launch (NTK_SCRATCH_PATCH set: an automated run working on
+	  // a scratch patch, not the user's) closes without asking.
+	  if(process.env.NTK_SCRATCH_PATCH) {
+		  return true;
+	  }
 	  var withTimeout = function(promise, ms, fallback) {
 		  return Promise.race([promise, new Promise(function(resolve) { setTimeout(function() { resolve(fallback); }, ms); })]);
 	  };
