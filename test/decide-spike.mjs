@@ -203,14 +203,14 @@ const PHRASES = [
 	['lang', 'ik wil het gezellig maken', 'dim', null, null],
 ];
 
-async function accuracy(model = MODEL) {
-	console.log(`\n== 3/4. Accuracy and confidence (${model}) ==`);
+async function accuracy(model = MODEL, ask = decide) {
+	console.log(`\n== 3/4. Accuracy and confidence (${model}${ask === decide ? '' : ', LLM structured output'}) ==`);
 	const { questions, order } = parseScript(EXAMPLE_SCRIPT);
 	const expIdx = { lights: 2, upset: 3, mood: 4 };
 	const groups = {}; const hits = []; const misses = []; const times = [];
 	console.log(pad('group', 8), pad('phrase', 44), pad('lights', 14), pad('upset', 14), pad('mood', 14), 'ms');
 	for (const p of PHRASES) {
-		const r = await decide(p[1], questions, model);
+		const r = await ask(p[1], questions, model);
 		times.push(r.ms);
 		if (r.status !== 200) { console.log(p[1], '→ HTTP', r.status, JSON.stringify(r.body)); continue; }
 		const cells = order.map(q => {
@@ -448,7 +448,195 @@ async function compare() {
 	rows.forEach(r => console.log(r));
 }
 
-const all = { shape, latency, accuracy, context, generate, compare };
+// ---------- 8. warm-up: load only vs. the real script ----------
+// Phil's Pi tool-calling write-up: priming with a real prompt beats a bare
+// load, because the prompt cache for the tool schemas is built too. Same here?
+
+async function unload(model) {
+	await fetch(OLLAMA + '/api/generate', { method: 'POST', body: JSON.stringify({ model, keep_alive: 0 }) });
+	await new Promise(r => setTimeout(r, 1500));
+}
+
+async function warmup() {
+	console.log(`\n== 8. Warm-up (${MODEL}) ==`);
+	const { questions } = parseScript(EXAMPLE_SCRIPT);
+	const first = ['make it cozy', 'it is way too bright in here', 'I SAID LIGHTS OFF'];
+	for (let round = 0; round < 2; round++) {
+		await unload(MODEL);
+		let t0 = performance.now();
+		await fetch(OLLAMA + '/api/generate', { method: 'POST', body: JSON.stringify({ model: MODEL, keep_alive: '5m' }) });
+		const loadMs = performance.now() - t0;
+		const a = await decide(first[round], questions);
+		await unload(MODEL);
+		t0 = performance.now();
+		await decide('hello', questions); // the real script, dummy text
+		const primeMs = performance.now() - t0;
+		const b = await decide(first[round] + ' please', questions);
+		console.log(`round ${round + 1}: load only ${f0(loadMs)} ms, then first real request ${f0(a.ms)} ms (cached ${a.body.prompt_eval_cached_count}/${a.body.usage.input_tokens} tokens)`);
+		console.log(`         prime with script ${f0(primeMs)} ms, then first real request ${f0(b.ms)} ms (cached ${b.body.prompt_eval_cached_count}/${b.body.usage.input_tokens} tokens)`);
+	}
+	// does changing the script lose the cache?
+	const edited = parseScript(EXAMPLE_SCRIPT.replace('What does the speaker want the lights to do?', 'What should happen to the lights?')).questions;
+	const c = await decide('make it cozy now', edited);
+	const d = await decide('make it cozy again', edited);
+	console.log(`after editing one question: first request ${f0(c.ms)} ms (cached ${c.body.prompt_eval_cached_count}/${c.body.usage.input_tokens}), next ${f0(d.ms)} ms`);
+}
+
+// ---------- 9. LLM tool calling vs. Decide, on LED commands ----------
+
+const TOOL_MODELS = (process.env.TOOL_MODELS || 'qwen2.5:1.5b,qwen2.5:7b').split(',');
+
+const TOOLS = [
+	{ type: 'function', function: { name: 'blink_led', description: 'Blink the LED a number of times.',
+		parameters: { type: 'object', required: ['times', 'delay_seconds'], properties: {
+			times: { type: 'integer', description: 'How many times to blink' },
+			delay_seconds: { type: 'number', description: 'Seconds between blinks' } } } } },
+	{ type: 'function', function: { name: 'led_on', description: 'Turn the LED on and leave it on.', parameters: { type: 'object', properties: {} } } },
+	{ type: 'function', function: { name: 'led_off', description: 'Turn the LED off.', parameters: { type: 'object', properties: {} } } },
+];
+const TOOL_SYSTEM = 'You control an LED. Call exactly one tool for what the user asks. If the request is not about the LED, do not call any tool and reply with the single word none. If the user gives no delay, use 0.5.';
+
+const BLINK_SCRIPT = `
+action: choice blink | on | off | none=Not about the LED
+        What does the speaker want the LED to do?
+count:  choice 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | none=No number of blinks given
+        How many times should the LED blink?
+delay:  choice 0.25 | 0.5 | 1.0 | 2.0 | none=No delay given
+        How long between blinks, in seconds?
+`;
+
+// [phrase, action, times, delay]; times/delay null = not checked
+const COMMANDS = [
+	['blink the led 5 times with a delay of 1.0s', 'blink', 5, 1.0],
+	['flash the light three times, half a second apart', 'blink', 3, 0.5],
+	['make the led blink 7 times every quarter second', 'blink', 7, 0.25],
+	['blink it twice', 'blink', 2, null],
+	['can you blink the LED four times, one second between each', 'blink', 4, 1.0],
+	['blink the led 12 times', 'blink', 12, null],
+	['blink 4 times with 1.5 second gaps', 'blink', 4, 1.5],
+	['give me 6 quick blinks', 'blink', 6, null],
+	['turn the led on', 'on', null, null],
+	['switch the light off please', 'off', null, null],
+	['lights out', 'off', null, null],
+	['what time is it', 'none', null, null],
+	['the weather is nice today', 'none', null, null],
+];
+
+const near = (a, b) => b === null || (a !== undefined && a !== null && Math.abs(Number(a) - b) < 1e-6);
+
+async function toolCall(model, phrase) {
+	const t0 = performance.now();
+	const res = await fetch(OLLAMA + '/api/chat', { method: 'POST', body: JSON.stringify({
+		model, stream: false, keep_alive: '5m', think: false, tools: TOOLS, options: { temperature: 0 },
+		messages: [{ role: 'system', content: TOOL_SYSTEM }, { role: 'user', content: phrase }] }) });
+	const d = await res.json();
+	const ms = performance.now() - t0;
+	if (!res.ok) return { ms, error: JSON.stringify(d).slice(0, 160) };
+	const calls = (d.message && d.message.tool_calls) || [];
+	const c = calls[0] && calls[0].function;
+	const action = !c ? 'none' : ({ blink_led: 'blink', led_on: 'on', led_off: 'off' })[c.name] || c.name;
+	const args = (c && (typeof c.arguments === 'string' ? JSON.parse(c.arguments) : c.arguments)) || {};
+	return { ms, action, times: args.times, delay: args.delay_seconds, n: calls.length, text: (d.message.content || '').slice(0, 40) };
+}
+
+async function tools() {
+	console.log('\n== 9. LLM tool calling vs. Decide on LED commands ==');
+	const results = [];
+	for (const model of TOOL_MODELS) {
+		await toolCall(model, 'blink the led twice'); // prime with a real tool prompt
+		let ok = 0; const times = [];
+		console.log(`\n-- ${model} (tool calling)`);
+		for (const [p, act, n, dl] of COMMANDS) {
+			const r = await toolCall(model, p);
+			if (r.error) { console.log(pad(p, 58), 'ERROR', r.error); continue; }
+			times.push(r.ms);
+			const right = r.action === act && (act !== 'blink' || (near(r.times, n) && near(r.delay, dl)));
+			if (right) ok++;
+			console.log(pad(p, 58), right ? '✓' : '✗', pad(`${r.action}${r.action === 'blink' ? ` ${r.times} x ${r.delay}s` : ''}${r.n > 1 ? ` (+${r.n - 1} calls)` : ''}`, 22), f0(r.ms), 'ms');
+		}
+		results.push(`${pad(model + ' tool call', 26)} right ${ok}/${COMMANDS.length}  median ${f0(median(times))} ms`);
+		await unload(model);
+	}
+	// Decide: values outside its lists can't be right; an answer held back by the
+	// 0.5 threshold counts as "held", not wrong (the outlet keeps its value).
+	const { questions } = parseScript(BLINK_SCRIPT);
+	for (const model of [MODEL]) {
+		await decide('hello', questions, model);
+		let ok = 0, held = 0, wrong = 0; const times = [];
+		console.log(`\n-- ${model} (Decide, threshold 0.5)`);
+		for (const [p, act, n, dl] of COMMANDS) {
+			const r = await decide(p, questions, model);
+			times.push(r.ms);
+			const a = r.body.answers;
+			const val = q => a[q].confidence >= 0.5 ? a[q].choice : 'held';
+			const action = val('action'), cnt = val('count'), del = val('delay');
+			let verdict;
+			if (action === 'held') verdict = 'held';
+			else if (action !== act) verdict = 'wrong';
+			else if (act !== 'blink') verdict = 'right';
+			else {
+				const parts = [[cnt, n], [del, dl]].map(([g, w]) => w === null ? 'ok' : g === 'held' ? 'held' : near(g, w) ? 'ok' : 'wrong');
+				verdict = parts.includes('wrong') ? 'wrong' : parts.includes('held') ? 'held' : 'right';
+			}
+			if (verdict === 'right') ok++; else if (verdict === 'held') held++; else wrong++;
+			console.log(pad(p, 58), verdict === 'right' ? '✓' : verdict === 'held' ? '·' : '✗', pad(`${action}${act === 'blink' || action === 'blink' ? ` ${cnt} x ${del}s` : ''}`, 22), f0(r.ms), 'ms');
+		}
+		results.push(`${pad(model + ' Decide', 26)} right ${ok}/${COMMANDS.length}  held ${held}  wrong ${wrong}  median ${f0(median(times))} ms`);
+	}
+	console.log('\nsummary:'); results.forEach(r => console.log('  ' + r));
+}
+
+// ---------- 10. a small LLM answering the same questions (structured output) ----------
+// Same script, turned into a JSON schema for Ollama's `format`, so the reply can
+// only be one of the options. Returns the answer in /v1/systemone's shape so
+// accuracy() can grade it; an LLM gives no probabilities, so confidence is 1.
+
+function scriptToSchema(questions) {
+	const properties = {};
+	for (const [name, q] of Object.entries(questions)) {
+		if (q.type === 'noul') properties[name] = { type: 'boolean', description: q.instructions };
+		else if (q.type === 'choice') properties[name] = { type: 'string', enum: Object.keys(q.criteria),
+			description: q.instructions + ' ' + Object.entries(q.criteria).filter(([, d]) => d).map(([k, d]) => `${k}: ${d}.`).join(' ') };
+		else properties[name] = { type: 'string', enum: q.criteria, description: q.instructions + ' (lowest to highest: ' + q.criteria.join(', ') + ')' };
+	}
+	return { type: 'object', properties, required: Object.keys(questions) };
+}
+
+async function llmDecide(state, questions, model) {
+	const schema = scriptToSchema(questions);
+	const lines = Object.entries(schema.properties).map(([k, v]) => `- ${k}: ${v.description}${v.enum ? ' One of: ' + v.enum.join(', ') + '.' : ' true or false.'}`);
+	const t0 = performance.now();
+	const res = await fetch(OLLAMA + '/api/chat', { method: 'POST', body: JSON.stringify({
+		model, stream: false, think: false, keep_alive: '5m', format: schema, options: { temperature: 0 },
+		messages: [{ role: 'system', content: 'Answer each question about the text the user sends. Reply with JSON only.\n' + lines.join('\n') },
+			{ role: 'user', content: state }] }) });
+	const d = await res.json();
+	const ms = performance.now() - t0;
+	if (!res.ok) return { status: res.status, ms, body: d };
+	let j; try { j = JSON.parse(d.message.content); } catch { return { status: 500, ms, body: 'unparseable: ' + d.message.content }; }
+	const answers = {};
+	for (const [name, q] of Object.entries(questions)) {
+		const v = j[name];
+		if (q.type === 'noul') answers[name] = { type: 'noul', noul: v === true || v === 'true' ? 1 : 0 };
+		else if (q.type === 'choice') answers[name] = { type: 'choice', choice: v, confidence: 1 };
+		else answers[name] = { type: 'score', score: Math.max(0, q.criteria.indexOf(v)), confidence: 1 };
+	}
+	return { status: 200, ms, body: { answers } };
+}
+
+async function structured() {
+	const rows = [];
+	for (const m of (process.env.LLM_MODELS || 'qwen2.5:1.5b,qwen2.5:7b').split(',')) {
+		const { questions } = parseScript(EXAMPLE_SCRIPT);
+		await llmDecide('hello', questions, m); // prime with the real prompt
+		const r = await accuracy(m, llmDecide);
+		rows.push(`${pad(m, 16)} ${f0(100 * r.tot.ok / r.tot.n)}% (${r.tot.ok}/${r.tot.n})  median ${f0(r.ms)} ms`);
+		await unload(m);
+	}
+	console.log('\nLLM structured output on the classification set:'); rows.forEach(r => console.log('  ' + r));
+}
+
+const all = { shape, latency, accuracy, context, generate, compare, warmup, tools, structured };
 const want = process.argv.slice(2);
 for (const name of (want.length ? want : ['shape', 'latency', 'accuracy', 'context', 'generate'])) {
 	if (!all[name]) { console.error('unknown section', name); process.exit(1); }

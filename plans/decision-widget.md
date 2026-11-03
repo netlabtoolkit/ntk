@@ -287,20 +287,75 @@ The worked example's score became `none < some < very`. Same five requests; each
 - **laya** is very fast but its confidence is low even when right (median 0.26), so a 0.5 threshold throws away most of its right answers; it misreads indirect and non-English requests. Not suitable.
 - Every model listed `capabilities: ["decision"]` in `/api/tags`, so the model picker's filter works for all of them.
 
+### 8. Warm-up (added after reading Phil's [Pi tool-calling write-up](https://philvanallen.substack.com/p/local-llm-with-tool-calling-on-rpi), which found priming with a real prompt beats a bare load)
+
+`node test/decide-spike.mjs warmup`, tev1:4b, model unloaded before each try:
+
+| warm-up | warm-up time | first real phrase after it |
+|---|---|---|
+| none / "load only" (`/api/generate`, no prompt) | 5 ms (does nothing) | 1,050-2,250 ms |
+| the real script with text `hello` | ~1,060 ms | ~430 ms (steady state ~375 ms) |
+
+- **Ollama's load-only call is rejected for decision models**: `/api/generate` and `/api/chat` both return HTTP 400 `"tev1:4b" does not support generate` (or `chat`), and nothing loads. Only `/v1/systemone` loads one.
+- After editing one question's wording, the next request was still ~385 ms: the cached part is mostly Ollama's fixed framing, so there's no need to warm up again after each script edit.
+
+### 9. LLM tool calling vs. Decide, on LED commands
+
+`node test/decide-spike.mjs tools`: 13 commands ("blink the led 5 times with a delay of 1.0s", "flash the light three times, half a second apart", "blink the led 12 times", "lights out", "what time is it"...). Tool calling used Ollama `/api/chat` with three tools (`blink_led(times, delay_seconds)`, `led_on`, `led_off`), temperature 0, primed with a real tool prompt. Decide used a choice script (`action`, `count` 1-10, `delay` 0.25/0.5/1.0/2.0) and the 0.5 threshold.
+
+| | right | median time | notes |
+|---|---|---|---|
+| **qwen2.5:1.5b tool call** (1 GB) | **13/13** | **190 ms** | off-topic answered "none" in 25 ms |
+| qwen2.5:7b tool call (4.7 GB) | 13/13 | 620 ms | filled in the default delay when none was given |
+| tev1:4b Decide | 10/13, 3 held, 0 wrong | 702 ms | can't say 12 blinks or 1.5 s (not in its lists); "every quarter second" held at low confidence |
+
+**On this Mac, a small tool-calling LLM beats Decide at commands with values**: faster, and it takes any number. Decide never got one wrong, but it held back three it couldn't express. Caveats:
+
+- 13 commands, one try each, single tool calls. Phil's Pi write-up found qwen2.5:1.5b unreliable when it had to pass a value from one tool to another, and sometimes skipping the tool; that wasn't tested here.
+- An LLM can make up a value; Decide can't. None was made up here.
+- Tool calling gives no confidence, so there's nothing for a threshold to work with.
+- The ~5 s Phil measured on a Pi 5 for qwen2.5:1.5b was for a two-step chain; one call on the Pi would be shorter. Pi numbers for both approaches are still to measure (Phil testing).
+
+**What it means:** Decide's strengths are judgements and classifications with a confidence: mood, intent, yes/no, "which of these", where it gives graded probabilities and can't produce a malformed answer. **Commands with free values ("blink 12 times, 1.5 s apart") are better as tool calls.** That points to the LLM widget getting a tools mode, or Decide offering a tool-calling engine for the same script, rather than stretching choice lists to cover numbers. The follow-up (section 10) settles which way round: on judgements, the decision model wins.
+
+### 10. A small LLM on the judgement phrases (structured output)
+
+`node test/decide-spike.mjs structured`: the same 32 phrases and `lights` / `upset` / `mood` script, turned into a JSON schema for Ollama's `format` (so the reply can only be one of the options), temperature 0, primed first. The system prompt lists each question's instructions and options; no examples.
+
+| | right | indirect requests (lights) | median time | confidence to filter with |
+|---|---|---|---|---|
+| Nimble (Decide) | 93% | 7/7 | 672 ms | yes |
+| **tev1:4b (Decide)** | **87%** | **7/7** | **373 ms** | yes: 0.5 let 1 of 8 wrong answers through |
+| qwen2.5:7b, structured | 84% | 3/7 | 428 ms | no: all 10 wrong answers get through |
+| qwen2.5:1.5b, structured | 64% | 0/7 | 163 ms | no: all 22 wrong answers get through |
+
+- **The LLMs fail on exactly what Decide is for: indirect requests.** "Make it cozy", "I'm going to sleep now", "let's set the mood for a romantic dinner" came out `none` or the wrong action. qwen2.5:1.5b also called most plain requests "upset", including every non-English one.
+- **No confidence means no threshold**: every wrong LLM answer would reach its outlet. With Decide, most wrong answers are held back.
+- The LLM prompt was simple (no worked examples); a better one would likely help the 7B. The 1.5B's gap is too wide for prompting alone.
+
+**Conclusion from 9 + 10:**
+
+| task | better on this Mac |
+|---|---|
+| judgements: intent, mood, yes/no, "which of these", indirect speech | **Decide** (tev1:4b): more accurate, graded confidence, nothing malformed |
+| commands with free values: "blink 12 times, 1.5 s apart" | **LLM tool calling** (qwen2.5:1.5b): 190 ms, any value |
+
+So: **build Decide as planned, for judgements**, and keep "blink N times" out of its scope (number options stay fine for small fixed sets). Commands with values are a separate feature, a **tools mode for the LLM widget** (or a tool-calling engine behind the same script), to plan on its own. Pi numbers for both are still to come (Phil testing).
+
 ### Changes to the design
 
 1. **Auto-send must not fire on every partial transcript.** At 0.3-1.2 s a request, send only the final transcript (SpeechIn's end of speech) or after a longer pause (~400 ms), with at most one request in flight; text arriving meanwhile replaces whatever is waiting. The status line's ms readout becomes important.
 2. **Fewer questions is faster.** Each question adds ~170 ms (Nimble). The generator prompt should say so, and the widget could show the expected time.
 3. **Default model: tev1:4b** (Phil, 2026-11-03). It's twice as fast as Nimble, fits a 16 GB Mac and got every off-topic phrase right, but misses more on score questions and messy speech. Nimble (most accurate, ~18 GB) is the documented upgrade.
 4. **Steer the generator towards choice and yes/no**, with 3-4 score levels whose lowest covers "doesn't apply" (prompt v2, tested in 6b). **Gate rule:** when the first question is a choice answering `none`, the other outlets hold, so off-topic talk doesn't move a yes/no or score; on by default, and the generator puts the on-topic choice first.
-5. **Warm-up matters:** the first request is 3-7 s. Load the model when the widget is activated (as the LLM widget does), with `keep_alive`.
+5. **Warm-up matters, and has to be a real decision** (see 8 below): the first request is 2-7 s. When the widget is switched on, send the script with dummy text (e.g. `hello`) through `/v1/systemone`. The LLM widget's load-only call doesn't work for decision models.
 6. Model picker: filter `/api/tags` on `capabilities` containing `decision`.
 
 ## Implementation notes
 
 - **Calls go through `server/llmProxy.js`**, like every LLM widget call: a new `ipcMain.handle('decide', ...)` doing a plain `fetch` to `{base}/v1/systemone`, adding the bearer key for TypeSafe. Keeps the API key out of the renderer and the patch, and gives one code path for both providers. Cancel support like `llm-cancel` for the latest-wins behaviour.
 - **No SDK.** TypeSafe has a Python SDK (`typesafe-sdk`) and a JavaScript one (`@typesafe-ai/sdk` 0.7.0, Node 22+), and Ollama's page suggests pointing the SDK at Ollama with `TYPESAFE_BASE_URL`. But TypeSafe's own docs never mention Ollama, the JS SDK's docs show no base-URL option, and both require an API key a local Ollama doesn't need. The API is one small JSON request and response, so plain `fetch` is simpler and adds no dependency.
-- **Warm-up:** Ollama loads a model on first use (seconds for 9 GB). Send a tiny request when the widget is switched on, as the LLM widget does with `llm-warm`, and set `keep_alive` so it stays loaded.
+- **Warm-up:** Ollama loads a model on first use (seconds). `/api/generate` and `/api/chat` refuse decision models (`"tev1:4b" does not support generate`, HTTP 400), so the LLM widget's `llm-warm` can't be reused: send a real `/v1/systemone` request with the current script and dummy text when the widget is switched on. Editing the script doesn't need a new warm-up.
 - **Script parser** in its own module (like `SceneScript.js`), with shared test cases in `test/` - parse, limits, `none` insertion, request building.
 - **Rivets/Backbone gotchas** from CLAUDE.md apply: register custom binders before the base `onRender`, and act on the text inlet only when its value changes (the nested-set repeat).
 - **Not standalone:** decision models need Ollama or the internet, so Decide is a host-only widget like the other AI widgets. Push to Device reports it as unsupported.
