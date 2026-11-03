@@ -64,6 +64,11 @@ connected; the loopback-server change (below) is the pivot point.
 7. **[Device discovery](device-discovery.md)** — connect NTK to the WiFi
    CircuitPython board without reading the DHCP IP off a serial console.
    SoftAP mode is built and hardware-tested; mDNS is the planned default.
+8. **[Raspberry Pi port](raspberry-pi-port.md)** — move the device
+   firmware to a Pi (CPython + Blinka), and later run some AI widgets
+   on it: as an AI server on the network, as the device, as a hub
+   with XIAO boards for I/O, or as all of NTK. Per-widget assessment
+   of what runs where. Direction only (2026-11-03).
 
 ## The pivot point: the loopback-server change
 
@@ -263,9 +268,12 @@ and shipped. Its historical step-by-step plan is at
   and on the board, and a visual timeline can go on top later. Plan
   only.
 - **[Decide widget](decision-widget.md)** — "System One" decision
-  models (Nimble in Ollama locally, TypeSafe's hosted Jev): text plus a
-  short script of yes/no, choice and score questions in, a choice and
-  probability per question out in ~0.1 s, on four positional outlets.
-  An LLM can write the question script and test phrases from a plain
-  request while building the patch. Calls go through `llmProxy.js`, no
-  SDK. Plan only (2026-11-03).
+  models through Ollama (default `tev1:4b`; Nimble for accuracy;
+  TypeSafe's hosted Jev): text plus a short script of yes/no, choice
+  and score questions in, a choice and confidence per question out on
+  four positional outlets. An LLM can write the question script and
+  test phrases from a plain request while building the patch. Spike
+  done 2026-11-03: ~0.4 s per decision for 3 questions on an M4 Pro
+  (not the advertised 0.1 s), better than small LLMs on judgements;
+  commands with free values ("blink 12 times") suit LLM tool calling
+  instead. Plan only.
