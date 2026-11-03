@@ -368,6 +368,28 @@ So: **build Decide as planned, for judgements**, and keep "blink N times" out of
 - Moderation: an LLM reply goes through Decide (`ok: yes/no Is this suitable for a child?`) before SpeechOut speaks it.
 - Object reactions: ObjectRecog's label + "is it evening?" → Decide → Scene start.
 
+### What not to use it for: anything with a known formula
+
+**Rule of thumb: if you can write the formula, use logic widgets; if it takes judgement or understanding language, use Decide.** The docs should say so with an example.
+
+Example (tried 2026-11-03): *"Your goal is to stop 2 cm before an obstacle. The current reading from the proximity sensor is 10 cm, and you are traveling at 2 cm/s. When should you stop?"*, with `when: choice now | 1 | 2 | 3 | 4 | 5 | 8 | never` (seconds) and `stop_now: yes/no`, over eight distance/speed pairs. Correct answer: (distance - 2) / speed.
+
+- **tev1:4b** (the default) got 3 of 8: it answered "1 s" for almost everything.
+- **Nimble** got all 6 whose answer was an option (10 cm at 2 cm/s -> 4 s, 12 cm at 5 cm/s -> 2 s...). It missed 4.5 s and 24 s, which weren't options, with confidence 0.16 and 0.13, so the threshold would hold them.
+
+Even right, it's the wrong tool:
+
+- **The formula is known.** A calculation is always right, takes microseconds and runs standalone on the board.
+- **The delay costs distance.** At 2 cm/s a 0.4-0.7 s decision is another 0.8-1.3 cm travelled before the answer arrives - most of the 2 cm margin - and the answer is already out of date.
+- **"When should you stop" is the wrong question for a control loop.** The sensor updates many times a second, so the rule is just "stop when distance <= 2 cm (plus a braking margin)": AnalogIn -> IfThen -> the motor, reacting as soon as the reading crosses. No prediction needed.
+- An LLM would work out "4 s" more reliably, with the same delay problem.
+
+Where AI does help this robot is around the control loop:
+
+- What is the obstacle? ObjectRecog's label -> Decide (`obstacle: choice person | wall | pet | none`).
+- Stop, go around, or back up? A choice that depends on what the obstacle is.
+- Spoken commands ("come closer", "keep your distance") that change IfThen's threshold.
+
 ## Open questions
 
 - Four outlets, or fewer outlets plus a confidence outlet?
