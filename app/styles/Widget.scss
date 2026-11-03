@@ -3185,6 +3185,8 @@ body.ntk-monitoring .monitorBlockOverlay {
                 &.pass .decideMark { color: #2e7d32; }
                 &.fail .decideMark { color: #c62828; }
             }
+            // What the phrase is meant to give, after it.
+            .decideIntended { color: #888; }
             .decideMark {
                 display: inline-block;
                 width: 14px;

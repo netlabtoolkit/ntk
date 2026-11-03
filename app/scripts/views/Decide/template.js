@@ -75,13 +75,17 @@
                 <button type="button" class="decideTestAll" rv-class-busy="widget:testing" title="Decide on every phrase (the outlets don't change) and mark each one that comes out as intended">test all</button>
                 <span class="decideTestSummary" rv-text="widget:testSummary"></span>
                 <ul>
-                    <li rv-each-test="widget:tests" rv-data-index="test.index" rv-class-pass="test.pass" rv-class-fail="test.fail" rv-title="test.detail"><span class="decideMark" rv-text="test.mark"></span><span rv-text="test.phrase"></span></li>
+                    <li rv-each-test="widget:tests" rv-data-index="test.index" rv-class-pass="test.pass" rv-class-fail="test.fail" rv-title="test.detail"><span class="decideMark" rv-text="test.mark"></span><span rv-text="test.phrase"></span> <span class="decideIntended" rv-text="test.intended"></span></li>
                 </ul>
             </div>
             <hr>
             <label>model</label> <input class="decideModel" type="text" list="" spellcheck="false" rv-value="widget:model" title="An Ollama decision model. tev1:4b is quick and fits a 16 GB Mac; nimble is more accurate but needs about 18 GB of memory; kev:4b-mlx-bf16 is faster but weaker on score questions."><datalist class="decideModelList"></datalist><br>
             <label>address</label> <input class="decideBaseURL" type="text" spellcheck="false" rv-value="widget:baseURL" title="Where Ollama runs - this Mac (http://localhost:11434) or another computer on the network"><br>
             <label>confidence</label> <input class="moreParam" type="text" rv-value="widget:threshold" title="0 to 1. A choice (or a yes/no sending 0 or 1023) less sure than this doesn't change its outlet, so outputs don't flicker on unclear text. 0.5 held back almost every wrong answer in testing. Yes/no probabilities and scores always update."><br>
+            <label>when unsure</label> <select class="decideUnsure" rv-value="widget:unsure" title="What a choice outlet (or a yes/no sending 0 or 1023) does when its answer is below the confidence. Keep: stays as it was - for commands, so unclear speech doesn't switch things off. Send none: sends none (or 0) - for outlets that show what's happening now, so they don't go stale.">
+                <option value="keep">keep the last answer</option>
+                <option value="none">send none</option>
+            </select><br>
             <input type="checkbox" rv-checked="widget:gate" title="When the first question is a choice and it answers none, the other outlets keep their values - so off-topic talk doesn't move a yes/no or a score"> hold the others when the first answers none<br>
             <input type="checkbox" rv-checked="widget:autoDecide" title="Decide whenever the text changes, once it has been still for the pause below. Off: only the decide button."> decide when the text changes<br>
             <label>pause (ms)</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:pause" title="How long the text must stay unchanged before deciding, so a sentence still arriving word by word isn't decided on every word"><br>

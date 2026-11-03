@@ -101,6 +101,9 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 			this._genCallID = null;
 			this._genTimer = null;
 			this._applyTimer = null;
+			// The last decision's answers, so changing the confidence, the
+			// gate or the 0/1023 option re-applies them without asking again.
+			this._lastDecision = null;
 			this._testResults = {};
 			this._testing = false;
 
@@ -121,6 +124,11 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 				// for every word of a sentence still arriving.
 				pause: get('pause', 400),
 				binary: get('binary', false),
+				// An answer below the threshold: 'keep' leaves the outlet as
+				// it was (right for commands - unclear speech shouldn't switch
+				// things off); 'none' sends none / 0 (right for outlets that
+				// describe what's happening now, which shouldn't go stale).
+				unsure: get('unsure', 'keep'),
 				// The shared model defaults `in` to the number 0 (WidgetConfig.js) -
 				// only a string is real text. A loaded patch's text arrives
 				// later, through setFromModel.
@@ -435,8 +443,10 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 		 * choice that answered none - holds all the others.
 		 */
 		applyAnswers: function(parsed, answers) {
+			this._lastDecision = {parsed: parsed, answers: answers};
 			var threshold = toNumber(this.model.get('threshold'), 0.5);
 			var binary = !!this.model.get('binary');
+			var sendNone = this.model.get('unsure') === 'none';
 			var results = parsed.questions.map(function(q) {
 				return DecideScript.answer(q, answers && answers[q.name], {binary: binary});
 			});
@@ -456,9 +466,12 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 				d['low' + n] = low;
 				d['held' + n] = held && !low;
 				d['tip' + n] = q.name + ' (out' + n + '): ' + r.text + ', ' + Math.round(r.confidence * 100) + '% sure' +
-					(low ? ' - below the threshold, outlet unchanged' : held ? ' - held: "' + first.name + '" answered none' : '');
-				if(!low && !held && r.value !== this.model.get(OUT_FIELDS[i])) {
-					d[OUT_FIELDS[i]] = r.value;
+					(held ? ' - held: "' + first.name + '" answered none' :
+						low ? (sendNone ? ' - below the threshold, sent ' + (q.type === 'choice' ? 'none' : '0') : ' - below the threshold, outlet unchanged') : '');
+				var value = r.value;
+				if(low && sendNone) { value = q.type === 'choice' ? 'none' : 0; }
+				if(!held && (!low || sendNone) && value !== this.model.get(OUT_FIELDS[i])) {
+					d[OUT_FIELDS[i]] = value;
 					changedOutlets.push(i);
 				}
 			}
@@ -700,14 +713,20 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 			var tests = phrases.map(function(t, i) {
 				var r = results[i];
 				var want = _.map(t.expect || {}, function(v, k) { return k + '=' + v; }).join(', ');
+				// The intended answers, shown after the phrase: just the
+				// values, in the order of the questions as they are now.
+				var expect = t.expect || {};
+				var names = this.parsed.questions.map(function(q) { return q.name; }).filter(function(n) { return expect[n] !== undefined; });
+				if(!names.length) { names = _.keys(expect); }
+				var intended = names.map(function(n) { return expect[n]; }).join(', ');
 				var detail = 'Click to try it.' + (want ? ' Meant: ' + want + '.' : '');
 				if(r) {
 					checked++;
 					if(r.ok) { right++; }
 					detail += ' Got: ' + r.results.map(function(x) { return x.name + '=' + x.got + (x.ok === false ? ' ✗' : ''); }).join(', ') + '.';
 				}
-				return {index: i, phrase: t.phrase, mark: r ? (r.ok ? '✓' : '✗') : '·', pass: !!(r && r.ok), fail: !!(r && !r.ok), detail: detail};
-			});
+				return {index: i, phrase: t.phrase, intended: intended ? '(' + intended + ')' : '', mark: r ? (r.ok ? '✓' : '✗') : '·', pass: !!(r && r.ok), fail: !!(r && !r.ok), detail: detail};
+			}, this);
 			this.model.set({
 				tests: tests,
 				hasTests: tests.length > 0,
@@ -785,7 +804,14 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 			var changed = model.changedAttributes();
 			if(!changed) { return; }
 
+			// Settings that decide which answers reach the outlets: apply
+			// them to the last answers now, rather than at the next text.
+			if((changed.threshold !== undefined || changed.gate !== undefined || changed.binary !== undefined || changed.unsure !== undefined) &&
+				this._lastDecision && this._lastDecision.parsed === this.parsed) {
+				this.applyAnswers(this._lastDecision.parsed, this._lastDecision.answers);
+			}
 			if(changed.script !== undefined) {
+				this._lastDecision = null;
 				this.loadScript();
 				this.scheduleWarm();
 				// Marks from the old questions no longer say anything.

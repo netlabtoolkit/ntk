@@ -78,7 +78,10 @@ A choice outlet sends text, so check it with an IfThen in **Text Input** mode se
 
 ## When an answer doesn't change its outlet
 
-- **Confidence.** A choice that the model is less sure about than the **confidence** setting (0 to 1, default 0.5) is shown in grey italics, and its outlet keeps its previous value — so outputs don't flicker on unclear text. In testing, 0.5 held back almost every wrong answer. The same applies to yes/no when it sends 0 or 1023. A yes/no probability or a score always updates: the value itself already says how sure it is.
+- **Confidence.** A choice that the model is less sure about than the **confidence** setting (0 to 1, default 0.5) is shown in grey italics. In testing, 0.5 held back almost every wrong answer. The same applies to yes/no when it sends 0 or 1023. A yes/no probability or a score always updates: the value itself already says how sure it is. Changing the confidence applies at once to the latest answers.
+- **When unsure** decides what the outlet does with such an answer:
+  - **keep the last answer** (the default): the outlet stays as it was. Right for commands — unclear speech shouldn't switch the lights off.
+  - **send none**: the outlet sends `none` (a yes/no sending 0 or 1023 sends 0). Right for outlets that show what's happening now — a mood light or "who's at the door" — so they don't keep showing an old answer.
 - **Off-topic text.** With **hold the others when the first answers none** ticked (the default), when the first question is a choice and it answers `none`, the other outlets keep their values. A yes/no or score question can't say "this doesn't apply", so without this, "what time is it?" could change *upset* or *mood*. Put the question that decides whether the text is on-topic first.
 
 A line whose outlet just changed flashes yellow.
@@ -103,7 +106,7 @@ The first decision after a model loads takes a few seconds. To avoid that wait, 
 - **test phrases** and **test all** — see "Letting an AI write the questions".
 - **model** — the Ollama decision model. Click the box to pick from the decision models installed.
 - **address** — where Ollama runs: this computer (`http://localhost:11434`) or another computer on the network.
-- **confidence** — see above.
+- **confidence** and **when unsure** — see above.
 - **hold the others when the first answers none** — see above.
 - **decide when the text changes** and **pause (ms)** — see above.
 - **yes/no outlets send 0 or 1023** — see Outlets.
