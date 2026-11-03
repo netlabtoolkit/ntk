@@ -262,3 +262,10 @@ and shipped. Its historical step-by-step plan is at
   an `idle:` section for how it looks when idle; same script runs in NTK
   and on the board, and a visual timeline can go on top later. Plan
   only.
+- **[Decide widget](decision-widget.md)** — "System One" decision
+  models (Nimble in Ollama locally, TypeSafe's hosted Jev): text plus a
+  short script of yes/no, choice and score questions in, a choice and
+  probability per question out in ~0.1 s, on four positional outlets.
+  An LLM can write the question script and test phrases from a plain
+  request while building the patch. Calls go through `llmProxy.js`, no
+  SDK. Plan only (2026-11-03).
