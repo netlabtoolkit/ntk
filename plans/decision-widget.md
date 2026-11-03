@@ -271,7 +271,21 @@ The worked example's score became `none < some < very`. Same five requests; each
 
 ### 7. Other models
 
-`tev1:4b` and `tev1:0.8b` are compared in the tables above. `nimble-v3` wasn't tried.
+`tev1:4b` and `tev1:0.8b` are compared in the tables above. `nimble-v3` wasn't tried. A later run added three MLX models, on the same 32 phrases (61 checked answers, 3 questions, new text each request):
+
+| model | on disk | loaded | right | median time | right answers kept at 0.5 | wrong let through |
+|---|---|---|---|---|---|---|
+| nimble | 9.3 GB | 16-18 GB | 93% | 672 ms | 51/57 | 0/4 |
+| tev1:4b-mlx-bf16 | 8.4 GB | | 89% | 376 ms | 38/54 | 0/7 |
+| **tev1:4b** (default) | 4.4 GB | 4.7 GB | 87% | 373 ms | 37/53 | 1/8 |
+| kev:4b-mlx-bf16 | 8.4 GB | 8.7 GB | 84% | **209 ms** | 43/51 | 0/10 |
+| laya:421m-typed-decisions-mlx-fp16 | 0.8 GB | 1.0 GB | 72% | 39 ms | 15/44 | 0/17 |
+| tev1:0.8b | 1.5 GB | | 62% | 81 ms | 28/38 | 2/23 |
+
+- **tev1:4b-mlx-bf16** is the same model at full precision: one more right answer, same speed, twice the memory. Not worth it; keep the mxfp8 `tev1:4b`.
+- **kev:4b** is the fastest model that's still good: ~1.8x tev1:4b's speed. Lights 89% and every off-topic phrase right, but it hedges scores at the middle level (6 of its 10 misses are the mood score), and all its misses had low confidence. Worth offering as the "fast" choice, especially for scripts without scores.
+- **laya** is very fast but its confidence is low even when right (median 0.26), so a 0.5 threshold throws away most of its right answers; it misreads indirect and non-English requests. Not suitable.
+- Every model listed `capabilities: ["decision"]` in `/api/tags`, so the model picker's filter works for all of them.
 
 ### Changes to the design
 

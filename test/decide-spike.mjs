@@ -239,7 +239,7 @@ async function accuracy(model = MODEL) {
 		console.log(`  threshold ${t}: keeps ${keptHits}/${hits.length} right answers, lets through ${keptMiss}/${misses.length} wrong ones`);
 	}
 	console.log('misses:'); misses.forEach(m => console.log('  ', pad(m.q, 7), pad(m.phrase, 44), 'got', pad(String(m.got), 6), 'want', pad(String(m.exp), 6), 'conf', f2(m.conf)));
-	return { tot, misses, hits };
+	return { tot, misses, hits, ms: median(times) };
 }
 
 // ---------- 5. context limit ----------
@@ -434,9 +434,18 @@ async function generate() {
 
 async function compare() {
 	const tags = await (await fetch(OLLAMA + '/api/tags')).json();
-	for (const m of tags.models.map(m => m.name).filter(n => /^(nimble|tev1)/.test(n))) {
-		await accuracy(m);
+	// every installed model Ollama marks as a decision model (or COMPARE_MODELS=a,b)
+	const names = process.env.COMPARE_MODELS ? process.env.COMPARE_MODELS.split(',')
+		: tags.models.filter(m => (m.capabilities || []).includes('decision')).map(m => m.name);
+	const rows = [];
+	for (const m of names) {
+		const info = tags.models.find(t => t.name === m) || {};
+		const r = await accuracy(m);
+		rows.push(`${pad(m, 36)} ${pad(((info.size || 0) / 1e9).toFixed(1) + ' GB', 8)} ${pad(f0(100 * r.tot.ok / r.tot.n) + '%', 5)} median ${f0(r.ms)} ms`);
+		await fetch(OLLAMA + '/api/generate', { method: 'POST', body: JSON.stringify({ model: m, keep_alive: 0 }) });
 	}
+	console.log('\nmodel                                on disk  right  3 questions, new text');
+	rows.forEach(r => console.log(r));
 }
 
 const all = { shape, latency, accuracy, context, generate, compare };
