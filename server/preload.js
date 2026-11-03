@@ -107,4 +107,15 @@ contextBridge.exposeInMainWorld('ntkElectron', {
 	llmShowDocumentInFolder: function(path) {
 		return ipcRenderer.invoke('llm-show-document-in-folder', { path: path });
 	},
+	// Decide widget (server/llmProxy.js): one /v1/systemone request.
+	// {requestID, model, baseURL, state, questions} ->
+	// {answers, usage, ms} or {error, code} or {canceled}. llmCancel
+	// aborts it.
+	decide: function(opts) {
+		return ipcRenderer.invoke('decide', opts || {});
+	},
+	// Installed decision models -> {models: [...]} or {error}.
+	decideModels: function(opts) {
+		return ipcRenderer.invoke('decide-models', opts || {});
+	},
 });

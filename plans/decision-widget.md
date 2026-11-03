@@ -1,6 +1,6 @@
 # Decide widget (System One decision models)
 
-**Status:** plan only (2026-11-03). Not started. Scoped in discussion with Phil.
+**Status:** v1 built 2026-11-03 (`app/scripts/views/Decide/`, `utils/DecideScript.js`, `decide` / `decide-models` in `server/llmProxy.js`, `docs/decide.md`, tests in `test/decide-test.js`): script box with line numbers and errors, Ollama decision models (default `tev1:4b`), four positional outlets, confidence threshold, gate rule, auto-decide after a pause, warm-up, test text field. Tested in the running app, including a Text -> Decide -> IfThen chain. Not yet: the LLM **Generate** button, test phrases, TypeSafe Jev, in2/in3 state inlets.
 
 A new **AI** widget that turns text into decisions. It sends text plus a few multiple-choice questions to a "System One" decision model and gets back, in about a tenth of a second, a choice and a probability for each question. Those come out as numbers and names that can drive IfThen, outputs and other widgets directly.
 
@@ -107,6 +107,8 @@ Maybe also a **confidence** outlet for the first question, or a per-outlet "send
 ### Confidence threshold
 
 A more-panel setting (default maybe 0.5): an answer below it doesn't update its outlet, which keeps outputs from flickering on uncertain input. For yes/no (no `confidence` field), the threshold applies to how far `noul` is from 0.5.
+
+**As built:** the threshold only applies to answers that pick one thing: choices, and yes/no in 0-or-1023 mode. In the first build it also held yes/no probabilities and scores, and that made them stick: after "ugh why is it pitch black in here AGAIN" set `upset` to yes, every following weak "no" (probability ~0.43, so confidence 0.13) was held, and `upset` stayed yes. A probability or a weighted score already says how sure it is, so those always update (unless the gate holds them).
 
 ### When it asks
 

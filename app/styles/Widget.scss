@@ -2925,3 +2925,176 @@ body.ntk-monitoring .monitorBlockOverlay {
         }
     }
 }
+
+// ---- Decide (views/Decide) ----
+@keyframes decideFlash {
+    0%   { background-color: #ffe680; }
+    100% { background-color: transparent; }
+}
+@keyframes decideBusy {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.45; }
+}
+
+.decide {
+    .widgetBody {
+        position: relative;
+    }
+
+    // The test text: type here to try the questions with nothing wired in.
+    // Full selector chain to beat the shared 25px-wide input rule.
+    &.widget .widgetBody input.decideText {
+        display: block;
+        box-sizing: border-box;
+        width: 86px;
+        height: 16px;
+        margin: 4px 4px 3px;
+        padding: 0 3px;
+        border: 1px solid #ccc;
+        border-radius: 2px;
+        font-size: 10px;
+    }
+
+    .decideAnswers {
+        margin: 0 4px;
+    }
+
+    // One line per question: "lights: dim", over a bar for how sure.
+    .decideLine {
+        position: relative;
+        height: 14px;
+        margin-bottom: 1px;
+        overflow: hidden;
+        font-size: 10px;
+        line-height: 14px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        border-radius: 2px;
+
+        span { position: relative; padding-left: 2px; }
+
+        .decideBar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 0;
+            background-color: #c8e6c9;
+        }
+
+        // Less sure than the threshold: shown, but its outlet didn't change.
+        &.low {
+            color: #999;
+            font-style: italic;
+            .decideBar { background-color: #eee; }
+        }
+        // Held by the gate (the first question answered none).
+        &.held {
+            color: #999;
+            .decideBar { background-color: #eee; }
+        }
+        &.flash { animation: decideFlash 0.8s ease-out; }
+    }
+
+    .decideFoot {
+        position: absolute;
+        left: 4px;
+        right: 2px;
+        bottom: 4px;
+        white-space: nowrap;
+    }
+
+    .decideButton {
+        padding: 1px 5px;
+        border: 1px solid #98a6ac;
+        border-radius: 3px;
+        background-color: #fff;
+        font-size: 10px;
+        cursor: pointer;
+
+        &.busy {
+            background-color: #c5cae9;
+            animation: decideBusy 0.8s ease-in-out infinite;
+        }
+    }
+
+    .decideStatus {
+        margin-left: 3px;
+        font-size: 9px;
+        color: #777;
+        font-variant-numeric: tabular-nums;
+
+        &.error { color: #c62828; }
+    }
+
+    // Wider than the shared 190px, for script lines like
+    // "lights: choice on | off | dim | none=Not about the lights".
+    .widgetBottom .content {
+        width: 300px;
+
+        .decideEditor {
+            position: relative;
+            padding-left: 28px;
+            background: #fff;
+        }
+        // Line numbers, as Scene's (Decide.js renderGutter).
+        .decideGutter {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 28px;
+            box-sizing: border-box;
+            padding: 2px 4px 0 2px;
+            overflow: hidden;
+            white-space: pre;
+            text-align: right;
+            font-family: Menlo, Monaco, monospace;
+            font-size: 11px;
+            line-height: 1.35;
+            color: #999;
+            background: #f2f2f2;
+            border: 1px solid #ccc;
+            border-right: none;
+            user-select: none;
+
+            .error {
+                color: #fff;
+                background: #c62828;
+                border-radius: 2px;
+                padding: 0 2px;
+            }
+        }
+        textarea.decideScript {
+            display: block;
+            margin: 0;
+            padding: 2px 4px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            width: 100%;
+            font-family: Menlo, Monaco, monospace;
+            font-size: 11px;
+            line-height: 1.35;
+            white-space: pre;
+            overflow-wrap: normal;
+            overflow-x: auto;
+        }
+        .decideErrors {
+            margin: 4px 0;
+            padding-left: 14px;
+            color: #c62828;
+            font-size: 11px;
+
+            li { cursor: pointer; }
+        }
+        .decideHint {
+            margin: 2px 0 4px;
+            font-size: 10px;
+            color: #777;
+            line-height: 1.4;
+
+            code { font-family: Menlo, Monaco, monospace; font-size: 10px; }
+        }
+        .decideModel, .decideBaseURL { width: 170px; }
+    }
+}

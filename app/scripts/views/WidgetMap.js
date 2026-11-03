@@ -28,6 +28,7 @@ define([
     'views/SpeechIn/SpeechIn',
     'views/SpeechOut/SpeechOut',
     'views/LLM/LLM',
+    'views/Decide/Decide',
 	'views/Blank/Blank',
     
     'views/Image/Image',
@@ -51,7 +52,7 @@ define([
     'views/DCCThrottle/DCCThrottle',
     'views/DCCFunction/DCCFunction',
 ],
-function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Gesture, FaceTrack, PoseRecog, ObjectRecog, Mix, Splitter, Concat, Data, Tween, Sequence, Scene, SpeechIn, SpeechOut, LLM, Blank, Image, Audio, Video, Text, AnalogOut, Servo, Display, CloudOut, Webhook, OSCIn, OSCOut, DigitalIn, DigitalOut, GroveSensor, NeoPixel, Encoder, DCCThrottle, DCCFunction){
+function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, Count, IfThen, Boolean, Gate, Gesture, FaceTrack, PoseRecog, ObjectRecog, Mix, Splitter, Concat, Data, Tween, Sequence, Scene, SpeechIn, SpeechOut, LLM, Decide, Blank, Image, Audio, Video, Text, AnalogOut, Servo, Display, CloudOut, Webhook, OSCIn, OSCOut, DigitalIn, DigitalOut, GroveSensor, NeoPixel, Encoder, DCCThrottle, DCCFunction){
     'use strict';
 
 	return {
@@ -86,6 +87,7 @@ function(AnalogIn, CloudIn, Knob, Button, Keyboard, HTML, Pulse, Code, Process, 
         'SpeechIn': SpeechIn,
         'SpeechOut': SpeechOut,
         'LLM': LLM,
+        'Decide': Decide,
 		'Blank': Blank,
 
 		'Image': Image,

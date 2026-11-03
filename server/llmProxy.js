@@ -337,6 +337,61 @@ async function ollamaModels(baseURL) {
 	}
 }
 
+// ---- decision models (the Decide widget) ----
+// Ollama's /v1/systemone (plans/decision-widget.md): text plus a set of
+// yes/no, choice and score questions in, an answer with probabilities
+// per question out. No text is generated. Ollama's /api/chat and
+// /api/generate refuse decision models ("does not support chat"), so
+// the widget warms a model up with a real decision, not llm-warm.
+
+async function ollamaDecide(opts) {
+	const base = trimSlash(opts.baseURL || DEFAULT_OLLAMA_BASE);
+	const model = opts.model;
+	if (!model) return { error: 'pick a model', code: 'no-model' };
+	try {
+		const res = await fetch(base + '/v1/systemone', {
+			method: 'POST',
+			signal: opts.signal,
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ model: model, state: String(opts.state || ''), questions: opts.questions, keep_alive: OLLAMA_KEEP_ALIVE }),
+		});
+		const text = await res.text();
+		let data = null;
+		try { data = JSON.parse(text); } catch (e) { /* reported below */ }
+		if (!res.ok) {
+			const detail = (data && data.error) || text.slice(0, 200);
+			if (res.status === 404) return { error: model + ' not installed - run: ollama pull ' + model, code: '404' };
+			if (res.status === 413) return { error: 'text too long (64 KiB at most)', code: '413' };
+			if (/does not support/i.test(detail)) return { error: model + ' is not a decision model', code: 'not-decision' };
+			return { error: 'Ollama ' + res.status + (detail ? ': ' + detail : ''), code: String(res.status) };
+		}
+		if (!data || !data.answers) return { error: 'unexpected reply from Ollama', code: 'bad-reply' };
+		return { answers: data.answers, usage: data.usage };
+	} catch (e) {
+		if (opts.signal && opts.signal.aborted) return { canceled: true };
+		if (/ECONNREFUSED|fetch failed|ENOTFOUND/i.test(e.message)) {
+			return { error: 'Ollama not running at ' + base, code: 'no-ollama' };
+		}
+		return { error: 'Could not reach Ollama: ' + e.message, code: 'network' };
+	}
+}
+
+// Installed models Ollama marks as decision models (`capabilities`
+// includes "decision" in /api/tags).
+async function ollamaDecisionModels(baseURL) {
+	const base = trimSlash(baseURL || DEFAULT_OLLAMA_BASE);
+	try {
+		const res = await fetch(base + '/api/tags');
+		if (!res.ok) return { error: String(res.status) };
+		const data = await res.json();
+		return { models: (data.models || []).filter(function(m) {
+			return (m.capabilities || []).indexOf('decision') !== -1;
+		}).map(function(m) { return m.name; }) };
+	} catch (e) {
+		return { error: 'no-ollama' };
+	}
+}
+
 // ---- IPC registration ----
 
 module.exports = function registerLLMHandlers() {
@@ -409,5 +464,27 @@ module.exports = function registerLLMHandlers() {
 		const controller = opts && inFlight.get(opts.requestID);
 		if (controller) controller.abort();
 		return { canceled: !!controller };
+	});
+
+	// Decide widget. Same in-flight map, so llm-cancel works for it too.
+	ipcMain.handle('decide', async function(event, opts) {
+		opts = Object.assign({}, opts);
+		const controller = new AbortController();
+		const id = opts.requestID;
+		opts.signal = controller.signal;
+		if (id) inFlight.set(id, controller);
+		const started = Date.now();
+		try {
+			const res = await ollamaDecide(opts);
+			if (controller.signal.aborted) return { canceled: true };
+			res.ms = Date.now() - started;
+			return res;
+		} finally {
+			if (id && inFlight.get(id) === controller) inFlight.delete(id);
+		}
+	});
+
+	ipcMain.handle('decide-models', function(event, opts) {
+		return ollamaDecisionModels(opts && opts.baseURL);
 	});
 };
