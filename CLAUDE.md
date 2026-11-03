@@ -49,7 +49,10 @@
   --remote-debugging-port=9333`. NTK then loads and saves that file
   instead of `server/currentPatch.ntk`, and quits without the "Save
   changes?" prompt - so a test run never touches the user's patch or
-  pops a dialog on their screen. Drive it over the DevTools protocol
+  pops a dialog on their screen. Its window is titled "NTK – TEST RUN
+  (Claude)" with an orange border and bottom strip, so it isn't
+  mistaken for the user's own NTK; still tell the user before
+  launching one and when it's closed. Drive it over the DevTools protocol
   (`Runtime.evaluate`; add widgets with
   `window.app.vent.trigger('ToolBar:addWidget', 'TypeID')`). After a
   rebuild, reload with the cache bypassed (`Network.clearBrowserCache`
