@@ -354,6 +354,24 @@ app.on('ready', function() {
 	  },
   });
 
+  // A test launch (NTK_SCRATCH_PATCH set - see askAboutUnsavedEdits)
+  // says so in its title bar, so nobody mistakes it for their own NTK
+  // and starts working in it. The page's <title> would replace it, so
+  // that update is blocked.
+  if(process.env.NTK_SCRATCH_PATCH) {
+	  mainWindow.setTitle('NTK – TEST RUN (Claude)');
+	  mainWindow.on('page-title-updated', function(e) { e.preventDefault(); });
+	  // macOS won't colour the title bar, so the page gets an orange
+	  // border and an orange strip along the bottom instead - neither
+	  // takes clicks. Re-applied on every load (a reload drops it).
+	  mainWindow.webContents.on('did-finish-load', function() {
+		  mainWindow.webContents.insertCSS(
+			  'html::after { content: ""; position: fixed; top: 0; right: 0; bottom: 0; left: 0; border: 5px solid #ff8c00; pointer-events: none; z-index: 2147483647; }' +
+			  'html::before { content: "TEST RUN (Claude) - not your NTK"; position: fixed; left: 0; right: 0; bottom: 0; padding: 3px 0; background: #ff8c00; color: #000; font: bold 12px sans-serif; text-align: center; pointer-events: none; z-index: 2147483647; }'
+		  );
+	  });
+  }
+
   // Explicit camera/mic permission handling, rather than relying on
   // Electron's own default behavior for unhandled permission requests -
   // this window only ever loads our own bundled local server
@@ -398,6 +416,11 @@ app.on('ready', function() {
   var closeConfirmed = false;
   var asking = false;
   var askAboutUnsavedEdits = async function() {
+	  // A test launch (NTK_SCRATCH_PATCH set: an automated run working on
+	  // a scratch patch, not the user's) closes without asking.
+	  if(process.env.NTK_SCRATCH_PATCH) {
+		  return true;
+	  }
 	  var withTimeout = function(promise, ms, fallback) {
 		  return Promise.race([promise, new Promise(function(resolve) { setTimeout(function() { resolve(fallback); }, ms); })]);
 	  };

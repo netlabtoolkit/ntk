@@ -80,7 +80,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 		],
 		typeID: 'Scene',
 		className: 'scene',
-		categories: ['generator'],
+		categories: ['animation'],
 		template: _.template(Template),
 
 		initialize: function(options) {

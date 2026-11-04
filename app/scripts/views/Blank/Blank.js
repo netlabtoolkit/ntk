@@ -54,7 +54,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// up in the panel - ToolBar.js's sortWidgetCategories() skips any
 		// widget whose categories array is empty/missing. Existing
 		// categories (see app/styles/toolBar.scss for their swatch
-		// colors): 'I/O', 'network', 'media', 'generator', 'logic', 'UI',
+		// colors): 'I/O', 'network', 'media', 'animation', 'logic', 'UI',
 		// 'AI'. You can also invent a brand new category name - it gets
 		// its own section in the panel automatically (data-driven),
 		// though it'll have no special swatch color until you add one in

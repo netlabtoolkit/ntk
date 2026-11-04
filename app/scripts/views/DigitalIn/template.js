@@ -65,7 +65,7 @@
             <label class="narrowLabel wordLabel">ease</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:easingAmount"><br>
             <label class="narrowLabel wordLabel">smooth</label> <input class='smoothingAmount moreParam' type="text" pattern="[0-9]*" rv-value="widget:smoothingAmount">
             <hr>
-            <label title="On: for a button or switch wired between the pin and GND - the pin's pull-up resistor, and pressed still reads high. Off: for one wired to 3.3V (pull-down)"><input type="checkbox" rv-checked="widget:pullup"> pull-up</label>
+            <label title="On: for a plain button or switch wired between the pin and GND - the pin's pull-up resistor, and pressed still reads high. Off: for a sensor module that sends its own on/off signal (touch, PIR motion, Grove button...) or a button wired to 3.3V. Reads backwards (on when nothing's happening)? Untick this."><input type="checkbox" rv-checked="widget:pullup"> pull-up</label>
             <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/digitalin/" target="_blank">Widget help</a>
         </div>

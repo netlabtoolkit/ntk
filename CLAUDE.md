@@ -44,6 +44,20 @@
   grep the log for `error`/`exception`. The Express server logs every GET
   request (including 404s), so a widget's `.js`/`template.js` failing to
   load is visible directly in that log without opening DevTools.
+- **Automated / test launches: set `NTK_SCRATCH_PATCH`** to a scratch
+  file, e.g. `NTK_SCRATCH_PATCH=/tmp/x.ntk npm run electron --
+  --remote-debugging-port=9333`. NTK then loads and saves that file
+  instead of `server/currentPatch.ntk`, and quits without the "Save
+  changes?" prompt - so a test run never touches the user's patch or
+  pops a dialog on their screen. Its window is titled "NTK – TEST RUN
+  (Claude)" with an orange border and bottom strip, so it isn't
+  mistaken for the user's own NTK; still tell the user before
+  launching one and when it's closed. Drive it over the DevTools protocol
+  (`Runtime.evaluate`; add widgets with
+  `window.app.vent.trigger('ToolBar:addWidget', 'TypeID')`). After a
+  rebuild, reload with the cache bypassed (`Network.clearBrowserCache`
+  + `Page.reload {ignoreCache: true}`): Chromium has served stale
+  `main.css` / widget JS from its cache after a rebuild and relaunch.
 - **View > Toggle Developer Tools** (`Cmd+Option+I`) is wired up in the
   app menu (`server/electronApp.js`) - use it to read the real console/
   inspector instead of the `fetch('/DEBUG?...')`-to-server-log relay trick.

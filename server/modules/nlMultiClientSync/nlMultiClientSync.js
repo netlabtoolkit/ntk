@@ -1139,6 +1139,11 @@ module.exports = function(options) {
 			return changesExist;
 		},
     getPatchPath: function() {
+      // Test launches (NTK_SCRATCH_PATCH=/some/file.ntk) load and save
+      // their own file, never the user's patch - see electronApp.js.
+      if (process.env.NTK_SCRATCH_PATCH) {
+        return process.env.NTK_SCRATCH_PATCH;
+      }
       var commandLineDir = "server/modules/nlMultiClientSync";
       var str = __dirname.substr(-1*(commandLineDir.length));
 

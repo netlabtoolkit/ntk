@@ -680,7 +680,7 @@ body.ntk-monitoring .monitorBlockOverlay {
     .typeMedia {
     	background-color: #4DB6AC;
     }
-    .typeGenerator {
+    .typeAnimation {
     	background-color: #AED581;
     }
     .typeLogic {
@@ -2922,6 +2922,282 @@ body.ntk-monitoring .monitorBlockOverlay {
         &.on {
             background-color: #ffd54f;
             border-color: #b8860b;
+        }
+    }
+}
+
+// ---- Decide (views/Decide) ----
+@keyframes decideFlash {
+    0%   { background-color: #ffe680; }
+    100% { background-color: transparent; }
+}
+@keyframes decideBusy {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.45; }
+}
+
+.decide {
+    .widgetBody {
+        position: relative;
+    }
+
+    // The test text: type here to try the questions with nothing wired in.
+    // Full selector chain to beat the shared 25px-wide input rule.
+    &.widget .widgetBody input.decideText {
+        display: block;
+        box-sizing: border-box;
+        width: 86px;
+        height: 16px;
+        margin: 4px 4px 3px;
+        padding: 0 3px;
+        border: 1px solid #ccc;
+        border-radius: 2px;
+        font-size: 10px;
+    }
+
+    .decideAnswers {
+        margin: 0 4px;
+    }
+
+    // One line per question: "lights: dim", over a bar for how sure.
+    .decideLine {
+        position: relative;
+        height: 14px;
+        margin-bottom: 1px;
+        overflow: hidden;
+        font-size: 10px;
+        line-height: 14px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        border-radius: 2px;
+
+        span { position: relative; padding-left: 2px; }
+
+        .decideBar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 0;
+            background-color: #c8e6c9;
+        }
+
+        // Less sure than the threshold: shown, but its outlet didn't change.
+        &.low {
+            color: #999;
+            font-style: italic;
+            .decideBar { background-color: #eee; }
+        }
+        // Held by the gate (the first question answered none).
+        &.held {
+            color: #999;
+            .decideBar { background-color: #eee; }
+        }
+        &.flash { animation: decideFlash 0.8s ease-out; }
+    }
+
+    .decideFoot {
+        position: absolute;
+        left: 4px;
+        right: 2px;
+        bottom: 4px;
+        white-space: nowrap;
+    }
+
+    .decideButton {
+        padding: 1px 5px;
+        border: 1px solid #98a6ac;
+        border-radius: 3px;
+        background-color: #fff;
+        font-size: 10px;
+        cursor: pointer;
+
+        &.busy {
+            background-color: #c5cae9;
+            animation: decideBusy 0.8s ease-in-out infinite;
+        }
+    }
+
+    .decideStatus {
+        margin-left: 3px;
+        font-size: 9px;
+        color: #777;
+        font-variant-numeric: tabular-nums;
+
+        &.error { color: #c62828; }
+    }
+
+    // Wider than the shared 190px, for script lines like
+    // "lights: choice on | off | dim | none=Not about the lights".
+    .widgetBottom .content {
+        width: 300px;
+
+        .decideEditor {
+            position: relative;
+            padding-left: 28px;
+            background: #fff;
+        }
+        // Line numbers, as Scene's (Decide.js renderGutter).
+        .decideGutter {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 28px;
+            box-sizing: border-box;
+            padding: 2px 4px 0 2px;
+            overflow: hidden;
+            white-space: pre;
+            text-align: right;
+            font-family: Menlo, Monaco, monospace;
+            font-size: 11px;
+            line-height: 1.35;
+            color: #999;
+            background: #f2f2f2;
+            border: 1px solid #ccc;
+            border-right: none;
+            user-select: none;
+
+            .error {
+                color: #fff;
+                background: #c62828;
+                border-radius: 2px;
+                padding: 0 2px;
+            }
+        }
+        textarea.decideScript {
+            display: block;
+            margin: 0;
+            padding: 2px 4px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            width: 100%;
+            font-family: Menlo, Monaco, monospace;
+            font-size: 11px;
+            line-height: 1.35;
+            white-space: pre;
+            overflow-wrap: normal;
+            overflow-x: auto;
+        }
+        .decideErrors {
+            margin: 4px 0;
+            padding-left: 14px;
+            color: #c62828;
+            font-size: 11px;
+
+            li { cursor: pointer; }
+        }
+        .decideHint {
+            margin: 2px 0 4px;
+            font-size: 10px;
+            color: #777;
+            line-height: 1.4;
+
+            code { font-family: Menlo, Monaco, monospace; font-size: 10px; }
+        }
+        .decideModel, .decideBaseURL { width: 170px; }
+        // The shared label width (60px) wrapped "when unsure" in two.
+        label.decideUnsureLabel { width: auto; margin-right: 4px; }
+
+        // Generate: describe it, an LLM writes the questions.
+        // Headings as plain blocks - the shared label rule fixes labels'
+        // width, which wrapped these onto two lines.
+        .decideHeading {
+            margin: 2px 0;
+            font-size: 12px;
+        }
+        textarea.decideRequest {
+            display: block;
+            box-sizing: border-box;
+            width: 100%;
+            font-size: 11px;
+        }
+        .decideGenRow {
+            margin-top: 3px;
+            white-space: nowrap;
+
+            select { font-size: 10px; max-width: 82px; }
+            input.decideGenModel { width: 120px; font-size: 10px; }
+        }
+        .decideGenerate, .decideUse, .decideKeep, .decideTestAll {
+            padding: 1px 6px;
+            border: 1px solid #98a6ac;
+            border-radius: 3px;
+            background-color: #fff;
+            font-size: 10px;
+            cursor: pointer;
+
+            &.busy {
+                background-color: #c5cae9;
+                animation: decideBusy 0.8s ease-in-out infinite;
+            }
+        }
+        .decideUse { background-color: #c8e6c9; }
+        .decideGenStatus {
+            min-height: 13px;
+            margin: 2px 0;
+            font-size: 10px;
+            color: #555;
+
+            &.error { color: #c62828; }
+        }
+        .decidePreview {
+            margin: 4px 0;
+            padding: 4px;
+            background: #fffbe6;
+            border: 1px solid #e6d58a;
+            border-radius: 3px;
+
+            pre.decidePreviewScript {
+                margin: 2px 0;
+                max-height: 140px;
+                overflow: auto;
+                font-family: Menlo, Monaco, monospace;
+                font-size: 10px;
+                line-height: 1.35;
+                // Wrapped, so the whole of each line can be read.
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+            .decidePreviewNotes {
+                margin: 2px 0 4px;
+                padding-left: 14px;
+                font-size: 10px;
+                color: #6d4c00;
+            }
+        }
+        .decideTests {
+            margin-top: 4px;
+
+            .decideTestSummary { font-size: 10px; color: #555; margin-left: 4px; }
+            ul {
+                margin: 3px 0;
+                padding: 0;
+                list-style: none;
+            }
+            // Long phrases wrap (with the mark hanging out to the left),
+            // so the intended answers at the end are never cut off.
+            li {
+                font-size: 11px;
+                line-height: 15px;
+                cursor: pointer;
+                padding-left: 14px;
+                text-indent: -14px;
+
+                &:hover { background: #f0f0f0; }
+                &.pass .decideMark { color: #2e7d32; }
+                &.fail .decideMark { color: #c62828; }
+            }
+            // What the phrase is meant to give, after it.
+            .decideIntended { color: #888; }
+            .decideMark {
+                // Not the li's hanging indent, or the mark slides out of view.
+                text-indent: 0;
+                display: inline-block;
+                width: 14px;
+                font-weight: bold;
+                color: #999;
+            }
         }
     }
 }

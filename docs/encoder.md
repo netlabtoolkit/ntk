@@ -2,9 +2,23 @@
 
 Count the clicks of a rotary encoder knob, up or down, from any starting value.
 
+<img src="images/encoder-body.png" width="156" alt="The Encoder widget: the connect checkbox, pin fields D1 and D2, a dial showing 340, min 0 and max 1023, and the rev, wrap and eas buttons">
+
 A rotary encoder is a knob that turns forever in either direction and clicks as it turns. Unlike a potentiometer (read with AnalogIn), it has no ends and no fixed position: it only reports that it moved, and which way. The Encoder widget turns those clicks into a value that goes up when you turn one way and down when you turn the other, staying between a min and a max that you choose. Use it for menus, volume or brightness controls, scrolling through choices, or any setting you want to nudge by small steps.
 
 Encoder needs a board running NTK's CircuitPython Firmata firmware, which is included with your NTK download (the `CircuitPython/` folder, with its own setup README), connected over **Network** (WiFi). The board counts the clicks itself, so none are missed even when the knob is spun quickly. A board running standard Arduino Firmata does not understand the Encoder widget. The widget speaks ConfigurableFirmata's encoder protocol, so an Arduino running ConfigurableFirmata with encoder support should work too, but that hasn't been tested.
+
+## Contents
+
+- [Wiring](#Wiring)
+- [How it works](#How-it-works)
+- [Testing without an encoder](#Testing-without-an-encoder)
+- [Buttons](#Buttons)
+- [Setting edges](#Setting-edges)
+- [Settings in the more panel](#Settings-in-the-more-panel)
+- [Standalone patches](#Standalone-patches)
+- [Notes](#Notes)
+- [Example patches](#Example-patches)
 
 ## Wiring
 
@@ -34,7 +48,7 @@ Power a module from **3V3, never 5V**: its built-in resistors connect to whateve
 
 It doesn't matter which signal pin goes to D1 and which to D2. If the value goes the wrong way when you turn, swap the two wires or turn on **rev**.
 
-Many encoders also click down like a button. That push switch is a separate pin, read with its own **DigitalIn** widget.
+Many encoders also click down like a button. That push switch is a separate pin, read with its own **DigitalIn** widget. The switch connects that pin to GND when pressed, so leave the DigitalIn's **pull-up** option on (the default) and pressing reads as on.
 
 ## How it works
 
@@ -82,7 +96,9 @@ Starting from 1 is the safe choice. An **edges** setting that's too low makes ea
 
 The right number depends on both the encoder and the board, so check again whenever you change either one. For example, a KY-040-style encoder on a Seeed XIAO ESP32-S3 needs **1**.
 
-## Settings ("more" panel)
+## Settings in the more panel
+
+<img src="images/encoder-more.png" width="228" alt="The Encoder more panel: Device set to Network, ip ntk-device.local, port 3030, status off, and the step, edges and ease fields">
 
 - **Device** — set this to **Network**, with the board's address and port (or use the left panel's default Device, which is applied to new hardware widgets automatically). Changing the device, address or port unticks the checkbox; tick it again to reconnect.
 - **Status** — what the connection is doing, including the reason if the board couldn't start the encoder.

@@ -25,7 +25,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		sources: [],
 		typeID: 'Pulse',
 		className: 'pulse',
-        categories: ['generator'],
+        categories: ['animation'],
 		template: _.template(Template),
 
 		initialize: function(options) {

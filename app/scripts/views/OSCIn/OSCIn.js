@@ -25,7 +25,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		deviceMode: 'in',
 		lastChanged: {in: 99},
 		className: 'oscIn',
-		categories: ['Network'],
+		categories: ['network'],
 		template: _.template(Template),
 
 		initialize: function(options) {
