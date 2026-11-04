@@ -32,7 +32,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		sources: [],
 		typeID: 'Sequence',
 		className: 'sequence',
-        categories: ['generator'],
+        categories: ['animation'],
 		template: _.template(Template),
 
 		initialize: function(options) {

@@ -1,5 +1,5 @@
 <div class="widgetAuthoring">
-    <div class="widgetTop typeGenerator">
+    <div class="widgetTop typeAnimation">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
         </div>

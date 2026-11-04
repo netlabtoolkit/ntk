@@ -13,7 +13,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 	return WidgetView.extend({
 		typeID: 'OSCOut',
 		deviceMode: 'out',
-		categories: ['Network'],
+		categories: ['network'],
 		className: 'oscOut',
 		template: _.template(Template),
 

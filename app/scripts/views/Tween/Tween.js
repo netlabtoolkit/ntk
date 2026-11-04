@@ -117,7 +117,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		sources: [],
 		typeID: 'Tween',
 		className: 'tween',
-        categories: ['generator'],
+        categories: ['animation'],
 		template: _.template(Template),
 
 		initialize: function(options) {
