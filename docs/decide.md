@@ -1,10 +1,28 @@
 # Decide
 
-Decide reads a piece of text and answers a few questions about it, fast. Wire in what someone said (from SpeechIn), a label from ObjectRecog, or a reply from an LLM widget, and Decide answers questions like *what does the speaker want the lights to do?* or *is the speaker annoyed?* — one outlet per question.
+Decide reads a piece of text and answers a few questions about it, faster than LLMs. Wire in what someone said (from SpeechIn), a label from ObjectRecog, or a reply from an LLM widget, and Decide answers questions like *what does the speaker want the lights to do?* or *is the speaker annoyed?* — one outlet per question.
 
-It uses a **decision model**: a new kind of AI model that doesn't write text, it only picks from the answers you give it, and says how sure it is. That makes it much quicker than an LLM (a few tenths of a second instead of seconds), and it can never reply with something you didn't expect. It understands indirect speech: "make it cozy" can come out as *dim*, "it's pitch black in here" as *on*.
+<img src="images/decide-body.png" width="156" alt="The Decide widget: the test text 'make it cozy', the answers lights: dim (grey, below the confidence), upset: no and mood: neutral with green confidence bars, and the decide button with the time the decision took">
 
-Decide runs the model on your own computer with [Ollama](https://ollama.com), so nothing you say leaves the computer.
+*"make it cozy": `lights: dim` is grey — the model was only 39% sure, so its outlet didn't change. The green bars show how sure each answer is; the time is how long the decision took.*
+
+It uses a **[decision model](https://www.forbes.com/sites/ronschmelzer/2026/10/12/decisions-decisions-a-guide-to-the-new-wave-of-ai-decision-models-besides-jev/)** like [JEV](https://typesafe.ai/blog/introducing-system-one-models-and-jev), which is a new kind of AI model that doesn't write text, it only picks from the answers you give it, and says how sure it is. That makes it much quicker than an LLM (a few tenths of a second instead of seconds) and it can never reply with something you didn't expect. It understands indirect speech: "make it cozy" can come out as *dim*, "it's pitch black in here" as *on*.
+
+Decide runs the decision model on your own computer with [Ollama](https://ollama.com), so nothing you say leaves the computer.
+
+## Contents
+
+- [Setting up](#Setting-up)
+- [Trying it](#Trying-it)
+- [The questions](#The-questions)
+- [Letting an AI write the questions](#Letting-an-AI-write-the-questions)
+- [Outlets](#Outlets)
+- [When an answer does not change its outlet](#When-an-answer-does-not-change-its-outlet)
+- [When it decides](#When-it-decides)
+- [Settings in the more panel](#Settings-in-the-more-panel)
+- [Good uses](#Good-uses)
+- [When to use something else](#When-to-use-something-else)
+- [Notes](#Notes)
 
 ## Setting up
 
@@ -19,10 +37,6 @@ Decide runs the model on your own computer with [Ollama](https://ollama.com), so
 ## Trying it
 
 Type in the text box at the top of the widget — for example *turn the lights off please* — and the answers appear underneath after a moment. Each line shows a question and its answer, with a green bar for how sure the model is. Press Enter or click **decide** to decide straight away.
-
-<img src="images/decide-body.png" width="156" alt="The Decide widget: the test text 'make it cozy', the answers lights: dim (grey, below the confidence), upset: no and mood: neutral with green confidence bars, and the decide button with the time the decision took">
-
-*"make it cozy": `lights: dim` is grey — the model was only 39% sure, so its outlet didn't change. The green bars show how sure each answer is; the time is how long the decision took.*
 
 This works with nothing wired in, so you can check your questions before connecting a microphone or any hardware.
 
@@ -88,7 +102,7 @@ The outlets follow the order of the questions: the first question is **out1**, t
 
 A choice outlet sends text, so check it with an IfThen in **Text Input** mode set to **equals** (e.g. `dim`), or feed it to a Text widget.
 
-## When an answer doesn't change its outlet
+## When an answer does not change its outlet
 
 - **Confidence.** A choice that the model is less sure about than the **confidence** setting (0 to 1, default 0.5) is shown in grey italics. In testing, 0.5 held back almost every wrong answer. The same applies to yes/no when it sends 0 or 1023. A yes/no probability or a score always updates: the value itself already says how sure it is. Changing the confidence applies at once to the latest answers.
 - **When unsure** decides what the outlet does with such an answer:
@@ -111,7 +125,7 @@ The status line next to the **decide** button shows `deciding…` while it works
 
 The first decision after a model loads takes a few seconds. To avoid that wait, Decide loads the model when a saved patch containing it opens, or when you click into its text box. The status shows `loading…` then `ready`. The model stays loaded for 30 minutes after its last use.
 
-## Settings (more panel)
+## Settings in the more panel
 
 <img src="images/decide-settings.png" width="300" alt="The settings: model tev1:4b, address http://localhost:11434, confidence 0.5, when unsure: keep the last answer, and checkboxes for hold the others when the first answers none, decide when the text changes (pause 400 ms) and yes/no outlets send 0 or 1023">
 
@@ -125,14 +139,14 @@ The first decision after a model loads takes a few seconds. To avoid that wait, 
 - **decide when the text changes** and **pause (ms)** — see above.
 - **yes/no outlets send 0 or 1023** — see Outlets.
 
-## What it's good for
+## Good uses
 
 - **Voice control:** SpeechIn → Decide (`lights: choice on | off | dim | none`) → IfThen → DigitalOut / AnalogOut.
 - **Mood light:** SpeechIn → Decide (`mood: choice calm | angry | happy | none`) → NeoPixel colour.
 - **Checking an LLM's reply:** LLM → Decide (`ok: yes/no Is this suitable for a child?`) before SpeechOut speaks it.
 - **Reacting to what a camera sees:** ObjectRecog's label → Decide (`obstacle: choice person | wall | pet | none`).
 
-## What it's not for
+## When to use something else
 
 If you can write the rule as a formula, use logic widgets instead. "Stop 2 cm before the obstacle" is a job for AnalogIn → IfThen: it's always right, reacts instantly, and runs on the board on its own. Decide takes a few tenths of a second each time — at 2 cm/s, that's most of the 2 cm gone before the answer arrives. Use Decide for judgement and understanding language; use logic widgets for anything you can calculate.
 
