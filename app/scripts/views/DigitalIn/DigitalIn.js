@@ -96,7 +96,10 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// readable once the server explicitly calls
 			// setIOMode(pin, 'INPUT') to swap it for a five.Button - that
 			// round-trip has to be triggered here. Delayed so this.sources
-			// is populated (mapToModel runs after initialize()).
+			// is populated (mapToModel runs after initialize()) and a
+			// loaded patch's saved checkbox has been applied: like every
+			// pin-mode request, it only goes out while the checkbox is on
+			// (see switchToInputMode).
 			window.setTimeout(function() {
 				this.switchToInputMode();
 			}.bind(this), 3000);
@@ -124,6 +127,13 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		 */
 		switchToInputMode: function() {
 			if(this.sources[0] === undefined) { return; }
+			// The request makes the server open a connection to the
+			// device, so a DigitalIn with its checkbox off connected
+			// anyway - 3s after it was added, or when its pin or pull-up
+			// changed - and with the device off, NTK said it couldn't
+			// reach it (2026-11-05). enableDevice sends it when the
+			// checkbox is ticked, as AnalogOut's does.
+			if(this.model.get('active') !== true) { return; }
 
 			window.app.vent.trigger('Widget:hardwareSwitch', {
 				// Must be the full "type:host:port" hardware key (matching
@@ -383,6 +393,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			//outputModel[this.model.get('outputMapping')] = this.model.get("out");
 			//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel });
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
+			this.switchToInputMode();
 
 			(switchBack === true) && (window.app.serverMode = true);
 		},
