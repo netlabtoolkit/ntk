@@ -52,7 +52,12 @@
   pops a dialog on their screen. Its window is titled "NTK – TEST RUN
   (Claude)" with an orange border and bottom strip, so it isn't
   mistaken for the user's own NTK; still tell the user before
-  launching one and when it's closed. Drive it over the DevTools protocol
+  launching one and when it's closed. **Check first that the user's
+  NTK isn't running** (`pgrep -fl "electron ./server"`): a second NTK
+  can't get port 9001, and its window then loads from the *running*
+  NTK's server and edits the user's open patch (it happened
+  2026-11-05). A test launch now quits when port 9001 is taken
+  (`nlWebServer.js`), but don't rely on that alone. Drive it over the DevTools protocol
   (`Runtime.evaluate`; add widgets with
   `window.app.vent.trigger('ToolBar:addWidget', 'TypeID')`). After a
   rebuild, reload with the cache bypassed (`Network.clearBrowserCache`
