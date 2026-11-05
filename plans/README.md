@@ -69,6 +69,13 @@ connected; the loopback-server change (below) is the pivot point.
    on it: as an AI server on the network, as the device, as a hub
    with XIAO boards for I/O, or as all of NTK. Per-widget assessment
    of what runs where. Direction only (2026-11-03).
+9. **[Control flow](control-flow.md)** — from Phil's Delft AI Toolkit:
+   `start`/`done` ports on widget headers (start = rising past the 512
+   threshold, done = a 1023 pulse), so steps of unknown length - speech,
+   LLM replies - chain and light up as they run; and row-based widgets,
+   starting with a multi-condition Cases widget. Plain values, so it needs
+   nothing from the wiring rebuild; feeds Macro and zoom. Idea, with a
+   mockup (2026-11-05).
 
 ## The pivot point: the loopback-server change
 

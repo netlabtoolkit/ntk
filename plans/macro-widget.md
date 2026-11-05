@@ -61,6 +61,12 @@ the biggest open question and it's already supported.
    (every widget's UI is self-contained within its own small fixed body,
    per `CLAUDE.md`'s widget design principles).
 
+**Control ports (added 2026-11-05):** if widgets get header `start` /
+`done` ports ([control flow](control-flow.md)), the review step should
+offer the inner chain's first `start` and last `done` as the macro's own
+header ports. A macro with both is a reusable behaviour that chains like
+any other step - Delft's SubGraph, with its Start and Exit.
+
 ## Scope: v1 vs v2
 
 **v1 (recommended first cut):** each macro *instance* independently

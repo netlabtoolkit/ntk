@@ -57,3 +57,9 @@ The harder half. Needs `transform: scale()` plus correcting every
 mouse-coordinate calculation for the zoom factor (drag, cable drawing) —
 a classic source of subtle off-by-scale bugs. Noted separately, not part
 of the panning scope.
+
+**Semantic zoom (added 2026-11-05):** zoomed out, a widget could show
+just its title, its header `start`/`done` ports and its running glow
+([control flow](control-flow.md)), so a sequence stays readable from far
+away. Control flow and row-based widgets also keep patches smaller,
+which reduces how much zoom is needed in the first place.
