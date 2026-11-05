@@ -135,11 +135,21 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		return raw;
 	}
 
+	// done stays at 1023 this long - long enough to see, like SpeechOut's.
+	var DONE_MS = 200;
+
 	return WidgetView.extend({
+		// start / done are header ports (plans/control-flow.md): start
+		// sends the current prompt when its value rises past the
+		// threshold, like the send button; done pulses when a reply
+		// arrives, just after the text outlet changes. With start wired,
+		// auto-send is skipped - start says when to send.
 		ins: [
+			{title: 'start', to: 'inStart', header: true},
 			{title: 'prompt', to: 'in'},
 		],
 		outs: [
+			{title: 'done', from: 'done', to: 'out2', header: true},
 			{title: 'text', from: 'output', to: 'out1'},
 		],
 
@@ -186,6 +196,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this._warmedKey = '';
 			this._warmEnabled = false;
 			this._elapsedTimer = null;
+			this._lastStart = 0;
+			this._doneTimer = null;
 			this.modelList = FALLBACK_MODELS.ollama.slice();
 
 			// Whatever model was last picked for Ollama, in ANY LLM widget
@@ -208,7 +220,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				baseURL: DEFAULT_BASE_URL.ollama,
 
 				temperature: 0.7,  // 0 = deterministic; max is provider-dependent (see updateTempRange)
-				length: '',        // '' -> no length clause; words, or % for rewrite
+				length: 100,       // words (% of the original for rewrite); '' -> no length clause
 
 				// 4 trait dropdowns + a free-text field each (used when
 				// the dropdown is set to 'other').
@@ -262,6 +274,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				documentMatchStyle: false,
 				documentGrounded: false,
 
+				inStart: 0,        // the start port
+				threshold: 512,    // start sends when it rises past this
+				done: 0,           // the done port - 1023 for DONE_MS when a reply arrives
+
 				status: 'idle',    // idle | loading (warming a local model) | calling | stopped | error
 				calling: false,
 				statusText: '',
@@ -312,6 +328,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
 
 		onRemove: function() {
+			clearTimeout(this._doneTimer);
 			if(this._sendTimer) { clearTimeout(this._sendTimer); }
 			if(this._warmTimer) { clearTimeout(this._warmTimer); }
 			this.stopElapsed();
@@ -712,7 +729,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			var set = {
 				format: '', formatCustom: '',
 				audience: '', audienceCustom: '',
-				length: '', temperature: 0.7, systemAppend: '',
+				length: 100, temperature: 0.7, systemAppend: '',
 			};
 			for(var i = 1; i <= 4; i++) {
 				set['trait' + i] = 'none';
@@ -922,6 +939,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 						tempNote: res.tempDropped ? 'this model ignores temperature' : '',
 					});
 					self.setStatus('idle', '');
+					// After the text, so whatever done starts sees it.
+					self.pulseDone();
 				}
 				// The queued prompt may have been edited back to the one
 				// just answered in the meantime - nothing new to send then.
@@ -933,6 +952,27 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 		promptText: function() {
 			return String(this.model.get('in') || '').trim();
+		},
+
+		/**
+		 * startWired - something is wired into the start port.
+		 *
+		 * @return {boolean}
+		 */
+		startWired: function() {
+			return _.some(this.sources, function(source) { return source.map && source.map.destinationField === 'inStart'; });
+		},
+
+		/**
+		 * pulseDone - done goes to 1023 and back to 0 after DONE_MS.
+		 *
+		 * @return {void}
+		 */
+		pulseDone: function() {
+			var self = this;
+			clearTimeout(this._doneTimer);
+			this.model.set('done', 1023);
+			this._doneTimer = setTimeout(function() { self.model.set('done', 0); }, DONE_MS);
 		},
 
 		setStatus: function(status, text) {
@@ -993,7 +1033,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			var onlyBookkeeping = _.every(_.keys(changed), function(k) {
 				return k === 'assembledSystem' || k === 'output' || k === 'preview' ||
 					k === 'status' || k === 'calling' || k === 'statusText' ||
-					k === 'elapsed' || k === 'keyText' || k === 'model' || k === 'in';
+					k === 'elapsed' || k === 'keyText' || k === 'model' || k === 'in' ||
+					k === 'inStart' || k === 'done';
 			});
 			if(!onlyBookkeeping) {
 				var sys = this.assembleSystem();
@@ -1029,8 +1070,24 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				this.fetchModels();
 			}
 
-			// Auto-send on a new prompt (debounced, on by default).
-			if(changed.in !== undefined && this.model.get('autoSend') && !this._restoring) {
+			// start rising past the threshold sends, like the send button.
+			// Compared with the last value handled, not just "listed as
+			// changed": Backbone fires this again with the same changes
+			// after a nested set (CLAUDE.md).
+			if(changed.inStart !== undefined) {
+				var start = parseFloat(this.model.get('inStart')) || 0,
+					threshold = parseFloat(this.model.get('threshold'));
+				if(isNaN(threshold)) { threshold = 512; }
+				var rose = this._lastStart < threshold && start >= threshold;
+				this._lastStart = start;
+				if(rose && !this._restoring) { this.send(); }
+			}
+
+			// Auto-send on a new prompt (debounced, on by default) - but
+			// not while start is wired: start says when to send, and a
+			// prompt and its done arriving together (SpeechIn's text and
+			// done) would otherwise send twice.
+			if(changed.in !== undefined && this.model.get('autoSend') && !this._restoring && !this.startWired()) {
 				var self = this;
 				var delay = parseInt(this.model.get('autoSendDelay'), 10);
 				if(isNaN(delay) || delay < 0) { delay = 2000; }

@@ -2,6 +2,8 @@
 
 The LLM widget sends a prompt to a large language model and sends the model's reply out its outlet. Feed it a question or a block of text (typed into the widget, or wired into the **prompt** inlet), pick how it should respond, and the answer comes out the **text** outlet as a string — ready for a Text widget, SpeechOut, CloudOut, or anything else that takes text.
 
+<img src="images/llm-body.png" width="156" alt="The LLM widget: the start port on the left of the title bar and the done port on the right, the prompt inlet, the response task menu set to answer, the send button, the status idle and the text outlet">
+
 It can use three providers:
 
 - **Ollama (local)** — the default. Runs models on your own machine, no API key, nothing leaves the computer. You need [Ollama](https://ollama.com) installed and running, with at least one model pulled (`ollama pull llama3.2`).
@@ -10,17 +12,28 @@ It can use three providers:
 
 All model calls go through NTK's background process, so your API key never touches the patch file.
 
+## Contents
+
+- [How it works](#How-it-works)
+- [Start and done](#Start-and-done)
+- [Setting up an API key for Anthropic or GreenPT](#Setting-up-an-API-key-for-Anthropic-or-GreenPT)
+- [Personality and the shape of the response](#Personality-and-the-shape-of-the-response)
+- [Attaching a PDF or text file](#Attaching-a-PDF-or-text-file)
+- [Settings in the more panel](#Settings-in-the-more-panel)
+- [Notes](#Notes)
+- [Example patches](#Example-patches)
+
 ## How it works
 
 - **Type a prompt** into the *prompt / text* box in the "more" panel, or wire a string into the **prompt** inlet (from a Text widget, SpeechIn, a Button, another LLM…).
 - Pick a **response task** from the dropdown in the widget body:
   - **Answer** — answer the prompt directly.
   - **Rewrite** — rewrite the incoming text as a new version.
-  - **Summarize** — condense the incoming text, or an attached document if one's attached (see "Attaching a document" below) — no typed prompt needed in that case.
+  - **Summarize** — condense the incoming text, or an attached document if one's attached (see "Attaching a PDF or text file" below) — no typed prompt needed in that case.
   - **Argue with** — make the strongest case against the incoming text.
-- **Click send.** The button pulses while the request is in flight. The reply appears (truncated) in the widget body, and the full text goes out the **text** outlet.
+- **Click send**, or send a pulse to the **start** port (see below). The button pulses while the request is in flight, and the title bar glows amber. The reply appears (truncated) in the widget body, and the full text goes out the **text** outlet.
 - **Click stop** to abandon a request. While a request is in flight the send button reads **stop**; clicking it cancels the request, leaves the previous reply and the outlet as they were, and shows `stopped` with the time it had been running. A local Ollama model stops generating as well.
-- **Auto-send on new prompt** (right under the prompt box in "more") is on by default: the widget fires automatically whenever the prompt changes — typed or wired in — so `SpeechIn → LLM → SpeechOut` runs with nothing to click. Untick it to send only when you click send. The **settle (ms)** field next to the checkbox sets how long the widget waits that long after the last change before sending, so a source that updates in bursts (a few words at a time from SpeechIn, or your own typing) doesn't fire off a separate request for every partial update. Defaults to 2000ms, longer than a Text widget's fixed 400ms, since firing mid-utterance is more costly to get wrong than a local display update.
+- **Auto-send on new prompt** (right under the prompt box in "more") is on by default: the widget fires automatically whenever the prompt changes — typed or wired in — so `SpeechIn → LLM → SpeechOut` runs with nothing to click. Untick it to send only when you click send. With something wired to **start**, auto-send is off and start alone says when to send. The **settle (ms)** field next to the checkbox sets how long the widget waits that long after the last change before sending, so a source that updates in bursts (a few words at a time from SpeechIn, or your own typing) doesn't fire off a separate request for every partial update. Defaults to 2000ms, longer than a Text widget's fixed 400ms, since firing mid-utterance is more costly to get wrong than a local display update.
 
 With Ollama, the widget asks Ollama to load the chosen model into memory when a saved patch containing the widget opens, and whenever you pick a provider or model, so the first prompt doesn't also wait for the model to load. A widget you have only just placed doesn't load anything until you pick a model or send a prompt. The status line shows `loading` while that happens, and the model is kept in memory for 30 minutes after its last use.
 
@@ -28,7 +41,16 @@ The small status line under the send button shows `idle`, `loading`, `calling`, 
 
 Next to the status is a **timer**. It counts up while a request is in flight and then stays on the final time — how long that send took, from the request going out to the reply coming back — until the next send. The auto-send settle delay isn't counted. With Ollama, the first send to a model that is still loading includes the wait for it to load.
 
-## Setting up an API key (Anthropic or GreenPT)
+## Start and done
+
+The two small ▸ ports on the title bar chain the LLM with other steps:
+
+- **start** (left) — sends the current prompt when its value rises past the **start threshold** (default 512, in the "more" panel), just like clicking send. Anything that sends 1023, such as SpeechIn's **done**, a button through DigitalIn, or a Pulse, can start it.
+- **done** (right) — when a reply arrives, sends 1023 for a fifth of a second, then 0, just after the **text** outlet changes. It flashes amber as it does. An error or a stopped request doesn't fire it.
+
+Wire **SpeechIn's done** into the LLM's **start** along with SpeechIn's text into **prompt**, and the LLM asks exactly once per thing you say, as soon as SpeechIn has the full sentence — no settle delay. Wire the LLM's **done** on to SpeechOut's **start** (with its text into SpeechOut's text) and SpeechOut speaks the reply the moment it arrives.
+
+## Setting up an API key for Anthropic or GreenPT
 
 Switch **provider** to *Anthropic* in the "more" panel, then click **set up key**. That opens a file called `ai-keys.toml` in NTK's app data folder. Add your key:
 
@@ -50,21 +72,21 @@ Create the key in your GreenPT account. The `GREENPT_API_KEY` environment variab
 
 The keys live only in that file — they are never written into the `.ntk` patch, so patches are safe to share.
 
-## Personality — shaping the response
+## Personality and the shape of the response
 
 Click **▸ personality** in the "more" panel to open it (closed by default — it's a lot of controls for something you won't always need). It builds part of the system prompt from a set of structured choices; as you change them, the assembled prompt updates live at the bottom of the panel so you can see exactly what the model is being told.
 
 - **random** — set the four traits and the temperature to a random combination (purpose and audience are left as they are). Good for exploring tones you wouldn't have picked.
-- **reset** — clear the personality back to defaults: all traits none, purpose/audience/length/extra-instructions empty, temperature 0.7. (The response task is left alone.)
+- **reset** — clear the personality back to defaults: all traits none, purpose/audience/extra-instructions empty, length 100, temperature 0.7. (The response task is left alone.)
 - **4 trait dropdowns** — qualities to write with (humor, scientific, conciseness, persuasive, conservative, kind…). Set any to **other…** to type your own.
 - **purpose** — what the text is for: "an executive summary", "an essay", "an email", "a social media post", "a bulleted list"… or **other…** for your own. **(none)** adds no purpose instruction.
 - **audience** — "an executive", "an engineer", "a general reader", "a friend"… or **other…**. **(none)** adds no audience instruction.
-- **length** — a target word count. In **Rewrite** mode it's read as a percentage of the original instead (e.g. `50` = half as long).
+- **length** — a target word count, 100 by default. In **Rewrite** mode it's read as a percentage of the original instead (e.g. `50` = half as long; the default 100 keeps it about the same length). Clear the field for no length instruction at all.
 - **temperature** — higher = more varied and creative, lower = more focused and repeatable. The slider goes to **2.0** for Ollama and GreenPT, **1.0** for Anthropic.
 - **Markdown response** (on by default) — ask for the reply formatted as Markdown. Pair with a Text widget set to *Render Markdown* to show it formatted.
 - **extra instructions** — free text appended to the system prompt for anything the dropdowns don't cover.
 
-## Attaching a document (PDF or text file)
+## Attaching a PDF or text file
 
 In "more" → **▸ document attachment**, click **browse** to attach a PDF, `.txt`, or `.md` file. Its text is pulled out once, right when you attach it, and rides along with every send from then on — not RAG (no search, no chunking), the whole document goes to the model every time, the same way typed text already would. Once attached, its filename appears there with **remove** and **Show in Finder** buttons next to it.
 
@@ -79,8 +101,12 @@ None checked = the document is still available as background context, just with 
 
 A PDF that's scanned/image-only (no real text layer) shows "No extractable text found" instead of silently sending nothing. A very long document is capped at ~20,000 words, noted as "(truncated)" in the "more" panel word count if it happens.
 
-## Settings ("more" panel)
+## Settings in the more panel
 
+<img src="images/llm-more.png" width="410" alt="The LLM more panel: the prompt box, auto-send with its settle time, the start threshold, length, Markdown and temperature, then provider, model and the key row, and the closed document attachment, personality and advanced sections">
+
+- **auto-send on new prompt, when start isn't wired** and **settle (ms)** — see "How it works" above.
+- **start threshold** — the level on the **start** port (0–1023) that sends (default 512).
 - **provider** — Ollama (local), GreenPT or Anthropic.
 - **model** — populated from the provider automatically (on render, and whenever you switch provider). For Ollama it lists the models you've pulled, sorted alphabetically; for Anthropic, the current Claude models in their normal (current-flagship-first) order. Once the provider's own list has arrived, a selected model it doesn't offer (one saved in a patch, or left over from another provider) is dropped in favour of the provider's default or first model. Switching provider and back restores whichever model you last picked for that provider, instead of resetting to a default each time.
 - **max tokens** — hard cap on the reply length (default 1024). Raise it for long outputs.
@@ -101,5 +127,6 @@ A PDF that's scanned/image-only (no real text layer) shows "No extractable text 
 - **Text → LLM → Text** — rewrite or summarize a block of text, show the result formatted.
 - **Attach a PDF, LLM (Summarize) → Text** — click send with nothing typed to get a summary of the whole document.
 - **SpeechIn → LLM → SpeechOut** — a spoken back-and-forth.
+- **A conversation loop** — SpeechIn's text → LLM prompt and SpeechIn's done → LLM start; LLM text → SpeechOut text and LLM done → SpeechOut start; SpeechOut done → SpeechIn start. Click SpeechIn's button once to begin, and it takes turns on its own.
 - **GroveIn → Text (building a sentence) → LLM → SpeechOut** — have the model narrate what a sensor is doing.
 - **LLM → CloudOut** — post a generated status message to a feed.

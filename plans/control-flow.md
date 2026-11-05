@@ -1,6 +1,6 @@
 # Control flow: start/done and row-based widgets
 
-**Status:** scoped 2026-11-05. Built so far: start/done header ports on SpeechOut and SpeechIn (2026-11-05; SpeechIn's start listens while held, or until a pause after a pulse), with the shared header-port support in `WidgetMulti.js` (`header: true` ports, `bodyIns`/`bodyOuts`, saved patches keep the code's port list, old cables redrawn by `PatchLoader.js`).
+**Status:** scoped 2026-11-05. Built so far: start/done header ports on SpeechOut, SpeechIn and LLM (2026-11-05; SpeechIn's start listens while held, or until a pause after a pulse), with the shared header-port support in `WidgetMulti.js` (`header: true` ports, `bodyIns`/`bodyOuts`, saved patches keep the code's port list, old cables redrawn by `PatchLoader.js`).
 
 Two ideas from Phil's [Delft AI Toolkit](https://github.com/pvanallen/delft-ai-toolkit/blob/master/docs/README.md) (Unity + a Raspberry Pi robot, 2018–2020), considered for NTK:
 
