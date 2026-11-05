@@ -95,7 +95,7 @@ Rows have their own advantages: discoverable, no syntax to learn, dropdowns inst
 
 ### Where rows clearly win: conditions - the Cases widget
 
-A list of tests, each with its own outlet, is where text is weakest and rows are strongest: you want to see, live, which row matched, and each row needs a port. This is Delft's Condition node, for NTK, as a new widget. Working name **Cases** (see [Name](#name) below).
+A list of tests, each with its own outlet, is where text is weakest and rows are strongest: you want to see, live, which row matched, and each row needs a port. This is Delft's Condition node, for NTK, as a new widget: **Cases** (see [Name](#name) below).
 
 #### What it does
 
@@ -153,9 +153,10 @@ One setting for the whole widget:
 
 #### Name
 
-Not decided (2026-11-05).
+**Cases** - decided by Phil, 2026-11-05: several possibilities, one fires, no hardware connotations, and it reads as clearly different from IfThen (one test) beside it.
 
-- **Cases** - the working name: several possibilities, one fires, no hardware connotations.
+Also considered:
+
 - **Condition** - Delft's name (its String Condition and Float Condition nodes). Continuity with Delft and a familiar word. But singular for something holding several tests, and it sits awkwardly beside IfThen, which is also a condition; "Conditions" fixes the first.
 - **Switch** - ruled out: easily confused with a physical switch, which NTK users wire up all the time.
 - **Match**, **Route** (fits pass through, undersells the rest), **Choose**.
