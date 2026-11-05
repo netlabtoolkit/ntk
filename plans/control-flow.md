@@ -1,6 +1,6 @@
 # Control flow: start/done and row-based widgets
 
-**Status:** idea, scoped in discussion 2026-11-05. Nothing built. A look was mocked up (below), not implemented.
+**Status:** scoped 2026-11-05. Built so far: SpeechOut's start/done header ports (2026-11-05), with the shared header-port support in `WidgetMulti.js` (`header: true` ports, `bodyIns`/`bodyOuts`, saved patches keep the code's port list, old cables redrawn by `PatchLoader.js`).
 
 Two ideas from Phil's [Delft AI Toolkit](https://github.com/pvanallen/delft-ai-toolkit/blob/master/docs/README.md) (Unity + a Raspberry Pi robot, 2018–2020), considered for NTK:
 

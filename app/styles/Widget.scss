@@ -3201,3 +3201,46 @@ body.ntk-monitoring .monitorBlockOverlay {
         }
     }
 }
+
+// Header ports (plans/control-flow.md): start on the left of the title
+// bar, done on the right - shorter and darker than the body's data
+// ports, with a small arrow. Each sits in an absolutely placed box so
+// the port itself keeps position:relative like every other port:
+// jQuery UI drags it by its top/left, and onDrop resets them to 0 to
+// measure the port, which would throw an absolutely placed port into
+// the widget's corner. The box's top (3px) centres the 20px port on
+// the 26px title bar.
+.widget {
+    .headerPorts {
+        position: absolute;
+        top: 3px;
+        width: 18px;
+        height: 20px;
+        z-index: 1;
+    }
+    .headerPorts.headerStart { left: 7px; }   // 25px port column - 18px
+    .headerPorts.headerDone { left: 123px; }  // 25 + 98px title bar
+
+    .headerPort.inlet, .headerPort.outlet {
+        width: 18px;
+        height: 20px;
+        margin: 0;
+        background-color: #444;
+        color: #fff;
+        font-size: 10px;
+        line-height: 20px;
+        text-align: center;
+    }
+    .headerPort.inlet { border-radius: 5px 0 0 5px; }
+    .headerPort.outlet { border-radius: 0 5px 5px 0; }
+    .headerPort.inlet.hover { background-color: #000; }
+    // done's pulse going out
+    .headerPort.ctlflash { background-color: #ffb300; }
+
+    // running: between start and done
+    .widgetTop.ctlrunning { animation: ctlRunning 1.2s ease-in-out infinite; }
+}
+@keyframes ctlRunning {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(255, 179, 0, 0.8), 0 0 5px 2px rgba(255, 179, 0, 0.35); }
+    50%      { box-shadow: 0 0 0 3px #ffb300, 0 0 12px 4px rgba(255, 179, 0, 0.7); }
+}
