@@ -683,6 +683,11 @@ body.ntk-monitoring .monitorBlockOverlay {
     .typeAnimation {
     	background-color: #AED581;
     }
+    // Brown 300: a paler tint of the DCC category's #6D4C41 swatch
+    // (toolBar.scss), as the other type colours are of theirs.
+    .typeDCC {
+    	background-color: #A1887F;
+    }
     .typeLogic {
     	background-color: #64B5F6;
     }

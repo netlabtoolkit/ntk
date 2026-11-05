@@ -1,5 +1,5 @@
 <div class="widgetAuthoring">
-    <div class="widgetTop typeNetwork">
+    <div class="widgetTop typeDCC">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
         </div>

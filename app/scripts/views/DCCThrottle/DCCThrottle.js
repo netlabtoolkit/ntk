@@ -17,6 +17,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, DccLoco){
 	// and direction follow it.
 
 	var MAX_SPEED = 126;
+	// The title bar's name - "DCC Throttle" doesn't fit beside the ×.
+	var TITLE = 'DCC Thrtl';
 	// A speed this widget sent coming back within this long is its own
 	// echo, not someone else's change - see onLocoReport.
 	var OWN_ECHO_MS = 1500;
@@ -49,7 +51,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, DccLoco){
 		// See DccLoco.releaseLoco.
 		stopOnRelease: true,
 		className: 'dccThrottle dccWidget',
-		categories: ['network'],
+		categories: ['dcc'],
 		template: _.template(Template),
 
 		initialize: function(options) {
@@ -65,7 +67,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, DccLoco){
 
 			var get = this.model.get.bind(this.model);
 			this.model.set({
-				title: 'DCC Throt',
+				title: TITLE,
 				inMin: get('inMin') === undefined ? 0 : get('inMin'),
 				inMax: get('inMax') === undefined ? MAX_SPEED : get('inMax'),
 				// Inlets - '--' until something arrives through a cable.
@@ -236,6 +238,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, DccLoco){
 
 		setFromModel: function(model) {
 			this.dccSetFromModel(model);
+			// A patch saved before the rename brings back 'DCC Throt'.
+			this.model.set('title', TITLE);
 			this.model.set({address: parseInt(this.model.get('loco'), 10) || 0, reverse: this.model.get('direction') !== 1});
 			this.speedExact = toNumber(this.model.get('speed'), 0);
 			return this;
