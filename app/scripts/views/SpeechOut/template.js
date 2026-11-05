@@ -35,7 +35,7 @@
             <input class="rate" type="range" min="0.2" max="0.9" step="0.05" rv-value="widget:rate"><br>
             <label class="wide-label">threshold</label>
             <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
-            <label class="checkRow"><input type="checkbox" rv-checked="widget:autoPlay" /> autoplay</label>
+            <label class="checkRow"><input type="checkbox" rv-checked="widget:autoPlay" /> autoplay when start isn't wired</label>
             <label class="checkRow"><input type="checkbox" rv-checked="widget:autoCancel" /> autocancel when start goes low</label>
             <label>text</label>
             <textarea class="database" rv-value="widget:in2" rows="3" cols="70"></textarea>

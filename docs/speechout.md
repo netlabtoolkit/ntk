@@ -34,7 +34,7 @@ Once downloaded, they appear in SpeechOut's **voice** menu under a **Premium** /
 - Type text into the field in the "more" panel, or wire a string into the **text** inlet.
 - **Click the play triangle** to speak it. The triangle becomes a pulsing red square while speaking — click again to stop.
 - Or start it from another widget or from hardware: a value rising past the **threshold** on the **start** port (the small ▸ on the left of the title bar) starts playback.
-- With **autoplay** on (the default), SpeechOut speaks automatically whenever the text inlet changes — so `SpeechIn → SpeechOut` just works with nothing to click.
+- With **autoplay** on (the default), SpeechOut speaks automatically whenever the text inlet changes — so `SpeechIn → SpeechOut` just works with nothing to click. Once something is wired to **start**, autoplay is off and start alone says when to speak.
 - While it speaks, the title bar glows amber.
 
 ## Start and done
@@ -53,7 +53,7 @@ Wire **done** into the **start** of the next step, and that step begins exactly 
 - **voice** — grouped **Premium → Enhanced → Default**. English voices are listed first. On Windows/Linux this lists the system's voices instead.
 - **rate** — how fast it talks. Middle is normal.
 - **threshold** — the level on the **start** port (0–1023) that starts playback.
-- **autoplay** — speak whenever the text inlet changes (on by default).
+- **autoplay when start isn't wired** — speak whenever the text inlet changes (on by default). With something wired to **start**, only start makes it speak - so wiring both SpeechIn's text and its done into SpeechOut says each phrase once, when the transcript is ready.
 - **autocancel when start goes low** — when the start port drops back below the threshold, stop any speech in progress.
 - **text** — the words to speak. The text inlet writes here too.
 

@@ -247,6 +247,15 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
 
 		/**
+		 * startWired - something is wired into the start port.
+		 *
+		 * @return {boolean}
+		 */
+		startWired: function() {
+			return _.some(this.sources, function(source) { return source.map && source.map.destinationField === 'in1'; });
+		},
+
+		/**
 		 * pulseDone - done goes to 1023 and back to 0 after DONE_MS. A
 		 * second end inside that time restarts the pulse.
 		 *
@@ -290,10 +299,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// then fires 'change' a second time with in2 still listed as
 			// changed - so compare against the text last handled, or every
 			// new text is spoken twice.
+			// Autoplay only while nothing is wired to start: wired, start
+			// says when to speak. Otherwise SpeechIn's text -> text plus
+			// its done -> start spoke every phrase twice - once for the
+			// new text, again for done a moment later (2026-11-05).
 			var text = this.model.get('in2');
 			if(changed.in2 !== undefined && text !== this.lastText) {
 				this.lastText = text;
-				if(this.model.get('autoPlay')) { this.speak(); }
+				if(this.model.get('autoPlay') && !this.startWired()) { this.speak(); }
 			}
 		},
 
