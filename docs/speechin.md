@@ -18,8 +18,9 @@ On **macOS** it uses Apple's built-in speech recognition, which runs **on-device
 ## How it works
 
 - **Hold the round record button and speak.** Words appear in the widget as you talk (a live preview), and the finished text is sent out the **text** outlet when you release the button.
-- **Or click the button once and speak.** It listens until you pause, then sends the text.
-- The record button pulses red while recording, and the title bar glows amber while it listens. The status line shows `recording`, then `transcribing`, then back to `idle`.
+- **Wait for the red.** Right after you press, the button blinks amber and the status says **wait…** while the microphone opens. Start talking when it turns red, pulses and says **speak now**.
+- **Or click the button once and speak.** It listens until you pause, then sends the text. Click it again to stop listening straight away.
+- The title bar glows amber while it listens. The status line shows **wait…**, **speak now**, then **transcribing**, then back to **idle**.
 - The outlet **keeps its last result** — downstream widgets don't get blanked when you stop without speaking.
 
 ## Start and done
@@ -27,7 +28,7 @@ On **macOS** it uses Apple's built-in speech recognition, which runs **on-device
 The two small ▸ ports on the title bar let other widgets and hardware start SpeechIn, and let SpeechIn start the next step:
 
 - **start** (left) — starts listening when its value rises past the **threshold** (default 512). It works like the record button:
-  - **Held high** (a button wired through DigitalIn), it listens until start goes low again, then sends the text.
+  - **Held high** for more than about half a second (a button wired through DigitalIn), it listens until start goes low again, then sends the text.
   - **A short pulse** (another widget's **done**, a Pulse, an IfThen), it listens until you pause for **pause** seconds, then sends the text.
   - If nothing is said within 10 seconds, it stops listening and sends nothing.
 - **done** (right) — when a transcript with words arrives, sends 1023 for a fifth of a second, then 0, just after the **text** outlet changes. It flashes amber as it does. Listening that heard nothing doesn't fire it.
@@ -49,6 +50,7 @@ The first time you record, macOS asks for **Microphone** and **Speech Recognitio
 ## Notes
 
 - **On-device vs. server:** for most listed languages recognition runs entirely on your Mac. For a few, if the offline language model isn't installed, macOS falls back to Apple's servers — which needs internet and caps each utterance at about a minute. You can add offline languages under **System Settings → Keyboard → Dictation**.
+- **Bluetooth headphones (AirPods and the like) cut off your first words.** When the microphone opens, macOS switches Bluetooth headphones into a lower-quality call mode, which takes about a second, and whatever you say during the switch is lost. Wait a moment after the status changes to `recording`, or use the Mac's own microphone or wired headphones. The same switch back afterwards can clip the start of a SpeechOut reply.
 - **Accuracy** depends on your microphone and background noise, same as any dictation. A headset mic in a quiet room is best; a laptop mic across a noisy room is worst.
 - **Patches saved before start and done existed** open with their cables in the right place: a cable to the old **trigger** inlet arrives at **start**, and the **text** outlet is where it was.
 

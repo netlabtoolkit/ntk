@@ -14,8 +14,8 @@
     </div>
 
     <div class="widgetBody">
-        <div class="recordButton" rv-class-starting="widget:recording" rv-class-recording="widget:live" title="Hold to talk, or click and speak"></div>
-        <div class="speechStatus" rv-text="widget:status"></div>
+        <div class="recordButton" rv-class-starting="widget:recording" rv-class-recording="widget:live" title="Hold to talk, or click and speak (click again to stop)"></div>
+        <div class="speechStatus" rv-text="widget:statusLabel"></div>
         <div class="speechTranscript" rv-show="widget:partial" rv-text="widget:partial"></div>
         <div class="speechTranscript" rv-hide="widget:partial" rv-text="widget:output"></div>
         <div class="speechError" rv-show="widget:statusText" rv-text="widget:statusText"></div>

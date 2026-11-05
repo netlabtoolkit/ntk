@@ -35,6 +35,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 	// Started and released with nothing said yet: stop listening if
 	// still nothing has been heard after this long.
 	var NO_SPEECH_MS = 10000;
+	// start held at least this long is hold-to-talk: releasing stops.
+	// Shorter - a click, or a done pulse (200 ms) - listens until a pause.
+	var HOLD_MS = 600;
+	// What the status line shows for each status.
+	var STATUS_LABEL = { starting: 'wait…', recording: 'speak now' };
 
 	return WidgetView.extend({
 		// start / done are header ports (plans/control-flow.md). start
@@ -70,6 +75,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// Listening state, read by onModelChange (which the set below
 			// already fires) and onSpeechMessage.
 			this.startHeld = false;    // start high, or the button held down
+			this.pressedAt = 0;        // when start last went high
 			this.heardSpeech = false;  // words recognised since listening began
 			this.quietTimer = null;
 			this.noSpeechTimer = null;
@@ -88,6 +94,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				recording: false, // button held / trigger high (the helper has been asked to listen)
 				live: false,      // the helper has confirmed the mic is actually open
 				status: 'idle',   // idle | starting | recording | transcribing | error | unavailable
+				statusLabel: 'idle', // what the status line shows - see STATUS_LABEL
 				statusText: '',
 			});
 		},
@@ -170,12 +177,18 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		 */
 		pressStart: function() {
 			this.startHeld = true;
+			this.pressedAt = Date.now();
 			this.startRecording();
 		},
 		releaseStart: function() {
 			this.startHeld = false;
 			if(!this.model.get('recording')) { return; }
-			if(this.heardSpeech) { this.stopRecording(); }
+			// Held a while, or something was already said: hold-to-talk,
+			// so stop now. Not just "something was said" - with Bluetooth
+			// headphones the first words can take a second to show up,
+			// and a long hold then carried on listening after release
+			// (2026-11-05).
+			if(this.heardSpeech || Date.now() - this.pressedAt >= HOLD_MS) { this.stopRecording(); }
 			else { this.armQuietTimer(); }
 		},
 
@@ -300,18 +313,26 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
 
 		setStatus: function(status, text) {
-			this.model.set({status: status, statusText: text || ''});
+			this.model.set({status: status, statusLabel: STATUS_LABEL[status] || status, statusText: text || ''});
 		},
 
 		// ---- record button ----
 
 		// The button is start by hand: hold to talk, or click and speak.
 		// mouseleave also releases, so only act on a press made here.
+		// A click while it's listening on its own (after a click or a
+		// pulse) stops it - otherwise it couldn't be stopped by hand.
 		recordButtonDown: function() {
+			if(this.model.get('recording') && !this.startHeld) {
+				this.buttonStopped = true;
+				this.stopRecording();
+				return;
+			}
 			this.buttonDown = true;
 			this.pressStart();
 		},
 		recordButtonUp: function() {
+			if(this.buttonStopped) { this.buttonStopped = false; return; }
 			if(!this.buttonDown) { return; }
 			this.buttonDown = false;
 			this.releaseStart();

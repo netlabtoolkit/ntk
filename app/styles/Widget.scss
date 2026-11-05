@@ -1613,6 +1613,10 @@ body.ntk-monitoring .monitorBlockOverlay {
     }
 }
 
+@keyframes speechinWaitBlink {
+    from { box-shadow: 0 0 0 3px #ffb300; }
+    to   { box-shadow: 0 0 0 3px rgba(255, 179, 0, 0); }
+}
 @keyframes speechinRecordPulse {
     0%, 100% { background-color: #F25151; box-shadow: 0 0 0 0 rgba(242, 81, 81, 0.6); }
     50%      { background-color: #ff8080; box-shadow: 0 0 0 6px rgba(242, 81, 81, 0); }
@@ -1632,14 +1636,20 @@ body.ntk-monitoring .monitorBlockOverlay {
         margin: 8px auto 4px;
         cursor: pointer;
 
-        // Held, but the mic isn't open yet - dimmed, no pulse, so it's
-        // obvious when it's actually time to talk (.recording, below).
+        // The mic is still opening - not recording yet. A blinking amber
+        // ring and "wait…", so it's clear something is happening but it
+        // isn't time to talk; .recording (red, pulsing, "speak now") is.
+        // Dimming it instead read as "pressed, working" (2026-11-05).
         &.starting {
-            opacity: 0.45;
+            border-color: #ffb300;
+            animation: speechinWaitBlink 0.5s steps(2, jump-none) infinite;
         }
 
+        // Both classes are on while live (.starting follows "held",
+        // .recording "mic open"), so undo the amber ring here.
         &.recording {
             opacity: 1;
+            border-color: #8a2f2f;
             animation: speechinRecordPulse 1s ease-in-out infinite;
         }
     }

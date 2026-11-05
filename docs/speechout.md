@@ -63,6 +63,8 @@ Wire **done** into the **start** of the next step, and that step begins exactly 
 - A patch saved on a Mac with a Premium voice, opened on a machine that doesn't have that voice, falls back to a default voice rather than going silent.
 - **Patches saved before start and done existed** open with their cables in the right place: a cable to the old **trigger** inlet arrives at **start**. The old outlet never sent anything, so nothing was wired to it.
 
+- **Bluetooth headphones can clip the first word or two** right after SpeechIn has been listening: macOS switches the headphones out of call mode when the microphone closes, which takes about a second, and speech during the switch is lost. The Mac's speakers or wired headphones don't have this problem.
+
 ## Example patches
 
 - **Text → SpeechOut** — read a fixed message when start goes high.
