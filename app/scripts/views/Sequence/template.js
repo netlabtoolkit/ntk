@@ -57,7 +57,7 @@
             <input name="sendTo0" type="radio" value='output2' rv-checked="widget:sendTo0"> 3 
             <input name="sendTo0" type="radio" value='output3' rv-checked="widget:sendTo0"> 4 -->
             
-            <textarea class="database" rv-value="widget:sequence0" rows="4" cols="70"></textarea>
+            <textarea class="database" rv-value="widget:sequence0" rows="4" cols="70" placeholder="one move per line: start,end,duration (ms) - e.g. 0,500,1000. Left empty, random skips it."></textarea>
             <br><br>
             <strong>Sequence 2</strong>, &nbsp;&nbsp;<input class="loop" type="checkbox" rv-checked="widget:loop1" /> &nbsp;loop, &nbsp;&nbsp;<input class="return" type="checkbox" rv-checked="widget:returnToStart1" /> return to <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:start1"> with a duration of <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:duration1"><br>
             <!--Send output to 
@@ -66,7 +66,7 @@
             <input name="sendTo1" type="radio" value='output2' rv-checked="widget:sendTo1"> 3 
             <input name="sendTo1" type="radio" value='output3' rv-checked="widget:sendTo1"> 4 -->
             
-            <textarea class="database" rv-value="widget:sequence1" rows="4" cols="70"></textarea>
+            <textarea class="database" rv-value="widget:sequence1" rows="4" cols="70" placeholder="one move per line: start,end,duration (ms) - e.g. 0,500,1000. Left empty, random skips it."></textarea>
             <br><br>
             <strong>Sequence 3</strong>, &nbsp;&nbsp;<input class="loop" type="checkbox" rv-checked="widget:loop2" /> &nbsp;loop, &nbsp;&nbsp;<input class="return" type="checkbox" rv-checked="widget:returnToStart2" /> return to <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:start2"> with a duration of <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:duration2"><br>
             <!--Send output to 
@@ -75,7 +75,7 @@
             <input name="sendTo2" type="radio" value='output2' rv-checked="widget:sendTo2"> 3 
             <input name="sendTo2" type="radio" value='output3' rv-checked="widget:sendTo2"> 4 -->
            
-            <textarea class="database" rv-value="widget:sequence2" rows="4" cols="70"></textarea>
+            <textarea class="database" rv-value="widget:sequence2" rows="4" cols="70" placeholder="one move per line: start,end,duration (ms) - e.g. 0,500,1000. Left empty, random skips it."></textarea>
             <br><br>
             <strong>Sequence 4</strong>, &nbsp;&nbsp;<input class="loop" type="checkbox" rv-checked="widget:loop3" /> &nbsp;loop, &nbsp;&nbsp;<input class="return" type="checkbox" rv-checked="widget:returnToStart3" /> return to <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:start3"> with a duration of <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:duration3"><br>
             <!--Send output to 
@@ -84,7 +84,7 @@
             <input name="sendTo3" type="radio" value='output2' rv-checked="widget:sendTo3"> 3 
             <input name="sendTo3" type="radio" value='output3' rv-checked="widget:sendTo3"> 4 -->
             
-            <textarea class="database" rv-value="widget:sequence3" rows="4" cols="70"></textarea>
+            <textarea class="database" rv-value="widget:sequence3" rows="4" cols="70" placeholder="one move per line: start,end,duration (ms) - e.g. 0,500,1000. Left empty, random skips it."></textarea>
             <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/sequence/" target="_blank">Widget help</a>
         </div>

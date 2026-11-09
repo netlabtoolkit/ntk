@@ -79,10 +79,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 done: 0,             // the done port - 1023 for DONE_MS when a sequence finishes
                 animationRunning: false,
                 lastInput: -1,
+                // Only Sequence 1 has moves to start with: add behaviours
+                // in 2-4 rather than delete samples, since random skips
+                // empty ones. Saved patches keep their own.
                 sequence0: "0,500,200\n500,100,500\n100,500,500\n500,0,200",
-                sequence1: "0,500,400\n500,100,1000\n100,500,1000\n500,0,400",
-                sequence2: "0,500,600\n500,100,1500\n100,500,1500\n500,0,600",
-                sequence3: "0,500,800\n500,100,2000\n100,500,2000\n500,0,800",
+                sequence1: "",
+                sequence2: "",
+                sequence3: "",
                 currentSequence: 0,
                 sequencePosition: 0,
                 domReady: false,
@@ -212,10 +215,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     var str = this.model.get(sequence);
                             
                     str = str.replace(/(\r\n|\n|\r)/gm, "\n");
+                    // Blank lines are skipped; an empty sequence plays
+                    // nothing (it used to run one move of NaN).
                     str.split('\n').forEach( function(item) {
+                        if (item.trim() === '') { return; }
                         var move = item.split(',');
                         userSequence.push(move);
                     } );
+                    if (!userSequence.length) { return; }
 
                     var sequenceLen = userSequence.length;
                     self.model.set('sequencePosition',0);
