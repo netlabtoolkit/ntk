@@ -13,6 +13,7 @@
 // NTK_SIMULATE_SHARED_PATH stands in for the app's path, to try the warning
 // on a Mac.
 
+const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
@@ -41,7 +42,20 @@ module.exports = function sharedLocation() {
 	// \\Mac\Home\..., \\psf\..., \\server\share\...
 	if (/^\\\\/.test(appDir)) { return appDir; }
 
+	// Parallels also shows the Mac's folders as C:\Mac\Home\... - a link
+	// to \\Mac\Home that looks like an ordinary folder on C:, so neither
+	// check here caught it, and NTK still quit silently (2026-11-09).
+	if (/^[A-Za-z]:\\Mac\\/i.test(appDir)) { return appDir + ' (a Parallels shared folder)'; }
+
 	if (process.platform !== 'win32') { return null; }
+
+	// Any other link or junction to a share: where it really points.
+	// realpath gives \\server\share\... or \\?\UNC\server\share\...
+	try {
+		const real = fs.realpathSync.native(appDir);
+		if (/^\\\\/.test(real)) { return appDir + ' (' + real.replace(/^\\\\\?\\UNC\\/i, '\\\\') + ')'; }
+	} catch (e) { /* unreadable: go on to the drive-letter check */ }
+
 	const letter = (appDir.match(/^([A-Za-z]):/) || [])[1];
 	if (!letter) { return null; }
 	const share = mappedNetworkDrives()[letter.toUpperCase()];
