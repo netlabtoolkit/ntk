@@ -13,6 +13,7 @@ A Scene plays a sequence of things over time - a road crossing whose lights flas
 - [Cues](#Cues)
 - [Lines inside a cue](#Lines-inside-a-cue)
 - [The idle section](#The-idle-section)
+- [Start and done](#Start-and-done)
 - [Inlets and outlets](#Inlets-and-outlets)
 - [Settings in the more panel](#Settings-in-the-more-panel)
 - [The workers example](#The-workers-example)
@@ -90,11 +91,23 @@ Each line is a time and an action: `2s  gate to 90 in 3s`. The time counts from 
 
 The lines after `idle:` say how the scene looks when it isn't playing. When the patch opens, they're applied **instantly**, so a servo starts where the scene expects it. When the scene is stopped, they're **played**: the crossing's gate goes back up over 3 s rather than with a jerk. With no idle section, stopping freezes the outlets where they are.
 
+## Start and done
+
+The two small ▸ ports on the title bar chain a Scene with other steps:
+
+- **start** (left) - plays the scene from its first cue when its value rises above the threshold. Anything that sends 1023 can start it, including another widget's done.
+- **done** (right) - when the scene stops playing, sends 1023 for a fifth of a second, then 0, and flashes amber. It fires when the last cue finishes, or when the scene is stopped (the stop inlet, the ■ button, or start going low with that option on). A scene with `repeat` never finishes, so it only sends done when stopped.
+
+While the scene plays, the title bar glows amber.
+
+Wire **done** into the **start** of the next step - a second Scene, a SpeechOut, an Audio clip - and it begins exactly when this scene ends, however long its cues waited for their sensors.
+
 ## Inlets and outlets
 
-- **start** - plays the scene from its first cue when it rises above the threshold. **stop** - stops it, playing the idle lines.
+- **start** - on the title bar (see above). **stop** - stops the scene, playing the idle lines.
 - **in1**, **in2** - read by `when`, `max` and `loop until`. Unwired, a `when` cue waits; click the flashing status to start it.
-- **out1-out4** - named by the `outs` line (hover over an outlet to see its name). An outlet named `running` sends 1 while the scene plays and 0 otherwise, e.g. to start a second Scene when this one ends.
+- **out1-out4** - named by the `outs` line (hover over an outlet to see its name). An outlet named `running` sends 1 while the scene plays and 0 otherwise - to keep something on for as long as the scene runs. To start something when the scene ends, use done.
+- **done** - on the title bar (see above).
 
 ## Settings in the more panel
 

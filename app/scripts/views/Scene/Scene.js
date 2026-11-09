@@ -31,6 +31,9 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 
 	var OUT_FIELDS = ['out1', 'out2', 'out3', 'out4'];
 
+	// done stays at 1023 this long - long enough to see, like SpeechOut's.
+	var DONE_MS = 200;
+
 	function toNumber(value, fallback) {
 		var n = parseFloat(value);
 		return isNaN(n) ? fallback : n;
@@ -64,9 +67,13 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			// the mouse before the click arrives.
 			'mousedown .sceneErrors li': 'jumpToError',
 		},
+		// start / done are header ports (plans/control-flow.md). start
+		// plays from the first cue on rising above the threshold (same
+		// field as before, so saved cables keep working); done pulses
+		// 1023 for DONE_MS when the scene stops playing - its last cue
+		// finished, or it was stopped.
 		ins: [
-			// Plays from the first cue on rising above the threshold.
-			{title: 'start', to: 'start'},
+			{title: 'start', to: 'start', header: true},
 			{title: 'stop', to: 'stop'},
 			// Read only by "cue ... when in1 high/low".
 			{title: 'in1', to: 'in1'},
@@ -77,6 +84,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			{title: 'out2', from: 'out2', to: 'out2'},
 			{title: 'out3', from: 'out3', to: 'out3'},
 			{title: 'out4', from: 'out4', to: 'out4'},
+			{title: 'done', from: 'done', to: 'out5', header: true},
 		],
 		typeID: 'Scene',
 		className: 'scene',
@@ -92,6 +100,8 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			this.runner = null;
 			this.lastStart = NaN;
 			this.lastStop = NaN;
+			this.lastRunning = false;
+			this.doneTimer = null;
 
 			this.model.set({
 				title: 'Scene',
@@ -106,6 +116,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 				in1: '--',
 				in2: '--',
 				out1: 0, out2: 0, out3: 0, out4: 0,
+				done: 0,
 				// Display only, rebuilt on every frame.
 				sceneCue: '',
 				sceneStatus: '',
@@ -163,12 +174,16 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			if(!scene.ok) {
 				this.scene = scene;
 				this.runner = null;
+				this.lastRunning = false;
 				this.updateDisplay(Date.now());
 				return;
 			}
 			this.scene = scene;
 			this.runner = SceneScript.createRunner(scene);
 			this.runner.applyIdle(Date.now());
+			// A new script starts the scene over at idle; that isn't the
+			// scene finishing, so it doesn't send done.
+			this.lastRunning = false;
 
 			var names = {};
 			for(var i = 0; i < 4; i++) {
@@ -362,6 +377,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 		// Outlets only change when their value does, so a cable isn't
 		// sent the same value every frame.
 		pushOutputs: function() {
+			this.checkDone();
 			var changes = {};
 			for(var i = 0; i < 4; i++) {
 				var value = this.runner.outputs[i];
@@ -371,6 +387,34 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 				}
 			}
 			if(!_.isEmpty(changes)) { this.model.set(changes); }
+		},
+
+		/**
+		 * checkDone - pulse done when the scene stops playing (waiting or
+		 * playing before, anything else now): its last cue finished, or
+		 * stop / the button stopped it. A scene that repeats never ends,
+		 * so it never sends done. Every change to the runner ends in
+		 * pushOutputs, which calls this.
+		 *
+		 * @return {void}
+		 */
+		checkDone: function() {
+			var running = !!this.runner && (this.runner.phase === 'waiting' || this.runner.phase === 'playing');
+			var ended = this.lastRunning && !running;
+			this.lastRunning = running;
+			if(ended) { this.pulseDone(); }
+		},
+
+		/**
+		 * pulseDone - done goes to 1023 and back to 0 after DONE_MS.
+		 *
+		 * @return {void}
+		 */
+		pulseDone: function() {
+			var self = this;
+			clearTimeout(this.doneTimer);
+			this.model.set('done', 1023);
+			this.doneTimer = setTimeout(function() { self.model.set('done', 0); }, DONE_MS);
 		},
 
 		updateDisplay: function(now) {
@@ -480,6 +524,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 		},
 
 		onRemove: function() {
+			clearTimeout(this.doneTimer);
 			window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
 		},
 	});

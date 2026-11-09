@@ -1,5 +1,7 @@
 <div class="widgetAuthoring">
-    <div class="widgetTop typeAnimation">
+    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="start" alt="start" title="start: play from the first cue when this rises past the threshold">&#9656;</div></div>
+    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="out5" alt="done" title="done: pulses when the scene stops playing" rv-class-ctlflash="widget:done">&#9656;</div></div>
+    <div class="widgetTop typeAnimation" rv-class-ctlrunning="widget:scenePlaying">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
         </div>
@@ -7,7 +9,7 @@
 
     <div class="widgetLeft">
         <div class='inlets'>
-            <div rv-each-inlet="widget:ins" rv-title="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
+            <div rv-each-inlet="widget:bodyIns" rv-title="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
         </div>
     </div>
 
@@ -30,7 +32,7 @@
 
     <div class="widgetRight">
         <div class='outlets'>
-            <div class="outlet" rv-each-outlet="widget:outs" rv-title="outlet.title" rv-data-field="outlet.to">&middot;</div>
+            <div class="outlet" rv-each-outlet="widget:bodyOuts" rv-title="outlet.title" rv-data-field="outlet.to">&middot;</div>
         </div>
     </div>
 
