@@ -1467,10 +1467,33 @@ def _eval_scene(values, state, now):
     values['out3'] = outputs[2]
     values['out4'] = outputs[3]
     _scene_done(values, state, runner.phase, now)
+    _scene_monitor(values, runner, now_ms)
 
 
 # Scene.js's DONE_MS.
 SCENE_DONE_HOLD_S = 0.2
+
+SCENE_PHASE_CODES = {'idle': 0, 'waiting': 1, 'playing': 2, 'stopping': 3, 'ended': 4}
+
+
+def _scene_monitor(values, runner, now_ms):
+    """Where the scene is, for monitor mode - NTK's Scene widget doesn't
+    run the scene itself then, so it shows the board's run from these
+    (Scene.js's updateMonitoredDisplay): monPhase (SCENE_PHASE_CODES),
+    monCue (the cue's index, -1 for none) and monSecs - seconds into
+    the cue or idle lines, or while waiting, seconds left before a max
+    or a wait gives up (-1 for none). Seconds, not ms: monitor values
+    are sent as fixed point, at most 10485.76."""
+    phase = runner.phase
+    values['monPhase'] = SCENE_PHASE_CODES.get(phase, 0)
+    values['monCue'] = runner.cue_index
+    if phase == 'waiting':
+        until = runner._wait_until
+        values['monSecs'] = -1 if until is None else max(0, until - now_ms) / 1000.0
+    elif phase in ('playing', 'stopping'):
+        values['monSecs'] = max(0, now_ms - runner._cue_start) / 1000.0
+    else:
+        values['monSecs'] = 0
 
 
 def _scene_done(values, state, phase, now):
@@ -1540,7 +1563,9 @@ OUTS_BY_TYPE = {
     'DCCThrottle': [('speed', 'speed'), ('direction', 'direction'), ('address', 'address')],
     'DCCFunction': [('state', 'state')],
     # Written by _eval_scene itself.
-    'Scene': [('out1', 'out1'), ('out2', 'out2'), ('out3', 'out3'), ('out4', 'out4'), ('out5', 'out5')],
+    # monPhase/monCue/monSecs: set by _scene_monitor, for monitor mode.
+    'Scene': [('out1', 'out1'), ('out2', 'out2'), ('out3', 'out3'), ('out4', 'out4'), ('out5', 'out5'),
+              ('monPhase', 'monPhase'), ('monCue', 'monCue'), ('monSecs', 'monSecs')],
 }
 
 

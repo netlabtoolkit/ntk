@@ -368,7 +368,14 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 		},
 
 		timeKeeper: function() {
-			if(!this.runner || this.isMonitored()) { return; }
+			if(this.isMonitored()) { this.wasMonitored = true; this.updateMonitoredDisplay(); return; }
+			if(this.wasMonitored) {
+				// done came from the board while monitoring; one left at
+				// 1023 would hold the next step's start high.
+				this.wasMonitored = false;
+				if(this.model.get('done') !== 0) { this.model.set('done', 0); }
+			}
+			if(!this.runner) { return; }
 			var now = Date.now();
 			this.runner.tick(now, this.inlets());
 			this.pushOutputs();
@@ -424,6 +431,57 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			clearTimeout(this.doneTimer);
 			this.model.set('done', 1023);
 			this.doneTimer = setTimeout(function() { self.model.set('done', 0); }, DONE_MS);
+		},
+
+		/**
+		 * updateMonitoredDisplay - in monitor mode the board runs the
+		 * scene, not this widget, so the display follows what the board
+		 * reports (standalone_interpreter.py's _scene_monitor, every
+		 * 0.3 s): monPhase (0 idle, 1 waiting, 2 playing, 3 stopping,
+		 * 4 ended), monCue (the cue's index) and monSecs (seconds into
+		 * the cue or idle lines; while waiting, seconds left, or -1).
+		 * Before, the widget sat at idle while the board played it.
+		 *
+		 * @return {void}
+		 */
+		updateMonitoredDisplay: function() {
+			var phases = ['idle', 'waiting', 'playing', 'stopping', 'ended'];
+			var phase = phases[parseInt(this.model.get('monPhase'), 10)] || 'idle',
+				secs = toNumber(this.model.get('monSecs'), 0),
+				scene = this.scene && this.scene.ok ? this.scene : null,
+				cue = scene ? scene.cues[parseInt(this.model.get('monCue'), 10)] : null;
+
+			var d = {sceneCue: '', sceneStatus: phase, sceneStatusTitle: 'Running on the board (monitor mode)',
+				sceneProgress: 0, scenePlaying: phase === 'waiting' || phase === 'playing', sceneWaiting: phase === 'waiting',
+				done: toNumber(this.model.get('out5'), 0)};
+			d.sceneGlow = d.scenePlaying || phase === 'stopping';
+			if((phase === 'waiting' || phase === 'playing') && cue) {
+				d.sceneCue = cue.label;
+				if(phase === 'waiting') {
+					var trig = cue.trigger, waitingFor = trig && trig.type === 'when' ? trig.inlet + ' ' + trig.level : '';
+					if(secs >= 0) { waitingFor += (waitingFor ? ' · ' : '') + secs.toFixed(1) + 's'; }
+					d.sceneStatus = 'wait ' + waitingFor;
+				} else {
+					d.sceneStatus = formatSeconds(secs * 1000) + ' / ' + formatSeconds(cue.length);
+					d.sceneProgress = cue.length > 0 ? Math.round(Math.min(1, secs * 1000 / cue.length) * 100) : 100;
+				}
+			}
+			else if(phase === 'stopping') {
+				d.sceneCue = 'idle';
+				d.sceneStatus = 'to idle';
+				var idleLength = scene ? scene.idleLength : 0;
+				d.sceneProgress = idleLength > 0 ? Math.round(Math.min(1, secs * 1000 / idleLength) * 100) : 100;
+			}
+			for(var i = 0; i < 4; i++) {
+				d['v' + (i + 1)] = shortValue(this.model.get(OUT_FIELDS[i]));
+			}
+			this.setRunLines(cue && (phase === 'waiting' || phase === 'playing') ? [cue.line] : [], {});
+
+			var changed = {};
+			_.each(d, function(value, key) {
+				if(this.model.get(key) !== value) { changed[key] = value; }
+			}, this);
+			if(!_.isEmpty(changed)) { this.model.set(changed); }
 		},
 
 		updateDisplay: function(now) {
