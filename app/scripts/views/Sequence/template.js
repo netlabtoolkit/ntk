@@ -1,5 +1,7 @@
 <div class="widgetAuthoring">
-    <div class="widgetTop typeAnimation">
+    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="inStart" alt="start" title="start: play the sequence chosen in 'start plays' when this rises past the threshold">&#9656;</div></div>
+    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="out4" alt="done" title="done: pulses when a sequence without loop finishes" rv-class-ctlflash="widget:done">&#9656;</div></div>
+    <div class="widgetTop typeAnimation" rv-class-ctlrunning="widget:animationRunning">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
         </div>
@@ -7,7 +9,7 @@
 
     <div class="widgetLeft">
         <div class='inlets'>
-            <div rv-each-inlet="widget:ins" rv-alt="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
+            <div rv-each-inlet="widget:bodyIns" rv-alt="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
         </div>
     </div>
 
@@ -31,7 +33,7 @@
 
     <div class="widgetRight">
         <div class='outlets'>
-            <div class="outlet" rv-each-outlet="widget:outs" rv-alt="outlet.title" rv-data-field="outlet.to">&middot;</div>
+            <div class="outlet" rv-each-outlet="widget:bodyOuts" rv-alt="outlet.title" rv-data-field="outlet.to">&middot;</div>
         </div>
     </div>
 
@@ -39,6 +41,14 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
+            <label title="which sequence the start port (on the title bar) plays">start plays</label>
+            <select class="startPlays" rv-value="widget:startPlays" title="which sequence the start port (on the title bar) plays">
+                <option value="0">Sequence 1</option>
+                <option value="1">Sequence 2</option>
+                <option value="2">Sequence 3</option>
+                <option value="3">Sequence 4</option>
+                <option value="random">random</option>
+            </select><br>
             <hr>
             <strong>Sequence 1</strong>, &nbsp;&nbsp;<input class="loop" type="checkbox" rv-checked="widget:loop0" /> &nbsp;loop, &nbsp;&nbsp;<input class="return" type="checkbox" rv-checked="widget:returnToStart0" /> return to <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:start0"> with a duration of <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:duration0"><br>
             <!--Send output to 

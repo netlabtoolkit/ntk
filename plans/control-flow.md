@@ -1,6 +1,6 @@
 # Control flow: start/done and row-based widgets
 
-**Status:** scoped 2026-11-05. Built so far: start/done header ports on SpeechOut, SpeechIn and LLM (2026-11-05; SpeechIn's start listens while held, or until a pause after a pulse), with the shared header-port support in `WidgetMulti.js` (`header: true` ports, `bodyIns`/`bodyOuts`, saved patches keep the code's port list, old cables redrawn by `PatchLoader.js`).
+**Status:** scoped 2026-11-05. Built so far: start/done header ports on SpeechOut, SpeechIn and LLM (2026-11-05; SpeechIn's start listens while held, or until a pause after a pulse), and on Scene, Audio, Video and Sequence (2026-11-09; see the table below for what each does), with the shared header-port support in `WidgetMulti.js` (`header: true` ports, `bodyIns`/`bodyOuts`, saved patches keep the code's port list, old cables redrawn by `PatchLoader.js`).
 
 Two ideas from Phil's [Delft AI Toolkit](https://github.com/pvanallen/delft-ai-toolkit/blob/master/docs/README.md) (Unity + a Raspberry Pi robot, 2018–2020), considered for NTK:
 
@@ -46,6 +46,7 @@ Why this works:
 - **The Backbone repeat** (see `CLAUDE.md`: a handler that sets the model sees the same change again) doesn't double-start anything, because starting is on the edge.
 - **Standalone patches need nothing new**: it's just a value, so the board interpreter runs it as is.
 - **Holding start high** gives "run while held" - Scene's "stop when start goes below the threshold" - the behaviour-tree "keep doing this while the condition holds".
+- **A start that keeps playing.** A done pulse is 200 ms, so a start that stops when its input falls (Audio's and Sequence's old inputs) plays for 200 ms and cancels. Header starts act on the rising edge only; play-while-held stays on the body inputs, or Scene's "stop when start goes low" option.
 
 ### Two paradigms in one canvas
 
@@ -71,8 +72,10 @@ Mocked up by injecting CSS into a test NTK; the mockup script is not in the repo
 | **SpeechOut** | speak (its `trigger` moves up) | finished speaking. It already tracks `speaking`; its outlet field `output` is never set today. The first one to build. |
 | **SpeechIn** | listen while held (its `trigger`) | a transcript arrived |
 | **LLM** | send the current prompt again | the reply arrived |
-| **Scene** | play (its `start` moves up) | the last cue finished, or stopped |
-| **Sequence** | - (four step inputs stay) | the sequence finished |
+| **Scene** | play (its `start` moves up) | the last cue finished, or stopped. Built. |
+| **Audio, Video** | a new `start`: play from the beginning, and keep playing when it falls. `Play` stays in the body, still play-while-held, so saved patches behave as before. | the clip played to its end (never with loop on). Built. |
+| **Sequence** | a new `start`: plays the sequence picked in "start plays" (1-4, or random - four behaviours, one chosen at random each time), and keeps playing when it falls. The four step inputs stay in the body, still play-while-held. | a sequence without loop played its last move, whichever inlet started it. Not on a cancel or the return move. Built. |
+| **Webhook, CloudOut** | send | the response came back / the publish was confirmed. Not built. |
 | **Tween, Pulse** | their trigger input | the move or pulse finished |
 | **Decide** | none | after each decision |
 
