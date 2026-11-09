@@ -12,6 +12,19 @@ const { spawn } = require('child_process');
 // LLM widget's "attach document" feature - pure JS (no native compile,
 // unlike @serialport/bindings), so it packages the same as everything else.
 const pdfParse = require('pdf-parse');
+
+// Windows, run from a shared or network folder (e.g. a Mac folder shared
+// into a virtual machine): the GPU process can't start there, and NTK used
+// to quit at launch with no explanation. Turning GPU use off - before the
+// app is ready, so it applies to the GPU process's first start - keeps it
+// up long enough to say why; the 'ready' handler below then explains and
+// offers to quit. See windowsSharedFolder.js.
+const sharedLocation = require('./windowsSharedFolder.js')();
+if (sharedLocation) {
+	app.disableHardwareAcceleration();
+	app.commandLine.appendSwitch('disable-gpu-sandbox');
+}
+
 const ntk = require('./netlabServer.js')();
 const WiThrottleModel = require('./modules/nlHardware/WiThrottleModel.js');
 
@@ -341,6 +354,24 @@ app.on('window-all-closed', function() {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 app.on('ready', function() {
+
+  if (sharedLocation) {
+	  var sharedChoice = dialog.showMessageBoxSync({
+		  type: 'warning',
+		  buttons: ['Quit', 'Try Anyway'],
+		  defaultId: 0,
+		  cancelId: 0,
+		  message: "NTK can't run from a shared folder",
+		  detail: 'NTK is running from ' + sharedLocation + ', a network or shared folder - ' +
+			  'for example a Mac folder shared into a virtual machine. NTK usually quits at once when run from there.\n\n' +
+			  "Copy the whole NTK folder to this PC's own drive - the Desktop, or C:\\Users\\<you>\\NTK - " +
+			  'and run NTK.exe from there.',
+	  });
+	  if (sharedChoice === 0) {
+		  app.quit();
+		  return;
+	  }
+  }
 
   mainWindow = new BrowserWindow({
 	  width: 1024,
