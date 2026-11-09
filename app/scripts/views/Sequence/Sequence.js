@@ -153,7 +153,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
                     for (var i=0;i<4;i++) {
 
-                        if (ins[i] >= threshold && this.model.get('lastIns')[i] < threshold) {
+                        // An empty sequence is ignored completely: its inlet
+                        // neither starts nor interrupts anything (and, as
+                        // it never becomes currentSequence, its falling
+                        // edge cancels nothing either).
+                        if (ins[i] >= threshold && this.model.get('lastIns')[i] < threshold && this.hasMoves(i)) {
                             //this.$(".animateDiv").velocity("stop",true);
                             //console.log('starting');
                             this.model.set('animationRunning',false);
@@ -271,7 +275,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
          * box is empty - emptying a box takes it out of the choice - and
          * the one that played last, so the same behaviour doesn't run
          * twice in a row. With only one sequence filled in, that one
-         * plays every time; with none, start does nothing.
+         * plays every time; with none, start does nothing. A picked
+         * sequence that's empty is ignored, as on its own inlet.
          *
          * @return {void}
          */
@@ -280,9 +285,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             var i;
             if (pick === 'random') {
                 var self = this, last = this.lastPlayed;
-                var filled = [0, 1, 2, 3].filter(function(n) {
-                    return String(self.model.get('sequence' + n) || '').trim() !== '';
-                });
+                var filled = [0, 1, 2, 3].filter(function(n) { return self.hasMoves(n); });
                 if (!filled.length) { return; }
                 var choices = filled.filter(function(n) { return n !== last; });
                 if (!choices.length) { choices = filled; }
@@ -291,9 +294,21 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 i = parseInt(pick, 10);
             }
             if (isNaN(i) || i < 0 || i > 3) { i = 0; }
+            // A picked sequence that's empty is ignored, as on its inlet.
+            if (!this.hasMoves(i)) { return; }
             this.model.set('animationRunning',false);
             this.model.set('currentSequence',i);
             this.runAnimation();
+        },
+
+        /**
+         * hasMoves - sequence n's box has at least one non-blank line.
+         *
+         * @param {number} n 0-3
+         * @return {boolean}
+         */
+        hasMoves: function(n) {
+            return String(this.model.get('sequence' + n) || '').trim() !== '';
         },
 
         /**
