@@ -108,6 +108,11 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 				script: this.model.get('script') === undefined ? STARTER_SCRIPT : this.model.get('script'),
 				threshold: this.model.get('threshold') === undefined ? 512 : this.model.get('threshold'),
 				restartOnStart: !!this.model.get('restartOnStart'),
+				// A start arriving while it plays stops it (plays the idle
+				// lines): press once to start, again to stop - for start
+				// pulses, like another widget's done. Not with
+				// restartOnStart; ticking one unticks the other.
+				stopOnSecondStart: !!this.model.get('stopOnSecondStart'),
 				stopOnStartLow: !!this.model.get('stopOnStartLow'),
 				// Inlets. Unwired, in1/in2 aren't high or low, so a "when"
 				// cue waits - click its status to start it by hand.
@@ -568,6 +573,15 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 				this.loadScript();
 			}
 
+			// What a start does while the scene plays: start over, or
+			// stop - one or the other.
+			if(changed.restartOnStart === true && this.model.get('stopOnSecondStart')) {
+				this.model.set('stopOnSecondStart', false);
+			}
+			if(changed.stopOnSecondStart === true && this.model.get('restartOnStart')) {
+				this.model.set('restartOnStart', false);
+			}
+
 			// start/stop only mean something when they arrive through a
 			// cable (WidgetMulti.syncWithSource marks those with
 			// updateNoTrigger) - not when a patch loads them.
@@ -575,15 +589,22 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			var threshold = toNumber(this.model.get('threshold'), 512);
 
 			if(changed.start !== undefined) {
-				var start = toNumber(changed.start, NaN);
-				if(start >= threshold && !(this.lastStart >= threshold)) {
+				var start = toNumber(changed.start, NaN),
+					rose = start >= threshold && !(this.lastStart >= threshold),
+					fell = start < threshold && this.lastStart >= threshold;
+				// Updated before acting: play/stop set the model, and
+				// Backbone runs this again with the same changes (CLAUDE.md)
+				// - a second start's stop would otherwise be seen as a
+				// fresh start and play again at once.
+				this.lastStart = start;
+				if(rose) {
 					var busy = this.runner && (this.runner.phase === 'waiting' || this.runner.phase === 'playing');
 					if(!busy || this.model.get('restartOnStart')) { this.play(); }
+					else if(this.model.get('stopOnSecondStart')) { this.stop(); }
 				}
 				// Optional: start falling below the threshold works like
 				// stop - run only while start is held high.
-				else if(start < threshold && this.lastStart >= threshold && this.model.get('stopOnStartLow')) { this.stop(); }
-				this.lastStart = start;
+				else if(fell && this.model.get('stopOnStartLow')) { this.stop(); }
 			}
 
 			if(changed.stop !== undefined) {

@@ -1451,6 +1451,9 @@ def _eval_scene(values, state, now):
         busy = runner.phase in ('waiting', 'playing')
         if not busy or values.get('restartOnStart'):
             runner.play(now_ms)
+        elif values.get('stopOnSecondStart'):
+            # Scene.js's option: a second start stops it.
+            runner.stop(now_ms)
     elif start < threshold and state['last_start'] >= threshold and values.get('stopOnStartLow'):
         # Scene.js's option: start dropping works like stop.
         runner.stop(now_ms)

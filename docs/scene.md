@@ -116,6 +116,7 @@ Wire **done** into the **start** of the next step - a second Scene, a SpeechOut,
 - **script** - checked as you type: a mistake is marked red in the line numbers and explained under the box; click it to go to that line. While the scene plays, the running lines are highlighted. The script takes effect when you click out of the box.
 - **threshold** - the level above which start, stop, in1 and in2 count as high (default 512).
 - **start over if start arrives while playing** - otherwise a new start is ignored until the scene has finished.
+- **stop if start arrives while playing** - press once to start, again to stop. The scene plays its idle lines, then sends done. Use this one with a start that comes as a short pulse, such as DigitalIn's done; the option below needs start held high. Only one of these first two can be on.
 - **stop when start goes below the threshold** - the scene plays only while start is held high, e.g. a button held down.
 
 ## The workers example
