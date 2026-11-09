@@ -895,6 +895,11 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			if(outputs) {
 				for(var i=outputs.length-1; i>=0; i--) {
 					var output = outputs[i];
+					// An outlet the widget sets itself (DigitalIn's done
+					// pulse) skips the chain: scale would rescale it every
+					// frame, and it would share the smoother's and
+					// easing's state with the real outlet.
+					if(output.noChain) { continue; }
 					outputsObj[output.to] = this.model.get(output.from);
 
 					var outputField = outputsObj[output.to];
