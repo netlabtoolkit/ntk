@@ -100,7 +100,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			this.runner = null;
 			this.lastStart = NaN;
 			this.lastStop = NaN;
-			this.lastRunning = false;
+			this.doneOwed = false;
 			this.doneTimer = null;
 
 			this.model.set({
@@ -123,6 +123,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 				sceneStatusTitle: '',
 				sceneProgress: 0,
 				scenePlaying: false,
+				sceneGlow: false,
 				sceneWaiting: false,
 				sceneHasError: false,
 				sceneErrors: [],
@@ -174,7 +175,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			if(!scene.ok) {
 				this.scene = scene;
 				this.runner = null;
-				this.lastRunning = false;
+				this.doneOwed = false;
 				this.updateDisplay(Date.now());
 				return;
 			}
@@ -183,7 +184,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			this.runner.applyIdle(Date.now());
 			// A new script starts the scene over at idle; that isn't the
 			// scene finishing, so it doesn't send done.
-			this.lastRunning = false;
+			this.doneOwed = false;
 
 			var names = {};
 			for(var i = 0; i < 4; i++) {
@@ -390,19 +391,27 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 		},
 
 		/**
-		 * checkDone - pulse done when the scene stops playing (waiting or
-		 * playing before, anything else now): its last cue finished, or
-		 * stop / the button stopped it. A scene that repeats never ends,
-		 * so it never sends done. Every change to the runner ends in
-		 * pushOutputs, which calls this.
+		 * checkDone - pulse done when the scene stops playing: its last
+		 * cue finished, or stop / the button stopped it. A stopped scene
+		 * plays its idle lines first (phase 'stopping'), and done waits
+		 * for them, so the next step starts once the scene is back at
+		 * rest. A scene that repeats never ends, so it only sends done
+		 * when stopped. Every change to the runner ends in pushOutputs,
+		 * which calls this.
+		 *
+		 * doneOwed: started since the last done. Only a run owes one -
+		 * the idle lines after an ended scene (start going low with that
+		 * option on) don't send a second.
 		 *
 		 * @return {void}
 		 */
 		checkDone: function() {
-			var running = !!this.runner && (this.runner.phase === 'waiting' || this.runner.phase === 'playing');
-			var ended = this.lastRunning && !running;
-			this.lastRunning = running;
-			if(ended) { this.pulseDone(); }
+			var phase = this.runner ? this.runner.phase : 'idle';
+			if(phase === 'waiting' || phase === 'playing') { this.doneOwed = true; }
+			else if(phase !== 'stopping' && this.doneOwed) {
+				this.doneOwed = false;
+				this.pulseDone();
+			}
 		},
 
 		/**
@@ -419,7 +428,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 
 		updateDisplay: function(now) {
 			var d = {sceneCue: '', sceneStatus: '', sceneStatusTitle: '', sceneProgress: 0,
-				scenePlaying: false, sceneWaiting: false};
+				scenePlaying: false, sceneGlow: false, sceneWaiting: false};
 			var runLines = [], runLinesLeft = {};
 
 			if(this.scene && !this.scene.ok) {
@@ -433,6 +442,9 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 				d.sceneCue = s.cue;
 				d.sceneProgress = Math.round(s.progress * 100);
 				d.scenePlaying = s.phase === 'waiting' || s.phase === 'playing';
+				// The title bar glows until done: through the idle lines
+				// after a stop, too.
+				d.sceneGlow = d.scenePlaying || (s.phase === 'stopping' && !!this.doneOwed);
 				if(s.phase === 'waiting') {
 					d.sceneWaiting = true;
 					d.sceneStatus = 'wait ' + s.waitingFor;

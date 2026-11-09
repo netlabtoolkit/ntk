@@ -96,9 +96,9 @@ The lines after `idle:` say how the scene looks when it isn't playing. When the 
 The two small ▸ ports on the title bar chain a Scene with other steps:
 
 - **start** (left) - plays the scene from its first cue when its value rises above the threshold. Anything that sends 1023 can start it, including another widget's done.
-- **done** (right) - when the scene stops playing, sends 1023 for a fifth of a second, then 0, and flashes amber. It fires when the last cue finishes, or when the scene is stopped (the stop inlet, the ■ button, or start going low with that option on). A scene with `repeat` never finishes, so it only sends done when stopped.
+- **done** (right) - when the scene stops playing, sends 1023 for a fifth of a second, then 0, and flashes amber. It fires when the last cue finishes, or when the scene is stopped (the stop inlet, the ■ button, or start going low with that option on). A stopped scene plays its idle lines first, and done waits for them, so the next step starts once everything is back at rest. With no idle section, done fires as soon as it stops. A scene with `repeat` never finishes, so it only sends done when stopped.
 
-While the scene plays, the title bar glows amber.
+While the scene plays, the title bar glows amber - including while a stopped scene plays its idle lines, until done.
 
 Wire **done** into the **start** of the next step - a second Scene, a SpeechOut, an Audio clip - and it begins exactly when this scene ends, however long its cues waited for their sensors.
 

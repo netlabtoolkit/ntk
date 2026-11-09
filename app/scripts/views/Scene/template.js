@@ -1,7 +1,7 @@
 <div class="widgetAuthoring">
     <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="start" alt="start" title="start: play from the first cue when this rises past the threshold">&#9656;</div></div>
     <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="out5" alt="done" title="done: pulses when the scene stops playing" rv-class-ctlflash="widget:done">&#9656;</div></div>
-    <div class="widgetTop typeAnimation" rv-class-ctlrunning="widget:scenePlaying">
+    <div class="widgetTop typeAnimation" rv-class-ctlrunning="widget:sceneGlow">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
         </div>
