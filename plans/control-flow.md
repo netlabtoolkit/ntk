@@ -74,7 +74,7 @@ Mocked up by injecting CSS into a test NTK; the mockup script is not in the repo
 | **LLM** | send the current prompt again | the reply arrived |
 | **Scene** | play (its `start` moves up) | the last cue finished, or stopped. Built. |
 | **Audio, Video** | a new `start`: play from the beginning, and keep playing when it falls. `Play` stays in the body, still play-while-held, so saved patches behave as before. | the clip played to its end (never with loop on). Built. |
-| **Sequence** | a new `start`: plays the sequence picked in "start plays" (1-4, or random - four behaviours, one chosen at random each time, never the one that played last), and keeps playing when it falls. The four step inputs stay in the body, still play-while-held. | a sequence without loop played its last move, whichever inlet started it. Not on a cancel or the return move. Built. |
+| **Sequence** | a new `start`: plays the sequence picked in "start plays" (1-4, or random - four behaviours, one chosen at random each time, skipping empty ones and the one that played last), and keeps playing when it falls. The four step inputs stay in the body, still play-while-held. | a sequence without loop played its last move, whichever inlet started it. Not on a cancel or the return move. Built. |
 | **Webhook, CloudOut** | send | the response came back / the publish was confirmed. Not built. |
 | **Tween, Pulse** | their trigger input | the move or pulse finished |
 | **Decide** | none | after each decision |

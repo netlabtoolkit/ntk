@@ -260,9 +260,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         
         /**
          * playStart - what start does: play the sequence picked in
-         * "start plays", or one of the four at random - never the one
-         * that played last, so the same behaviour doesn't run twice in
-         * a row.
+         * "start plays", or one at random. Random skips sequences whose
+         * box is empty - emptying a box takes it out of the choice - and
+         * the one that played last, so the same behaviour doesn't run
+         * twice in a row. With only one sequence filled in, that one
+         * plays every time; with none, start does nothing.
          *
          * @return {void}
          */
@@ -270,8 +272,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             var pick = this.model.get('startPlays');
             var i;
             if (pick === 'random') {
-                var last = this.lastPlayed;
-                var choices = [0, 1, 2, 3].filter(function(n) { return n !== last; });
+                var self = this, last = this.lastPlayed;
+                var filled = [0, 1, 2, 3].filter(function(n) {
+                    return String(self.model.get('sequence' + n) || '').trim() !== '';
+                });
+                if (!filled.length) { return; }
+                var choices = filled.filter(function(n) { return n !== last; });
+                if (!choices.length) { choices = filled; }
                 i = choices[Math.floor(Math.random() * choices.length)];
             } else {
                 i = parseInt(pick, 10);
