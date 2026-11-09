@@ -879,6 +879,28 @@ def _encoder_step(values):
 # Encoder.js's DELTA_HOLD_MS.
 ENCODER_DELTA_HOLD_S = 0.2
 
+# DigitalIn.js's DONE_MS.
+DIGITALIN_DONE_HOLD_S = 0.2
+
+
+def _digitalin_done(values, state, now):
+    """DigitalIn.js's checkDone()/pulseDone(): 'done' goes to 1023 for
+    DIGITALIN_DONE_HOLD_S each time 'out' rises past the middle of the
+    output range. The first reading is only the baseline."""
+    if _num(values.get('done'), 0.0) != 0 and now - state.get('done_at', 0) >= DIGITALIN_DONE_HOLD_S:
+        values['done'] = 0
+    values.setdefault('done', 0)  # patches saved before the done port
+    floor = _num(values.get('outputFloor'), 0.0)
+    ceiling = _num(values.get('outputCeiling'), 1023.0)
+    mid = (floor + ceiling) / 2.0
+    out = _num(values.get('out'), 0.0)
+    on = out > mid if ceiling >= floor else out < mid
+    was_on = state.get('done_last_on')
+    state['done_last_on'] = on
+    if was_on is False and on:
+        values['done'] = 1023
+        state['done_at'] = now
+
 
 def _eval_encoder(values, state, now):
     """Encoder.js's onEncoderPosition()/set inlet. 'in' is the raw
@@ -1144,19 +1166,76 @@ def _tween_start(values, state, now, from_value, to_value):
     state['tween_to'] = to_value
 
 
+# Sequence.js's DONE_MS.
+SEQUENCE_DONE_HOLD_S = 0.2
+
+
+def _sequence_has_moves(values, seq_index):
+    """Sequence.js's hasMoves(): the box has a non-blank line. An empty
+    sequence is ignored completely - its inlet neither starts nor
+    interrupts anything, and random never picks it."""
+    return str(values.get('sequence' + str(seq_index)) or '').strip() != ''
+
+
+def _sequence_play_start(values, state, now):
+    """Sequence.js's playStart(): the start port plays the sequence
+    picked in "start plays" ('0'-'3'), or with 'random' one of the
+    filled-in sequences other than the one that played last."""
+    import random
+    pick = str(values.get('startPlays', '0'))
+    if pick == 'random':
+        filled = [n for n in range(4) if _sequence_has_moves(values, n)]
+        if not filled:
+            return None
+        choices = [n for n in filled if n != state.get('last_played', -1)] or filled
+        i = choices[int(random.random() * len(choices)) % len(choices)]
+    else:
+        try:
+            i = int(pick)
+        except ValueError:
+            i = 0
+        if i < 0 or i > 3:
+            i = 0
+    if not _sequence_has_moves(values, i):
+        return None
+    _sequence_start_segment(values, state, now, i, 0)
+    return i
+
+
 def _eval_sequence(values, state, now):
     """Simplified vs. Sequence.js: linear per-segment interpolation
     instead of replicating Velocity's default easing (never
-    user-configurable for this widget - see module docstring)."""
+    user-configurable for this widget - see module docstring).
+
+    The start port (inStart) plays on its rising edge and keeps playing
+    when it falls; the four step inlets play only while held. done
+    (outlet out4) pulses 1023 for SEQUENCE_DONE_HOLD_S when a sequence
+    without loop plays its last move - not on a cancel or the return
+    move."""
+    if _num(values.get('done'), 0.0) != 0 and now - state.get('done_at', 0) >= SEQUENCE_DONE_HOLD_S:
+        values['done'] = 0
+    values.setdefault('done', 0)  # patches saved before the done port
+
     threshold = _num(values.get('threshold'), 512.0)
     last_ins = state.setdefault('last_ins', [-1.0, -1.0, -1.0, -1.0])
     active_seq = state.get('active_seq')
+
+    # The value the patch was saved with isn't an edge - as in NTK,
+    # only start rising while it runs plays.
+    start = _num(values.get('inStart'), 0.0)
+    if 'last_start' not in state:
+        state['last_start'] = start
+    if start >= threshold and state['last_start'] < threshold:
+        started = _sequence_play_start(values, state, now)
+        if started is not None:
+            active_seq = started
+    state['last_start'] = start
 
     for i in range(4):
         v = _num(values.get('in' + str(i)))
         if v == last_ins[i]:
             continue
-        if v >= threshold and last_ins[i] < threshold:
+        if v >= threshold and last_ins[i] < threshold and _sequence_has_moves(values, i):
             _sequence_start_segment(values, state, now, i, 0)
             active_seq = i
         elif v < threshold and last_ins[i] >= threshold and i == active_seq:
@@ -1165,9 +1244,11 @@ def _eval_sequence(values, state, now):
             else:
                 state['running'] = False
         last_ins[i] = v
+    state['active_seq'] = active_seq
 
     if state.get('running'):
         _sequence_tick(values, state, now)
+    values['out4'] = values['done']
 
 
 def _parse_sequence_steps(text):
@@ -1191,6 +1272,8 @@ def _sequence_start_segment(values, state, now, seq_index, step_index):
     state['seq_step'] = step_index
     state['seq_step_start'] = now
     state['running'] = True
+    state['returning'] = False
+    state['last_played'] = seq_index
     state['send_to'] = values.get('sendTo' + str(seq_index), 'output0')
 
 
@@ -1208,11 +1291,18 @@ def _sequence_tick(values, state, now):
         next_step = step_i + 1
         if next_step >= len(steps):
             seq_index = state.get('seq_index', 0)
-            if values.get('loop' + str(seq_index), True):
+            if state.get('returning'):
+                # The return move plays once, and isn't the sequence
+                # finishing.
+                state['running'] = False
+                state['returning'] = False
+            elif values.get('loop' + str(seq_index), False):
                 state['seq_step'] = 0
                 state['seq_step_start'] = now
             else:
                 state['running'] = False
+                values['done'] = 1023
+                state['done_at'] = now
         else:
             state['seq_step'] = next_step
             state['seq_step_start'] = now
@@ -1227,6 +1317,7 @@ def _sequence_return(values, state, now, seq_index):
     state['seq_step'] = 0
     state['seq_step_start'] = now
     state['running'] = True
+    state['returning'] = True
     state['send_to'] = 'output0'
 
 
@@ -1375,6 +1466,29 @@ def _eval_scene(values, state, now):
     values['out2'] = outputs[1]
     values['out3'] = outputs[2]
     values['out4'] = outputs[3]
+    _scene_done(values, state, runner.phase, now)
+
+
+# Scene.js's DONE_MS.
+SCENE_DONE_HOLD_S = 0.2
+
+
+def _scene_done(values, state, phase, now):
+    """Scene.js's checkDone()/pulseDone(): the done port (field 'done',
+    outlet out5) goes to 1023 for SCENE_DONE_HOLD_S when a run ends - its
+    last cue finished, or it was stopped and its idle lines have played
+    ('stopping' still owes the done). Only a run owes one, so the idle
+    lines after an ended scene don't send a second."""
+    if _num(values.get('done'), 0.0) != 0 and now - state.get('done_at', 0) >= SCENE_DONE_HOLD_S:
+        values['done'] = 0
+    if phase in ('waiting', 'playing'):
+        state['done_owed'] = True
+    elif phase != 'stopping' and state.get('done_owed'):
+        state['done_owed'] = False
+        values['done'] = 1023
+        state['done_at'] = now
+    values.setdefault('done', 0)
+    values['out5'] = values['done']
 
 
 BESPOKE_EVAL = {
@@ -1397,7 +1511,9 @@ BESPOKE_EVAL = {
 # lives under (matches each widget's own `outs:` array in its .js file).
 OUTS_BY_TYPE = {
     'AnalogIn': [('in', 'out')],
-    'DigitalIn': [('in', 'out')],
+    # ('done', 'done'): DigitalIn.js's done header port, set by
+    # _digitalin_done after the chain - skipped by the chain itself.
+    'DigitalIn': [('in', 'out'), ('done', 'done')],
     'AnalogOut': [('in', 'out')],
     'DigitalOut': [('in', 'out')],
     'Servo': [('in', 'out')],
@@ -1411,7 +1527,7 @@ OUTS_BY_TYPE = {
     'Pulse': [('output', 'out1')],
     'Tween': [('output', 'out1')],
     'Splitter': [('outA', 'out1'), ('outB', 'out2'), ('outC', 'out3'), ('outD', 'out4')],
-    'Sequence': [('output0', 'out0')],
+    'Sequence': [('output0', 'out0'), ('done', 'out4')],
     'Data': [('dataOut', 'out')],
     'OSCIn': [('in', 'out')],
     'OSCOut': [('in', 'out')],
@@ -1424,7 +1540,7 @@ OUTS_BY_TYPE = {
     'DCCThrottle': [('speed', 'speed'), ('direction', 'direction'), ('address', 'address')],
     'DCCFunction': [('state', 'state')],
     # Written by _eval_scene itself.
-    'Scene': [('out1', 'out1'), ('out2', 'out2'), ('out3', 'out3'), ('out4', 'out4')],
+    'Scene': [('out1', 'out1'), ('out2', 'out2'), ('out3', 'out3'), ('out4', 'out4'), ('out5', 'out5')],
 }
 
 
@@ -2584,7 +2700,10 @@ class StandaloneInterpreter:
                         # A pull-up button reads low when pressed - inverted,
                         # so pressed is high, as live.
                         high = bool(fs.pins[idx].io.value) != (w['values'].get('pullup', True) is not False)
-                        w['values']['in'] = 1 if high else 0
+                        # 0/1023, as StandardFirmataModel.js sets it live.
+                        # Was 0/1: out then never got past 1, so done and a
+                        # DigitalOut's 512 threshold never fired standalone.
+                        w['values']['in'] = 1023 if high else 0
             elif kind == 'enc_in':
                 w = self.widgets[step[1]]
                 pin_a = _pin_index_for_dpin(fs.pins, w['values'].get('pin'))
@@ -2926,6 +3045,8 @@ class StandaloneInterpreter:
                 if from_field == to_field:
                     continue  # computed by the type's own eval (Encoder's delta)
                 values[to_field] = _run_chain(chain, _num(values.get(from_field), 0.0), values, state)
+            if type_id == 'DigitalIn':
+                _digitalin_done(values, state, now)
         elif type_id in OUTS_BY_TYPE:
             for from_field, to_field in OUTS_BY_TYPE[type_id]:
                 if from_field != to_field:
