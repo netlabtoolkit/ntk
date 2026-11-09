@@ -55,6 +55,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// Read by onModelChange, which the set below already fires.
 			this.lastStart = 0;
 			this.doneTimer = null;
+			this.lastPlayed = -1;   // the last sequence played, by any inlet - random avoids it
 
             // Call any custom DOM events here
             this.model.set({
@@ -64,7 +65,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 output0: 0, output1: 0, output2: 0, output3: 0,
                 lastIns: [-1,-1,-1,-1],
 				output: 0,
-                loop0: true, loop1: true, loop2: true, loop3: true,
+                // Off by default: a looping sequence never finishes, so
+                // it never sends done. Saved patches keep their own.
+                loop0: false, loop1: false, loop2: false, loop3: false,
                 returnToStart0: true, returnToStart1: true, returnToStart2: true, returnToStart3: true,
                 start0: 0, start1: 0, start2: 0, start3: 0, 
                 duration0: 1000, duration1: 1000, duration2: 1000, duration3: 1000,
@@ -198,7 +201,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     var userSequence = [];
                     var velocitySequence = [];
                     var currentSequence = this.model.get('currentSequence').toString();
-                    
+                    this.lastPlayed = parseInt(currentSequence, 10);
+
                     var sequence = "sequence" + currentSequence;
                     var loop = "loop" + currentSequence;
                     var outputPort = this.model.get('sendTo' + currentSequence);
@@ -256,13 +260,22 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         
         /**
          * playStart - what start does: play the sequence picked in
-         * "start plays", or one of the four at random.
+         * "start plays", or one of the four at random - never the one
+         * that played last, so the same behaviour doesn't run twice in
+         * a row.
          *
          * @return {void}
          */
         playStart: function() {
             var pick = this.model.get('startPlays');
-            var i = pick === 'random' ? Math.floor(Math.random() * 4) : parseInt(pick, 10);
+            var i;
+            if (pick === 'random') {
+                var last = this.lastPlayed;
+                var choices = [0, 1, 2, 3].filter(function(n) { return n !== last; });
+                i = choices[Math.floor(Math.random() * choices.length)];
+            } else {
+                i = parseInt(pick, 10);
+            }
             if (isNaN(i) || i < 0 || i > 3) { i = 0; }
             this.model.set('animationRunning',false);
             this.model.set('currentSequence',i);
