@@ -7,7 +7,26 @@ define([
 	function(Backbone, rivets, WidgetView, Template) {
 		'use strict';
 
+		// done stays at 1023 this long - long enough to see, like SpeechOut's.
+		var DONE_MS = 200;
+
 		return WidgetView.extend({
+			// start / done are header ports (plans/control-flow.md). start
+			// plays the clip from the beginning when it rises past the
+			// threshold and keeps playing when it falls, so a done pulse
+			// from another widget can start it; Play stays in the body and
+			// still plays only while held high. done pulses 1023 for
+			// DONE_MS when the clip plays to its end (never with loop on).
+			ins: [
+				{title: 'start', to: 'start', header: true},
+				{title: 'Play', to: 'play'},
+				{title: 'Speed', to: 'speed'},
+				{title: 'Time', to: 'time'},
+				{title: 'opacity', to: 'opacity'},
+			],
+			outs: [
+				{title: 'done', from: 'done', to: 'out1', header: true},
+			],
 			typeID: 'Video',
 			categories: ['media'],
 			className: 'video',
@@ -26,28 +45,18 @@ define([
 			initialize: function(options) {
 				WidgetView.prototype.initialize.call(this, options);
 
+				// Read by onModelChange, which the set below already fires.
+				this.lastStart = 0;
+				this.doneTimer = null;
+
 				this.model.set({
 					src: 'assets/video/nyc_people.mp4',
           srcFile: 'nyc_people.mp4',
           localVideoPath: null,
-					ins: [{
-							title: 'Play',
-							to: 'play'
-						},
-						/*					{title: 'Volume', to: 'volume'},*/
-						{
-							title: 'Speed',
-							to: 'speed'
-						}, {
-							title: 'Time',
-							to: 'time'
-						}, {
-							title: 'opacity',
-							to: 'opacity'
-						},
-					],
 					title: 'Video',
 
+					start: 0,
+					done: 0,
 					play: 0,
 					playText: "Pause",
 					// Whether the video element is actually playing right
@@ -109,7 +118,10 @@ define([
 					if (videoEl) {
 						videoEl.addEventListener('play', function() { self.setPlayingState(true); });
 						videoEl.addEventListener('pause', function() { self.setPlayingState(false); });
-						videoEl.addEventListener('ended', function() { self.setPlayingState(false); });
+						videoEl.addEventListener('ended', function() {
+							self.setPlayingState(false);
+							self.pulseDone();
+						});
 					}
 
 					// Every render builds a new <video width="500"> - apply
@@ -133,7 +145,7 @@ define([
 
 			},
 
-			onModelChange: function(model) {
+			onModelChange: function(model, options) {
 				// Off the model, not only the width field's own DOM event
 				// (setVideoDimensions) - so a width that arrives any other
 				// way is applied too, in particular a loaded patch's saved
@@ -141,6 +153,22 @@ define([
 				// already rendered at the default.
 				if (this.domReady && model.changedAttributes().displayWidth !== undefined) {
 					this.applyDisplayWidth();
+				}
+
+				// start rising past the threshold plays from the beginning.
+				// Compared with the last value handled, not just "listed as
+				// changed": Backbone fires this again with the same changes
+				// after a nested set (CLAUDE.md). Only a value arriving
+				// through a cable counts (syncWithSource marks those with
+				// updateNoTrigger), as in Scene - not one a patch loads.
+				if (this.domReady && !app.server && options && options.updateNoTrigger &&
+					model.changedAttributes().start !== undefined) {
+					var start = parseFloat(this.model.get('start')) || 0,
+						startThreshold = parseFloat(this.model.get('threshold'));
+					if (isNaN(startThreshold)) { startThreshold = 512; }
+					var rose = this.lastStart < startThreshold && start >= startThreshold;
+					this.lastStart = start;
+					if (rose) { this.playFromStart(); }
 				}
 
 				if (this.domReady) {
@@ -193,6 +221,36 @@ define([
           //this.$(".video")[0].load();
 					this.$(".video")[0].loop = this.model.get('loop');
 				}
+			},
+
+			onRemove: function() {
+				clearTimeout(this.doneTimer);
+			},
+
+			/**
+			 * playFromStart - what start does: play the clip from the
+			 * beginning, unless it's already playing.
+			 *
+			 * @return {void}
+			 */
+			playFromStart: function() {
+				var videoEl = this.$(".video")[0];
+				if (!videoEl || !videoEl.paused) { return; }
+				videoEl.loop = this.model.get('loop');
+				videoEl.currentTime = 0;
+				videoEl.play();
+			},
+
+			/**
+			 * pulseDone - done goes to 1023 and back to 0 after DONE_MS.
+			 *
+			 * @return {void}
+			 */
+			pulseDone: function() {
+				var self = this;
+				clearTimeout(this.doneTimer);
+				this.model.set('done', 1023);
+				this.doneTimer = setTimeout(function() { self.model.set('done', 0); }, DONE_MS);
 			},
 
 			setPlayingState: function(playing) {
