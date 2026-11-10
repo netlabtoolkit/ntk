@@ -833,16 +833,47 @@ def _eval_splitter(values, state, now):
     values['outD'] = _envelope(value, _num(values.get('outDCenter'), 800.0), width, lo, hi)
 
 
+# Count.js's DONE_MS.
+COUNT_DONE_HOLD_S = 0.2
+
+
 def _eval_count(values, state, now):
+    """Count.js. done pulses 1023 for COUNT_DONE_HOLD_S when a count
+    arrives at max (at min with a negative increment)."""
+    if _num(values.get('done'), 0.0) != 0 and now - state.get('done_at', 0) >= COUNT_DONE_HOLD_S:
+        values['done'] = 0
+    values.setdefault('done', 0)  # patches saved before the done port
     threshold = _num(values.get('threshold'), 512.0)
+
     last_ins = state.setdefault('last_ins', [-1.0, -1.0, -1.0, -1.0])
     increase_by = 0
+    # start rising counts one, like in1-in4. The value the patch was
+    # saved with is only the baseline.
+    start = _num(values.get('start'), 0.0)
+    if 'last_start' not in state:
+        state['last_start'] = start
+    if not (state['last_start'] >= threshold) and start >= threshold:
+        increase_by += 1
+    state['last_start'] = start
+    reset = False
     for i in range(4):
         v = _num(values.get('in' + str(i + 1)))
         if v != last_ins[i]:
-            if last_ins[i] < threshold <= v:
-                increase_by += 1
+            # A last value that isn't a number (an unwired inlet's '-')
+            # counts as below the threshold, so the first press counts.
+            if not (last_ins[i] >= threshold) and v >= threshold:
+                if i == 3:
+                    reset = True  # in4 is reset (Count.js's resetCount)
+                else:
+                    increase_by += 1
             last_ins[i] = v
+    if reset:
+        # Back to nothing counted: one increment short of min (past max
+        # counting down), so the next count lands on it.
+        increment = _num(values.get('increment'), 1.0)
+        if _is_nan(increment) or increment == 0:
+            increment = 1.0
+        values['output'] = _num(values.get('outputFloor' if increment > 0 else 'outputCeiling'), 0.0) - increment
     if increase_by:
         increment = _num(values.get('increment'), 1.0)
         result = _num(values.get('output'), 0.0) + (increase_by * increment)
@@ -853,6 +884,9 @@ def _eval_count(values, state, now):
         elif result < floor:
             result = ceiling
         values['output'] = result
+        if result == (ceiling if increase_by * increment > 0 else floor):
+            values['done'] = 1023
+            state['done_at'] = now
 
 
 def _encoder_set_count(values, value):
@@ -1548,7 +1582,7 @@ OUTS_BY_TYPE = {
     'Boolean': [('output', 'out1')],
     'Gate': [('output', 'out1')],
     'Mix': [('output', 'out1')],
-    'Count': [('output', 'out1')],
+    'Count': [('output', 'out1'), ('done', 'done')],
     'Concat': [('out1', 'out1')],  # Concat writes out1 directly, no separate internal field
     'Pulse': [('output', 'out1')],
     'Tween': [('output', 'out1')],

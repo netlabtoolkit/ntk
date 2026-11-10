@@ -1,4 +1,4 @@
-# Firmware build: 2026.13.0+dev (2026-11-09 17:11) - update this (and the matching
+# Firmware build: 2026.13.0+dev (2026-11-10 11:04) - update this (and the matching
 # print() further down) on every manual/dev deploy to CIRCUITPY, so
 # it's visible both in Thonny's editor view (before even running
 # anything - Thonny doesn't always reload a changed file automatically)
@@ -90,7 +90,7 @@ except ImportError:  # not every CircuitPython build ships it
 # re-reading every file's own content over serial. Previously paired
 # with a separate ntk_version.py (dropped 2026-10-02 as redundant once
 # this line started covering the packaged-release case too).
-print("Firmware build:", "2026.13.0+dev (2026-11-09 17:11)")
+print("Firmware build:", "2026.13.0+dev (2026-11-10 11:04)")
 
 # A byte on the serial console in the next few seconds drops straight
 # to the REPL, before anything below can hang or crash. Kept here,
