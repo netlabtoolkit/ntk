@@ -287,8 +287,10 @@ def _parse_cue(words, index):
     r1 = rest[1] if len(rest) > 1 else None
     if r0 not in ('in1', 'in2'):
         raise ParseError('"when" needs in1 or in2, e.g. when in1 high')
-    if r1 not in ('high', 'low'):
-        raise ParseError('"when ' + r0 + '" needs high or low after it')
+    # high / low: a level, true at once if it already is. rises / falls:
+    # a change seen while the cue waits (SceneScript.js).
+    if r1 not in ('high', 'low', 'rises', 'falls'):
+        raise ParseError('"when ' + r0 + '" needs high, low, rises or falls after it')
     cue['trigger'] = {'type': 'when', 'inlet': r0, 'level': r1, 'max': None}
     if len(rest) > 2:
         if rest[2] != 'max' or len(rest) != 4:
@@ -513,6 +515,9 @@ class Runner:
         self._fired = 0
         self._current = None
         self._round = 1
+        # Whether in1/in2 were high at the last tick, for "when in1
+        # rises/falls"; absent until the first tick. Unwired counts as low.
+        self._was_high = {}
 
     def _cancel(self, out):
         self._ramps.pop(out, None)
@@ -606,6 +611,28 @@ class Runner:
         self._set_running()
 
     @staticmethod
+    def _is_high(inlet, ins):
+        v = _to_float(ins.get(inlet) if ins else None)
+        threshold = _to_float(ins.get('threshold') if ins else None)
+        if threshold != threshold:
+            threshold = 512.0
+        return v == v and v >= threshold
+
+    def _when_met(self, trig, ins):
+        """A waiting cue's "when": a level, or for rises/falls a change
+        since the last tick, used up once seen."""
+        if trig['level'] in ('high', 'low'):
+            return self._level_met(trig, ins)
+        was = self._was_high.get(trig['inlet'])
+        if was is None:
+            return False
+        high = self._is_high(trig['inlet'], ins)
+        if (not was and high) if trig['level'] == 'rises' else (was and not high):
+            self._was_high[trig['inlet']] = high
+            return True
+        return False
+
+    @staticmethod
     def _level_met(trig, ins):
         v = _to_float(ins.get(trig['inlet']) if ins else None)
         if v != v:
@@ -621,7 +648,7 @@ class Runner:
         while changes < MAX_CUE_CHANGES_PER_TICK:
             if self.phase == 'waiting':
                 trig = self._current['trigger']
-                if trig['type'] == 'when' and self._level_met(trig, ins):
+                if trig['type'] == 'when' and self._when_met(trig, ins):
                     at = self._wait_until if (self._wait_until is not None and self._wait_until < now) else now
                     self._advance_to(at)
                     self._start_cue(at)
@@ -666,6 +693,8 @@ class Runner:
                 break
         self._advance_to(now)
         self._set_running()
+        self._was_high['in1'] = self._is_high('in1', ins)
+        self._was_high['in2'] = self._is_high('in2', ins)
 
     def play(self, now):
         if not self.scene['ok'] or not self.scene['cues']:

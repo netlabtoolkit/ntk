@@ -423,7 +423,7 @@
       "errors": [
         "line 1: \"cue\" is a script word - pick another outlet name",
         "line 2: \"when\" needs in1 or in2, e.g. when in1 high",
-        "line 3: \"when in1\" needs high or low after it",
+        "line 3: \"when in1\" needs high, low, rises or falls after it",
         "line 4: the shorter time goes first: 2s..6s",
         "line 6: cues go before \"idle:\""
       ]
@@ -512,6 +512,87 @@
         "line 6: didn't expect \"please\" after the wait",
         "line 8: this wait starts with the cue, not after the line above - write \"then wait 1s\" (or give it a time, like \"2s wait 1s\")",
         "line 13: this wait starts with the cue, not after the line above - write \"then wait 500ms\" (or give it a time, like \"2s wait 500ms\")"
+      ]
+    },
+    {
+      "name": "when rises: a press during the cue before doesn't count; one while waiting does",
+      "script": [
+        "outs gate",
+        "cue down",
+        "  0s  gate to 90 in 2s",
+        "cue up when in1 rises",
+        "  0s  gate to 0 in 2s"
+      ],
+      "steps": [
+        {"t": 0, "in1": 0, "do": "play"},
+        {"t": 1000, "in1": 1023},
+        {"t": 1200, "in1": 0},
+        {"t": 2500, "expect": {"gate": 90, "phase": "waiting", "cue": "up"}},
+        {"t": 3000, "in1": 1023, "expect": {"gate": 90, "phase": "playing", "cue": "up"}},
+        {"t": 3200, "in1": 0},
+        {"t": 4000, "expect": {"gate": 45}}
+      ]
+    },
+    {
+      "name": "when rises: already high isn't a rise - it has to go low and back up",
+      "script": [
+        "outs gate",
+        "cue down",
+        "  0s  gate to 90 in 2s",
+        "cue up when in1 rises",
+        "  0s  gate to 0 in 2s"
+      ],
+      "steps": [
+        {"t": 0, "in1": 1023, "do": "play"},
+        {"t": 2500, "expect": {"phase": "waiting"}},
+        {"t": 3000, "in1": 0, "expect": {"phase": "waiting"}},
+        {"t": 3500, "in1": 1023, "expect": {"phase": "playing", "cue": "up", "gate": 90}}
+      ]
+    },
+    {
+      "name": "when falls: waits for the drop",
+      "script": [
+        "outs gate",
+        "cue down",
+        "  0s  gate to 90 in 2s",
+        "cue up when in1 falls",
+        "  0s  gate to 0 in 2s"
+      ],
+      "steps": [
+        {"t": 0, "in1": 1023, "do": "play"},
+        {"t": 2500, "expect": {"phase": "waiting"}},
+        {"t": 3000, "in1": 0, "expect": {"phase": "playing", "cue": "up"}}
+      ]
+    },
+    {
+      "name": "when rises: unwired counts as low, so a first value is a rise",
+      "script": [
+        "outs gate",
+        "cue down",
+        "  0s  gate to 90 in 2s",
+        "cue up when in2 rises",
+        "  0s  gate to 0 in 2s"
+      ],
+      "steps": [
+        {"t": 0, "do": "play"},
+        {"t": 2500, "expect": {"phase": "waiting"}},
+        {"t": 3000, "in2": 1023, "expect": {"phase": "playing", "cue": "up"}}
+      ]
+    },
+    {
+      "name": "when rises max: starts anyway when max runs out",
+      "script": [
+        "outs gate",
+        "cue down",
+        "  0s  gate to 90 in 2s",
+        "cue up when in1 rises max 1s",
+        "  0s  gate to 0 in 2s"
+      ],
+      "steps": [
+        {"t": 0, "in1": 0, "do": "play"},
+        {"t": 2500, "expect": {"phase": "waiting"}},
+        {"t": 3000, "expect": {"phase": "playing", "cue": "up", "gate": 90}},
+        {"t": 4000, "expect": {"gate": 45}}
       ]
     }
   ]

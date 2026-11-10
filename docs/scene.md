@@ -60,6 +60,9 @@ A cue line is `cue` and a name, which shows in the widget while the cue plays. N
 | `cue NAME after 2s..6s` | After a random time between 2 and 6 s, different each time. |
 | `cue NAME when in1 high` | When the cue before it has finished and `in1` is above the threshold (`low`: below it) - straight away if it already is. |
 | `cue NAME when in1 low max 60s` | The same, but starts anyway after 60 s. |
+| `cue NAME when in1 rises` | When `in1` goes up past the threshold while this cue waits - a button press, or another widget's done pulse. A press during the cue before doesn't count, and neither does `in1` being high already. `falls`: when it comes back down. `max` works here too. |
+
+`high` and `low` are levels: they suit a sensor that stays on while something is there, like a train on the crossing. `rises` and `falls` are moments: they suit a press or a pulse, which is over in a fraction of a second.
 
 | Repeating | Does |
 |---|---|

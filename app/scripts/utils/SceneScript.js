@@ -250,7 +250,10 @@
 		}
 		// when
 		if(rest[0] !== 'in1' && rest[0] !== 'in2') { throw new ParseError('"when" needs in1 or in2, e.g. when in1 high'); }
-		if(rest[1] !== 'high' && rest[1] !== 'low') { throw new ParseError('"when ' + rest[0] + '" needs high or low after it'); }
+		// high / low: a level, true at once if it already is. rises /
+		// falls: a change seen while the cue waits - a button press, or
+		// another widget's done pulse.
+		if(['high', 'low', 'rises', 'falls'].indexOf(rest[1]) === -1) { throw new ParseError('"when ' + rest[0] + '" needs high, low, rises or falls after it'); }
 		cue.trigger = {type: 'when', inlet: rest[0], level: rest[1], max: null};
 		if(rest.length > 2) {
 			if(rest[2] !== 'max' || rest.length !== 4) { throw new ParseError('after "when ' + rest[0] + ' ' + rest[1] + '" only "max" and a time can follow'); }
@@ -491,6 +494,10 @@
 		var ramps = {}, blinks = {};   // by outlet index
 		var cueStart = 0, prevEnd = 0, waitUntil = null, fired = 0, current = null;
 		var round = 1;   // which time through a looping cue
+		// Whether in1/in2 were high at the last tick, for "when in1
+		// rises/falls"; undefined until the first tick, so a value that's
+		// already high then isn't a rise. Unwired counts as low.
+		var wasHigh = {};
 
 		function cancel(out) { delete ramps[out]; delete blinks[out]; }
 
@@ -582,6 +589,27 @@
 			return trig.level === 'high' ? v >= threshold : v < threshold;
 		}
 
+		function isHigh(inlet, ins) {
+			var v = parseFloat(ins ? ins[inlet] : NaN), threshold = parseFloat(ins ? ins.threshold : NaN);
+			if(isNaN(threshold)) { threshold = 512; }
+			return !isNaN(v) && v >= threshold;
+		}
+
+		// A waiting cue's "when": a level, or for rises/falls a change
+		// since the last tick. A change is used up once seen, so it
+		// starts one cue, not every rises cue after it in the same tick.
+		function whenMet(trig, ins) {
+			if(trig.level === 'high' || trig.level === 'low') { return levelMet(trig, ins); }
+			var was = wasHigh[trig.inlet];
+			if(was === undefined) { return false; }
+			var high = isHigh(trig.inlet, ins);
+			if(trig.level === 'rises' ? (!was && high) : (was && !high)) {
+				wasHigh[trig.inlet] = high;
+				return true;
+			}
+			return false;
+		}
+
 		/**
 		 * tick - bring the scene up to time `now`. ins: {in1, in2,
 		 * threshold}, read by "when" cues.
@@ -591,7 +619,7 @@
 			while(changes < MAX_CUE_CHANGES_PER_TICK) {
 				if(r.phase === 'waiting') {
 					var trig = current.trigger;
-					if(trig.type === 'when' && levelMet(trig, ins)) {
+					if(trig.type === 'when' && whenMet(trig, ins)) {
 						// Seen now - unless max ran out before this tick.
 						var at = (waitUntil !== null && waitUntil < now) ? waitUntil : now;
 						advanceTo(at);
@@ -628,6 +656,8 @@
 			}
 			advanceTo(now);
 			setRunning();
+			wasHigh.in1 = isHigh('in1', ins);
+			wasHigh.in2 = isHigh('in2', ins);
 		};
 
 		/** play - from the first cue, at time `now`. */

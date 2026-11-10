@@ -75,7 +75,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 		ins: [
 			{title: 'start', to: 'start', header: true},
 			{title: 'stop', to: 'stop'},
-			// Read only by "cue ... when in1 high/low".
+			// Read only by "cue ... when in1 high/low/rises/falls".
 			{title: 'in1', to: 'in1'},
 			{title: 'in2', to: 'in2'},
 		],
