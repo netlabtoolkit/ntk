@@ -428,6 +428,10 @@
     .catAI {
         border-left: 7px solid #B8860B;
     }
+    // Brown 600 - railway sleepers; no other category is brown.
+    .catDCC {
+        border-left: 7px solid #6D4C41;
+    }
 
     .widgetI-O {
     	color: #E53935;
@@ -450,6 +454,9 @@
     }
     .widgetAI {
         color: #B8860B;
+    }
+    .widgetDCC {
+        color: #6D4C41;
     }
 
 	ul {

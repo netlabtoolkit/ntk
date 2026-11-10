@@ -1,5 +1,7 @@
 <div class="widgetAuthoring">
-    <div class="widgetTop typeMedia">
+    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="start" alt="start" title="start: play from the beginning when this rises past the threshold">&#9656;</div></div>
+    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="out1" alt="done" title="done: pulses when the clip plays to its end" rv-class-ctlflash="widget:done">&#9656;</div></div>
+    <div class="widgetTop typeMedia" rv-class-ctlrunning="widget:isPlaying">
         <div class="title dragHandle">
         <!--<input type="text" spellcheck="false" class="typeMedia" rv-value="widget:title"><div class="remove">×</div>-->
             {widget:title} <div class="remove">×</div>
@@ -8,7 +10,7 @@
 
     <div class="widgetLeft">
         <div class='inlets'>
-            <div rv-each-inlet="widget:ins" rv-title="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
+            <div rv-each-inlet="widget:bodyIns" rv-title="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
         </div>
     </div>
     <div class="widgetBody">

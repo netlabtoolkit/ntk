@@ -11,6 +11,9 @@ define([
 function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView, WidgetSettingsView, Template, jqueryknob){
 	'use strict';
 
+	// done stays at 1023 this long - long enough to see, like Audio's.
+	var DONE_MS = 200;
+
 	return WidgetView.extend({
 		widgetEvents: {
 			'click .invert': 'toggleInvert',
@@ -29,6 +32,13 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		outs: [
 			// title is decorative, from: <widget model field>, to: <widget model field being listened to>
 			{title: 'out', from: 'in', to: 'out'},
+			// A header port (plans/control-flow.md): pulses 1023 for
+			// DONE_MS each time the input turns on - out rising past the
+			// middle of its range - so a button press can start a
+			// Scene/Audio/SpeechOut... with one pulse rather than a hold.
+			// With inv on, that's when it turns off. noChain: set by
+			// pulseDone, not by scale/invert/smoothing.
+			{title: 'done', from: 'done', to: 'done', header: true, noChain: true},
 		],
 		typeID: 'DigitalIn',
 		deviceMode: 'INPUT',
@@ -40,8 +50,16 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
 
+			// Read by onModelChange, which the set below already fires.
+			// Whether out was last on; checkDone doesn't count changes
+			// while a patch is loading, so one saved with the input on
+			// doesn't pulse.
+			this.lastOutOn = false;
+			this.doneTimer = null;
+
 			this.model.set({
 				title: 'DigitalIn',
+				done: 0,
 				easing: false,
 				easingAmount: 30,
 				smoothingAmount: 250,
@@ -96,7 +114,10 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// readable once the server explicitly calls
 			// setIOMode(pin, 'INPUT') to swap it for a five.Button - that
 			// round-trip has to be triggered here. Delayed so this.sources
-			// is populated (mapToModel runs after initialize()).
+			// is populated (mapToModel runs after initialize()) and a
+			// loaded patch's saved checkbox has been applied: like every
+			// pin-mode request, it only goes out while the checkbox is on
+			// (see switchToInputMode).
 			window.setTimeout(function() {
 				this.switchToInputMode();
 			}.bind(this), 3000);
@@ -124,6 +145,13 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		 */
 		switchToInputMode: function() {
 			if(this.sources[0] === undefined) { return; }
+			// The request makes the server open a connection to the
+			// device, so a DigitalIn with its checkbox off connected
+			// anyway - 3s after it was added, or when its pin or pull-up
+			// changed - and with the device off, NTK said it couldn't
+			// reach it (2026-11-05). enableDevice sends it when the
+			// checkbox is ticked, as AnalogOut's does.
+			if(this.model.get('active') !== true) { return; }
 
 			window.app.vent.trigger('Widget:hardwareSwitch', {
 				// Must be the full "type:host:port" hardware key (matching
@@ -161,6 +189,10 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 
 		onModelChange: function(model) {
 			var changed = model.changedAttributes();
+
+			if(changed && changed.out !== undefined) {
+				this.checkDone();
+			}
 
 			if(changed) {
 				if(changed.server) {
@@ -213,6 +245,54 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 				}
 
 			}
+		},
+		/**
+		 * checkDone - pulse done when out crosses the middle of the
+		 * output range going up. Compared with the last state seen, not
+		 * just "out is listed as changed": Backbone fires onModelChange
+		 * again with the same changes after a nested set (CLAUDE.md).
+		 *
+		 * @return {void}
+		 */
+		checkDone: function() {
+			if(app.server) { return; }
+			var floor = parseFloat(this.model.get('outputFloor')),
+				ceiling = parseFloat(this.model.get('outputCeiling'));
+			if(isNaN(floor)) { floor = 0; }
+			if(isNaN(ceiling)) { ceiling = 1023; }
+			var out = parseFloat(this.model.get('out'));
+			if(isNaN(out)) { return; }
+			var mid = (floor + ceiling) / 2,
+				on = ceiling >= floor ? out > mid : out < mid,
+				wasOn = this.lastOutOn,
+				controller = window.app.Patcher && window.app.Patcher.Controller;
+			this.lastOutOn = on;
+			if(controller && controller.loadingPatch) { return; }
+			if(!wasOn && on) { this.pulseDone(); }
+		},
+		/**
+		 * setFromModel - a patch saved mid-pulse stores done at 1023,
+		 * with no timer left to bring it back down, so done always
+		 * loads as 0.
+		 *
+		 * @param {object} model
+		 * @return {WidgetView} this view
+		 */
+		setFromModel: function(model) {
+			var result = WidgetView.prototype.setFromModel.call(this, model);
+			this.model.set('done', 0);
+			return result;
+		},
+		/**
+		 * pulseDone - done goes to 1023 and back to 0 after DONE_MS.
+		 *
+		 * @return {void}
+		 */
+		pulseDone: function() {
+			var self = this;
+			clearTimeout(this.doneTimer);
+			this.model.set('done', 1023);
+			this.doneTimer = setTimeout(function() { self.model.set('done', 0); }, DONE_MS);
 		},
 		getDeviceModelType: function() {return this.model.get('deviceType') === undefined ? 'ArduinoUno' : this.model.get('deviceType')},
 		getDeviceServerName: function() {
@@ -297,6 +377,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 		 * @return {void}
 		 */
 		onRemove: function() {
+			clearTimeout(this.doneTimer);
 			window.app.timingController.removeFrameCallback(this.localProcessSignalChain, this);
             window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
 			window.app.vent.off('serialPortList', this.onSerialPortList);
@@ -383,6 +464,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			//outputModel[this.model.get('outputMapping')] = this.model.get("out");
 			//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: outputModel });
 			window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelType, model: this.model.attributes});
+			this.switchToInputMode();
 
 			(switchBack === true) && (window.app.serverMode = true);
 		},

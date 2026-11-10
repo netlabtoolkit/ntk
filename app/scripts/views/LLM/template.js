@@ -1,5 +1,7 @@
 <div class="widgetAuthoring">
-    <div class="widgetTop typeAI">
+    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="inStart" alt="start" title="start: send the prompt when this rises past the threshold">&#9656;</div></div>
+    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="out2" alt="done" title="done: pulses when a reply arrives" rv-class-ctlflash="widget:done">&#9656;</div></div>
+    <div class="widgetTop typeAI" rv-class-ctlrunning="widget:calling">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
         </div>
@@ -7,7 +9,7 @@
 
     <div class="widgetLeft">
         <div class='inlets'>
-            <div rv-each-inlet="widget:ins" rv-alt="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
+            <div rv-each-inlet="widget:bodyIns" rv-alt="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
         </div>
     </div>
 
@@ -27,7 +29,7 @@
 
     <div class="widgetRight">
         <div class='outlets'>
-            <div class="outlet" rv-each-outlet="widget:outs" rv-alt="outlet.title" rv-data-field="outlet.to">&middot;</div>
+            <div class="outlet" rv-each-outlet="widget:bodyOuts" rv-alt="outlet.title" rv-data-field="outlet.to">&middot;</div>
         </div>
     </div>
 
@@ -40,10 +42,16 @@
                 <textarea class="promptInput database" data-field="in" rv-value="widget:in" rows="3" placeholder="Type a question or text, or wire something into the 'prompt' inlet."></textarea>
             </div>
             <div class="f wide autoSendRow">
-                <label class="checkRow"><input type="checkbox" rv-checked="widget:autoSend" /> auto-send on new prompt</label>
+                <label class="checkRow" title="with something wired to start, start alone sends"><input type="checkbox" rv-checked="widget:autoSend" /> auto-send on new prompt, when start isn't wired</label>
                 <span class="inlineMini" rv-show="widget:autoSend">
                     <label>settle (ms)</label>
                     <input class="moreParam autoSendDelay" type="text" pattern="[0-9]*" rv-value="widget:autoSendDelay">
+                </span>
+            </div>
+            <div class="f wide autoSendRow">
+                <span class="inlineMini" title="the start port sends when its value rises past this">
+                    <label>start threshold</label>
+                    <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold">
                 </span>
             </div>
 

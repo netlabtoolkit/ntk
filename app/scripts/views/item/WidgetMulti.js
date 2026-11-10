@@ -83,6 +83,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 
 			//this.model = new WidgetConfigModel(options);
 			this.model.set(options);
+			this.applyPortLayout();
 			this.model.set('server', app.server);
 
 			// A space typed or pasted before/after the device address
@@ -589,6 +590,52 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			this.cables.push({ map: mapping, model: fromModel, cable: cable, offsets: inletOffsets, sourceViewID: sourceViewID });
 		},
 		/**
+		 * Header ports (plans/control-flow.md): an `ins`/`outs` entry
+		 * with `header: true` is drawn on the title bar - start on the
+		 * left, done on the right - instead of in the body's port
+		 * column. Such a widget's template lists `widget:bodyIns` /
+		 * `widget:bodyOuts` (the rest) and writes its header ports
+		 * itself.
+		 *
+		 * A saved patch stores each widget's ins/outs, and setFromModel
+		 * puts the saved lists back - which would bring back a port
+		 * that has since moved to the header. So for a widget with
+		 * header ports the class's own lists always win. Widgets
+		 * without are left alone: GroveIn's outs come from its sensor
+		 * and must load as saved.
+		 *
+		 * @return {void}
+		 */
+		applyPortLayout: function() {
+			var isHeader = function(port) { return port.header; };
+			var ins = this.ins || [], outs = this.outs || [];
+			this.hasHeaderPorts = _.some(ins.concat(outs), isHeader);
+			if(!this.hasHeaderPorts) { return; }
+			this.model.set({
+				ins: ins,
+				outs: outs,
+				bodyIns: _.reject(ins, isHeader),
+				bodyOuts: _.reject(outs, isHeader),
+			});
+		},
+		/**
+		 * portOffsetY - where a cable meets one of this widget's ports,
+		 * worked out from the port's element the same way onDrop does
+		 * (its position plus 12). Only for widgets with header ports
+		 * (null otherwise): a patch saved before a port moved to the
+		 * header stores the old cable position, and PatchLoader uses
+		 * this to draw the cable to where the port is now.
+		 *
+		 * @param {string} field the port's data-field (in1, out1...)
+		 * @param {string} kind 'inlet' or 'outlet'
+		 * @return {number|null}
+		 */
+		portOffsetY: function(field, kind) {
+			if(!this.hasHeaderPorts) { return null; }
+			var el = this.$('.' + kind + '[data-field="' + field + '"]').first();
+			return el.length ? el.position().top + 12 : null;
+		},
+		/**
 		 * remove the widget from both the DOM and the controller
 		 *
 		 * @return {void}
@@ -848,6 +895,11 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 			if(outputs) {
 				for(var i=outputs.length-1; i>=0; i--) {
 					var output = outputs[i];
+					// An outlet the widget sets itself (DigitalIn's done
+					// pulse) skips the chain: scale would rescale it every
+					// frame, and it would share the smoother's and
+					// easing's state with the real outlet.
+					if(output.noChain) { continue; }
 					outputsObj[output.to] = this.model.get(output.from);
 
 					var outputField = outputsObj[output.to];
@@ -880,6 +932,7 @@ function( Backbone, rivets, WidgetConfigModel, WidgetTmpl, jqueryui, jquerytouch
 		setFromModel: function(model) {
 			this.$el.css({top: model.offsetTop, left: model.offsetLeft});
 			this.model.set(model);
+			this.applyPortLayout();
 
 			// TODO: an eleventh hour hack to make sure that active and activeOut is properly set
 			this.model.set('active', model.active);

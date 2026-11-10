@@ -1,4 +1,6 @@
 <div class="widgetAuthoring">
+    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="start" alt="start" title="start: counts one, like in1-in3">&#9656;</div></div>
+    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="done" alt="done" title="done: pulses when the count reaches max (min when counting down)" rv-class-ctlflash="widget:done">&#9656;</div></div>
     <div class="widgetTop typeLogic">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
@@ -7,7 +9,7 @@
 
     <div class="widgetLeft">
         <div class='inlets'>
-            <div rv-each-inlet="widget:ins" rv-alt="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
+            <div rv-each-inlet="widget:bodyIns" rv-title="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
         </div>
     </div>
 
@@ -27,7 +29,7 @@
 
     <div class="widgetRight">
         <div class='outlets'>
-            <div class="outlet" rv-each-outlet="widget:outs" rv-alt="outlet.title" rv-data-field="outlet.to">&middot;</div>
+            <div class="outlet" rv-each-outlet="widget:bodyOuts" rv-alt="outlet.title" rv-data-field="outlet.to">&middot;</div>
         </div>
     </div>
 

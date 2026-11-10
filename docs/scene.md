@@ -13,6 +13,7 @@ A Scene plays a sequence of things over time - a road crossing whose lights flas
 - [Cues](#Cues)
 - [Lines inside a cue](#Lines-inside-a-cue)
 - [The idle section](#The-idle-section)
+- [Start and done](#Start-and-done)
 - [Inlets and outlets](#Inlets-and-outlets)
 - [Settings in the more panel](#Settings-in-the-more-panel)
 - [The workers example](#The-workers-example)
@@ -59,6 +60,9 @@ A cue line is `cue` and a name, which shows in the widget while the cue plays. N
 | `cue NAME after 2s..6s` | After a random time between 2 and 6 s, different each time. |
 | `cue NAME when in1 high` | When the cue before it has finished and `in1` is above the threshold (`low`: below it) - straight away if it already is. |
 | `cue NAME when in1 low max 60s` | The same, but starts anyway after 60 s. |
+| `cue NAME when in1 rises` | When `in1` goes up past the threshold while this cue waits - a button press, or another widget's done pulse. A press during the cue before doesn't count, and neither does `in1` being high already. `falls`: when it comes back down. `max` works here too. |
+
+`high` and `low` are levels: they suit a sensor that stays on while something is there, like a train on the crossing. `rises` and `falls` are moments: they suit a press or a pulse, which is over in a fraction of a second.
 
 | Repeating | Does |
 |---|---|
@@ -90,11 +94,23 @@ Each line is a time and an action: `2s  gate to 90 in 3s`. The time counts from 
 
 The lines after `idle:` say how the scene looks when it isn't playing. When the patch opens, they're applied **instantly**, so a servo starts where the scene expects it. When the scene is stopped, they're **played**: the crossing's gate goes back up over 3 s rather than with a jerk. With no idle section, stopping freezes the outlets where they are.
 
+## Start and done
+
+The two small ▸ ports on the title bar chain a Scene with other steps:
+
+- **start** (left) - plays the scene from its first cue when its value rises above the threshold. Anything that sends 1023 can start it, including another widget's done.
+- **done** (right) - when the scene stops playing, sends 1023 for a fifth of a second, then 0, and flashes amber. It fires when the last cue finishes, or when the scene is stopped (the stop inlet, the ■ button, or start going low with that option on). A stopped scene plays its idle lines first, and done waits for them, so the next step starts once everything is back at rest. With no idle section, done fires as soon as it stops. A scene with `repeat` never finishes, so it only sends done when stopped.
+
+While the scene plays, the title bar glows amber - including while a stopped scene plays its idle lines, until done.
+
+Wire **done** into the **start** of the next step - a second Scene, a SpeechOut, an Audio clip - and it begins exactly when this scene ends, however long its cues waited for their sensors.
+
 ## Inlets and outlets
 
-- **start** - plays the scene from its first cue when it rises above the threshold. **stop** - stops it, playing the idle lines.
+- **start** - on the title bar (see above). **stop** - stops the scene, playing the idle lines.
 - **in1**, **in2** - read by `when`, `max` and `loop until`. Unwired, a `when` cue waits; click the flashing status to start it.
-- **out1-out4** - named by the `outs` line (hover over an outlet to see its name). An outlet named `running` sends 1 while the scene plays and 0 otherwise, e.g. to start a second Scene when this one ends.
+- **out1-out4** - named by the `outs` line (hover over an outlet to see its name). An outlet named `running` sends 1 while the scene plays and 0 otherwise - to keep something on for as long as the scene runs. To start something when the scene ends, use done.
+- **done** - on the title bar (see above).
 
 ## Settings in the more panel
 
@@ -103,6 +119,7 @@ The lines after `idle:` say how the scene looks when it isn't playing. When the 
 - **script** - checked as you type: a mistake is marked red in the line numbers and explained under the box; click it to go to that line. While the scene plays, the running lines are highlighted. The script takes effect when you click out of the box.
 - **threshold** - the level above which start, stop, in1 and in2 count as high (default 512).
 - **start over if start arrives while playing** - otherwise a new start is ignored until the scene has finished.
+- **stop if start arrives while playing** - press once to start, again to stop. The scene plays its idle lines, then sends done. Use this one with a start that comes as a short pulse, such as DigitalIn's done; the option below needs start held high. Only one of these first two can be on.
 - **stop when start goes below the threshold** - the scene plays only while start is held high, e.g. a button held down.
 
 ## The workers example

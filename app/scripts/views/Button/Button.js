@@ -12,6 +12,9 @@ define([
 function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalChainClasses){
     'use strict';
 
+	// done stays at 1023 this long - long enough to see, like DigitalIn's.
+	var DONE_MS = 200;
+
 	return WidgetView.extend({
 		// Define the inlets
 		ins: [
@@ -21,6 +24,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		outs: [
 			// title is decorative, from: <widget model field>, to: <widget model field being listened to>
 			{title: 'out', from: 'in', to: 'out'},
+			// A header port (plans/control-flow.md): pulses 1023 for
+			// DONE_MS on each press, so a click starts a Scene, Sequence,
+			// SpeechOut... with nothing but the screen - a start/done
+			// chain can be tried with no hardware. out stays for the
+			// level (high while held).
+			{title: 'done', from: 'done', to: 'done', header: true, noChain: true},
 		],
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {
@@ -65,8 +74,9 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 buttonFontSize: "30px",
                 buttonWidth: 200,
                 buttonHeight: 200,
-                
+                done: 0,
             });
+            this.doneTimer = null;
             
             this.stateHighlight = '#f8c885';
             
@@ -113,6 +123,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
                 this.$( ".theButton" ).mousedown(function() {
                     self.model.set('in', parseInt(self.model.get('outputCeiling'),10));
+                    self.pulseDone();
                     if(!app.server) {
                         self.$('.buttonOn').css('background-color',self.stateHighlight);
                         self.$('.buttonOff').css('background-color','#fff');
@@ -126,8 +137,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                     }
                 });
 
-                this.$( ".theButton" ).on('touchstart',function() {
+                this.$( ".theButton" ).on('touchstart',function(e) {
+                    // A touch is followed by a synthesized mousedown;
+                    // without this, one tap would pulse done twice.
+                    e.preventDefault();
                     self.model.set('in', parseInt(self.model.get('outputCeiling'),10));
+                    self.pulseDone();
                     if(!app.server) {
                         self.$('.buttonOn').css('background-color',self.stateHighlight);
                         self.$('.buttonOff').css('background-color','#fff');
@@ -161,6 +176,36 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                 
                 this.setStyle();
             }
+        },
+
+        /**
+         * setFromModel - a patch saved mid-pulse stores done at 1023,
+         * with no timer left to bring it back down, so done always loads
+         * as 0.
+         *
+         * @param {object} model
+         * @return {WidgetView} this view
+         */
+        setFromModel: function(model) {
+            var result = WidgetView.prototype.setFromModel.call(this, model);
+            this.model.set('done', 0);
+            return result;
+        },
+
+        /**
+         * pulseDone - done goes to 1023 and back to 0 after DONE_MS.
+         *
+         * @return {void}
+         */
+        pulseDone: function() {
+            var self = this;
+            clearTimeout(this.doneTimer);
+            this.model.set('done', 1023);
+            this.doneTimer = setTimeout(function() { self.model.set('done', 0); }, DONE_MS);
+        },
+
+        onRemove: function() {
+            clearTimeout(this.doneTimer);
         },
 
         imgMoved: function(e) {

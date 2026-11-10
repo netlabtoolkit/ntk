@@ -31,6 +31,9 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 
 	var OUT_FIELDS = ['out1', 'out2', 'out3', 'out4'];
 
+	// done stays at 1023 this long - long enough to see, like SpeechOut's.
+	var DONE_MS = 200;
+
 	function toNumber(value, fallback) {
 		var n = parseFloat(value);
 		return isNaN(n) ? fallback : n;
@@ -64,11 +67,15 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			// the mouse before the click arrives.
 			'mousedown .sceneErrors li': 'jumpToError',
 		},
+		// start / done are header ports (plans/control-flow.md). start
+		// plays from the first cue on rising above the threshold (same
+		// field as before, so saved cables keep working); done pulses
+		// 1023 for DONE_MS when the scene stops playing - its last cue
+		// finished, or it was stopped.
 		ins: [
-			// Plays from the first cue on rising above the threshold.
-			{title: 'start', to: 'start'},
+			{title: 'start', to: 'start', header: true},
 			{title: 'stop', to: 'stop'},
-			// Read only by "cue ... when in1 high/low".
+			// Read only by "cue ... when in1 high/low/rises/falls".
 			{title: 'in1', to: 'in1'},
 			{title: 'in2', to: 'in2'},
 		],
@@ -77,6 +84,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			{title: 'out2', from: 'out2', to: 'out2'},
 			{title: 'out3', from: 'out3', to: 'out3'},
 			{title: 'out4', from: 'out4', to: 'out4'},
+			{title: 'done', from: 'done', to: 'out5', header: true},
 		],
 		typeID: 'Scene',
 		className: 'scene',
@@ -92,12 +100,19 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			this.runner = null;
 			this.lastStart = NaN;
 			this.lastStop = NaN;
+			this.doneOwed = false;
+			this.doneTimer = null;
 
 			this.model.set({
 				title: 'Scene',
 				script: this.model.get('script') === undefined ? STARTER_SCRIPT : this.model.get('script'),
 				threshold: this.model.get('threshold') === undefined ? 512 : this.model.get('threshold'),
 				restartOnStart: !!this.model.get('restartOnStart'),
+				// A start arriving while it plays stops it (plays the idle
+				// lines): press once to start, again to stop - for start
+				// pulses, like another widget's done. Not with
+				// restartOnStart; ticking one unticks the other.
+				stopOnSecondStart: !!this.model.get('stopOnSecondStart'),
 				stopOnStartLow: !!this.model.get('stopOnStartLow'),
 				// Inlets. Unwired, in1/in2 aren't high or low, so a "when"
 				// cue waits - click its status to start it by hand.
@@ -106,12 +121,14 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 				in1: '--',
 				in2: '--',
 				out1: 0, out2: 0, out3: 0, out4: 0,
+				done: 0,
 				// Display only, rebuilt on every frame.
 				sceneCue: '',
 				sceneStatus: '',
 				sceneStatusTitle: '',
 				sceneProgress: 0,
 				scenePlaying: false,
+				sceneGlow: false,
 				sceneWaiting: false,
 				sceneHasError: false,
 				sceneErrors: [],
@@ -163,12 +180,16 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			if(!scene.ok) {
 				this.scene = scene;
 				this.runner = null;
+				this.doneOwed = false;
 				this.updateDisplay(Date.now());
 				return;
 			}
 			this.scene = scene;
 			this.runner = SceneScript.createRunner(scene);
 			this.runner.applyIdle(Date.now());
+			// A new script starts the scene over at idle; that isn't the
+			// scene finishing, so it doesn't send done.
+			this.doneOwed = false;
 
 			var names = {};
 			for(var i = 0; i < 4; i++) {
@@ -352,7 +373,14 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 		},
 
 		timeKeeper: function() {
-			if(!this.runner || this.isMonitored()) { return; }
+			if(this.isMonitored()) { this.wasMonitored = true; this.updateMonitoredDisplay(); return; }
+			if(this.wasMonitored) {
+				// done came from the board while monitoring; one left at
+				// 1023 would hold the next step's start high.
+				this.wasMonitored = false;
+				if(this.model.get('done') !== 0) { this.model.set('done', 0); }
+			}
+			if(!this.runner) { return; }
 			var now = Date.now();
 			this.runner.tick(now, this.inlets());
 			this.pushOutputs();
@@ -362,6 +390,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 		// Outlets only change when their value does, so a cable isn't
 		// sent the same value every frame.
 		pushOutputs: function() {
+			this.checkDone();
 			var changes = {};
 			for(var i = 0; i < 4; i++) {
 				var value = this.runner.outputs[i];
@@ -373,9 +402,96 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			if(!_.isEmpty(changes)) { this.model.set(changes); }
 		},
 
+		/**
+		 * checkDone - pulse done when the scene stops playing: its last
+		 * cue finished, or stop / the button stopped it. A stopped scene
+		 * plays its idle lines first (phase 'stopping'), and done waits
+		 * for them, so the next step starts once the scene is back at
+		 * rest. A scene that repeats never ends, so it only sends done
+		 * when stopped. Every change to the runner ends in pushOutputs,
+		 * which calls this.
+		 *
+		 * doneOwed: started since the last done. Only a run owes one -
+		 * the idle lines after an ended scene (start going low with that
+		 * option on) don't send a second.
+		 *
+		 * @return {void}
+		 */
+		checkDone: function() {
+			var phase = this.runner ? this.runner.phase : 'idle';
+			if(phase === 'waiting' || phase === 'playing') { this.doneOwed = true; }
+			else if(phase !== 'stopping' && this.doneOwed) {
+				this.doneOwed = false;
+				this.pulseDone();
+			}
+		},
+
+		/**
+		 * pulseDone - done goes to 1023 and back to 0 after DONE_MS.
+		 *
+		 * @return {void}
+		 */
+		pulseDone: function() {
+			var self = this;
+			clearTimeout(this.doneTimer);
+			this.model.set('done', 1023);
+			this.doneTimer = setTimeout(function() { self.model.set('done', 0); }, DONE_MS);
+		},
+
+		/**
+		 * updateMonitoredDisplay - in monitor mode the board runs the
+		 * scene, not this widget, so the display follows what the board
+		 * reports (standalone_interpreter.py's _scene_monitor, every
+		 * 0.3 s): monPhase (0 idle, 1 waiting, 2 playing, 3 stopping,
+		 * 4 ended), monCue (the cue's index) and monSecs (seconds into
+		 * the cue or idle lines; while waiting, seconds left, or -1).
+		 * Before, the widget sat at idle while the board played it.
+		 *
+		 * @return {void}
+		 */
+		updateMonitoredDisplay: function() {
+			var phases = ['idle', 'waiting', 'playing', 'stopping', 'ended'];
+			var phase = phases[parseInt(this.model.get('monPhase'), 10)] || 'idle',
+				secs = toNumber(this.model.get('monSecs'), 0),
+				scene = this.scene && this.scene.ok ? this.scene : null,
+				cue = scene ? scene.cues[parseInt(this.model.get('monCue'), 10)] : null;
+
+			var d = {sceneCue: '', sceneStatus: phase, sceneStatusTitle: 'Running on the board (monitor mode)',
+				sceneProgress: 0, scenePlaying: phase === 'waiting' || phase === 'playing', sceneWaiting: phase === 'waiting',
+				done: toNumber(this.model.get('out5'), 0)};
+			d.sceneGlow = d.scenePlaying || phase === 'stopping';
+			if((phase === 'waiting' || phase === 'playing') && cue) {
+				d.sceneCue = cue.label;
+				if(phase === 'waiting') {
+					var trig = cue.trigger, waitingFor = trig && trig.type === 'when' ? trig.inlet + ' ' + trig.level : '';
+					if(secs >= 0) { waitingFor += (waitingFor ? ' · ' : '') + secs.toFixed(1) + 's'; }
+					d.sceneStatus = 'wait ' + waitingFor;
+				} else {
+					d.sceneStatus = formatSeconds(secs * 1000) + ' / ' + formatSeconds(cue.length);
+					d.sceneProgress = cue.length > 0 ? Math.round(Math.min(1, secs * 1000 / cue.length) * 100) : 100;
+				}
+			}
+			else if(phase === 'stopping') {
+				d.sceneCue = 'idle';
+				d.sceneStatus = 'to idle';
+				var idleLength = scene ? scene.idleLength : 0;
+				d.sceneProgress = idleLength > 0 ? Math.round(Math.min(1, secs * 1000 / idleLength) * 100) : 100;
+			}
+			for(var i = 0; i < 4; i++) {
+				d['v' + (i + 1)] = shortValue(this.model.get(OUT_FIELDS[i]));
+			}
+			this.setRunLines(cue && (phase === 'waiting' || phase === 'playing') ? [cue.line] : [], {});
+
+			var changed = {};
+			_.each(d, function(value, key) {
+				if(this.model.get(key) !== value) { changed[key] = value; }
+			}, this);
+			if(!_.isEmpty(changed)) { this.model.set(changed); }
+		},
+
 		updateDisplay: function(now) {
 			var d = {sceneCue: '', sceneStatus: '', sceneStatusTitle: '', sceneProgress: 0,
-				scenePlaying: false, sceneWaiting: false};
+				scenePlaying: false, sceneGlow: false, sceneWaiting: false};
 			var runLines = [], runLinesLeft = {};
 
 			if(this.scene && !this.scene.ok) {
@@ -389,6 +505,9 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 				d.sceneCue = s.cue;
 				d.sceneProgress = Math.round(s.progress * 100);
 				d.scenePlaying = s.phase === 'waiting' || s.phase === 'playing';
+				// The title bar glows until done: through the idle lines
+				// after a stop, too.
+				d.sceneGlow = d.scenePlaying || (s.phase === 'stopping' && !!this.doneOwed);
 				if(s.phase === 'waiting') {
 					d.sceneWaiting = true;
 					d.sceneStatus = 'wait ' + s.waitingFor;
@@ -454,6 +573,15 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 				this.loadScript();
 			}
 
+			// What a start does while the scene plays: start over, or
+			// stop - one or the other.
+			if(changed.restartOnStart === true && this.model.get('stopOnSecondStart')) {
+				this.model.set('stopOnSecondStart', false);
+			}
+			if(changed.stopOnSecondStart === true && this.model.get('restartOnStart')) {
+				this.model.set('restartOnStart', false);
+			}
+
 			// start/stop only mean something when they arrive through a
 			// cable (WidgetMulti.syncWithSource marks those with
 			// updateNoTrigger) - not when a patch loads them.
@@ -461,15 +589,22 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			var threshold = toNumber(this.model.get('threshold'), 512);
 
 			if(changed.start !== undefined) {
-				var start = toNumber(changed.start, NaN);
-				if(start >= threshold && !(this.lastStart >= threshold)) {
+				var start = toNumber(changed.start, NaN),
+					rose = start >= threshold && !(this.lastStart >= threshold),
+					fell = start < threshold && this.lastStart >= threshold;
+				// Updated before acting: play/stop set the model, and
+				// Backbone runs this again with the same changes (CLAUDE.md)
+				// - a second start's stop would otherwise be seen as a
+				// fresh start and play again at once.
+				this.lastStart = start;
+				if(rose) {
 					var busy = this.runner && (this.runner.phase === 'waiting' || this.runner.phase === 'playing');
 					if(!busy || this.model.get('restartOnStart')) { this.play(); }
+					else if(this.model.get('stopOnSecondStart')) { this.stop(); }
 				}
 				// Optional: start falling below the threshold works like
 				// stop - run only while start is held high.
-				else if(start < threshold && this.lastStart >= threshold && this.model.get('stopOnStartLow')) { this.stop(); }
-				this.lastStart = start;
+				else if(fell && this.model.get('stopOnStartLow')) { this.stop(); }
 			}
 
 			if(changed.stop !== undefined) {
@@ -480,6 +615,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 		},
 
 		onRemove: function() {
+			clearTimeout(this.doneTimer);
 			window.app.timingController.removeFrameCallback(this.localTimeKeeperFunc, this);
 		},
 	});

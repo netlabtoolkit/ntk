@@ -30,11 +30,30 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		} catch(e) { return id; }
 	}
 
+	// done stays at 1023 this long - long enough to see, like SpeechOut's.
+	var DONE_MS = 200;
+	// Started and released with nothing said yet: stop listening if
+	// still nothing has been heard after this long.
+	var NO_SPEECH_MS = 10000;
+	// start held at least this long is hold-to-talk: releasing stops.
+	// Shorter - a click, or a done pulse (200 ms) - listens until a pause.
+	var HOLD_MS = 600;
+	// What the status line shows for each status.
+	var STATUS_LABEL = { starting: 'wait…', recording: 'speak now' };
+
 	return WidgetView.extend({
+		// start / done are header ports (plans/control-flow.md). start
+		// is the old 'trigger' inlet (same field): rising past the
+		// threshold starts listening. Held, it listens until it goes
+		// low, as before; released before anything was said (a pulse,
+		// e.g. SpeechOut's done, or a click on the button), it listens
+		// until the speaker pauses. done pulses when a transcript with
+		// words arrives, just after the text outlet changes.
 		ins: [
-			{title: 'trigger', to: 'in1'},
+			{title: 'start', to: 'in1', header: true},
 		],
 		outs: [
+			{title: 'done', from: 'done', to: 'out2', header: true},
 			{title: 'text', from: 'output', to: 'out1'},
 		],
 
@@ -53,6 +72,15 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
 
+			// Listening state, read by onModelChange (which the set below
+			// already fires) and onSpeechMessage.
+			this.startHeld = false;    // start high, or the button held down
+			this.pressedAt = 0;        // when start last went high
+			this.heardSpeech = false;  // words recognised since listening began
+			this.quietTimer = null;
+			this.noSpeechTimer = null;
+			this.doneTimer = null;
+
 			this.model.set({
 				title: 'SpeechIn',
 				in1: 0,
@@ -60,10 +88,13 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				partial: '',      // live in-progress text, body preview only
 				threshold: 512,
 				lastIn: -1,
+				done: 0,
+				pauseSeconds: 1.5, // a pause this long ends listening that start didn't hold open
 				locale: 'en-US',
 				recording: false, // button held / trigger high (the helper has been asked to listen)
 				live: false,      // the helper has confirmed the mic is actually open
 				status: 'idle',   // idle | starting | recording | transcribing | error | unavailable
+				statusLabel: 'idle', // what the status line shows - see STATUS_LABEL
 				statusText: '',
 			});
 		},
@@ -109,6 +140,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
 
 		onRemove: function() {
+			this.clearListenTimers();
+			clearTimeout(this.doneTimer);
 			if(this.unsubscribeSpeech) { this.unsubscribeSpeech(); }
 			if(window.ntkElectron && window.ntkElectron.speechQuit) {
 				window.ntkElectron.speechQuit(this.model.get('wid'));
@@ -124,11 +157,67 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				lastIn = parseFloat(this.model.get('lastIn'));
 
 			if(lastIn < threshold && input >= threshold) {
-				this.startRecording();
+				this.pressStart();
 			} else if(lastIn >= threshold && input < threshold) {
-				this.stopRecording();
+				this.releaseStart();
 			}
 			this.model.set('lastIn', input);
+		},
+
+		// ---- start: held, or a pulse ----
+
+		/**
+		 * pressStart / releaseStart - start rising and falling, from the
+		 * start port or the record button. Released after something was
+		 * said, listening stops at once (hold to talk). Released before
+		 * - a pulse, or a quick click - it carries on until the speaker
+		 * pauses (pauseSeconds), or until NO_SPEECH_MS pass in silence.
+		 *
+		 * @return {void}
+		 */
+		pressStart: function() {
+			this.startHeld = true;
+			this.pressedAt = Date.now();
+			this.startRecording();
+		},
+		releaseStart: function() {
+			this.startHeld = false;
+			if(!this.model.get('recording')) { return; }
+			// Held a while, or something was already said: hold-to-talk,
+			// so stop now. Not just "something was said" - with Bluetooth
+			// headphones the first words can take a second to show up,
+			// and a long hold then carried on listening after release
+			// (2026-11-05).
+			if(this.heardSpeech || Date.now() - this.pressedAt >= HOLD_MS) { this.stopRecording(); }
+			else { this.armQuietTimer(); }
+		},
+
+		// While start isn't holding listening open, each new bit of
+		// recognised speech restarts the pause countdown.
+		armQuietTimer: function() {
+			var self = this;
+			clearTimeout(this.quietTimer);
+			if(this.startHeld || !this.heardSpeech) { return; }
+			var pauseMs = (parseFloat(this.model.get('pauseSeconds')) || 1.5) * 1000;
+			this.quietTimer = setTimeout(function() { self.stopRecording(); }, pauseMs);
+		},
+
+		clearListenTimers: function() {
+			clearTimeout(this.quietTimer);
+			clearTimeout(this.noSpeechTimer);
+			this.quietTimer = this.noSpeechTimer = null;
+		},
+
+		/**
+		 * pulseDone - done goes to 1023 and back to 0 after DONE_MS.
+		 *
+		 * @return {void}
+		 */
+		pulseDone: function() {
+			var self = this;
+			clearTimeout(this.doneTimer);
+			this.model.set('done', 1023);
+			this.doneTimer = setTimeout(function() { self.model.set('done', 0); }, DONE_MS);
 		},
 
 		// ---- recording control (single entry points) ----
@@ -139,6 +228,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			if(!window.ntkElectron || !window.ntkElectron.speechStart) { return; }
 
 			var self = this;
+			this.heardSpeech = false;
+			this.clearListenTimers();
+			this.noSpeechTimer = setTimeout(function() {
+				if(!self.heardSpeech && !self.startHeld) { self.stopRecording(); }
+			}, NO_SPEECH_MS);
 			// 'starting' until the helper reports 'listening' (see
 			// onSpeechMessage) - the mic takes a moment to open, and
 			// showing 'recording' straight away invited talking into a
@@ -155,6 +249,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
 
 		stopRecording: function() {
+			this.clearListenTimers();
 			if(app.server || !this.model.get('recording')) { return; }
 			this.model.set({recording: false, live: false});
 			this.setStatus('transcribing', '');
@@ -181,6 +276,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 					break;
 				case 'partial':
 					this.model.set('partial', msg.text || '');
+					if(msg.text) {
+						this.heardSpeech = true;
+						this.armQuietTimer();
+					}
 					break;
 				case 'final':
 					this.model.set('partial', '');
@@ -191,8 +290,12 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 					}
 					this.model.set({recording: false, live: false});
 					this.setStatus('idle', '');
+					this.clearListenTimers();
+					// After the text, so whatever done starts sees it.
+					if(msg.text) { this.pulseDone(); }
 					break;
 				case 'error':
+					this.clearListenTimers();
 					this.model.set({recording: false, live: false});
 					this.setStatus('error', msg.message || 'error');
 					break;
@@ -210,16 +313,29 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
 
 		setStatus: function(status, text) {
-			this.model.set({status: status, statusText: text || ''});
+			this.model.set({status: status, statusLabel: STATUS_LABEL[status] || status, statusText: text || ''});
 		},
 
 		// ---- record button ----
 
+		// The button is start by hand: hold to talk, or click and speak.
+		// mouseleave also releases, so only act on a press made here.
+		// A click while it's listening on its own (after a click or a
+		// pulse) stops it - otherwise it couldn't be stopped by hand.
 		recordButtonDown: function() {
-			this.startRecording();
+			if(this.model.get('recording') && !this.startHeld) {
+				this.buttonStopped = true;
+				this.stopRecording();
+				return;
+			}
+			this.buttonDown = true;
+			this.pressStart();
 		},
 		recordButtonUp: function() {
-			this.stopRecording();
+			if(this.buttonStopped) { this.buttonStopped = false; return; }
+			if(!this.buttonDown) { return; }
+			this.buttonDown = false;
+			this.releaseStart();
 		},
 
 		// ---- locale dropdown (populated from the helper's supported set) ----

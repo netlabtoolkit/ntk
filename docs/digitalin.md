@@ -6,6 +6,23 @@ DigitalIn gets values from the digital input ports of a device (where an on/off 
 
 The values can also be inverted (e.g. 1023-0), smoothed out to get rid of noise in the values, and given easing to make changes in values seem to have momentum and be more natural.
 
+## Contents
+
+- [The done port](#The-done-port)
+- [Pull-up](#Pull-up)
+
+## The done port
+
+The small ▸ port on the right of the title bar sends a single pulse each time the input turns on: 1023 for a fifth of a second, then 0, and it flashes amber. Wire it into the **start** of a Scene, SpeechOut, Audio, Video, Sequence or LLM, and one press of a button starts it.
+
+The body's outlet is still the one to use for anything that follows the input itself - an LED that lights while the button is held, Audio's **Play** while held, or a Gate or Boolean. Use done when a press should start something and let it run to its end.
+
+- "Turns on" means the output rises past the middle of its range, so done follows the min and max you set, and smoothing.
+- With **inv** on, the output is flipped, so done fires when the input turns off - on a button's release.
+- Loading a patch with the input already on doesn't send a pulse.
+
+Turn the widget's dial past halfway to try it without hardware.
+
 ## Pull-up
 
 The **pull-up** checkbox in the widget's more panel depends on how your sensor is connected. It is on by default.

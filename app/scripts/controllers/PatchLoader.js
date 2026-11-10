@@ -75,11 +75,26 @@ function(app){
 				// If we have both it means that we are looking at a widget to widget mapping (not a device model)
 				if(modelSourceView && widgetView) {
 
+					// A cable to a port that has since moved to a
+					// widget's header is drawn to where the port is
+					// now, not where the patch saved it (see
+					// WidgetMulti's portOffsetY).
+					var offsets = mappings[i].offsets;
+					if(offsets) {
+						var destY = widgetView.portOffsetY ? widgetView.portOffsetY(mappings[i].map.destinationField, 'inlet') : null,
+							srcY = modelSourceView.portOffsetY ? modelSourceView.portOffsetY(mappings[i].map.sourceField, 'outlet') : null;
+						if(destY !== null || srcY !== null) {
+							offsets = JSON.parse(JSON.stringify(offsets));
+							if(destY !== null) { offsets.destination.y = destY; }
+							if(srcY !== null) { offsets.source.y = srcY; }
+						}
+					}
+
 					this.mapFunction({
 						model: modelSourceView.model,
 						IOMapping: mappings[i].map,
 						view: widgetView,
-						inletOffsets: mappings[i].offsets,
+						inletOffsets: offsets,
 						server: window.location.host == "localhost:9001" ? "127.0.0.1:9001" : window.location.host
 					}, true);
 				}

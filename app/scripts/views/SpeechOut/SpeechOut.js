@@ -15,14 +15,21 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 	var PREFERRED_APPLE_VOICE = 'com.apple.voice.premium.en-US.Zoe';
 	var QUALITY_ORDER = { premium: 0, enhanced: 1, 'default': 2 };
 	var QUALITY_LABEL = { premium: 'Premium', enhanced: 'Enhanced', 'default': 'Default' };
+	// How long done stays at 1023 - long enough to see, like Encoder's
+	// step outlet.
+	var DONE_MS = 200;
 
 	return WidgetView.extend({
+		// start / done are header ports (plans/control-flow.md): start
+		// speaks when its value rises past the threshold (it was the
+		// 'trigger' inlet, same field); done pulses 1023 for DONE_MS
+		// when speaking ends, so a chain can go on to the next step.
 		ins: [
-			{title: 'trigger', to: 'in1'},
+			{title: 'start', to: 'in1', header: true},
 			{title: 'text', to: 'in2'},
 		],
 		outs: [
-			{title: 'out1', from: 'output', to: 'out1'},
+			{title: 'done', from: 'done', to: 'out1', header: true},
 		],
 
 		widgetEvents: {
@@ -38,6 +45,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		initialize: function(options) {
 			WidgetView.prototype.initialize.call(this, options);
 
+			// Read by onModelChange, which the set below already fires.
+			this.lastSpeaking = false;
+			this.doneTimer = null;
+
 			this.model.set({
 				title: 'SpeechOut',
 				in1: 0,
@@ -46,6 +57,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 				rate: 0.5,
 				engine: '',        // 'apple' | 'web'
 				speaking: false,
+				done: 0,
 				lang: 'en-US',
 				dialect: 'en-US',
 				language: 6,
@@ -79,6 +91,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		},
 
 		onRemove: function() {
+			clearTimeout(this.doneTimer);
 			if(this.unsubscribeTts) { this.unsubscribeTts(); }
 			if(window.ntkElectron && window.ntkElectron.ttsQuit) {
 				window.ntkElectron.ttsQuit(this.model.get('wid'));
@@ -233,10 +246,43 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			this.model.set('voice', this.$('.voice').val());
 		},
 
+		/**
+		 * startWired - something is wired into the start port.
+		 *
+		 * @return {boolean}
+		 */
+		startWired: function() {
+			return _.some(this.sources, function(source) { return source.map && source.map.destinationField === 'in1'; });
+		},
+
+		/**
+		 * pulseDone - done goes to 1023 and back to 0 after DONE_MS. A
+		 * second end inside that time restarts the pulse.
+		 *
+		 * @return {void}
+		 */
+		pulseDone: function() {
+			var self = this;
+			clearTimeout(this.doneTimer);
+			this.model.set('done', 1023);
+			this.doneTimer = setTimeout(function() { self.model.set('done', 0); }, DONE_MS);
+		},
+
 		onModelChange: function(model) {
 			if(app.server || !this.model.get('domReady')) { return; }
 			var changed = model.changedAttributes();
 			if(!changed) { return; }
+
+			// Speaking ended - finished, stopped, or failed - so pulse
+			// done. Compared with the last state handled, not just
+			// "speaking is listed as changed": Backbone fires this again
+			// with the same changes after a nested set (CLAUDE.md).
+			var speaking = !!this.model.get('speaking');
+			if(speaking !== this.lastSpeaking) {
+				var ended = this.lastSpeaking && !speaking;
+				this.lastSpeaking = speaking;
+				if(ended) { this.pulseDone(); }
+			}
 
 			if(changed.in1 !== undefined) {
 				var input = parseFloat(this.model.get('in1')),
@@ -253,10 +299,14 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// then fires 'change' a second time with in2 still listed as
 			// changed - so compare against the text last handled, or every
 			// new text is spoken twice.
+			// Autoplay only while nothing is wired to start: wired, start
+			// says when to speak. Otherwise SpeechIn's text -> text plus
+			// its done -> start spoke every phrase twice - once for the
+			// new text, again for done a moment later (2026-11-05).
 			var text = this.model.get('in2');
 			if(changed.in2 !== undefined && text !== this.lastText) {
 				this.lastText = text;
-				if(this.model.get('autoPlay')) { this.speak(); }
+				if(this.model.get('autoPlay') && !this.startWired()) { this.speak(); }
 			}
 		},
 

@@ -1,4 +1,5 @@
 <div class="widgetAuthoring">
+    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="done" alt="done" title="done: pulses when the input turns on" rv-class-ctlflash="widget:done">&#9656;</div></div>
     <div class="widgetTop typeIO">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
@@ -38,7 +39,7 @@
     <div class="widgetRight">
             <!-- <div class="outlet" draggable="true"></div> -->
         <div class='outlets'>
-            <div class="outlet" rv-each-outlet="widget:outs" rv-title="outlet.title" rv-data-field="outlet.to"><div class="dot">&middot;</div></div>
+            <div class="outlet" rv-each-outlet="widget:bodyOuts" rv-title="outlet.title" rv-data-field="outlet.to"><div class="dot">&middot;</div></div>
         </div>
     </div>
     <div class="widgetBottom">

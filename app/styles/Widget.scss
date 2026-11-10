@@ -683,6 +683,11 @@ body.ntk-monitoring .monitorBlockOverlay {
     .typeAnimation {
     	background-color: #AED581;
     }
+    // Brown 300: a paler tint of the DCC category's #6D4C41 swatch
+    // (toolBar.scss), as the other type colours are of theirs.
+    .typeDCC {
+    	background-color: #A1887F;
+    }
     .typeLogic {
     	background-color: #64B5F6;
     }
@@ -1608,6 +1613,10 @@ body.ntk-monitoring .monitorBlockOverlay {
     }
 }
 
+@keyframes speechinWaitBlink {
+    from { box-shadow: 0 0 0 3px #ffb300; }
+    to   { box-shadow: 0 0 0 3px rgba(255, 179, 0, 0); }
+}
 @keyframes speechinRecordPulse {
     0%, 100% { background-color: #F25151; box-shadow: 0 0 0 0 rgba(242, 81, 81, 0.6); }
     50%      { background-color: #ff8080; box-shadow: 0 0 0 6px rgba(242, 81, 81, 0); }
@@ -1627,14 +1636,20 @@ body.ntk-monitoring .monitorBlockOverlay {
         margin: 8px auto 4px;
         cursor: pointer;
 
-        // Held, but the mic isn't open yet - dimmed, no pulse, so it's
-        // obvious when it's actually time to talk (.recording, below).
+        // The mic is still opening - not recording yet. A blinking amber
+        // ring and "wait…", so it's clear something is happening but it
+        // isn't time to talk; .recording (red, pulsing, "speak now") is.
+        // Dimming it instead read as "pressed, working" (2026-11-05).
         &.starting {
-            opacity: 0.45;
+            border-color: #ffb300;
+            animation: speechinWaitBlink 0.5s steps(2, jump-none) infinite;
         }
 
+        // Both classes are on while live (.starting follows "held",
+        // .recording "mic open"), so undo the amber ring here.
         &.recording {
             opacity: 1;
+            border-color: #8a2f2f;
             animation: speechinRecordPulse 1s ease-in-out infinite;
         }
     }
@@ -3200,4 +3215,47 @@ body.ntk-monitoring .monitorBlockOverlay {
             }
         }
     }
+}
+
+// Header ports (plans/control-flow.md): start on the left of the title
+// bar, done on the right - shorter and darker than the body's data
+// ports, with a small arrow. Each sits in an absolutely placed box so
+// the port itself keeps position:relative like every other port:
+// jQuery UI drags it by its top/left, and onDrop resets them to 0 to
+// measure the port, which would throw an absolutely placed port into
+// the widget's corner. The box's top (3px) centres the 20px port on
+// the 26px title bar.
+.widget {
+    .headerPorts {
+        position: absolute;
+        top: 3px;
+        width: 18px;
+        height: 20px;
+        z-index: 1;
+    }
+    .headerPorts.headerStart { left: 7px; }   // 25px port column - 18px
+    .headerPorts.headerDone { left: 123px; }  // 25 + 98px title bar
+
+    .headerPort.inlet, .headerPort.outlet {
+        width: 18px;
+        height: 20px;
+        margin: 0;
+        background-color: #444;
+        color: #fff;
+        font-size: 10px;
+        line-height: 20px;
+        text-align: center;
+    }
+    .headerPort.inlet { border-radius: 5px 0 0 5px; }
+    .headerPort.outlet { border-radius: 0 5px 5px 0; }
+    .headerPort.inlet.hover { background-color: #000; }
+    // done's pulse going out
+    .headerPort.ctlflash { background-color: #ffb300; }
+
+    // running: between start and done
+    .widgetTop.ctlrunning { animation: ctlRunning 1.2s ease-in-out infinite; }
+}
+@keyframes ctlRunning {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(255, 179, 0, 0.8), 0 0 5px 2px rgba(255, 179, 0, 0.35); }
+    50%      { box-shadow: 0 0 0 3px #ffb300, 0 0 12px 4px rgba(255, 179, 0, 0.7); }
 }

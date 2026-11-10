@@ -31,7 +31,7 @@ function(Backbone, rivets, WidgetView, Template, DccLoco){
 		],
 		typeID: 'DCCFunction',
 		className: 'dccFunction dccWidget',
-		categories: ['network'],
+		categories: ['dcc'],
 		template: _.template(Template),
 
 		initialize: function(options) {
