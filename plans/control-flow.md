@@ -1,4 +1,6 @@
-# Control flow: start/done and row-based widgets
+# Control flow: trigger/next and row-based widgets
+
+**Renamed 2026-11-11:** the ports are now labelled **trigger** (left) and **next** (right) everywhere people see them - port hover text, option wording, docs (`docs/trigger-and-next.md`). The code and saved patches still call them `start` and `done` (fields, `pulseDone`, the firmware), and this plan keeps the old names below.
 
 **Status:** scoped 2026-11-05. Built so far: start/done header ports on SpeechOut, SpeechIn and LLM (2026-11-05; SpeechIn's start listens while held, or until a pause after a pulse), and on Scene, Audio, Video, Sequence and DigitalIn (done only) (2026-11-09; see the table below for what each does), with the shared header-port support in `WidgetMulti.js` (`header: true` ports, `bodyIns`/`bodyOuts`, saved patches keep the code's port list, old cables redrawn by `PatchLoader.js`).
 

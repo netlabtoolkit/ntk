@@ -1,6 +1,6 @@
 <div class="widgetAuthoring">
-    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="start" alt="start" title="start: play from the first cue when this rises past the threshold">&#9656;</div></div>
-    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="out5" alt="done" title="done: pulses when the scene stops playing" rv-class-ctlflash="widget:done">&#9656;</div></div>
+    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="start" alt="trigger" title="trigger: play from the first cue when this rises past the threshold">&#9656;</div></div>
+    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="out5" alt="next" title="next: pulses when the scene stops playing" rv-class-ctlflash="widget:done">&#9656;</div></div>
     <div class="widgetTop typeAnimation" rv-class-ctlrunning="widget:sceneGlow">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
@@ -49,9 +49,9 @@
                 <li rv-each-err="widget:sceneErrors" rv-text="err" title="Click to go to this line"></li>
             </ul>
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
-            <input type="checkbox" rv-checked="widget:restartOnStart"> start over if start arrives while playing<br>
-            <input type="checkbox" rv-checked="widget:stopOnSecondStart" title="Press once to start, again to stop - for a start that comes as a pulse, like another widget's done. Plays the idle lines, then sends done."> stop if start arrives while playing<br>
-            <input type="checkbox" rv-checked="widget:stopOnStartLow" title="Like the stop inlet: plays the idle lines when start drops - so the scene runs only while start is held high (e.g. a button held down)"> stop when start goes below the threshold
+            <input type="checkbox" rv-checked="widget:restartOnStart"> start over if triggered while playing<br>
+            <input type="checkbox" rv-checked="widget:stopOnSecondStart" title="Trigger once to play, again to stop - for a trigger that comes as a pulse, like another widget's next. Plays the idle lines, then sends next."> stop if triggered again while playing<br>
+            <input type="checkbox" rv-checked="widget:stopOnStartLow" title="Like the stop inlet: plays the idle lines when trigger drops - so the scene runs only while trigger is held high (e.g. a button held down)"> stop when trigger goes below the threshold
             <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/scene/" target="_blank">Widget help</a>
         </div>

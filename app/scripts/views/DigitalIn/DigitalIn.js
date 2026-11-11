@@ -38,7 +38,7 @@ function(Backbone, rivets, SignalChainFunctions, SignalChainClasses, WidgetView,
 			// Scene/Audio/SpeechOut... with one pulse rather than a hold.
 			// With inv on, that's when it turns off. noChain: set by
 			// pulseDone, not by scale/invert/smoothing.
-			{title: 'done', from: 'done', to: 'done', header: true, noChain: true},
+			{title: 'next', from: 'done', to: 'done', header: true, noChain: true},
 		],
 		typeID: 'DigitalIn',
 		deviceMode: 'INPUT',

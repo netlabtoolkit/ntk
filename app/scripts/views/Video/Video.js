@@ -18,14 +18,14 @@ define([
 			// still plays only while held high. done pulses 1023 for
 			// DONE_MS when the clip plays to its end (never with loop on).
 			ins: [
-				{title: 'start', to: 'start', header: true},
+				{title: 'trigger', to: 'start', header: true},
 				{title: 'Play', to: 'play'},
 				{title: 'Speed', to: 'speed'},
 				{title: 'Time', to: 'time'},
 				{title: 'opacity', to: 'opacity'},
 			],
 			outs: [
-				{title: 'done', from: 'done', to: 'out1', header: true},
+				{title: 'next', from: 'done', to: 'out1', header: true},
 			],
 			typeID: 'Video',
 			categories: ['media'],

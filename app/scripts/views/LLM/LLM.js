@@ -145,11 +145,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// arrives, just after the text outlet changes. With start wired,
 		// auto-send is skipped - start says when to send.
 		ins: [
-			{title: 'start', to: 'inStart', header: true},
+			{title: 'trigger', to: 'inStart', header: true},
 			{title: 'prompt', to: 'in'},
 		],
 		outs: [
-			{title: 'done', from: 'done', to: 'out2', header: true},
+			{title: 'next', from: 'done', to: 'out2', header: true},
 			{title: 'text', from: 'output', to: 'out1'},
 		],
 

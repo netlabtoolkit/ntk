@@ -1,6 +1,6 @@
 <div class="widgetAuthoring">
-    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="start" alt="start" title="start: counts one, like in1-in3">&#9656;</div></div>
-    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="done" alt="done" title="done: pulses when the count reaches max (min when counting down)" rv-class-ctlflash="widget:done">&#9656;</div></div>
+    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="start" alt="trigger" title="trigger: counts one, like in1-in3">&#9656;</div></div>
+    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="done" alt="next" title="next: pulses when the count reaches max (min when counting down)" rv-class-ctlflash="widget:done">&#9656;</div></div>
     <div class="widgetTop typeLogic">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
@@ -37,8 +37,8 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label>increment</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:increment"><br>
-            <label>min</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:outputFloor"><br>
-            <label>max</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:outputCeiling"><br>
+            <label title="The first value a count reaches. To pulse next every N counts, set min 1 and max N.">min</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:outputFloor" title="The first value a count reaches. To pulse next every N counts, set min 1 and max N."><br>
+            <label title="next pulses when a count lands here; the next count wraps to min.">max</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:outputCeiling" title="next pulses when a count lands here; the next count wraps to min."><br>
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
             <label>count val</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:output">
             <hr>
