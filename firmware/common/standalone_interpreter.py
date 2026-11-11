@@ -1166,17 +1166,48 @@ def _pulse_init_timer(values, state, now):
         values['pulseHigh'] = lo + random.random() * (hi - lo + 1)
 
 
+# Tween.js's DONE_MS.
+TWEEN_DONE_HOLD_S = 0.2
+
+
 def _eval_tween(values, state, now):
+    """The trigger port (field inTrigger - 'start' is the start value)
+    plays start -> end on its rising edge and keeps playing when it
+    falls; 'in' plays only while held. next (field done, outlet out2)
+    pulses 1023 for TWEEN_DONE_HOLD_S when a tween reaches its end
+    value - not on a cancel, the return move, or with loop on, where
+    it plays again from the start instead."""
+    if _num(values.get('done'), 0.0) != 0 and now - state.get('done_at', 0) >= TWEEN_DONE_HOLD_S:
+        values['done'] = 0
+    values.setdefault('done', 0)
+
     threshold = _num(values.get('threshold'), 512.0)
     in_value = _num(values.get('in'))
     last_input = state.get('last_input', -1.0)
+
+    # The value the patch was saved with isn't an edge - as in NTK,
+    # only trigger rising while it runs plays.
+    trig = _num(values.get('inTrigger'), 0.0)
+    if _is_nan(trig):
+        trig = 0.0
+    if 'last_trigger' not in state:
+        state['last_trigger'] = trig
+    if trig >= threshold and state['last_trigger'] < threshold:
+        _tween_start(values, state, now, _num(values.get('start'), 0.0), _num(values.get('end'), 1023.0))
+    state['last_trigger'] = trig
+
+    # Tween.js's onRender: with loop on and nothing wired to in, it
+    # plays all the time.
+    if values.get('loop') and _is_nan(in_value) and not state.get('autostarted'):
+        state['autostarted'] = True
+        _tween_start(values, state, now, _num(values.get('start'), 0.0), _num(values.get('end'), 1023.0))
 
     if not _is_nan(in_value):
         if in_value >= threshold and last_input < threshold:
             _tween_start(values, state, now, _num(values.get('start'), 0.0), _num(values.get('end'), 1023.0))
         elif in_value < threshold and last_input >= threshold:
             if values.get('returnToStart'):
-                _tween_start(values, state, now, _num(values.get('output'), 0.0), _num(values.get('start'), 0.0))
+                _tween_start(values, state, now, _num(values.get('output'), 0.0), _num(values.get('start'), 0.0), forward=False)
             else:
                 state['running'] = False
         state['last_input'] = in_value
@@ -1191,10 +1222,18 @@ def _eval_tween(values, state, now):
         values['output'] = start + (end - start) * eased_t
         if t >= 1.0:
             state['running'] = False
+            if state.get('tween_forward'):
+                if values.get('loop'):
+                    _tween_start(values, state, now, _num(values.get('start'), 0.0), _num(values.get('end'), 1023.0))
+                else:
+                    values['done'] = 1023
+                    state['done_at'] = now
+    values['out2'] = values['done']
 
 
-def _tween_start(values, state, now, from_value, to_value):
+def _tween_start(values, state, now, from_value, to_value, forward=True):
     state['running'] = True
+    state['tween_forward'] = forward
     state['tween_start_time'] = now
     state['tween_from'] = from_value
     state['tween_to'] = to_value
@@ -1585,7 +1624,7 @@ OUTS_BY_TYPE = {
     'Count': [('output', 'out1'), ('done', 'done')],
     'Concat': [('out1', 'out1')],  # Concat writes out1 directly, no separate internal field
     'Pulse': [('output', 'out1')],
-    'Tween': [('output', 'out1')],
+    'Tween': [('output', 'out1'), ('done', 'out2')],
     'Splitter': [('outA', 'out1'), ('outB', 'out2'), ('outC', 'out3'), ('outD', 'out4')],
     'Sequence': [('output0', 'out0'), ('done', 'out4')],
     'Data': [('dataOut', 'out')],
