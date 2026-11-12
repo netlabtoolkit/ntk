@@ -134,7 +134,7 @@ PORTABLE_TYPE_IDS = frozenset([
     'IfThen', 'Boolean', 'Gate', 'Mix', 'Splitter', 'Process', 'Count',
     'Concat', 'Pulse', 'Sequence', 'Tween', 'Data', 'OSCIn', 'OSCOut',
     'CloudIn', 'CloudOut', 'Display', 'NeoPixel', 'Encoder',
-    'DCCThrottle', 'DCCFunction', 'Scene',
+    'DCCThrottle', 'DCCFunction', 'Scene', 'Cases',
 ])
 
 # Driven by the board's WiThrottle session, see the module docstring.
@@ -1104,9 +1104,38 @@ def _eval_display(values, state, now):
         values['line%dText' % i] = '%s%s%s' % (prepend, v_text, append)
 
 
+# Pulse.js's DONE_MS.
+PULSE_DONE_HOLD_S = 0.2
+
+
 def _eval_pulse(values, state, now):
+    """The trigger port (field inTrigger) plays a burst of triggerPulses
+    pulses (1 by default) on its rising edge, the first at once; next
+    (field done, outlet out2) pulses 1023 for PULSE_DONE_HOLD_S when the
+    burst's last cycle ends. in still pulses while held - but with the
+    trigger port wired and in unwired, there's no free-running."""
+    if _num(values.get('done'), 0.0) != 0 and now - state.get('done_at', 0) >= PULSE_DONE_HOLD_S:
+        values['done'] = 0
+    values.setdefault('done', 0)
+    values['out2'] = values['done']
+
     threshold = _num(values.get('threshold'), 512.0)
     in_value = _num(values.get('in'))
+
+    # The value the patch was saved with isn't an edge - as in NTK,
+    # only trigger rising while it runs plays.
+    trig = _num(values.get('inTrigger'), 0.0)
+    if _is_nan(trig):
+        trig = 0.0
+    if 'last_trigger' not in state:
+        state['last_trigger'] = trig
+    if trig >= threshold and state['last_trigger'] < threshold:
+        n = int(_num(values.get('triggerPulses'), 1.0)) if not _is_nan(_num(values.get('triggerPulses'), 1.0)) else 1
+        state['burst_left'] = max(1, n)
+        _pulse_burst_cycle(values, state, now)
+    state['last_trigger'] = trig
+
+    free = not _is_nan(in_value) or not state.get('trigger_wired')
     if 'firing' not in state:
         # First-ever tick for this widget. Default True, matching
         # Pulse.js's own initialize() (timerFiring: true, unconditionally,
@@ -1141,7 +1170,12 @@ def _eval_pulse(values, state, now):
             if (not values.get('randOut')) or values.get('randOutPulse'):
                 values['output'] = _num(values.get('pulseLow'), 0.0)
 
-    if firing:
+    # A trigger's burst runs instead of the free-running pulses.
+    if state.get('burst_left', 0) > 0:
+        _pulse_burst_tick(values, state, now)
+        return
+
+    if firing and free:
         timer_length = _num(values.get('timerLength'), 1000.0)
         high_pct = _num(values.get('timerHighPercentage'), 50.0)
         elapsed_ms = (now - state.get('timer_start', now)) * 1000.0
@@ -1151,6 +1185,37 @@ def _eval_pulse(values, state, now):
         if elapsed_ms > timer_length:
             values['output'] = _num(values.get('pulseHigh'), 1023.0)
             _pulse_init_timer(values, state, now)
+
+
+def _pulse_low(values):
+    if (not values.get('randOut')) or values.get('randOutPulse'):
+        values['output'] = _num(values.get('pulseLow'), 0.0)
+
+
+def _pulse_burst_cycle(values, state, now):
+    _pulse_init_timer(values, state, now)
+    state['burst_start'] = now
+    values['output'] = _num(values.get('pulseHigh'), 1023.0)
+
+
+def _pulse_burst_tick(values, state, now):
+    length = _num(values.get('timerLength'), 1000.0)
+    if _is_nan(length) or length < 1:
+        length = 1000.0
+    elapsed_ms = (now - state['burst_start']) * 1000.0
+    if elapsed_ms > length * (_num(values.get('timerHighPercentage'), 50.0) / 100.0):
+        _pulse_low(values)
+    if elapsed_ms > length:
+        state['burst_left'] -= 1
+        if state['burst_left'] > 0:
+            _pulse_burst_cycle(values, state, now)
+        else:
+            _pulse_low(values)
+            values['done'] = 1023
+            values['out2'] = 1023
+            state['done_at'] = now
+            if state.get('firing') and (not _is_nan(_num(values.get('in'))) or not state.get('trigger_wired')):
+                _pulse_init_timer(values, state, now)
 
 
 def _pulse_init_timer(values, state, now):
@@ -1166,17 +1231,48 @@ def _pulse_init_timer(values, state, now):
         values['pulseHigh'] = lo + random.random() * (hi - lo + 1)
 
 
+# Tween.js's DONE_MS.
+TWEEN_DONE_HOLD_S = 0.2
+
+
 def _eval_tween(values, state, now):
+    """The trigger port (field inTrigger - 'start' is the start value)
+    plays start -> end on its rising edge and keeps playing when it
+    falls; 'in' plays only while held. next (field done, outlet out2)
+    pulses 1023 for TWEEN_DONE_HOLD_S when a tween reaches its end
+    value - not on a cancel, the return move, or with loop on, where
+    it plays again from the start instead."""
+    if _num(values.get('done'), 0.0) != 0 and now - state.get('done_at', 0) >= TWEEN_DONE_HOLD_S:
+        values['done'] = 0
+    values.setdefault('done', 0)
+
     threshold = _num(values.get('threshold'), 512.0)
     in_value = _num(values.get('in'))
     last_input = state.get('last_input', -1.0)
+
+    # The value the patch was saved with isn't an edge - as in NTK,
+    # only trigger rising while it runs plays.
+    trig = _num(values.get('inTrigger'), 0.0)
+    if _is_nan(trig):
+        trig = 0.0
+    if 'last_trigger' not in state:
+        state['last_trigger'] = trig
+    if trig >= threshold and state['last_trigger'] < threshold:
+        _tween_start(values, state, now, _num(values.get('start'), 0.0), _num(values.get('end'), 1023.0))
+    state['last_trigger'] = trig
+
+    # Tween.js's onRender: with loop on and nothing wired to in, it
+    # plays all the time.
+    if values.get('loop') and _is_nan(in_value) and not state.get('autostarted'):
+        state['autostarted'] = True
+        _tween_start(values, state, now, _num(values.get('start'), 0.0), _num(values.get('end'), 1023.0))
 
     if not _is_nan(in_value):
         if in_value >= threshold and last_input < threshold:
             _tween_start(values, state, now, _num(values.get('start'), 0.0), _num(values.get('end'), 1023.0))
         elif in_value < threshold and last_input >= threshold:
             if values.get('returnToStart'):
-                _tween_start(values, state, now, _num(values.get('output'), 0.0), _num(values.get('start'), 0.0))
+                _tween_start(values, state, now, _num(values.get('output'), 0.0), _num(values.get('start'), 0.0), forward=False)
             else:
                 state['running'] = False
         state['last_input'] = in_value
@@ -1191,10 +1287,18 @@ def _eval_tween(values, state, now):
         values['output'] = start + (end - start) * eased_t
         if t >= 1.0:
             state['running'] = False
+            if state.get('tween_forward'):
+                if values.get('loop'):
+                    _tween_start(values, state, now, _num(values.get('start'), 0.0), _num(values.get('end'), 1023.0))
+                else:
+                    values['done'] = 1023
+                    state['done_at'] = now
+    values['out2'] = values['done']
 
 
-def _tween_start(values, state, now, from_value, to_value):
+def _tween_start(values, state, now, from_value, to_value, forward=True):
     state['running'] = True
+    state['tween_forward'] = forward
     state['tween_start_time'] = now
     state['tween_from'] = from_value
     state['tween_to'] = to_value
@@ -1551,6 +1655,234 @@ def _scene_done(values, state, phase, now):
     values['out5'] = values['done']
 
 
+# ---- Cases (Cases.js) ----
+#
+# One input tested against a list of rows, each with its own outlet
+# 'c' + row id. Same tests, matching and outlet modes as Cases.js; the
+# rows come from the saved patch and don't change on the board.
+
+CASES_PULSE_S = 0.2
+
+
+def _cases_number(v):
+    """Cases.js's isNumber(): a real number, or text that is one."""
+    if isinstance(v, bool) or v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return None if (v != v or v in (float('inf'), float('-inf'))) else float(v)
+    t = str(v).strip()
+    if t == '':
+        return None
+    try:
+        n = float(t)
+    except ValueError:
+        return None
+    if n != n or n in (float('inf'), float('-inf')):
+        return None
+    return n
+
+
+def _cases_words(text):
+    return [w.strip().lower() for w in str(text or '').split(',') if w.strip() != '']
+
+
+def _cases_numbers(text):
+    """Every -?digits(.digits) in text, like Cases.js's range() regex."""
+    out, i, t = [], 0, str(text or '')
+    n = len(t)
+    while i < n:
+        j = i
+        if t[j] == '-' and j + 1 < n and t[j + 1].isdigit():
+            j += 1
+        if j < n and t[j].isdigit():
+            k = j
+            while k < n and t[k].isdigit():
+                k += 1
+            if k + 1 < n and t[k] == '.' and t[k + 1].isdigit():
+                k += 1
+                while k < n and t[k].isdigit():
+                    k += 1
+            out.append(float(t[i:k]))
+            i = k
+        else:
+            i += 1
+    return out
+
+
+def _cases_range(text):
+    nums = _cases_numbers(text)
+    if len(nums) < 2:
+        return None
+    return (min(nums[0], nums[1]), max(nums[0], nums[1]))
+
+
+def _cases_word_char(c):
+    return ('a' <= c <= 'z') or ('0' <= c <= '9')
+
+
+def _cases_contains_word(text, w):
+    """w in text as whole words: 'hi' is in 'hi there', not in 'this'."""
+    start = 0
+    while True:
+        i = text.find(w, start)
+        if i < 0:
+            return False
+        before = text[i - 1] if i > 0 else ''
+        j = i + len(w)
+        after = text[j] if j < len(text) else ''
+        if not (before and _cases_word_char(before)) and not (after and _cases_word_char(after)):
+            return True
+        start = i + 1
+
+
+def _cases_test_row(row, value):
+    """Cases.js's testRow() for a row that isn't otherwise."""
+    test = row.get('test')
+    text = '' if value is None else str(value).strip().lower()
+    n = _cases_number(value)
+    v = _cases_number(row.get('value'))
+    m = False
+    if test == 'gt':
+        m = n is not None and v is not None and n > v
+    elif test == 'lt':
+        m = n is not None and v is not None and n < v
+    elif test == 'eq':
+        if n is not None and _cases_number(str(row.get('value') or '').strip()) is not None:
+            m = n == v
+        else:
+            m = text != '' and text == str(row.get('value') or '').strip().lower()
+    elif test == 'between':
+        r = _cases_range(row.get('value'))
+        m = r is not None and n is not None and r[0] <= n <= r[1]
+    elif text != '':
+        ws = _cases_words(row.get('value'))
+        if test == 'is':
+            m = text in ws
+        elif test == 'contains':
+            m = any(_cases_contains_word(text, w) for w in ws)
+        elif test == 'starts':
+            m = any(text.startswith(w) for w in ws)
+        elif test == 'ends':
+            m = any(text.endswith(w) for w in ws)
+    return (not m) if row.get('not') else m
+
+
+def _cases_matching(values):
+    """Cases.js's matchingIds(): the rows that match the input, top
+    down - only the first with match 'first'. Nothing for an empty
+    input, not even otherwise."""
+    value = values.get('in')
+    if value is None or str(value).strip() == '':
+        return []
+    first_only = values.get('match') != 'all'
+    ids, any_above = [], False
+    for row in values.get('rows') or []:
+        if row.get('test') == 'otherwise':
+            m = not any_above
+        else:
+            m = _cases_test_row(row, value)
+        if m:
+            if not first_only or not any_above:
+                ids.append(row.get('id'))
+            any_above = True
+    return ids
+
+
+def _cases_apply(values, state, ids, now, fresh):
+    """Cases.js's apply(): on/off sets each row's outlet 1023/0; pulse
+    sends 1023 for CASES_PULSE_S on rows that have just started
+    matching (all matching rows when fresh - a trigger); pass sends the
+    input on matching rows and leaves the rest."""
+    mode = values.get('mode') or 'onoff'
+    before = state.get('applied') or []
+    state['applied'] = list(ids)
+    value = values.get('in')
+    for row in values.get('rows') or []:
+        rid = row.get('id')
+        field = 'c' + str(rid)
+        on = rid in ids
+        if mode == 'pulse':
+            if on and (fresh or rid not in before):
+                values[field] = 1023
+                state.setdefault('pulse_until', {})[rid] = now + CASES_PULSE_S
+        elif mode == 'pass':
+            if on:
+                n = _cases_number(value)
+                values[field] = n if n is not None else value
+        else:
+            values[field] = 1023 if on else 0
+
+
+def _cases_evaluate(values, state, now, fresh=False):
+    """Cases.js's evaluate(), with hold: a new set of matching rows has
+    to last hold ms before the outlets change."""
+    ids = _cases_matching(values)
+    key = tuple(ids)
+    hold = _num(values.get('hold'), 0.0)
+    if _is_nan(hold) or hold < 0:
+        hold = 0.0
+    pending = state.get('pending')
+    if pending:
+        if pending[0] == key and not fresh:
+            return
+        state['pending'] = None
+    if not fresh and key == tuple(state.get('applied') or []):
+        # Pass-through still follows the input within the same rows.
+        if values.get('mode') == 'pass':
+            _cases_apply(values, state, ids, now, False)
+        return
+    if hold > 0:
+        state['pending'] = (key, now + hold / 1000.0, fresh)
+        return
+    _cases_apply(values, state, ids, now, fresh)
+
+
+def _eval_cases(values, state, now):
+    if 'started' not in state:
+        # Like Cases.js on a loaded patch: start with every outlet at 0,
+        # and the saved input and trigger as the baseline - nothing
+        # fires until a new value arrives.
+        state['started'] = True
+        state['applied'] = []
+        state['last_in'] = values.get('in')
+        state['last_trigger'] = _num(values.get('inTrigger'), 0.0)
+        for row in values.get('rows') or []:
+            values['c' + str(row.get('id'))] = 0
+
+    # Pulses that have run their fifth of a second.
+    pulse_until = state.get('pulse_until') or {}
+    for rid in list(pulse_until):
+        if now >= pulse_until[rid]:
+            values['c' + str(rid)] = 0
+            del pulse_until[rid]
+
+    # Trigger rising past the threshold: test the input once, as a new
+    # event (pulse mode pulses the matching rows even if they matched).
+    trig = _num(values.get('inTrigger'), 0.0)
+    if _is_nan(trig):
+        trig = 0.0
+    level = _num(values.get('threshold'), 512.0)
+    if _is_nan(level):
+        level = 512.0
+    if state['last_trigger'] < level and trig >= level:
+        _cases_evaluate(values, state, now, fresh=True)
+    state['last_trigger'] = trig
+
+    # A new input: test it - unless trigger is wired, which then says
+    # when to test.
+    value = values.get('in')
+    if value != state.get('last_in'):
+        state['last_in'] = value
+        if not state.get('trigger_wired'):
+            _cases_evaluate(values, state, now)
+
+    # A hold that has run out.
+    pending = state.get('pending')
+    if pending and now >= pending[1]:
+        state['pending'] = None
+        _cases_apply(values, state, _cases_matching(values), now, pending[2])
+
+
 BESPOKE_EVAL = {
     'Boolean': _eval_boolean,
     'Gate': _eval_gate,
@@ -1565,6 +1897,7 @@ BESPOKE_EVAL = {
     'Display': _eval_display,
     'Encoder': _eval_encoder,
     'Scene': _eval_scene,
+    'Cases': _eval_cases,
 }
 
 # outs[].{from,to} per type - what field each type's real computed value
@@ -1584,8 +1917,8 @@ OUTS_BY_TYPE = {
     'Mix': [('output', 'out1')],
     'Count': [('output', 'out1'), ('done', 'done')],
     'Concat': [('out1', 'out1')],  # Concat writes out1 directly, no separate internal field
-    'Pulse': [('output', 'out1')],
-    'Tween': [('output', 'out1')],
+    'Pulse': [('output', 'out1'), ('done', 'out2')],
+    'Tween': [('output', 'out1'), ('done', 'out2')],
     'Splitter': [('outA', 'out1'), ('outB', 'out2'), ('outC', 'out3'), ('outD', 'out4')],
     'Sequence': [('output0', 'out0'), ('done', 'out4')],
     'Data': [('dataOut', 'out')],
@@ -1719,6 +2052,12 @@ class StandaloneInterpreter:
             }
 
         self._build_steps(widgets, mappings)
+        # Pulse.js's triggerWired(): a cable into the trigger port stops
+        # a Pulse with in unwired from free-running.
+        for m in mappings:
+            wid = m.get('viewWID')
+            if wid in self.widgets and (m.get('map') or {}).get('destinationField') == 'inTrigger':
+                self.widgets[wid]['state']['trigger_wired'] = True
         self.loaded = True
         self.error = None
         self.print_topology()

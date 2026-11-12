@@ -40,14 +40,8 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 		this.widgetModels = new WidgetsCollection();
 		this.hardwareModelInstances = {};
 
-		// Grid used to place freshly-placed (not loaded-from-patch)
-		// widgets - see placeNewWidget()/findFreeGridSlots(). occupiedSlots
-		// maps a slot index to true; widgetSlots maps a widget's wid to the
-		// slot indices it holds, so removeWidget() can free exactly those
-		// slots again when that widget is individually deleted, instead of
-		// only ever noticing when the whole canvas goes empty.
-		this.occupiedSlots = {};
-		this.widgetSlots = {};
+		// New widgets go on a grid, in the first cells nothing on the
+		// canvas covers - see placeNewWidget()/findFreeGridSlots().
 
 		// Create a patch loader / saver for reloading in JSON "patches"
 		this.patchLoader = new PatchLoader({
@@ -674,17 +668,75 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 			return Math.max(1, Math.floor((canvasWidth - this.GRID_START_LEFT) / this.GRID_STEP_X));
 		},
 		/**
+		 * placementObstacles - where everything already on the canvas is,
+		 * in canvas coordinates: every other widget's box and its
+		 * detached display (Knob's dial, Button's button, ...).
+		 *
+		 * Read from the canvas itself, not from a record of where widgets
+		 * were placed: a widget dragged away frees its spot, and widgets
+		 * loaded from a patch count too. (A record of placements missed
+		 * both - a new widget landed on an AnalogIn that came from the
+		 * saved patch, 2026-11-12.)
+		 *
+		 * @param {object} view the widget being placed (left out)
+		 * @return {Array} rects {left, top, right, bottom}
+		 */
+		placementObstacles: function(view) {
+			var canvas = view.el.offsetParent || document.body,
+				origin = canvas.getBoundingClientRect(),
+				rects = [];
+
+			var add = function(el) {
+				var r = el.getBoundingClientRect();
+				if(!r.width || !r.height) { return; }   // hidden
+				rects.push({
+					left: r.left - origin.left + canvas.scrollLeft,
+					top: r.top - origin.top + canvas.scrollTop,
+					right: r.right - origin.left + canvas.scrollLeft,
+					bottom: r.bottom - origin.top + canvas.scrollTop,
+				});
+			};
+			_.each(this.widgets, function(other) {
+				if(other === view || !other.el) { return; }
+				add(other.el);
+				other.$('.detachedEl').each(function() { add(this); });
+			});
+			return rects;
+		},
+		/**
 		 * findFreeGridSlots - the first (row-major, top-left to
-		 * bottom-right) block of unoccupied grid cells big enough for a
-		 * widthxheight footprint, without wrapping mid-row.
+		 * bottom-right) block of grid cells big enough for a widthxheight
+		 * footprint that nothing on the canvas covers, without wrapping
+		 * mid-row.
 		 *
 		 * @param {number} width footprint width in grid cells
 		 * @param {number} height footprint height in grid cells
-		 * @return {Array} occupied slot indices, top-left cell first
+		 * @param {object} view the widget being placed
+		 * @return {Array} slot indices, top-left cell first
 		 */
-		findFreeGridSlots: function(width, height) {
+		findFreeGridSlots: function(width, height, view) {
 			var cols = this.getGridColumns(),
-				occupiedSlots = this.occupiedSlots;
+				obstacles = this.placementObstacles(view),
+				self = this;
+
+			// A cell is taken when something covers a real share of the
+			// room a widget needs in it - more than a fifth. A widget
+			// dragged roughly into the next cell, still overlapping this
+			// one's edge, leaves this one free (Phil, 2026-11-12: drop a
+			// widget, move it along, and the next one should go where the
+			// first one was).
+			var taken = function(index) {
+				var left = self.GRID_START_LEFT + (index % cols) * self.GRID_STEP_X,
+					top = self.GRID_START_TOP + Math.floor(index / cols) * self.GRID_STEP_Y,
+					right = left + self.GRID_STEP_X - 30,
+					bottom = top + self.GRID_STEP_Y - 30,
+					area = (right - left) * (bottom - top);
+				return _.some(obstacles, function(o) {
+					var w = Math.min(o.right, right) - Math.max(o.left, left),
+						h = Math.min(o.bottom, bottom) - Math.max(o.top, top);
+					return w > 0 && h > 0 && w * h > area * 0.2;
+				});
+			};
 
 			for(var start = 0; ; start++) {
 				var row0 = Math.floor(start / cols),
@@ -701,7 +753,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 					for(var c = 0; c < width && fits; c++) {
 						var index = (row0 + r) * cols + (col0 + c);
 
-						if(occupiedSlots[index]) {
+						if(taken(index)) {
 							fits = false;
 							break;
 						}
@@ -724,10 +776,9 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 		 * dragged independently of the small widget box) that can be far
 		 * larger than the widget box itself.
 		 *
-		 * Slots are tracked per-widget (this.widgetSlots) so
-		 * removeWidget() can free exactly this widget's slots again when
-		 * it's individually deleted - the next widget placed can then
-		 * reuse that same spot, rather than the grid only ever growing.
+		 * A spot is free when nothing on the canvas covers it right now
+		 * (placementObstacles), so a spot left by a widget that was moved
+		 * or deleted is used again.
 		 *
 		 * @param {object} view the widget view, already rendered and in
 		 *   the DOM, with its wid already assigned
@@ -739,7 +790,7 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 				beside = this.DETACHED_DISPLAY_BESIDE[view.typeID],
 				cells = reservesExtraGridSpace ? 2 : 1,
 				// A display beside the widget takes the next cell along.
-				slots = beside ? this.findFreeGridSlots(Math.min(2, this.getGridColumns()), 1) : this.findFreeGridSlots(cells, cells),
+				slots = beside ? this.findFreeGridSlots(Math.min(2, this.getGridColumns()), 1, view) : this.findFreeGridSlots(cells, cells, view),
 				cols = this.getGridColumns(),
 				topLeftRow = Math.floor(slots[0] / cols),
 				topLeftCol = slots[0] % cols,
@@ -747,9 +798,6 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 					left: this.GRID_START_LEFT + topLeftCol * this.GRID_STEP_X,
 					top: this.GRID_START_TOP + topLeftRow * this.GRID_STEP_Y,
 				};
-
-			_.each(slots, function(slot) { this.occupiedSlots[slot] = true; }, this);
-			this.widgetSlots[view.model.get('wid')] = slots;
 
 			view.$el.css({left: position.left, top: position.top});
 			// width: 148 matches the same hardcoded value WidgetMulti sets
@@ -837,16 +885,6 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 			this.widgets = _.reject(this.widgets, function(view) { return widgetView === view; });
 			this.widgetModels.remove(widgetView.model);
 
-			// Free this widget's placement-grid slots (see
-			// placeNewWidget()) so the next widget placed can reuse this
-			// exact spot instead of the grid only ever growing.
-			var widgetKey = widgetView.model.get('wid'),
-				vacatedSlots = this.widgetSlots[widgetKey];
-
-			if(vacatedSlots) {
-				_.each(vacatedSlots, function(slot) { delete this.occupiedSlots[slot]; }, this);
-				delete this.widgetSlots[widgetKey];
-			}
 
 			// Get any mappings related to this widget
 			var widgetID = widgetView.model.get('wid');

@@ -27,6 +27,8 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 	var OUT_FIELDS = ['out1', 'out2', 'out3', 'out4'];
 	// Text the warm-up decides on: anything short does.
 	var WARM_TEXT = 'hello';
+	// next stays at 1023 this long - long enough to see, like LLM's.
+	var DONE_MS = 200;
 
 	// Generate: which model writes the questions, before one is picked.
 	// A model picked in this or any Decide widget is remembered per
@@ -68,7 +70,14 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 			'click .decideTests li': 'runTestPhrase',
 			'click .decideTestAll': 'testAll',
 		},
+		// trigger / next are header ports (docs/trigger-and-next.md), as
+		// on LLM. trigger rising past 'triggerThreshold' decides on the
+		// current text, like the decide button; with trigger wired,
+		// "decide when the text changes" is off - trigger alone decides.
+		// next pulses 1023 for DONE_MS when answers reach the outlets -
+		// not on an error or a cancel. ('threshold' is the confidence.)
 		ins: [
+			{title: 'trigger', to: 'inTrigger', header: true},
 			{title: 'text', to: 'in'},
 		],
 		outs: [
@@ -76,6 +85,7 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 			{title: 'out2', from: 'out2', to: 'out2'},
 			{title: 'out3', from: 'out3', to: 'out3'},
 			{title: 'out4', from: 'out4', to: 'out4'},
+			{title: 'next', from: 'done', to: 'out5', header: true},
 		],
 		sources: [],
 		typeID: 'Decide',
@@ -106,6 +116,8 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 			this._lastDecision = null;
 			this._testResults = {};
 			this._testing = false;
+			this._lastTrigger = 0;
+			this._doneTimer = null;
 
 			var get = function(field, fallback) {
 				var v = this.model.get(field);
@@ -120,6 +132,9 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 				threshold: get('threshold', 0.5),
 				gate: get('gate', true),
 				autoDecide: get('autoDecide', true),
+				inTrigger: 0,        // the trigger port
+				triggerThreshold: get('triggerThreshold', 512),
+				done: 0,             // the next port - 1023 for DONE_MS when answers arrive
 				// The spike: a decision takes 0.3-0.8 s, so don't send one
 				// for every word of a sentence still arriving.
 				pause: get('pause', 400),
@@ -199,6 +214,7 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 			if(this._warmTimer) { clearTimeout(this._warmTimer); }
 			if(this._genTimer) { clearInterval(this._genTimer); }
 			if(this._applyTimer) { clearTimeout(this._applyTimer); }
+			clearTimeout(this._doneTimer);
 			this.cancelCall();
 		},
 
@@ -212,7 +228,7 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 				this._restoring = false;
 			}
 			if(this._pauseTimer) { clearTimeout(this._pauseTimer); this._pauseTimer = null; }
-			this.model.set('busy', false);
+			this.model.set({busy: false, done: 0});   // done: a patch saved mid-pulse
 			this.setStatus('', '', false);
 			this.enableWarm();
 			return this;
@@ -408,6 +424,7 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 						return;
 					}
 					this.applyAnswers(parsed, res.answers);
+					this.pulseDone();
 					this.markTest(text, parsed, res.answers);
 					this.setStatus(res.ms + ' ms', 'How long the decision took', false);
 				}
@@ -415,6 +432,27 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 				this._pending = false;
 				if(again) { this.decide(true); }
 			}.bind(this));
+		},
+
+		/**
+		 * triggerWired - something is wired into the trigger port.
+		 *
+		 * @return {boolean}
+		 */
+		triggerWired: function() {
+			return _.some(this.sources, function(source) { return source.map && source.map.destinationField === 'inTrigger'; });
+		},
+
+		/**
+		 * pulseDone - next goes to 1023 and back to 0 after DONE_MS.
+		 *
+		 * @return {void}
+		 */
+		pulseDone: function() {
+			var self = this;
+			clearTimeout(this._doneTimer);
+			this.model.set('done', 1023);
+			this._doneTimer = setTimeout(function() { self.model.set('done', 0); }, DONE_MS);
 		},
 
 		shortError: function(res) {
@@ -800,9 +838,22 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 
 		// ---- model changes ----
 
-		onModelChange: function(model) {
+		onModelChange: function(model, options) {
 			var changed = model.changedAttributes();
 			if(!changed) { return; }
+
+			// trigger rising past its threshold decides, like the button.
+			// Compared with the last value handled, not just "listed as
+			// changed": a nested set() re-reports the same change
+			// (CLAUDE.md). Only a value arriving through a cable counts
+			// (updateNoTrigger) - not one a patch loads.
+			if(changed.inTrigger !== undefined && options && options.updateNoTrigger) {
+				var trig = parseFloat(this.model.get('inTrigger')) || 0;
+				var trigThreshold = toNumber(this.model.get('triggerThreshold'), 512);
+				var rose = this._lastTrigger < trigThreshold && trig >= trigThreshold;
+				this._lastTrigger = trig;
+				if(rose) { this.decide(false); }
+			}
 
 			// Settings that decide which answers reach the outlets: apply
 			// them to the last answers now, rather than at the next text.
@@ -832,7 +883,8 @@ function(Backbone, rivets, WidgetView, Template, DecideScript){
 				var text = this.currentText();
 				if(text !== this._lastText) {
 					this._lastText = text;
-					if(this.model.get('autoDecide') && text) { this.schedule(); }
+					// Not while trigger is wired: trigger says when.
+					if(this.model.get('autoDecide') && text && !this.triggerWired()) { this.schedule(); }
 				}
 			}
 		},

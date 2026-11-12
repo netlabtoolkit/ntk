@@ -101,10 +101,21 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
         return 0.5 * (2 - Math.pow(2 * (1 - p), gamma));
     }
 
+    // next stays at 1023 this long - long enough to see, like Sequence's.
+    var DONE_MS = 200;
+
 	return WidgetView.extend({
 		// Map inputs to model
+		// trigger / next are header ports (docs/trigger-and-next.md).
+		// trigger plays start -> end when it rises past the threshold and
+		// keeps playing when it falls, so another widget's next pulse can
+		// play it; 'in' still plays only while held. next pulses 1023 for
+		// DONE_MS when a tween reaches its end value, whichever started
+		// it - not on a cancel, the return move, or with loop on. The
+		// trigger field is 'inTrigger' because 'start' is the start value.
 		ins: [
 			// title: decorative, to: <widget model field>
+			{title: 'trigger', to: 'inTrigger', header: true},
 			{title: 'in', to: 'in'},
             {title: 'Duration', to: 'duration'},
             {title: 'Start', to: 'start'},
@@ -113,6 +124,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		outs: [
 			// title: decorative, from: <widget model field>, to: <widget model field being listened to>
 			{title: 'out1', from: 'output', to: 'out1'},
+			{title: 'next', from: 'done', to: 'out2', header: true},
 		],
 		sources: [],
 		typeID: 'Tween',
@@ -124,11 +136,17 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 
 			// Call the superclass constructor
 			WidgetView.prototype.initialize.call(this, options);
-            
+
+			// Read by onModelChange, which the set below already fires.
+			this.lastTrigger = 0;
+			this.doneTimer = null;
+
             // Call any custom DOM events here
             this.model.set({
                 title: 'Tween',
                 in: '--',
+                inTrigger: 0,        // the trigger port
+                done: 0,             // the next port - 1023 for DONE_MS when a tween reaches its end
 				output: 0,
                 duration: 2000,
                 start: 0,
@@ -179,11 +197,43 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             }
 		},
         
-        onModelChange: function(model) {
+        onRemove: function() {
+            clearTimeout(this.doneTimer);
+            this.$(".animateDiv").velocity("stop");
+        },
+
+        setFromModel: function(model) {
+            var result = WidgetView.prototype.setFromModel.call(this, model);
+            this.model.set('done', 0);   // a patch saved mid-pulse
+            return result;
+        },
+
+        onModelChange: function(model, options) {
+            // trigger rising past the threshold plays start -> end from
+            // the beginning. Compared with the last value handled, not
+            // just "listed as changed": Backbone fires this again with
+            // the same changes after a nested set (CLAUDE.md). Only a
+            // value arriving through a cable counts (updateNoTrigger),
+            // as in Sequence - not one a patch loads.
+            if(model.changedAttributes().inTrigger !== undefined && options && options.updateNoTrigger) {
+                var trig = parseFloat(this.model.get('inTrigger')) || 0;
+                var trigThreshold = parseFloat(this.model.get('threshold'));
+                if (isNaN(trigThreshold)) { trigThreshold = 512; }
+                var rose = this.lastTrigger < trigThreshold && trig >= trigThreshold;
+                this.lastTrigger = trig;
+                if (rose) {
+                    this.$(".animateDiv").velocity("stop");
+                    this.model.set('animationRunning',false);
+                    this.runAnimation();
+                }
+            }
             if(model.changedAttributes().in !== undefined) {
                 
                 var input = parseFloat(this.model.get('in'));
-                var lastInput = this.model.get('lastInput');
+                // An unwired in ('--') leaves NaN here; count it as low,
+                // or the first rise after wiring is missed.
+                var lastInput = parseFloat(this.model.get('lastInput'));
+                if (isNaN(lastInput)) { lastInput = -1; }
                 var threshold = parseFloat(this.model.get('threshold'));
 
                 if (input >= threshold && lastInput < threshold) {
@@ -279,6 +329,8 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
                         loop: this.model.get('loop'),
                         complete: function() {
                             self.model.set('animationRunning',false);
+                            // Reached end - with loop on this never runs.
+                            self.pulseDone();
                         },
                     });
 
@@ -287,6 +339,18 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
             }
         },
         
+        /**
+         * pulseDone - next goes to 1023 and back to 0 after DONE_MS.
+         *
+         * @return {void}
+         */
+        pulseDone: function() {
+            var self = this;
+            clearTimeout(this.doneTimer);
+            this.model.set('done', 1023);
+            this.doneTimer = setTimeout(function() { self.model.set('done', 0); }, DONE_MS);
+        },
+
         returnAnimation: function() {
             if ((app.server && app.serverMode) || (!app.server && !app.serverMode)) {
                 var duration = parseFloat(this.model.get('duration'));

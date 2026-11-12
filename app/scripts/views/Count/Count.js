@@ -21,7 +21,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// A header port (plans/control-flow.md): rising past the
 			// threshold counts one, like in1-in3 - so another widget's
 			// done can step the count along.
-			{title: 'start', to: 'start', header: true},
+			{title: 'trigger', to: 'start', header: true},
 			{title: 'in1', to: 'in1'},
 			{title: 'in2', to: 'in2'},
             {title: 'in3', to: 'in3'},
@@ -37,7 +37,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// DONE_MS when a count arrives at max (at min, counting down
 			// with a negative increment) - "after three presses, start
 			// the scene". With min 1 and max 3 it fires every third count.
-			{title: 'done', from: 'done', to: 'done', header: true, noChain: true},
+			{title: 'next', from: 'done', to: 'done', header: true, noChain: true},
 		],
 		sources: [],
 		typeID: 'Count',

@@ -1,6 +1,6 @@
 <div class="widgetAuthoring">
-    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="in1" alt="start" title="start: speak when this rises past the threshold">&#9656;</div></div>
-    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="out1" alt="done" title="done: pulses when speaking ends" rv-class-ctlflash="widget:done">&#9656;</div></div>
+    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="in1" alt="trigger" title="trigger: speak when this rises past the threshold">&#9656;</div></div>
+    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="out1" alt="next" title="next: pulses when speaking ends" rv-class-ctlflash="widget:done">&#9656;</div></div>
     <div class="widgetTop typeAI" rv-class-ctlrunning="widget:speaking">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
@@ -35,8 +35,8 @@
             <input class="rate" type="range" min="0.2" max="0.9" step="0.05" rv-value="widget:rate"><br>
             <label class="wide-label">threshold</label>
             <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
-            <label class="checkRow"><input type="checkbox" rv-checked="widget:autoPlay" /> autoplay when start isn't wired</label>
-            <label class="checkRow"><input type="checkbox" rv-checked="widget:autoCancel" /> autocancel when start goes low</label>
+            <label class="checkRow"><input type="checkbox" rv-checked="widget:autoPlay" /> autoplay when trigger isn't wired</label>
+            <label class="checkRow"><input type="checkbox" rv-checked="widget:autoCancel" /> autocancel when trigger goes low</label>
             <label>text</label>
             <textarea class="database" rv-value="widget:in2" rows="3" cols="70"></textarea>
             <hr>

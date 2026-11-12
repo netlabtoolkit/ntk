@@ -3,4 +3,12 @@
 	.title {
 		
 	}
+
+	// Time left until next while triggered pulses play - empty otherwise.
+	.pulseCountdown {
+		margin-top: 4px;
+		font-size: 13px;
+		color: #b07a1c;
+		min-height: 16px;
+	}
 }

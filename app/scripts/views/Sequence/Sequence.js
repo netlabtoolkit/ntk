@@ -27,7 +27,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// started it; a cancelled or looping sequence doesn't send it.
 		ins: [
 			// title: decorative, to: <widget model field>
-			{title: 'start', to: 'inStart', header: true},
+			{title: 'trigger', to: 'inStart', header: true},
 			{title: 'in1', to: 'in0'},
 			{title: 'in2', to: 'in1'},
             {title: 'in3', to: 'in2'},
@@ -36,7 +36,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		outs: [
 			// title: decorative, from: <widget model field>, to: <widget model field being listened to>
 			{title: 'out1', from: 'output0', to: 'out0'},
-			{title: 'done', from: 'done', to: 'out4', header: true},
+			{title: 'next', from: 'done', to: 'out4', header: true},
             /*{title: 'out1', from: 'output1', to: 'out1'},
             {title: 'out1', from: 'output2', to: 'out2'},
             {title: 'out1', from: 'output3', to: 'out3'},*/

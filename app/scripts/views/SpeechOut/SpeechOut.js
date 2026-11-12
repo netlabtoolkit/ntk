@@ -25,11 +25,11 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// 'trigger' inlet, same field); done pulses 1023 for DONE_MS
 		// when speaking ends, so a chain can go on to the next step.
 		ins: [
-			{title: 'start', to: 'in1', header: true},
+			{title: 'trigger', to: 'in1', header: true},
 			{title: 'text', to: 'in2'},
 		],
 		outs: [
-			{title: 'done', from: 'done', to: 'out1', header: true},
+			{title: 'next', from: 'done', to: 'out1', header: true},
 		],
 
 		widgetEvents: {

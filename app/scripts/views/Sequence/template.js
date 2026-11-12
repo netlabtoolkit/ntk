@@ -1,6 +1,6 @@
 <div class="widgetAuthoring">
-    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="inStart" alt="start" title="start: play the sequence chosen in 'start plays' when this rises past the threshold">&#9656;</div></div>
-    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="out4" alt="done" title="done: pulses when a sequence without loop finishes" rv-class-ctlflash="widget:done">&#9656;</div></div>
+    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="inStart" alt="trigger" title="trigger: play the sequence chosen in 'trigger plays' when this rises past the threshold">&#9656;</div></div>
+    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="out4" alt="next" title="next: pulses when a sequence without loop finishes" rv-class-ctlflash="widget:done">&#9656;</div></div>
     <div class="widgetTop typeAnimation" rv-class-ctlrunning="widget:animationRunning">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
@@ -41,8 +41,8 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label>threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
-            <label title="which sequence the start port (on the title bar) plays">start plays</label>
-            <select class="startPlays" rv-value="widget:startPlays" title="which sequence the start port (on the title bar) plays">
+            <label title="which sequence the trigger port (on the title bar) plays">trigger plays</label>
+            <select class="startPlays" rv-value="widget:startPlays" title="which sequence the trigger port (on the title bar) plays">
                 <option value="0">Sequence 1</option>
                 <option value="1">Sequence 2</option>
                 <option value="2">Sequence 3</option>

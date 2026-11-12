@@ -1,6 +1,6 @@
 <div class="widgetAuthoring">
-    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="in1" alt="start" title="start: listen when this rises past the threshold">&#9656;</div></div>
-    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="out2" alt="done" title="done: pulses when a transcript arrives" rv-class-ctlflash="widget:done">&#9656;</div></div>
+    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="in1" alt="trigger" title="trigger: listen when this rises past the threshold">&#9656;</div></div>
+    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="out2" alt="next" title="next: pulses when a transcript arrives" rv-class-ctlflash="widget:done">&#9656;</div></div>
     <div class="widgetTop typeAI" rv-class-ctlrunning="widget:recording">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
@@ -34,7 +34,7 @@
             <select class="localeSelect"></select><br>
             <label class="narrowLabel">threshold</label>
             <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
-            <label class="narrowLabel" title="when start isn't held: stop listening after a pause this long">pause</label>
+            <label class="narrowLabel" title="when trigger isn't held: stop listening after a pause this long">pause</label>
             <input class="moreParam" type="text" rv-value="widget:pauseSeconds"> s<br>
             <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/speechin/" target="_blank">Widget help</a>

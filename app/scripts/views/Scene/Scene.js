@@ -73,7 +73,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 		// 1023 for DONE_MS when the scene stops playing - its last cue
 		// finished, or it was stopped.
 		ins: [
-			{title: 'start', to: 'start', header: true},
+			{title: 'trigger', to: 'start', header: true},
 			{title: 'stop', to: 'stop'},
 			// Read only by "cue ... when in1 high/low/rises/falls".
 			{title: 'in1', to: 'in1'},
@@ -84,7 +84,7 @@ function(Backbone, rivets, WidgetView, Template, SceneScript){
 			{title: 'out2', from: 'out2', to: 'out2'},
 			{title: 'out3', from: 'out3', to: 'out3'},
 			{title: 'out4', from: 'out4', to: 'out4'},
-			{title: 'done', from: 'done', to: 'out5', header: true},
+			{title: 'next', from: 'done', to: 'out5', header: true},
 		],
 		typeID: 'Scene',
 		className: 'scene',

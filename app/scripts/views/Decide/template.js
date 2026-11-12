@@ -1,5 +1,7 @@
 <div class="widgetAuthoring">
-    <div class="widgetTop typeAI">
+    <div class="headerPorts headerStart"><div class="inlet headerPort" data-field="inTrigger" alt="trigger" title="trigger: decide on the current text when this rises past the trigger threshold">&#9656;</div></div>
+    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="out5" alt="next" title="next: pulses when the answers arrive" rv-class-ctlflash="widget:done">&#9656;</div></div>
+    <div class="widgetTop typeAI" rv-class-ctlrunning="widget:busy">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
         </div>
@@ -7,7 +9,7 @@
 
     <div class="widgetLeft">
         <div class='inlets'>
-            <div rv-each-inlet="widget:ins" rv-title="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
+            <div rv-each-inlet="widget:bodyIns" rv-title="inlet.title" rv-data-field="inlet.to" class='inlet'>&middot;</div>
         </div>
     </div>
 
@@ -27,7 +29,7 @@
 
     <div class="widgetRight">
         <div class='outlets'>
-            <div class="outlet" rv-each-outlet="widget:outs" rv-title="outlet.title" rv-data-field="outlet.to">&middot;</div>
+            <div class="outlet" rv-each-outlet="widget:bodyOuts" rv-title="outlet.title" rv-data-field="outlet.to">&middot;</div>
         </div>
     </div>
 
@@ -87,8 +89,9 @@
                 <option value="none">send none</option>
             </select><br>
             <input type="checkbox" rv-checked="widget:gate" title="When the first question is a choice and it answers none, the other outlets keep their values - so off-topic talk doesn't move a yes/no or a score"> hold the others when the first answers none<br>
-            <input type="checkbox" rv-checked="widget:autoDecide" title="Decide whenever the text changes, once it has been still for the pause below. Off: only the decide button."> decide when the text changes<br>
+            <input type="checkbox" rv-checked="widget:autoDecide" title="Decide whenever the text changes, once it has been still for the pause below. Off: only the decide button. With something wired to trigger, only trigger decides."> decide when the text changes, when trigger isn't wired<br>
             <label>pause (ms)</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:pause" title="How long the text must stay unchanged before deciding, so a sentence still arriving word by word isn't decided on every word"><br>
+            <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:triggerThreshold" title="The trigger port decides when its value rises past this (0-1023, 512 by default)"> trigger threshold<br>
             <input type="checkbox" rv-checked="widget:binary" title="Off: a yes/no outlet sends how likely yes is, 0-1023. On: 1023 for yes, 0 for no."> yes/no outlets send 0 or 1023
             <hr>
             <a class="widgetHelpLink" href="https://www.netlabtoolkit.org/documentation/widgets/decide/" target="_blank">Widget help</a>

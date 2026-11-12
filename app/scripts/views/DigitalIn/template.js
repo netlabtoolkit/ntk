@@ -1,5 +1,5 @@
 <div class="widgetAuthoring">
-    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="done" alt="done" title="done: pulses when the input turns on" rv-class-ctlflash="widget:done">&#9656;</div></div>
+    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="done" alt="next" title="next: pulses when the input turns on" rv-class-ctlflash="widget:done">&#9656;</div></div>
     <div class="widgetTop typeIO">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>

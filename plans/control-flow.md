@@ -1,4 +1,6 @@
-# Control flow: start/done and row-based widgets
+# Control flow: trigger/next and row-based widgets
+
+**Renamed 2026-11-11:** the ports are now labelled **trigger** (left) and **next** (right) everywhere people see them - port hover text, option wording, docs (`docs/trigger-and-next.md`). The code and saved patches still call them `start` and `done` (fields, `pulseDone`, the firmware), and this plan keeps the old names below.
 
 **Status:** scoped 2026-11-05. Built so far: start/done header ports on SpeechOut, SpeechIn and LLM (2026-11-05; SpeechIn's start listens while held, or until a pause after a pulse), and on Scene, Audio, Video, Sequence and DigitalIn (done only) (2026-11-09; see the table below for what each does), with the shared header-port support in `WidgetMulti.js` (`header: true` ports, `bodyIns`/`bodyOuts`, saved patches keep the code's port list, old cables redrawn by `PatchLoader.js`).
 
@@ -137,8 +139,10 @@ One setting for the whole widget:
 ```
 
 - **The body is the rows.** Each about 26 px tall, beside its outlet nub, so four rows fill the 110 px body exactly. The matching row turns green as values arrive - the "show what's happening" principle. A long test (a list of words) is cut short in the body, in full on hover.
-- **Up to four rows**, the same as Decide's and Scene's four outlets. Outlets are on each instance's model, so their number follows the rows (the [Macro](macro-widget.md) plan's key finding): a two-row Cases has two outlets. More than four would need the body to grow taller - possible with the clearfix noted in `CLAUDE.md`, but against the fixed-size principle, so not in a first version.
-- **The input value** is on the inlet's hover and in the more panel; with four rows there's no room for it in the body, and the highlight shows what the input is doing.
+- **As many rows as the decision needs - 1 or 7** (Phil, 2026-11-12). That was the point of Delft's Condition node: one widget however many cases, so the patch stays as simple as the decision. Capping at four would turn a 7-way decision into two chained widgets - the clutter rows exist to avoid. A sensible maximum (about 12) stops a runaway list filling the canvas.
+- **The body grows with the rows.** Up to four fit the standard 110 px; each row after that adds about 26 px, its outlet nub beside it (`height: auto` plus the clearfix noted in `CLAUDE.md`). A deliberate exception to the fixed-size principle: the rows *are* the widget, and a 7-row Cases is still far smaller than seven IfThens.
+- **Outlets belong to rows.** One outlet per row, on each instance's model, so their number follows the rows (the [Macro](macro-widget.md) plan's key finding). Each row keeps an id of its own, and its outlet is keyed by it - not by position - so reordering rows moves their cables with them, and deleting a row removes its cable. GroveIn already loads per-instance outs as saved; `applyPortLayout` forces a class's own port list when it has header ports, so a Cases with a trigger port needs an exception there.
+- **The input value** is a line at the top of the body, above the rows - with the body free to grow there's room, and it shows what's being tested as it changes.
 - **The more panel is the row editor**: a dropdown for the test and a field for the value, the not toggle, drag to reorder, − to delete, + to add (copying the last row, as Delft did). Then first match / all matches, the output mode and hold.
 
 #### Testing without hardware
@@ -151,7 +155,7 @@ One setting for the whole widget:
 - **IfThen**: a Cases with one row and otherwise is roughly IfThen. Growing IfThen into rows would change every existing patch, so Cases is a new widget and IfThen stays as it is. Later IfThen could be converted on load, like the Sequence-to-Scene idea in the [Scene plan](scene-widget.md), once Cases has been used for a while.
 - **Decide** judges meaning ("is the speaker annoyed?"); Cases tests exact values and words. They chain: Decide works out what was meant, Cases acts on the answer.
 - **Standalone patches**: a logic widget, so it needs a board version, as IfThen has. Text tests matter there too (OSC and Cloud messages).
-- **start/done**: Cases takes no time, so no header ports. In pulse mode, its outlets are the control flow.
+- **trigger/next**: Cases takes no time, so no next. In pulse mode, each row's outlet is the next for its branch. A **trigger** port is worth adding (2026-11-12): test the current input once when it fires, instead of on every change - "when SpeechIn's next arrives, check what was said".
 
 **Examples:** a range sensor into three rows driving three LEDs (distance zones); SpeechIn into rows for "lights" and "music", with otherwise going to an LLM; `contains car, van, truck` starting a vehicle Scene; a yes/no reply branching a conversation.
 
@@ -187,7 +191,7 @@ Building a reusable "rows" component before there are two widgets that need it. 
 
 1. **SpeechOut**: a header start and a done pulse; then try the SpeechIn → LLM → SpeechOut loop, to see whether the pattern holds up.
 2. **The rest of Part 1's table**, widget by widget, with the header look and the running glow.
-3. **Cases**: row-based conditions, up to four, with live match highlighting and per-row outlets.
+3. **Cases**: row-based conditions, as many rows as needed (1 to about 12, body grows), with live match highlighting and per-row outlets that follow their rows.
 4. **With the wiring rebuild**: drawing styles for done cables.
 5. **With Macro**: promote start/done as the macro's own header ports.
 6. **Later, if needed**: a join widget, a control Splitter, a row editor for Scene.

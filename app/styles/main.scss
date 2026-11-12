@@ -6,3 +6,24 @@
 @import '../bower_components/codemirror/lib/codemirror.css';
 
 @import 'Widget.scss';
+
+// Tooltips drawn by NTK (utils/Tooltips.js) - every title="..." shows
+// here instead of as a system tooltip, which macOS stops showing after
+// some clicks. Above everything, including the toolbar (100).
+.ntkTooltip {
+	position: fixed;
+	z-index: 1000;
+	max-width: 280px;
+	padding: 4px 7px;
+	border-radius: 3px;
+	background: #222;
+	color: #fff;
+	font-size: 11px;
+	line-height: 1.35;
+	white-space: pre-line;
+	pointer-events: none;
+	opacity: 0;
+	visibility: hidden;
+	transition: opacity .1s;
+	&.visible { opacity: 1; visibility: visible; }
+}

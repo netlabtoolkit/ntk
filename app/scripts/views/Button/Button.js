@@ -29,7 +29,7 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 			// SpeechOut... with nothing but the screen - a start/done
 			// chain can be tried with no hardware. out stays for the
 			// level (high while held).
-			{title: 'done', from: 'done', to: 'done', header: true, noChain: true},
+			{title: 'next', from: 'done', to: 'done', header: true, noChain: true},
 		],
         // Any custom DOM events should go here (Backbone style)
         widgetEvents: {

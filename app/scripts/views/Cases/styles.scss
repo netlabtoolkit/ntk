@@ -1,0 +1,146 @@
+// Cases: the body is the rows, one beside each outlet nub (24px nub +
+// 2px gap = 26px apart), and grows with them - a deliberate exception
+// to the fixed 110px body (plans/control-flow.md, Part 2).
+.widget.cases {
+
+	.widgetBody {
+		height: auto;
+		min-height: 110px;
+		&:after { content: ''; display: table; clear: both; }
+	}
+
+	.casesRows {
+		margin: 0;
+		padding: 0;
+	}
+
+	.caseRow {
+		height: 24px;
+		margin-bottom: 2px;
+		line-height: 24px;
+		padding: 0 4px;
+		box-sizing: border-box;
+		font-size: 12px;
+		color: #555;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		border-radius: 3px;
+		cursor: pointer;
+		transition: background-color .15s;
+
+		position: relative;
+		padding-left: 1px;
+		&:hover { background-color: #eef3ea; }
+		&:hover .caseRowGrip:not(.fixed) { color: #444; }
+		&.matched { background-color: #b9e0a5; color: #222; }
+		// Can never match (hidden by a row above, or no value yet).
+		&.never { color: #aaa; text-decoration: line-through; }
+	}
+
+	// The body rows' drag handle - quiet until hovered.
+	.caseRowGrip {
+		display: inline-block;
+		width: 10px;
+		margin-right: 2px;
+		color: #888;
+		font-size: 12px;
+		letter-spacing: -2px;
+		cursor: grab;
+		user-select: none;
+		&.fixed { visibility: hidden; }
+	}
+
+	// Drag to reorder (body rows and editor rows).
+	.caseRow, .caseEdit {
+		&.dragging {
+			position: relative;
+			z-index: 5;
+			opacity: .9;
+			background-color: #dde8f4;
+			box-shadow: 0 2px 6px rgba(0,0,0,.25);
+			transition: none;
+		}
+		&.shifting { transition: transform .12s; }
+	}
+	&.casesDragging, &.casesDragging * { cursor: grabbing !important; }
+	// Rows slide by one row's height, so the reason lines step aside.
+	&.casesDragging .caseWhy { display: none; }
+
+	// Full selector chain to beat the shared 25px-wide body input rule.
+	.widgetBody input.casesIn {
+		display: block;
+		width: 100%;
+		height: 18px;
+		box-sizing: border-box;
+		margin: 2px 0 4px;
+		padding: 0 3px;
+		border: 1px solid #ccc;
+		border-radius: 2px;
+		font-size: 11px;
+	}
+
+	// Room for a row of the editor: not, test, value, move, delete.
+	.widgetBottom .content {
+		width: 330px;
+	}
+
+	// The row editor in the more panel.
+	.casesEditor {
+		margin-bottom: 4px;
+	}
+
+	.caseEdit {
+		display: flex;
+		align-items: center;
+		gap: 3px;
+		margin-bottom: 3px;
+		white-space: nowrap;
+
+		&.never .caseNum { color: #c33; font-weight: bold; cursor: help; }
+		&.never .caseValue, &.never .caseTest { text-decoration: line-through; color: #999; }
+		.caseGrip {
+			width: 10px;
+			color: #888;
+			font-size: 12px;
+			letter-spacing: -2px;
+			cursor: grab;
+			user-select: none;
+			&.fixed { visibility: hidden; cursor: default; }
+		}
+		.caseNum {
+			width: 14px;
+			text-align: right;
+			color: #888;
+			font-size: 11px;
+		}
+		.caseNotLabel {
+			font-size: 11px;
+			color: #666;
+			width: auto;
+			display: inline-flex;
+			align-items: center;
+			input { margin: 0 1px 0 0; }
+		}
+		.caseTest { width: 92px; }
+		.caseValue { width: 96px; }
+		button {
+			padding: 0 4px;
+			min-width: 20px;
+			height: 20px;
+			line-height: 18px;
+			font-size: 11px;
+		}
+	}
+
+	// Why a row can never match, under it in the editor.
+	.caseWhy {
+		margin: -2px 0 4px 32px;
+		font-size: 11px;
+		color: #c33;
+	}
+
+	.casesAdd {
+		margin: 2px 0 4px;
+	}
+}

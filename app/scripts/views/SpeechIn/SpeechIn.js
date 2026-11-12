@@ -50,10 +50,10 @@ function(Backbone, rivets, WidgetView, Template, SignalChainFunctions, SignalCha
 		// until the speaker pauses. done pulses when a transcript with
 		// words arrives, just after the text outlet changes.
 		ins: [
-			{title: 'start', to: 'in1', header: true},
+			{title: 'trigger', to: 'in1', header: true},
 		],
 		outs: [
-			{title: 'done', from: 'done', to: 'out2', header: true},
+			{title: 'next', from: 'done', to: 'out2', header: true},
 			{title: 'text', from: 'output', to: 'out1'},
 		],
 
