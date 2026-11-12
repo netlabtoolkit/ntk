@@ -84,7 +84,7 @@ NTK wouldn't run real infrastructure; it could prototype the
 | Things with a perspective, small local models | An LLM widget per thing, with a persona; LLM already supports Ollama. The [Pi port](raspberry-pi-port.md) would put a local model in the object |
 | Mesh network | Generic MQTT ([cloud widgets](cloud-widgets.md)) so separate NTKs/boards share a channel |
 | Negotiation, then a decision | Things post positions; a new **Vote** widget (quadratic voting) for the people in a test |
-| Autonomous action | Standalone patches; [start/done](control-flow.md) to chain actions |
+| Autonomous action | Standalone patches; [trigger/next](control-flow.md) ports to chain actions |
 | Digital twin, simulated scenarios | The patch running on recorded or simulated data, faster than real time - "test without hardware" extended to "test without a community" |
 | Legibility | An observer/narrator: SpeechOut, a display, a periodic summary |
 
@@ -96,7 +96,7 @@ Possible NTK pieces, smallest first:
 2. **Event layer**: code that turns live values into an event log.
 3. **Observer widget**: like Decide, but over the whole patch's events;
    patterns written in plain language in the more panel, one outlet per
-   pattern, pulsing 1023 when recognised (so it can start a Scene or
+   pattern, pulsing 1023 when recognised (so it can trigger a Scene or
    SpeechOut). Fits beside Gesture (trained by example) and Decide
    (meaning of text).
 4. **Vote widget** and per-thing personas over MQTT, for a Grid-style
