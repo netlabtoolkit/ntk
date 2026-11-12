@@ -26,7 +26,7 @@ The two small ▸ ports on the title bar chain a Tween with other steps:
 - **trigger** (left) - plays from the start value to the end value, as above. A trigger that arrives while the tween is playing starts it again from the start value.
 - **next** (right) - when the tween reaches its end value, sends 1023 for a fifth of a second, then 0, and flashes amber - whichever input started it. A tween cut short, the move back to the start value, and a looping tween don't send it.
 
-The title bar glows amber while the tween plays. Wire **next** into the **trigger** of the following step - a second Tween to move back the other way, a [Scene](https://www.netlabtoolkit.org/documentation/widgets/scene/), an [Audio](https://www.netlabtoolkit.org/documentation/widgets/audio/) clip - and it begins as soon as the move has finished. See [Chaining Widgets - Trigger and Next](https://www.netlabtoolkit.org/documentation/widgets/trigger-and-next/) for more examples.
+The title bar glows amber while the tween plays. Wire **next** into the **trigger** of the following step - a second Tween to move back the other way, a [Scene](https://www.netlabtoolkit.org/documentation/widgets/scene/), an [Audio](https://www.netlabtoolkit.org/documentation/widgets/audio/) clip - and it begins as soon as the move has finished. See [Chaining Widgets - Trigger and Next](https://www.netlabtoolkit.org/chaining-widgets/) for more examples.
 
 ## Inlets and outlets
 

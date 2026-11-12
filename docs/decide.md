@@ -2,7 +2,7 @@
 
 Decide reads a piece of text and answers a few questions about it, faster than LLMs. Wire in what someone said (from SpeechIn), a label from ObjectRecog, or a reply from an LLM widget, and Decide answers questions like *what does the speaker want the lights to do?* or *is the speaker annoyed?* — one outlet per question.
 
-<img src="images/decide-body.png" width="156" alt="The Decide widget: the test text 'make it cozy', the answers lights: dim (grey, below the confidence), upset: no and mood: neutral with green confidence bars, and the decide button with the time the decision took">
+<img src="images/decide-body.png" width="156" alt="The Decide widget: the trigger port on the left of the title bar and the next port on the right, the test text 'make it cozy', the answers lights: dim (grey, below the confidence), upset: no and mood: neutral with green confidence bars, and the decide button with the time the decision took">
 
 *"make it cozy": `lights: dim` is grey — the model was only 39% sure, so its outlet didn't change. The green bars show how sure each answer is; the time is how long the decision took.*
 
@@ -19,6 +19,7 @@ Decide runs the decision model on your own computer with [Ollama](https://ollama
 - [Outlets](#Outlets)
 - [When an answer does not change its outlet](#When-an-answer-does-not-change-its-outlet)
 - [When it decides](#When-it-decides)
+- [Trigger and next](#Trigger-and-next)
 - [Settings in the more panel](#Settings-in-the-more-panel)
 - [Good uses](#Good-uses)
 - [When to use something else](#When-to-use-something-else)
@@ -125,9 +126,20 @@ The status line next to the **decide** button shows `deciding…` while it works
 
 The first decision after a model loads takes a few seconds. To avoid that wait, Decide loads the model when a saved patch containing it opens, or when you click into its text box. The status shows `loading…` then `ready`. The model stays loaded for 30 minutes after its last use.
 
+## Trigger and next
+
+The two small ▸ ports on the title bar chain Decide with other steps:
+
+- **trigger** (left) - decides on the current text when its value rises past the **trigger threshold** (512), just like clicking **decide**. With something wired to trigger, **decide when the text changes** is off: trigger alone says when to decide.
+- **next** (right) - when the answers arrive and reach the outlets, sends 1023 for a fifth of a second, then 0, and flashes amber. An error or a cancelled decision doesn't fire it.
+
+The title bar glows amber while Decide is deciding.
+
+Wire **SpeechIn's next** into Decide's **trigger** along with SpeechIn's text into the inlet, and Decide answers exactly once per thing someone says, as soon as SpeechIn has the whole sentence - no pause needed. Wire Decide's **next** into the **trigger** of the following step - a [Scene](https://www.netlabtoolkit.org/documentation/widgets/scene/), a [SpeechOut](https://www.netlabtoolkit.org/documentation/widgets/speechout/) - and it starts with the new answers already on the outlets. See [Chaining Widgets - Trigger and Next](https://www.netlabtoolkit.org/chaining-widgets/) for more examples.
+
 ## Settings in the more panel
 
-<img src="images/decide-settings.png" width="300" alt="The settings: model tev1:4b, address http://localhost:11434, confidence 0.5, when unsure: keep the last answer, and checkboxes for hold the others when the first answers none, decide when the text changes (pause 400 ms) and yes/no outlets send 0 or 1023">
+<img src="images/decide-settings.png" width="300" alt="The settings: model tev1:4b, address http://localhost:11434, confidence 0.5, when unsure: keep the last answer, and checkboxes for hold the others when the first answers none and decide when the text changes when trigger isn't wired, pause 400 ms, trigger threshold 512, and yes/no outlets send 0 or 1023">
 
 - **describe it** and **generate** — see "Letting an AI write the questions".
 - **questions** — the questions, as above.
@@ -136,7 +148,8 @@ The first decision after a model loads takes a few seconds. To avoid that wait, 
 - **address** — where Ollama runs: this computer (`http://localhost:11434`) or another computer on the network.
 - **confidence** and **when unsure** — see above.
 - **hold the others when the first answers none** — see above.
-- **decide when the text changes** and **pause (ms)** — see above.
+- **decide when the text changes, when trigger isn't wired** and **pause (ms)** — see "When it decides".
+- **trigger threshold** — the level the trigger port has to rise past (512 by default).
 - **yes/no outlets send 0 or 1023** — see Outlets.
 
 ## Good uses

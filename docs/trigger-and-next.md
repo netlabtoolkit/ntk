@@ -36,11 +36,13 @@ Wire one next into two triggers and both run at once.
 | [SpeechOut](https://www.netlabtoolkit.org/documentation/widgets/speechout/) | speaks the text | finished speaking |
 | [SpeechIn](https://www.netlabtoolkit.org/documentation/widgets/speechin/) | listens - while held, or until a pause after a pulse | a transcript arrived |
 | [LLM](https://www.netlabtoolkit.org/documentation/widgets/llm/) | sends the prompt again | the reply arrived |
+| [Decide](https://www.netlabtoolkit.org/documentation/widgets/decide/) | decides on the current text | the answers arrived |
 | [Scene](https://www.netlabtoolkit.org/documentation/widgets/scene/) | plays from the first cue | the last cue finished, or it was stopped and its idle lines have played |
 | [Audio](https://www.netlabtoolkit.org/documentation/widgets/audio/) | plays from the beginning | the clip played to its end |
 | [Video](https://www.netlabtoolkit.org/documentation/widgets/video/) | plays from the beginning | the video played to its end |
 | [Sequence](https://www.netlabtoolkit.org/documentation/widgets/sequence/) | plays the sequence chosen in "trigger plays" - one of four, or one at random | a sequence without loop played its last move |
 | [Tween](https://www.netlabtoolkit.org/documentation/widgets/tween/) | moves from start to end | the move reached its end value |
+| [Pulse](https://www.netlabtoolkit.org/documentation/widgets/pulse/) | plays a set number of pulses - one by default | the last pulse's cycle ended - so it can also be a wait between steps |
 | [Count](https://www.netlabtoolkit.org/documentation/widgets/count/) | counts one | the count reached max |
 | [DigitalIn](https://www.netlabtoolkit.org/documentation/widgets/digitalin/) | - | the input turned on: one pulse per press |
 | [Button](https://www.netlabtoolkit.org/documentation/widgets/button/) | - | one pulse per click |
@@ -64,6 +66,7 @@ Most widgets have a way to use each:
 - **Audio and Video**: **Play** (in the body) plays while held high; **trigger** plays the whole clip from one pulse.
 - **Sequence**: **in1 to in4** play while held; **trigger** plays the whole sequence from one pulse.
 - **Tween**: **in** plays while held; **trigger** makes the whole move from one pulse.
+- **Pulse**: **in** pulses while held; **trigger** plays a set number of pulses from one pulse.
 - **Scene**: **stop when trigger goes below the threshold** makes it play only while trigger is held - use it with a held value, not a pulse, or the scene stops a fifth of a second after it starts. With a pulse, use **stop if triggered again while playing** instead: press once to start, again to stop.
 - **Scene cues**: `when in1 high` and `when in1 low` wait for a level, and are true straight away if it already is. `when in1 rises` and `when in1 falls` wait for a moment that happens while the cue waits - a press or a next pulse.
 - **DigitalIn and Button**: **out** is the level (high while pressed); **next** is the moment (one pulse per press).
@@ -97,6 +100,14 @@ Button ─next→ trigger─ Scene "doors open" ─next→ trigger─ Audio "fan
 ```
 
 One click runs the whole show in order: the doors open (however long the motors take), then the fanfare plays to its end, then the light scene runs. Change the length of any step and the rest still follow it.
+
+### A pause between steps
+
+```
+SpeechOut ─next→ trigger─ Pulse (time 2000) ─next→ trigger─ Scene
+```
+
+The scene starts two seconds after the speech ends. A Pulse with nothing wired to its out1 is a timer: **time** sets how long it waits. Turn on **rand time** for a pause that's a little different each time.
 
 ### Every third visitor
 
@@ -146,6 +157,6 @@ Run a sound and a video at the same time, and start the scene only when both hav
 
 ## Standalone patches
 
-A patch pushed to the board keeps working there: **Scene**, **Sequence**, **Tween**, **Count** and **DigitalIn** run their trigger and next ports on the board itself, with no computer attached. Speech, LLM, Audio and Video need NTK running.
+A patch pushed to the board keeps working there: **Scene**, **Sequence**, **Tween**, **Pulse**, **Count** and **DigitalIn** run their trigger and next ports on the board itself, with no computer attached. Speech, LLM, Audio and Video need NTK running.
 
 In monitor mode, the board reports its values a few times a second, so a next pulse's fifth-of-a-second flash isn't always shown - the board still sends the pulse.
