@@ -44,6 +44,7 @@ Wire one next into two triggers and both run at once.
 | [Tween](https://www.netlabtoolkit.org/documentation/widgets/tween/) | moves from start to end | the move reached its end value |
 | [Pulse](https://www.netlabtoolkit.org/documentation/widgets/pulse/) | plays a set number of pulses - one by default | the last pulse's cycle ended - so it can also be a wait between steps |
 | [Count](https://www.netlabtoolkit.org/documentation/widgets/count/) | counts one | the count reached max |
+| [Cases](https://www.netlabtoolkit.org/documentation/widgets/cases/) | tests the input once | - (with outlets set to pulse, each row's outlet is the next for its branch) |
 | [DigitalIn](https://www.netlabtoolkit.org/documentation/widgets/digitalin/) | - | the input turned on: one pulse per press |
 | [Button](https://www.netlabtoolkit.org/documentation/widgets/button/) | - | one pulse per click |
 
