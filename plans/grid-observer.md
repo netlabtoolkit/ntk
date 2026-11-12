@@ -102,6 +102,32 @@ Possible NTK pieces, smallest first:
 4. **Vote widget** and per-thing personas over MQTT, for a Grid-style
    study.
 
+## Event layer: what it watches
+
+It sees the whole patch but records little. Every value lives on a widget model, so it can listen to every widget, cable and setting, but most changes are noise for an LLM: a Tween's per-frame values, Pulse flipping low/high, an AnalogIn at 50 ms is 20 values a second.
+
+What it records:
+
+| Kind | Example event |
+|---|---|
+| Hardware in - the world arriving | "Moisture sensor fell from 640 to 310 over 2 hours" |
+| Hardware out - what the patch did | "Pump on for 40 s" |
+| Pulses and level changes on cables | "Button next → Pulse trigger", "Cases row 2 started matching" |
+| Continuous values, summarised per window | "Light level steady around 500", "these two rise and fall together" |
+| Changes to the patch itself | "Threshold changed from 512 to 300", "cable added" |
+| Expected but missing | "Pulse triggered, next never came", "AnalogOut changed, servo position didn't" |
+
+Left out: internal fields that don't travel on cables (countdowns, runtime state).
+
+Keeping it small: the patch graph is sent once and events refer to it by name (`n2 Pulse.trigger rose`). A 20-widget patch might produce a few dozen events a minute, which fits a prompt; the observer can ask for a longer window when it needs one.
+
+The last row is what the patch graph makes possible: knowing what each cable is for, the layer can notice a step that should have followed and didn't. A plain value log can't, and for prototyping it may be the most useful thing an observer says.
+
+Open points:
+
+- **Where to tap.** There's no single function every value passes through: `processSignalChain` is per widget and GroveSensor and CloudIn override it. Likeliest tap: a listener on each model for the fields cables carry (the `destinationField`s in the mappings). Check before building.
+- **Monitor mode.** NTK only sees what the board reports, a few times a second, so a 200 ms next pulse can be missed. If missed pulses matter, the board would report pulses as events, not as sampled values.
+
 ## Tensions / open questions
 
 1. Where's the line between a thing "putting forward viewpoints" and
