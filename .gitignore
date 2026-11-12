@@ -21,11 +21,15 @@ __pycache__
 # Real CircuitPython WiFi credentials - only settings.toml.example is
 # meant to be tracked.
 **/settings.toml
-# docs/*.md is tracked (decided 2026-09-22) - everything else in here
-# (videos, images, the WordPress autoindex script) stays untracked, a
-# scratch/staging area for pasting into the WordPress site.
+# docs/*.md is tracked (decided 2026-09-22), and docs/images/ too
+# (2026-11-12) so the pages show their screenshots on GitHub - the
+# release notes link docs/*.md there before a page is on the website.
+# Everything else in here (videos, the WordPress autoindex script)
+# stays untracked, a staging area for pasting into the WordPress site.
 docs/*
 !docs/*.md
+!docs/images/
+docs/images/Thumbs.db
 server/speechHelper/speechhelper
 server/speechHelper/ttshelper
 
