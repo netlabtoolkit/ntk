@@ -1104,9 +1104,38 @@ def _eval_display(values, state, now):
         values['line%dText' % i] = '%s%s%s' % (prepend, v_text, append)
 
 
+# Pulse.js's DONE_MS.
+PULSE_DONE_HOLD_S = 0.2
+
+
 def _eval_pulse(values, state, now):
+    """The trigger port (field inTrigger) plays a burst of triggerPulses
+    pulses (1 by default) on its rising edge, the first at once; next
+    (field done, outlet out2) pulses 1023 for PULSE_DONE_HOLD_S when the
+    burst's last cycle ends. in still pulses while held - but with the
+    trigger port wired and in unwired, there's no free-running."""
+    if _num(values.get('done'), 0.0) != 0 and now - state.get('done_at', 0) >= PULSE_DONE_HOLD_S:
+        values['done'] = 0
+    values.setdefault('done', 0)
+    values['out2'] = values['done']
+
     threshold = _num(values.get('threshold'), 512.0)
     in_value = _num(values.get('in'))
+
+    # The value the patch was saved with isn't an edge - as in NTK,
+    # only trigger rising while it runs plays.
+    trig = _num(values.get('inTrigger'), 0.0)
+    if _is_nan(trig):
+        trig = 0.0
+    if 'last_trigger' not in state:
+        state['last_trigger'] = trig
+    if trig >= threshold and state['last_trigger'] < threshold:
+        n = int(_num(values.get('triggerPulses'), 1.0)) if not _is_nan(_num(values.get('triggerPulses'), 1.0)) else 1
+        state['burst_left'] = max(1, n)
+        _pulse_burst_cycle(values, state, now)
+    state['last_trigger'] = trig
+
+    free = not _is_nan(in_value) or not state.get('trigger_wired')
     if 'firing' not in state:
         # First-ever tick for this widget. Default True, matching
         # Pulse.js's own initialize() (timerFiring: true, unconditionally,
@@ -1141,7 +1170,12 @@ def _eval_pulse(values, state, now):
             if (not values.get('randOut')) or values.get('randOutPulse'):
                 values['output'] = _num(values.get('pulseLow'), 0.0)
 
-    if firing:
+    # A trigger's burst runs instead of the free-running pulses.
+    if state.get('burst_left', 0) > 0:
+        _pulse_burst_tick(values, state, now)
+        return
+
+    if firing and free:
         timer_length = _num(values.get('timerLength'), 1000.0)
         high_pct = _num(values.get('timerHighPercentage'), 50.0)
         elapsed_ms = (now - state.get('timer_start', now)) * 1000.0
@@ -1151,6 +1185,37 @@ def _eval_pulse(values, state, now):
         if elapsed_ms > timer_length:
             values['output'] = _num(values.get('pulseHigh'), 1023.0)
             _pulse_init_timer(values, state, now)
+
+
+def _pulse_low(values):
+    if (not values.get('randOut')) or values.get('randOutPulse'):
+        values['output'] = _num(values.get('pulseLow'), 0.0)
+
+
+def _pulse_burst_cycle(values, state, now):
+    _pulse_init_timer(values, state, now)
+    state['burst_start'] = now
+    values['output'] = _num(values.get('pulseHigh'), 1023.0)
+
+
+def _pulse_burst_tick(values, state, now):
+    length = _num(values.get('timerLength'), 1000.0)
+    if _is_nan(length) or length < 1:
+        length = 1000.0
+    elapsed_ms = (now - state['burst_start']) * 1000.0
+    if elapsed_ms > length * (_num(values.get('timerHighPercentage'), 50.0) / 100.0):
+        _pulse_low(values)
+    if elapsed_ms > length:
+        state['burst_left'] -= 1
+        if state['burst_left'] > 0:
+            _pulse_burst_cycle(values, state, now)
+        else:
+            _pulse_low(values)
+            values['done'] = 1023
+            values['out2'] = 1023
+            state['done_at'] = now
+            if state.get('firing') and (not _is_nan(_num(values.get('in'))) or not state.get('trigger_wired')):
+                _pulse_init_timer(values, state, now)
 
 
 def _pulse_init_timer(values, state, now):
@@ -1623,7 +1688,7 @@ OUTS_BY_TYPE = {
     'Mix': [('output', 'out1')],
     'Count': [('output', 'out1'), ('done', 'done')],
     'Concat': [('out1', 'out1')],  # Concat writes out1 directly, no separate internal field
-    'Pulse': [('output', 'out1')],
+    'Pulse': [('output', 'out1'), ('done', 'out2')],
     'Tween': [('output', 'out1'), ('done', 'out2')],
     'Splitter': [('outA', 'out1'), ('outB', 'out2'), ('outC', 'out3'), ('outD', 'out4')],
     'Sequence': [('output0', 'out0'), ('done', 'out4')],
@@ -1758,6 +1823,12 @@ class StandaloneInterpreter:
             }
 
         self._build_steps(widgets, mappings)
+        # Pulse.js's triggerWired(): a cable into the trigger port stops
+        # a Pulse with in unwired from free-running.
+        for m in mappings:
+            wid = m.get('viewWID')
+            if wid in self.widgets and (m.get('map') or {}).get('destinationField') == 'inTrigger':
+                self.widgets[wid]['state']['trigger_wired'] = True
         self.loaded = True
         self.error = None
         self.print_topology()
