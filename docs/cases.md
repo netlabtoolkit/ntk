@@ -2,7 +2,7 @@
 
 Sort one input into cases - "too dark", "just right", "too bright", or "yes", "no", "anything else" - and send each case out of its own outlet.
 
-<img src="images/cases-body.png" width="156" alt="The Cases widget: the trigger port on the left of the title bar, the in inlet on the left, and four rows each with an outlet beside it - < 300, 300 – 700, 400 – 500 struck through because it can never match, and otherwise, highlighted green because the input box at the bottom holds 850"> 700 struck through, 100 – 200 and otherwise - each with an outlet beside it on the right. The first row is highlighted green because the input box at the bottom holds 850">
+<img src="images/cases-body.png" width="156" alt="The Cases widget: the trigger port on the left of the title bar, the in inlet on the left, and four rows each with an outlet beside it - less than 300, 300 to 700, 400 to 500 struck through because it can never match, and otherwise, highlighted green because the input box at the bottom holds 850">
 
 Each row is a test, and each row has its own outlet beside it. When the input arrives, Cases tests it against the rows from the top, and the row that matches lights up green and switches its outlet on. Add as many rows as the decision needs, from 1 to 12 - the widget grows with them.
 
@@ -88,7 +88,7 @@ Cases has no next port: it takes no time. With **outlets** set to **pulse**, eac
 
 ## Settings in the more panel
 
-<img src="images/cases-more.png" width="334" alt="The Cases more panel: four rows, each with a drag grip, its number, a not box, the test menu, the value and a delete button - < 300, between 300 700, between 400 500 and otherwise. Under row 3, in red: never matches: row 2 catches all of these first. Below: + add row, match first match only, outlets on/off, hold (ms) 0 and threshold 512">
+<img src="images/cases-more.png" width="334" alt="The Cases more panel: four rows, each with a drag grip, its number, a not box, the test menu, the value and a delete button - less than 300, between 300 700, between 400 500, and otherwise. Under row 3, in red: never matches: row 2 catches all of these first. Below: + add row, match first match only, outlets on/off, hold (ms) 0 and threshold 512">
 
 - **The rows** - for each row: the grip to drag it by, **not**, the test, its value, and **−** to delete it. Then **+ add row**.
 - **match** - **first match only**, or **all matches** (see [Rows and their outlets](#Rows-and-their-outlets)).
