@@ -80,6 +80,7 @@ require([
 	'rivets',
 	'regionManager',
 	'utils/KnobWheelDirection',
+	'utils/KnobDraw',
 	'utils/Tooltips',
 ],
 function (Backbone, App, rivets ) {
