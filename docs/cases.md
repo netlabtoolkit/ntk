@@ -115,5 +115,5 @@ Rows: `< 512`, `otherwise`; outlets set to **pass through**. A Knob into **in**:
 
 ## Notes
 
-- Cases doesn't run on the board in standalone patches yet - it needs NTK running.
+- Cases runs on the board in standalone patches, including trigger, hold and all three outlet modes.
 - Cases ignores the input a patch had when it was saved: nothing fires when a patch opens until a new input arrives.
