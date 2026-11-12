@@ -240,6 +240,15 @@ and shipped. Its historical step-by-step plan is at
   GitHub), plus ideas for faster doc drafting. Parked until more docs
   are written.
 
+## Blue-sky directions
+
+- **[Grid observer](grid-observer.md)** — a live patch as a digital twin:
+  code turns live values into events, an LLM reads them with the patch
+  graph and says what's going on. Blue-sky version after Cities of
+  Things' *The Grid 2033* and manifesto: things with perspectives that
+  negotiate, people voting, an observer that makes it legible.
+  Brainstorm only (2026-11-12).
+
 ## Other planned widgets
 
 - **[LLM widget](llm-widget.md)** — text prompt → LLM → text response,
