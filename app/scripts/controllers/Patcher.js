@@ -1125,27 +1125,29 @@ function(app, Backbone, Communicator, SocketAdapter, MonitorController, CableMan
 					newModelInstance.on('change', function updateHardwareModel(model) {
 						var changedAttributes = model.changedAttributes();
 
-						// Check all the changed attributes
-						for(attribute in changedAttributes) {
-
-							var lastAttribute = undefined;
-							// TODO: This triggers many times even though there is only attribute?
-							for(pinName in attribute) {
-								// TODO: Doing this to ensure only one call is made if it is, for some reason, treating it as if more pins are attribute than there actually is (see previous TODO)
-								if( attribute != lastAttribute ) {
-
-									lastAttribute = attribute;
-									if(pinName[0] != "A") {
-										// and see if the attribute exists in the outputs section of this model
-										if(newModelInstance.attributes.outputs[attribute] !== undefined) {
-											// TODO: THIS modeRequested SHOULD BE SPECIFIC TO VIEW
-											//window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelServerQuery, model: changedAttributes, modeRequested: 3});
-											window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelServerQuery, model: changedAttributes});
-										}
-									}
-
-								}
+						// Send the server only the OUTPUT pins that changed.
+						// This used to send every changed attribute whenever
+						// one of them was an output - and with AnalogIn wired
+						// into a Servo on the same board, a new A0 reading
+						// drives D7 inside the same change event (Backbone
+						// 1.1.2 keeps `changed` across a nested set), so A0
+						// went along too. The server takes a client's value
+						// for an input pin as the new reading and broadcasts
+						// it, so a stale A0 kept overwriting the live one:
+						// AnalogIn and Servo stuck on an old value, flicking
+						// to the real one only when the reading changed
+						// (found 2026-11-19 on a XIAO ESP32-S3).
+						var outputs = newModelInstance.attributes.outputs || {};
+						var outputUpdate = {};
+						var anyOutput = false;
+						for(var attribute in changedAttributes) {
+							if(outputs[attribute] !== undefined) {
+								outputUpdate[attribute] = changedAttributes[attribute];
+								anyOutput = true;
 							}
+						}
+						if(anyOutput) {
+							window.app.vent.trigger('sendDeviceModelUpdate', {modelType: modelServerQuery, model: outputUpdate});
 						}
 					});
 				//}
