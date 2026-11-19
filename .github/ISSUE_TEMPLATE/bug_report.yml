@@ -11,19 +11,8 @@ body:
     id: version
     attributes:
       label: NTK version
-      description: Shown in the toolbar's settings area, or under NTK > About Application. For a dev checkout, give the commit (`git rev-parse --short HEAD`).
+      description: Shown in the toolbar's settings area, or under NTK > About Application.
       placeholder: "e.g. 2026.16.1"
-    validations:
-      required: true
-
-  - type: dropdown
-    id: run-mode
-    attributes:
-      label: How are you running NTK?
-      options:
-        - Packaged app from GitHub Releases
-        - From source (npm run electron)
-        - Other (describe below)
     validations:
       required: true
 
@@ -97,6 +86,6 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Console / log output
-      description: View > Toggle Developer Tools > Console. Errors in red are the most useful.
+      label: Board console output (Thonny REPL)
+      description: For WiFi boards, open Thonny, connect to the board, and paste any errors or messages from the Shell/REPL pane.
       render: text
