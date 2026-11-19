@@ -34,4 +34,5 @@ body:
         - Arduino over USB
         - Seeed XIAO ESP32 over WiFi
         - Raspberry Pi Pico W over WiFi
+        - Raspberry Pi Pico 2 W over WiFi
         - Other (describe above)

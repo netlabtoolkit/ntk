@@ -40,6 +40,7 @@ body:
         - Arduino over USB (Serial / StandardFirmata)
         - Seeed XIAO ESP32 over WiFi (CircuitPython Firmata)
         - Raspberry Pi Pico W over WiFi (CircuitPython Firmata)
+        - Raspberry Pi Pico 2 W over WiFi (CircuitPython Firmata)
         - Other board (describe below)
     validations:
       required: true
