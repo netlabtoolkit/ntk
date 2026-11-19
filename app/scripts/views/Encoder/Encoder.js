@@ -510,6 +510,13 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob){
 			// hears the reply - the widget then sits on "waiting" until
 			// the knob is turned. Clear it quietly so any reply counts.
 			this.model.set('in', null, {silent: true});
+			// The same goes for the device model the reply arrives on:
+			// after a reconnect it still holds the last position, often
+			// 0, so the reply's 0 changed nothing, the widget sat on
+			// "waiting" and re-attached every REATTACH_AFTER_MS - and
+			// each attach restarts the board's count, losing turns made
+			// in between (found 2026-11-19).
+			hardwareSource.model.set(hardwareSource.map.sourceField, null, {silent: true});
 			this.setStatus('waiting');
 
 			var self = this;
