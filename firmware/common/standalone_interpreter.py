@@ -2434,7 +2434,8 @@ class StandaloneInterpreter:
                 self._subscribe_grove_sensor(step[1])
             elif step[0] == 'enc_in':
                 # Same encoder number the live widget uses (pin A's
-                # index), counted by the same rotaryio code path.
+                # index), counted by the same code as live - rotaryio, or
+                # software decoding on boards that need it.
                 w = self.widgets[step[1]]
                 pin_a = _pin_index_for_dpin(fs.pins, w['values'].get('pin'))
                 pin_b = _pin_index_for_dpin(fs.pins, w['values'].get('pinB'))
@@ -3110,6 +3111,14 @@ class StandaloneInterpreter:
                 pin_a = _pin_index_for_dpin(fs.pins, w['values'].get('pin'))
                 encoder = fs._encoders.get(pin_a)
                 if encoder is not None:
+                    # An encoder decoded in software (the XIAO ESP32-C6 -
+                    # see firmata_server.py's _SoftwareEncoder) queues its
+                    # pin changes in the background; this decodes them.
+                    # A no-op for a rotaryio encoder. getattr: an older
+                    # firmata_server.py on the board has no poll_encoders.
+                    poll = getattr(fs, 'poll_encoders', None)
+                    if poll is not None:
+                        poll()
                     w['values']['in'] = encoder['io'].position
             elif kind == 'grove_in':
                 _, wid, reading_map = step

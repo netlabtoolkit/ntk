@@ -959,22 +959,6 @@ def _min_sampling_interval_ms():
 MIN_SAMPLING_INTERVAL_MS = _min_sampling_interval_ms()
 
 
-# Rotary encoders decoded in Python instead of with rotaryio. The XIAO
-# ESP32-C6's rotaryio (CircuitPython 10.3.1) doesn't count: both pins
-# switch, but its count only went 0, 1, 0, 1 (found 2026-11-19). Set
-# NTK_SOFTWARE_ENCODERS = 1 or 0 in settings.toml to force it either way.
-def _software_encoders():
-    import os
-    import board
-    value = os.getenv("NTK_SOFTWARE_ENCODERS")
-    if value is not None:
-        return str(value).strip() not in ("0", "false", "False", "")
-    return "c6" in board.board_id.lower()
-
-
-SOFTWARE_ENCODERS = _software_encoders()
-
-
 def send_all(conn, data, on_wait=None):
     # socket.send() returns the number of bytes actually accepted, same
     # as POSIX send() - it can legitimately send fewer than requested
@@ -1482,7 +1466,6 @@ def run_server():
         _release_boot_default_pins()
         firmata = FirmataServer(PIN_TABLE, GROVE_SENSOR_CATALOG)
         firmata.set_min_sampling_interval(MIN_SAMPLING_INTERVAL_MS)
-        firmata.software_encoders = SOFTWARE_ENCODERS
         # on_connect() just registers the send callback - it deliberately
         # sends nothing itself (see the comment on FirmataServer.on_connect
         # in firmata_server.py for why: NTK's host-side firmata-io library

@@ -336,6 +336,23 @@ class _Pin:
         self.servo_first_write = True
 
 
+def _software_encoders_default():
+    """Whether encoders are decoded in software (_SoftwareEncoder) on
+    this board: on the XIAO ESP32-C6, whose rotaryio doesn't count, or
+    as NTK_SOFTWARE_ENCODERS = 1 / 0 in settings.toml says. Decided here,
+    not by the caller, so live connections and standalone patches (which
+    make their own FirmataServer) both get it."""
+    try:
+        import os
+        value = os.getenv("NTK_SOFTWARE_ENCODERS")
+        if value is not None:
+            return str(value).strip() not in ("0", "false", "False", "")
+        import board
+        return "c6" in board.board_id.lower()
+    except Exception:
+        return False
+
+
 class _SoftwareEncoder:
     """A rotary encoder decoded in Python - same position/deinit as
     rotaryio.IncrementalEncoder(divisor=1). For boards whose rotaryio
@@ -376,7 +393,7 @@ class _SoftwareEncoder:
         # Pull-ups like rotaryio's: a bare encoder only ever pulls its
         # pins to ground, so "pressed" is low.
         self._keys = keypad.Keys((pin_a, pin_b), value_when_pressed=False, pull=True,
-                                 interval=0.001, max_events=64)
+                                 interval=0.001, max_events=128)
         self._event = keypad.Event()
 
     def poll(self):
@@ -388,8 +405,10 @@ class _SoftwareEncoder:
             self.position += self._STEPS[(self._state << 2) | state]
             self._state = state
         if events.overflowed:
-            # 64 changes queued since the last poll - the firmware was
-            # held up for a long fast turn. Those are lost; carry on.
+            # 128 changes (32 clicks) queued since the last poll - the
+            # firmware was held up through a long fast turn (a standalone
+            # patch reads it only 10-30 times a second). Those are lost;
+            # carry on.
             events.clear()
 
     def deinit(self):
@@ -488,9 +507,8 @@ class FirmataServer:
         self._encoders = {}
         self._encoder_auto_report = True
         # Decode encoders in Python (_SoftwareEncoder) instead of with
-        # rotaryio - set by the board firmware for boards whose rotaryio
-        # doesn't count (see ntk_firmata_main.py's SOFTWARE_ENCODERS).
-        self.software_encoders = False
+        # rotaryio - see _software_encoders_default.
+        self.software_encoders = _software_encoders_default()
         self._software_encoder_list = []
 
         self._drive_unclaimed_pins_low()
