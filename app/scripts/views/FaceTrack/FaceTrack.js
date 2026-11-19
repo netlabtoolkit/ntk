@@ -19,6 +19,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 	// running inference on every display frame would be wasteful. Matches
 	// Gesture's sampleIntervalMs convention (~20fps).
 	var DETECT_INTERVAL_MS = 50;
+	// done stays at 1023 this long - long enough to see, like Button's.
+	var DONE_MS = 200;
 
 	// Bundled locally (fetched by buildScripts/fetchMediaPipeAssets.sh into
 	// server/assets/mediapipe/, served at /assets - see
@@ -52,6 +54,11 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			{title: 'y', from: 'y', to: 'y'},
 			{title: 'smile', from: 'smile', to: 'smile'},
 			{title: 'faceDetected', from: 'faceDetected', to: 'faceDetected'},
+			// A header port (plans/control-flow.md): pulses 1023 for
+			// DONE_MS when a face appears - faceDetected rising from 0 -
+			// so someone stepping up can start a Scene, SpeechOut...
+			// faceDetected stays for the level (high while a face is seen).
+			{title: 'next', from: 'done', to: 'done', header: true, noChain: true},
 		],
 		sources: [],
 
@@ -72,6 +79,17 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			this.videoEl = null;
 			this.canvasEl = null;
 			this.lastDetectMs = 0;
+			// Whether faceDetected was high last time onModelChange ran -
+			// next pulses on the rise, not on every change event (nested
+			// sets re-fire 'change' with the same changedAttributes()).
+			this.faceWasSeen = false;
+			this.doneTimer = null;
+			// waitTimeFalse -1: `latched` is set by the first fall below
+			// threshold while tracking, and the next fall stops tracking.
+			// gateAbove remembers the last side of the threshold, so only
+			// a real high-to-low crossing counts as a fall.
+			this.latched = false;
+			this.gateAbove = false;
 
 			this.model.set({
 				title: 'FaceTrack',
@@ -84,7 +102,8 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 				waitTimeTrue: 0,
 				waitTimeFalse: 0,
 				// Mirrors IfThen's ifState naming/shape: 'off', 'startWaiting',
-				// 'on', 'stopWaiting'.
+				// 'on', 'stopWaiting' - plus 'latched' (waitTimeFalse -1,
+				// input low, tracking held until the next fall).
 				trackingState: 'off',
 				// Convenience boolean derived from trackingState - true only
 				// for 'on' (see startTracking/stopTracking). Drives whether the
@@ -103,6 +122,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 				simSmile: 0,
 				simFaceDetected: true,
 				statusMessage: '',
+				done: 0,
 			});
 
 			this.localFrameTick = function() {
@@ -123,6 +143,9 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			if(!app.server) {
 				rivets.formatters.faceTrackPending = function(state) {
 					return state === 'startWaiting' || state === 'stopWaiting';
+				};
+				rivets.formatters.faceTrackLatched = function(state) {
+					return state === 'latched';
 				};
 				// Same rivets.binders.knob implementation every other
 				// dial-driven widget in this app registers (AnalogIn,
@@ -210,6 +233,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			window.app.timingController.removeFrameCallback(this.localFrameTick, this);
 			clearTimeout(this.trueTimer);
 			clearTimeout(this.falseTimer);
+			clearTimeout(this.doneTimer);
 			this.stopCamera();
 			if(this.faceLandmarker) {
 				this.faceLandmarker.close();
@@ -218,6 +242,17 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 
 		onModelChange: function(model) {
 			var changed = model.changedAttributes();
+
+			// Before the early returns below - a simulated face counts too,
+			// so a chain can be tried with no camera.
+			var faceSeen = this.model.get('faceDetected') > 0;
+			if(faceSeen && !this.faceWasSeen) {
+				this.faceWasSeen = true;
+				this.pulseDone();
+			}
+			else if(!faceSeen) {
+				this.faceWasSeen = false;
+			}
 
 			// The checkbox on the left tab is the camera switch (its
 			// tooltip says so, and it's what PoseRecog/ObjectRecog's does)
@@ -279,6 +314,32 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			}
 		},
 
+		/**
+		 * setFromModel - a patch saved mid-pulse stores done at 1023,
+		 * with no timer left to bring it back down, so done always loads
+		 * as 0.
+		 *
+		 * @param {object} model
+		 * @return {WidgetView} this view
+		 */
+		setFromModel: function(model) {
+			var result = WidgetView.prototype.setFromModel.call(this, model);
+			this.model.set('done', 0);
+			return result;
+		},
+
+		/**
+		 * pulseDone - done goes to 1023 and back to 0 after DONE_MS.
+		 *
+		 * @return {void}
+		 */
+		pulseDone: function() {
+			var self = this;
+			clearTimeout(this.doneTimer);
+			this.model.set('done', 1023);
+			this.doneTimer = setTimeout(function() { self.model.set('done', 0); }, DONE_MS);
+		},
+
 		applySimulatedOutputs: function() {
 			this.model.set({
 				faceDetected: this.model.get('simFaceDetected') ? RANGE_MAX : 0,
@@ -303,8 +364,11 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 			var threshold = parseFloat(this.model.get('threshold'));
 			var waitTimeTrue = parseInt(this.model.get('waitTimeTrue'), 10);
 			var waitTimeFalse = parseInt(this.model.get('waitTimeFalse'), 10);
+			var above = input >= threshold;
+			var fell = this.gateAbove && !above;
+			this.gateAbove = above;
 
-			if(input >= threshold) {
+			if(above) {
 				this.waitLastFalseState = false;
 				clearTimeout(this.falseTimer);
 
@@ -339,7 +403,23 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 					return;
 				}
 
-				if(waitTimeFalse === 0) {
+				if(waitTimeFalse < 0) {
+					// Permanent latch: the first fall holds tracking on,
+					// the next fall stops it. Re-evaluations while the
+					// input stays low (it moved, or the threshold did)
+					// aren't falls, and change nothing.
+					if(!fell) {
+						return;
+					}
+					if(this.latched) {
+						this.stopTracking();
+					}
+					else {
+						this.latched = true;
+						this.model.set('trackingState', 'latched');
+					}
+				}
+				else if(waitTimeFalse === 0) {
 					this.stopTracking();
 				}
 				else if(!this.waitLastFalseState) {
@@ -362,6 +442,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 
 		startTracking: function() {
 			clearTimeout(this.trueTimer);
+			this.latched = false;
 			this.waitLastTrueState = false;
 			this.model.set({tracking: true, trackingState: 'on', statusMessage: ''});
 			this.startCamera();
@@ -380,6 +461,7 @@ function(Backbone, rivets, WidgetView, Template, jqueryknob, SignalChainFunction
 
 		stopTracking: function() {
 			clearTimeout(this.falseTimer);
+			this.latched = false;
 			this.waitLastFalseState = false;
 			this.model.set({
 				tracking: false,

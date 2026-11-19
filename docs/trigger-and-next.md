@@ -47,6 +47,8 @@ Wire one next into two triggers and both run at once.
 | [Cases](https://www.netlabtoolkit.org/documentation/widgets/cases/) | tests the input once | - (with outlets set to pulse, each row's outlet is the next for its branch) |
 | [DigitalIn](https://www.netlabtoolkit.org/documentation/widgets/digitalin/) | - | the input turned on: one pulse per press |
 | [Button](https://www.netlabtoolkit.org/documentation/widgets/button/) | - | one pulse per click |
+| [Keyboard](https://www.netlabtoolkit.org/documentation/widgets/keyboard/) | - | one pulse per key press - only the trigger key's, when Trigger is checked |
+| [FaceTrack](https://www.netlabtoolkit.org/documentation/widgets/facetrack/) | - | a face appeared |
 
 A looping clip, sequence, tween or scene never finishes, so it only sends next when stopped (Scene) or not at all.
 
@@ -70,7 +72,8 @@ Most widgets have a way to use each:
 - **Pulse**: **in** pulses while held; **trigger** plays a set number of pulses from one pulse.
 - **Scene**: **stop when trigger goes below the threshold** makes it play only while trigger is held - use it with a held value, not a pulse, or the scene stops a fifth of a second after it starts. With a pulse, use **stop if triggered again while playing** instead: press once to start, again to stop.
 - **Scene cues**: `when in1 high` and `when in1 low` wait for a level, and are true straight away if it already is. `when in1 rises` and `when in1 falls` wait for a moment that happens while the cue waits - a press or a next pulse.
-- **DigitalIn and Button**: **out** is the level (high while pressed); **next** is the moment (one pulse per press).
+- **DigitalIn, Button and Keyboard**: **out** is the level (high while pressed); **next** is the moment (one pulse per press).
+- **FaceTrack**: **face** is the level (high while a face is seen); **next** is the moment a face appears.
 
 ## Example patches
 

@@ -1,4 +1,5 @@
 <div class="widgetAuthoring">
+    <div class="headerPorts headerDone"><div class="outlet headerPort" data-field="done" alt="next" title="next: pulses when a face appears" rv-class-ctlflash="widget:done">&#9656;</div></div>
     <div class="widgetTop typeAI">
         <div class="title dragHandle">
             {widget:title} <div class="remove">×</div>
@@ -21,7 +22,8 @@
             <div class="trackStatus"
                 rv-class-tracking="widget:tracking"
                 rv-class-detected="widget:faceDetected"
-                rv-class-pending="widget:trackingState | faceTrackPending"></div>
+                rv-class-pending="widget:trackingState | faceTrackPending"
+                rv-class-latched="widget:trackingState | faceTrackLatched"></div>
             <div class="statusMessage" rv-show="widget:statusMessage" rv-text="widget:statusMessage"></div>
         </div>
         <div class="widgetBodyRight">
@@ -34,7 +36,7 @@
 
     <div class="widgetRight">
         <div class='outlets'>
-            <div class="outlet" rv-each-outlet="widget:outs" rv-alt="outlet.title" rv-data-field="outlet.to">&middot;</div>
+            <div class="outlet" rv-each-outlet="widget:bodyOuts" rv-alt="outlet.title" rv-data-field="outlet.to">&middot;</div>
         </div>
     </div>
 
@@ -42,8 +44,8 @@
         <div class="tab"><p>more</p></div>
         <div class="content">
             <label class="wide-label">threshold</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:threshold"><br>
-            <label class="wide-label">wait time true</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:waitTimeTrue"><br>
-            <label class="wide-label">wait time false (latch)</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:waitTimeFalse"><br>
+            <label class="wide-label" title="ms the input must stay above threshold before tracking starts. 0 starts at once.">wait time true</label> <input class="moreParam" type="text" pattern="[0-9]*" rv-value="widget:waitTimeTrue" title="ms the input must stay above threshold before tracking starts. 0 starts at once."><br>
+            <label class="wide-label" title="ms to keep tracking after the input falls below threshold. -1 latches: tracking stays on after the first fall and stops at the next one.">wait time false (latch)</label> <input class="moreParam" type="text" pattern="-?[0-9]*" rv-value="widget:waitTimeFalse" title="ms to keep tracking after the input falls below threshold. -1 latches: tracking stays on after the first fall and stops at the next one."><br>
 
             <label class="wide-label">simulate (no camera)</label> <input type="checkbox" rv-checked="widget:simulate" /><br>
             <div rv-show="widget:simulate">
