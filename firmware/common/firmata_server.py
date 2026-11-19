@@ -330,6 +330,10 @@ class _Pin:
         self.value = 0
         self.servo_min_us = SERVO_MIN_PULSE_US_DEFAULT
         self.servo_max_us = SERVO_MAX_PULSE_US_DEFAULT
+        # The first position after a pin becomes a servo is printed on
+        # the console, so "servo doesn't move" shows whether NTK's
+        # positions are reaching the board at all.
+        self.servo_first_write = True
 
 
 class _VirtualAnalogIn:
@@ -872,6 +876,9 @@ class FirmataServer:
             elif mode == SERVO:
                 import pwmio
                 pin.io = pwmio.PWMOut(pin.board_pin, frequency=SERVO_PWM_FREQUENCY, duty_cycle=0)
+                pin.servo_first_write = True
+                print("Pin", pin_index, "is now a servo output (", SERVO_PWM_FREQUENCY, "Hz, pulses",
+                      pin.servo_min_us, "-", pin.servo_max_us, "us)")
             # mode == ANALOG is deliberately not handled here - see
             # _handle_report_analog for why.
             # mode == IGNORE (0x7F) or anything else: leave the pin unclaimed.
@@ -922,6 +929,13 @@ class FirmataServer:
             pulse_us = min(max(value, pin.servo_min_us), pin.servo_max_us)
             period_us = 1000000 / SERVO_PWM_FREQUENCY
             pin.io.duty_cycle = int(pulse_us / period_us * 65535)
+            if pin.servo_first_write:
+                pin.servo_first_write = False
+                print("Servo on pin", pin_index, "first position:", value, "us asked,", pulse_us, "us sent")
+        elif pin.mode == SERVO and pin.servo_first_write:
+            # Once, not on every position of a dial drag.
+            pin.servo_first_write = False
+            print("Servo positions for pin", pin_index, "ignored - its servo output wasn't set up")
 
     def _handle_report_analog(self, channel, enabled):
         # Unlike every other mode, ANALOG is never set via SET_PIN_MODE -
@@ -1206,6 +1220,7 @@ class FirmataServer:
         pin = self.pins[pin_index]
         pin.servo_min_us = min_us
         pin.servo_max_us = max_us
+        print("Client set pin", pin_index, "to servo, pulses", min_us, "-", max_us, "us")
         self._apply_pin_mode(pin_index, SERVO)
 
     def _handle_system_reset(self):

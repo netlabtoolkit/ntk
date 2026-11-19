@@ -509,6 +509,20 @@ module.exports = function(options) {
 					var networkDevice = modelType === 'network' &&
 						typeAddressPort[1] !== '127.0.0.1' && typeAddressPort[1] !== 'localhost';
 
+					// A board's input pins are the board's to report, never
+					// a client's to write. A client's value for one is an
+					// echo of an earlier reading, and set() would take it
+					// as the new reading and broadcast it - a stale A0 that
+					// came along with a Servo's D7 kept overwriting the
+					// live reading (found 2026-11-19; the client stopped
+					// sending it - Patcher.js updateHardwareModel - and
+					// this catches any other path). Firmata boards only:
+					// Cloud topics can be both in and out.
+					if(selectedModel !== undefined && (modelType === 'network' || modelType === 'ArduinoUno') &&
+						selectedModel.inputs && selectedModel.inputs[String(field).toUpperCase()] !== undefined) {
+						continue;
+					}
+
 					// If there is no model to update, try to instantiate one
 					if(selectedModel == undefined) {
 

@@ -102,6 +102,12 @@
 			&.pending {
 				animation: faceTrackPendingBlink 0.3s step-start infinite;
 			}
+
+			// Latched (wait time false -1): held on until the next fall -
+			// a slow blink, since it can last as long as the patch runs.
+			&.latched {
+				animation: faceTrackPendingBlink 1.2s step-start infinite;
+			}
 		}
 
 		.statusMessage {
