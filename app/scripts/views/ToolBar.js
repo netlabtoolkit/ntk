@@ -45,6 +45,8 @@ function( app, Backbone, Template, Widgets ) {
 
 		initialize: function initialize() {
 			window.app.vent.on('serialPortList', this.updateDefaultSerialPortOptions, this);
+			// View > Show DCC Widgets in the app menu (electronApp.js).
+			window.app.vent.on('ToolBar:showDCC', this.showDCCWidgets, this);
 			// The banner (MonitorController.js) has its own Stop button -
 			// stopping monitor mode from there needs to be reflected here
 			// too, not just when THIS button is what triggered the stop.
@@ -226,6 +228,20 @@ function( app, Backbone, Template, Widgets ) {
 
 			this.initDefaultDeviceUI();
 			this.startDeviceStatusPolling();
+
+			// The DCC category stays hidden unless View > Show DCC
+			// Widgets is ticked (window.ntkShowDCC, set by the app menu).
+			this.showDCCWidgets(!!window.ntkShowDCC);
+		},
+		/**
+		 * showDCCWidgets - show or hide the DCC category in the Add
+		 * Widgets panel (View > Show DCC Widgets). Only the panel entry:
+		 * DCC widgets already in a patch keep working.
+		 *
+		 * @param {boolean} show
+		 */
+		showDCCWidgets: function(show) {
+			this.$('.addWidgets').toggleClass('hideDCC', !show);
 		},
 		/**
 		 * initDefaultDeviceUI - reflect window.app.defaultDevice in the

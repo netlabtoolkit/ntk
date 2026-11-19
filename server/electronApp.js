@@ -517,6 +517,30 @@ app.on('ready', function() {
   });
 
 
+  // View > Show DCC Widgets (2026-11-12): the DCC category is hidden
+  // from the Add Widgets panel unless this is ticked - not all of the
+  // DCC widgets exist yet, and they'd confuse a new user. Patches that
+  // contain DCC widgets still load and run either way. The setting
+  // lives in ntk-prefs.json in userData, and is handed to the page on
+  // every load (window.ntkShowDCC, read by ToolBar.js) and on every
+  // change (the ToolBar:showDCC event).
+  var prefsPath = path.join(app.getPath('userData'), 'ntk-prefs.json');
+  var prefs = {};
+  try {
+	  prefs = JSON.parse(fs.readFileSync(prefsPath, 'utf8')) || {};
+  } catch(e) {
+	  // no prefs saved yet
+  }
+  var sendShowDCC = function() {
+	  if(!mainWindow || mainWindow.isDestroyed()) { return; }
+	  var show = !!prefs.showDCC;
+	  mainWindow.webContents.executeJavaScript(
+		  "window.ntkShowDCC = " + show + ";" +
+		  "if(window.app && window.app.vent) { window.app.vent.trigger('ToolBar:showDCC', " + show + "); }"
+	  ).catch(function() {});
+  };
+  mainWindow.webContents.on('did-finish-load', sendShowDCC);
+
   // Built dynamically from whatever .ntk files are in examplePatches -
   // adding a new example is just dropping a file in that folder, no menu
   // code changes needed.
@@ -591,6 +615,16 @@ app.on('ready', function() {
 				  if(mainWindow) {
 					  mainWindow.webContents.toggleDevTools();
 				  }
+			  }},
+			  { type: "separator" },
+			  { label: "Show DCC Widgets", type: "checkbox", checked: !!prefs.showDCC, click: function(item) {
+				  prefs.showDCC = item.checked;
+				  try {
+					  fs.writeFileSync(prefsPath, JSON.stringify(prefs, null, 2));
+				  } catch(e) {
+					  console.log('Could not save ' + prefsPath + ':', e.message);
+				  }
+				  sendShowDCC();
 			  }}
 		  ]}
   ];

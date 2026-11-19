@@ -432,6 +432,13 @@
     .catDCC {
         border-left: 7px solid #6D4C41;
     }
+    // View > Show DCC Widgets off (the default): no DCC category, and
+    // no widget list under it even if it was open (!important beats the
+    // inline display a slide animation leaves).
+    &.hideDCC .catDCC,
+    &.hideDCC .catDCC + ul {
+        display: none !important;
+    }
 
     .widgetI-O {
     	color: #E53935;
