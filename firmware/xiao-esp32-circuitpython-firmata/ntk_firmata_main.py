@@ -1482,6 +1482,10 @@ def run_server():
             # swallowed here; the outer loop's own recv_into() call
             # handles a genuine disconnect on its next iteration same as
             # always.
+            # A software-decoded encoder needs its pins read throughout a
+            # stalled send too, or its turns are lost (firmata_server.py's
+            # _SoftwareEncoder).
+            firmata.poll_encoders()
             try:
                 n = conn.recv_into(read_buffer)
                 if n:
