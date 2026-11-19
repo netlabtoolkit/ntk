@@ -336,6 +336,66 @@ class _Pin:
         self.servo_first_write = True
 
 
+class _SoftwareEncoder:
+    """A rotary encoder decoded in Python - same position/deinit as
+    rotaryio.IncrementalEncoder(divisor=1). For boards whose rotaryio
+    doesn't work: on the XIAO ESP32-C6 (CircuitPython 10.3.1) both pins
+    switch but rotaryio's count only ever went 0, 1, 0, 1 - counting one
+    pin's edges and taking the other's as a step back (found 2026-11-19).
+
+    keypad scans the two pins in the background every millisecond and
+    queues each change in order; poll() decodes the queue. Reading the
+    pins from the firmware's own loop didn't work: on the C6 that loop
+    only came round every 16-30 ms (its 1 ms sleep lasts a whole 10 ms
+    scheduler tick, and WiFi sends add more), while one click's four pin
+    changes come within a few ms even on a slow turn - clicks were lost
+    turning slowly and on every change of direction.
+
+    Counts every change of either pin, 4 per full cycle, through the
+    usual quadrature table. Contact bounce flips one pin back and forth,
+    which counts as +1, -1 and cancels out."""
+
+    # Index: previous state << 2 | new state, a state being A << 1 | B.
+    _STEPS = (0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0)
+
+    def __init__(self, pin_a, pin_b):
+        import digitalio
+        import keypad
+        # Where the pins are now: keypad starts out assuming both high
+        # ("released") and queues a change for any pin that isn't -
+        # counted from a wrong starting state, those would be counts.
+        state = 0
+        for pin, bit in ((pin_a, 2), (pin_b, 1)):
+            io = digitalio.DigitalInOut(pin)
+            io.switch_to_input(pull=digitalio.Pull.UP)
+            if io.value:
+                state |= bit
+            io.deinit()
+        self._state = state
+        self.position = 0
+        # Pull-ups like rotaryio's: a bare encoder only ever pulls its
+        # pins to ground, so "pressed" is low.
+        self._keys = keypad.Keys((pin_a, pin_b), value_when_pressed=False, pull=True,
+                                 interval=0.001, max_events=64)
+        self._event = keypad.Event()
+
+    def poll(self):
+        events = self._keys.events
+        ev = self._event
+        while events.get_into(ev):
+            bit = 2 if ev.key_number == 0 else 1
+            state = (self._state & ~bit) if ev.pressed else (self._state | bit)
+            self.position += self._STEPS[(self._state << 2) | state]
+            self._state = state
+        if events.overflowed:
+            # 64 changes queued since the last poll - the firmware was
+            # held up for a long fast turn. Those are lost; carry on.
+            events.clear()
+
+    def deinit(self):
+        self._keys.deinit()
+
+
 class _VirtualAnalogIn:
     """Duck-types analogio.AnalogIn's read-only 16-bit `.value` property
     and its deinit(), computed by calling a pin's virtual_read() instead
@@ -427,6 +487,11 @@ class FirmataServer:
         # "last": last reported position or None}. See ENCODER_DATA.
         self._encoders = {}
         self._encoder_auto_report = True
+        # Decode encoders in Python (_SoftwareEncoder) instead of with
+        # rotaryio - set by the board firmware for boards whose rotaryio
+        # doesn't count (see ntk_firmata_main.py's SOFTWARE_ENCODERS).
+        self.software_encoders = False
+        self._software_encoder_list = []
 
         self._drive_unclaimed_pins_low()
 
@@ -1111,6 +1176,18 @@ class FirmataServer:
                 pass
         return True
 
+    def _refresh_software_encoders(self):
+        self._software_encoder_list = [e["io"] for e in self._encoders.values()
+                                       if isinstance(e["io"], _SoftwareEncoder)]
+
+    def poll_encoders(self):
+        """Decode what software-decoded encoders have queued - cheap,
+        and a no-op when there are none. update() calls it on every
+        call; anything that can hold up the loop for long can call it
+        too, so the queue doesn't fill."""
+        for io in self._software_encoder_list:
+            io.poll()
+
     def _encoder_owning(self, pin_index):
         for enc_num, encoder in self._encoders.items():
             if pin_index in encoder["pins"]:
@@ -1178,14 +1255,17 @@ class FirmataServer:
             self.pins[p].report = False
 
         try:
-            import rotaryio
-            # divisor=1: report every count, like ConfigurableFirmata
-            # does. Counts per click vary by encoder and board (a KY-040-
-            # style encoder on the XIAO ESP32-S3 gives 1 per click), so
-            # the widget groups counts into clicks with its own setting -
-            # a fixed divisor=4 here made that encoder need several
-            # clicks per count (found 2026-10-27).
-            io = rotaryio.IncrementalEncoder(self.pins[pin_a].board_pin, self.pins[pin_b].board_pin, divisor=1)
+            if self.software_encoders:
+                io = _SoftwareEncoder(self.pins[pin_a].board_pin, self.pins[pin_b].board_pin)
+            else:
+                import rotaryio
+                # divisor=1: report every count, like ConfigurableFirmata
+                # does. Counts per click vary by encoder and board (a KY-040-
+                # style encoder on the XIAO ESP32-S3 gives 1 per click), so
+                # the widget groups counts into clicks with its own setting -
+                # a fixed divisor=4 here made that encoder need several
+                # clicks per count (found 2026-10-27).
+                io = rotaryio.IncrementalEncoder(self.pins[pin_a].board_pin, self.pins[pin_b].board_pin, divisor=1)
         except Exception as e:
             for p in (pin_a, pin_b):
                 self.pins[p].mode = None
@@ -1197,7 +1277,9 @@ class FirmataServer:
         # last=None makes update() report the starting position on its
         # very next pass, so the widget hears back right away.
         self._encoders[enc_num] = {"io": io, "pins": (pin_a, pin_b), "last": None}
-        print("Client attached encoder", enc_num, "on pins", pin_a, pin_b)
+        self._refresh_software_encoders()
+        print("Client attached encoder", enc_num, "on pins", pin_a, pin_b,
+              "(decoded in software)" if self.software_encoders else "")
 
     def _detach_encoder(self, enc_num):
         """Release enc_num's rotaryio object and its two pins. Returns
@@ -1205,6 +1287,7 @@ class FirmataServer:
         encoder = self._encoders.pop(enc_num, None)
         if encoder is None:
             return False
+        self._refresh_software_encoders()
         try:
             encoder["io"].deinit()
         except Exception:
@@ -1241,6 +1324,10 @@ class FirmataServer:
         """Call this frequently (every loop iteration) - handles
         periodic analog/digital reporting at the configured sampling
         interval. A no-op between intervals."""
+        # Every call, ahead of the sampling interval check, so a
+        # software-decoded encoder's position is current when reported.
+        if self._software_encoder_list:
+            self.poll_encoders()
         now_ms = time.monotonic() * 1000
         if now_ms - self._last_report_ms < self.sampling_interval_ms:
             return
