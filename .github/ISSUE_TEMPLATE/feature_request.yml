@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest a new widget, board, or improvement
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to make?
+      description: Describe the project or interaction you're building, and where NTK gets in the way.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help?
+      description: A new widget, an option on an existing widget, support for a board or service, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround
+      description: e.g. a Code widget snippet, or a chain of existing widgets.
+
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: Hardware involved
+      multiple: true
+      options:
+        - None
+        - Arduino over USB
+        - Seeed XIAO ESP32 over WiFi
+        - Raspberry Pi Pico W over WiFi
+        - Other (describe above)

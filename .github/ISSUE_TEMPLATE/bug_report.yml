@@ -1,0 +1,102 @@
+name: Bug report
+description: Something in NTK isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Issues from the 2014–2017 codebase are archived (label `archived-2017`) and locked. Please don't link to them as "same bug" - describe what you see in the current version.
+
+  - type: input
+    id: version
+    attributes:
+      label: NTK version
+      description: Shown in the toolbar's settings area, or under NTK > About Application. For a dev checkout, give the commit (`git rev-parse --short HEAD`).
+      placeholder: "e.g. 2026.16.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: run-mode
+    attributes:
+      label: How are you running NTK?
+      options:
+        - Packaged app from GitHub Releases
+        - From source (npm run electron)
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: Hardware connection
+      description: Pick all that apply.
+      multiple: true
+      options:
+        - None - widgets only / simulated in the widget
+        - Arduino over USB (Serial / StandardFirmata)
+        - Seeed XIAO ESP32 over WiFi (CircuitPython Firmata)
+        - Raspberry Pi Pico W over WiFi (CircuitPython Firmata)
+        - Other board (describe below)
+    validations:
+      required: true
+
+  - type: input
+    id: widgets
+    attributes:
+      label: Widgets involved
+      placeholder: "e.g. AnalogIn -> IfThen -> Servo"
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Start from an empty patch if you can.
+      placeholder: |
+        1. Add an AnalogIn widget, set pin A0
+        2. Connect it to a Servo widget
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Screenshots or a short screen recording help a lot.
+    validations:
+      required: true
+
+  - type: textarea
+    id: patch
+    attributes:
+      label: Patch file
+      description: If the bug depends on a particular patch, export it (.ntk) and drag the file here. Check it for API keys or webhook URLs first.
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console / log output
+      description: View > Toggle Developer Tools > Console. Errors in red are the most useful.
+      render: text
