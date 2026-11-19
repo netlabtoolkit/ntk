@@ -22,7 +22,14 @@ Encoder needs a board running NTK's CircuitPython Firmata firmware, which is inc
 
 ## Wiring
 
-An encoder has two signal pins, usually labelled **A** and **B** (or **CLK** and **DT** on a module), plus ground. The widget's defaults are **D1** and **D2**, which is the Grove port marked **A1/D1** on the Seeed XIAO expansion board.
+An encoder has two signal pins, usually labelled **A** and **B** (or **CLK** and **DT** on a module), plus ground. The widget's defaults are **D1** and **D2**, which is the Grove port marked **D1/A1** on the Seeed Grove Shield for XIAO (the board with eight Grove ports). Its other digital Grove ports work too: each one's pins are the port's own pin and the next one up, so **D0/A0** is D0 and D1, and **D8/A8** is D8 and D9.
+
+**Grove encoder on the Seeed XIAO expansion board** (the board with the OLED screen and clock):
+
+- Plug the encoder into the Grove port marked **UART**. It's the only Grove port on this board with two free signal pins: **A0-D0** has just one, and the two **IIC** ports are the I2C bus the screen and clock use.
+- Set the widget's pin fields to **D6** (top) and **D7** (bottom). Typing D6 in the top field fills in D7 below it.
+- Nothing else can use D6 or D7 at the same time, so move a servo or other output to another pin, such as **D0** on the A0-D0 port.
+- The Grove encoder's knob can be pressed, but the module doesn't connect the press to its Grove cable. Use the expansion board's own button instead: a **DigitalIn** on **D1** (the button marked "Button(D1)"). Or solder a wire from the encoder's switch to a free pin, as described below.
 
 **Bare encoder** (three pins in a row, A–C–B, with the common pin in the middle):
 
@@ -94,7 +101,7 @@ For a more reliable answer, turn exactly 10 clicks and divide how far the value 
 
 Starting from 1 is the safe choice. An **edges** setting that's too low makes each click move the value several steps, which is obvious and easy to fix. One that's too high makes the value move only every second or fourth click, which looks like clicks are being skipped.
 
-The right number depends on both the encoder and the board, so check again whenever you change either one. For example, a KY-040-style encoder on a Seeed XIAO ESP32-S3 needs **1**.
+The right number depends on both the encoder and the board, so check again whenever you change either one. For example, a KY-040-style encoder on a Seeed XIAO ESP32-S3 needs **1**, and the Grove encoder on a Seeed XIAO ESP32-C6 needs **4**.
 
 ## Settings in the more panel
 
@@ -116,6 +123,7 @@ Encoder works in a patch pushed to the board. The board counts the clicks and ap
 
 - **The value doesn't change when I turn the knob.** Check that the checkbox is ticked and the dot is green. If the dot stays amber, the board isn't answering; check its address. If it turns red, hover over it for the reason, usually a pin that doesn't exist on the board.
 - **The value only changes every few clicks.** **edges** is set too high. See **Setting edges**.
+- **On a Seeed XIAO ESP32-C6, a very fast spin can drop a few clicks.** CircuitPython's encoder counter doesn't work on the C6, so the firmware reads the encoder's pins itself instead, and the console says "decoded in software" when it starts. Ordinary turning, slow or quick, is counted fully. The ESP32-S3 doesn't have this limit.
 - **The value jumps several steps per click.** **edges** is set too low, or **step** is larger than 1.
 - **It counts the wrong way.** Turn on **rev**, or swap the wires on D1 and D2.
 - **The count jumps around on its own.** The signal pins are floating: add the 10k resistors described under **Wiring**, or use an encoder module, which has them built in.
