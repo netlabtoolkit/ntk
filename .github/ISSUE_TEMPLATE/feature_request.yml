@@ -1,0 +1,23 @@
+name: Idea or feature request
+description: A new widget, a change to an existing one, or support for new hardware
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What you'd like NTK to do.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: What it's for
+      description: The project or prototype you'd use it in, and how you get by without it now.
+
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware involved
+      description: Any sensor, actuator or board it needs, with a link if you have one.

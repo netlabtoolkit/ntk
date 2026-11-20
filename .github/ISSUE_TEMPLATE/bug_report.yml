@@ -1,0 +1,86 @@
+name: Bug report
+description: Something in NTK or on a board doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. The more of this you can fill in, the quicker it can be found and fixed.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected to happen instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen
+      description: "The widgets in your patch, how they're wired, and what you did. If you can, attach the patch: click Export in the toolbar, then drag the saved file here (rename it to .txt if GitHub refuses it)."
+      placeholder: |
+        1. Add an Encoder widget, pins D6/D7, Device Network
+        2. Tick its checkbox
+        3. Turn the knob
+    validations:
+      required: true
+
+  - type: input
+    id: ntk-version
+    attributes:
+      label: NTK version
+      description: "Shown by About in the NTK menu (Mac), or in the name of the release you downloaded, e.g. 2026.16.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Computer
+      options:
+        - Mac (Apple Silicon)
+        - Windows
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Board connection
+      options:
+        - No board involved
+        - Network (WiFi)
+        - Serial (USB)
+        - Standalone patch on the board
+    validations:
+      required: true
+
+  - type: input
+    id: board
+    attributes:
+      label: Board
+      description: Which board, and any expansion board or shield it's plugged into.
+      placeholder: Seeed XIAO ESP32-C6 on the Seeed Grove Shield for XIAO
+
+  - type: input
+    id: firmware
+    attributes:
+      label: Board firmware and CircuitPython version
+      description: The "Firmware build" line the board's console prints when it starts, and the CircuitPython version (the first line of the REPL, or boot_out.txt on the board's drive).
+      placeholder: "Firmware build: 2026.16.1 / CircuitPython 10.3.1"
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Board console or error messages
+      description: Anything the board's console (e.g. Thonny) or NTK showed around the time of the problem. Paste as text, not a screenshot.
+      render: text
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, wiring photos, whether it used to work, or what you already tried.
