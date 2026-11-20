@@ -163,7 +163,9 @@ Set by Phil on 2026-09-03.
    broader than the Firmata replacement folded into step 5 (which only
    scoped the WiFi CircuitPython firmware). This also covers dropping
    USB / Arduino serial support (`ArduinoModel.js`, `@serialport/bindings`)
-   entirely. Marked "possible" — not yet a firm commitment.
+   entirely. Marked "possible" — not yet a firm commitment. The serial
+   half is assessed in [Dropping USB serial support](drop-serial.md)
+   (2026-11-20: recommended, after making WiFi setup as easy as USB).
 7. **[Build an iPadOS version](ipados-port.md)** — sequenced last. If step
    6 happens first, the iPadOS native bridge should target whatever new
    native protocol comes out of step 5/6 rather than Firmata. Also the
