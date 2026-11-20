@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: NTK documentation
+    url: https://www.netlabtoolkit.org/documentation/
+    about: How each widget works, wiring, and setting up a board.
