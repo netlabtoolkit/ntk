@@ -803,9 +803,34 @@ module.exports = function(five) {
 				// the widget that sent it has to ask again (GroveSensor
 				// does - see its subscribeSensor).
 				if(retryModel._closing) { return; }
-				setTimeout(function() {
-					retryModel.setIOMode(pin, mode, extraOptions);
-				}, 500);
+				// One waiting request per pin and mode, holding the
+				// latest options. Each request used to keep its own retry
+				// running, so a widget re-asking while the board was away
+				// (Encoder re-attaches every 2 s while its connection is
+				// down) had all of them sent the moment it connected - 50
+				// "Client attached encoder" in a row after a board
+				// reboot, each restarting the board's count (2026-11-20).
+				var key = pin + ':' + mode;
+				retryModel._pendingIOModes = retryModel._pendingIOModes || {};
+				var pending = retryModel._pendingIOModes[key];
+				if(pending) {
+					pending.extraOptions = extraOptions;
+					return;
+				}
+				pending = retryModel._pendingIOModes[key] = {extraOptions: extraOptions};
+				var retry = function() {
+					if(retryModel._closing) {
+						delete retryModel._pendingIOModes[key];
+						return;
+					}
+					if(!retryModel.connected) {
+						setTimeout(retry, 500);
+						return;
+					}
+					delete retryModel._pendingIOModes[key];
+					retryModel.setIOMode(pin, mode, pending.extraOptions);
+				};
+				setTimeout(retry, 500);
 				return;
 			}
 
